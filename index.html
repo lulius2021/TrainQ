@@ -1,0 +1,381 @@
+<!doctype html>
+<<<<<<< HEAD
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Arvio</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+=======
+<html lang="en" data-lang="en" class="theme-dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="TrainQ — adaptive training and smart planning for real life. View the demo instantly." />
+    <meta name="theme-color" content="#05060a" />
+    <title>TrainQ — Adaptive Training & Smart Planning</title>
+
+    <link rel="icon" href="assets/img/logo.png" />
+    <link rel="preload" href="assets/css/styles.css" as="style" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+    <script defer src="assets/js/main.js"></script>
+
+    <meta property="og:title" content="TrainQ — Adaptive Training & Smart Planning" />
+    <meta property="og:description" content="A calm, premium training app website with instant demo access." />
+    <meta property="og:type" content="website" />
+  </head>
+
+  <body>
+    <div class="bg-scene" aria-hidden="true">
+      <div class="bg-grid"></div>
+      <div class="bg-glow glow-1"></div>
+      <div class="bg-glow glow-2"></div>
+      <div class="bg-glow glow-3"></div>
+      <div class="bg-orb orb-1"></div>
+      <div class="bg-orb orb-2"></div>
+    </div>
+
+    <a class="skip-link" href="#content" data-i18n="skip">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html" aria-label="TrainQ Home">
+          <img class="brand-logo" src="assets/img/logo.png" alt="TrainQ logo" />
+          <span class="brand-name">TrainQ</span>
+        </a>
+
+        <div class="header-actions nav-actions">
+          <nav class="top-links" aria-label="Primary">
+            <a href="index.html" data-i18n="nav_home">Home</a>
+            <a href="demo.html" data-i18n="nav_demo">Demo</a>
+            <a href="support.html" data-i18n="nav_support">Support</a>
+            <a href="privacy.html" data-i18n="nav_privacy">Privacy</a>
+          </nav>
+
+          <a class="btn btn-primary" href="demo.html" data-i18n="cta_view_demo">View Demo</a>
+
+          <button class="burger nav-burger" type="button" aria-label="Menu" data-action="toggle-menu">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="container mobile-nav nav-mobile" data-mobile-nav hidden>
+        <a href="index.html" data-nav="home" data-i18n="nav_home">Home</a>
+        <a href="demo.html" data-nav="demo" data-i18n="nav_demo">Demo</a>
+        <a href="support.html" data-nav="support" data-i18n="nav_support">Support</a>
+        <a href="privacy.html" data-nav="privacy" data-i18n="nav_privacy">Privacy</a>
+        <a href="imprint.html" data-nav="imprint" data-i18n="nav_imprint">Imprint</a>
+
+        <div class="mobile-controls">
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button class="chip is-active" type="button" data-action="lang" data-lang="en">EN</button>
+            <button class="chip" type="button" data-action="lang" data-lang="de">DE</button>
+          </div>
+
+          <button class="chip" type="button" data-action="toggle-theme">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span class="chip-label" data-i18n="theme">Theme</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Right rail replaces top nav (logo remains in header) -->
+    <aside class="side-rail" aria-label="Navigation panel">
+      <div class="rail-card rail-nav">
+        <div class="rail-pill">
+          <span class="rail-dot" aria-hidden="true"></span>
+          <span data-i18n="rail_nav_title">Navigation</span>
+        </div>
+
+        <nav class="rail-links" aria-label="Pages">
+          <a class="rail-link" href="index.html" data-nav="home"><span data-i18n="nav_home">Home</span></a>
+          <a class="rail-link" href="demo.html" data-nav="demo"><span data-i18n="nav_demo">Demo</span></a>
+          <a class="rail-link" href="support.html" data-nav="support"><span data-i18n="nav_support">Support</span></a>
+          <a class="rail-link" href="privacy.html" data-nav="privacy"><span data-i18n="nav_privacy">Privacy</span></a>
+          <a class="rail-link" href="imprint.html" data-nav="imprint"><span data-i18n="nav_imprint">Imprint</span></a>
+        </nav>
+      </div>
+
+      <div class="rail-card">
+        <div class="rail-kpi">
+          <div class="rail-k" data-i18n="rail_k_2">Adaptive</div>
+          <div class="rail-v" data-i18n="rail_kpi_2">Options, not pressure</div>
+        </div>
+        <div class="rail-kpi">
+          <div class="rail-k" data-i18n="rail_k_3">Clarity</div>
+          <div class="rail-v" data-i18n="rail_kpi_3">Calm by design</div>
+        </div>
+        <div class="rail-kpi">
+          <div class="rail-k" data-i18n="rail_k_4">Demo</div>
+          <div class="rail-v"><a class="rail-cta" href="demo.html" data-i18n="cta_view_demo">View Demo</a></div>
+        </div>
+      </div>
+    </aside>
+
+    <main id="content">
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <div class="hero-copy-inner">
+              <div class="hero-text">
+                <!-- kicker removed as requested -->
+                <h1 class="hero-title" data-i18n="hero_title">Train consistently — even when life is busy.</h1>
+                <!-- subtitle removed per request -->
+
+                <!-- CTAs moved below the image per request -->
+              </div>
+
+              <div class="hero-side-media" aria-hidden="false">
+                <div class="media-split">
+                  <div class="media-left">
+                    <img id="hero-shot" src="assets/img/vorlage 01.png" alt="Dashboard preview" />
+                    <div class="image-ctas">
+                      <a class="btn btn-primary" href="demo.html" data-i18n="cta_view_demo">View Demo</a>
+                      <a class="btn btn-ghost" href="#features" data-i18n="cta_learn_more">Learn more</a>
+                    </div>
+                  </div>
+                  <div class="media-right">
+                    <h3 data-i18n="about_title">Was TrainQ bringt</h3>
+                    <ul class="about-bullets bullets">
+                      <li data-i18n="about_b1"></li>
+                      <li data-i18n="about_b2"></li>
+                      <li data-i18n="about_b3"></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="hero-strip" aria-label="Highlights">
+              <div class="strip-item">
+                <div class="strip-k" data-i18n="strip_1_k">Adaptive</div>
+                <div class="strip-v" data-i18n="strip_1_v">Choose what fits today</div>
+              </div>
+              <div class="strip-item">
+                <div class="strip-k" data-i18n="strip_2_k">Planning</div>
+                <div class="strip-v" data-i18n="strip_2_v">Stay consistent weekly</div>
+              </div>
+              <div class="strip-item">
+                <div class="strip-k" data-i18n="strip_3_k">Insights</div>
+                <div class="strip-v" data-i18n="strip_3_v">Time, volume, PRs</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right panel removed: image + text shown inline next to headline instead -->
+        </div>
+      </section>
+      <!-- Decorative device for hero (positioned absolute via CSS) -->
+      <img class="hero-decor" src="assets/img/vorlage 01.png" alt="Decorative device" aria-hidden="true" />
+
+      <section id="features" class="section">
+        <div class="container">
+          <header class="section-head">
+            <h2 data-i18n="features_title">A clear system for training and planning</h2>
+          </header>
+
+          <div class="cards">
+            <article class="card">
+              <ul class="bullets">
+                <li data-i18n="f1_title"></li>
+              </ul>
+            </article>
+
+            <article class="card">
+              <ul class="bullets">
+                <li data-i18n="f2_title"></li>
+              </ul>
+            </article>
+
+            <article class="card">
+              <ul class="bullets">
+                <li data-i18n="f3_title"></li>
+              </ul>
+            </article>
+
+            <article class="card">
+              <ul class="bullets">
+                <li data-i18n="f4_title"></li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="split">
+            <div class="split-copy">
+              <h3 data-i18n="adaptive_title">Adaptive Training & Smart Planning</h3>
+              <p class="muted" data-i18n="adaptive_text"></p>
+              <ul class="bullets">
+                <li data-i18n="adaptive_b1"></li>
+                <li data-i18n="adaptive_b2"></li>
+                <li data-i18n="adaptive_b3"></li>
+              </ul>
+            </div>
+
+            <div class="split-visual">
+              <div class="shot">
+                <img src="assets/img/vorlage 03.png" alt="TrainQ calendar screenshot placeholder" loading="lazy" />
+                <div class="shot-caption muted" data-i18n="shot_calendar_caption"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" class="section section-soft">
+        <div class="container">
+          <header class="section-head">
+            <h2 data-i18n="pricing_title">Free and Pro — simple, transparent</h2>
+            <p class="muted" data-i18n="pricing_subtitle"></p>
+          </header>
+
+          <div class="pricing-grid">
+            <article class="price-card">
+              <div class="price-top">
+                <h3 data-i18n="free_title">Free</h3>
+                <p class="muted" data-i18n="free_desc"></p>
+              </div>
+              <ul class="checklist">
+                <li data-i18n="free_b1"></li>
+                <li data-i18n="free_b2"></li>
+                <li data-i18n="free_b3"></li>
+              </ul>
+            </article>
+
+            <article class="price-card is-highlight">
+              <div class="price-top">
+                <div class="badge" data-i18n="pro_badge">Pro</div>
+                <h3 data-i18n="pro_title">Pro</h3>
+                <p class="muted" data-i18n="pro_desc"></p>
+              </div>
+              <ul class="checklist">
+                <li data-i18n="pro_b1"></li>
+                <li data-i18n="pro_b2"></li>
+                <li data-i18n="pro_b3"></li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="table-wrap" role="region" aria-label="Free vs Pro comparison" tabindex="0">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th scope="col" data-i18n="cmp_feature">Feature</th>
+                  <th scope="col" data-i18n="cmp_free">Free</th>
+                  <th scope="col" data-i18n="cmp_pro">Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row" data-i18n="cmp_row1">Workout tracking</th>
+                  <td data-i18n="cmp_yes">Yes</td>
+                  <td data-i18n="cmp_yes">Yes</td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="cmp_row2"></th>
+                  <td data-i18n="cmp_limited"></td>
+                  <td data-i18n="cmp_extended"></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="cmp_row3"></th>
+                  <td data-i18n="cmp_basic"></td>
+                  <td data-i18n="cmp_advanced"></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="cmp_row4"></th>
+                  <td data-i18n="cmp_basic"></td>
+                  <td data-i18n="cmp_more"></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="cmp_row5"></th>
+                  <td data-i18n="cmp_standard"></td>
+                  <td data-i18n="cmp_priority"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="philosophy">
+            <div class="philo-copy">
+              <h2 data-i18n="philo_title"></h2>
+              <p class="muted" data-i18n="philo_text"></p>
+
+              <div class="mini-grid">
+                <div class="mini">
+                  <h3 data-i18n="ph1_title"></h3>
+                  <p class="muted" data-i18n="ph1_text"></p>
+                </div>
+                <div class="mini">
+                  <h3 data-i18n="ph2_title"></h3>
+                  <p class="muted" data-i18n="ph2_text"></p>
+                </div>
+                <div class="mini">
+                  <h3 data-i18n="ph3_title"></h3>
+                  <p class="muted" data-i18n="ph3_text"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="philo-visual">
+              <div class="shot">
+                <img src="assets/img/screenshot-workout.png" alt="TrainQ workout screenshot placeholder" loading="lazy" />
+                <div class="shot-caption muted" data-i18n="shot_workout_caption"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-cta">
+            <p class="muted" data-i18n="bottom_cta_text"></p>
+            <a class="text-link" href="demo.html" data-i18n="cta_view_demo_text">View Demo</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div class="footer-left">
+          <div class="footer-brand">
+            <img src="assets/img/logo.png" alt="TrainQ logo" class="footer-logo" />
+            <div>
+              <div class="footer-name">TrainQ</div>
+              <div class="footer-muted" data-i18n="footer_tagline"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- footer links moved to header previously; Imprint button will appear next to Theme -->
+
+        <div class="footer-right">
+          <div class="footer-actions">
+            <div class="lang-toggle" role="group" aria-label="Language">
+              <button class="chip is-active" type="button" data-action="lang" data-lang="en">EN</button>
+              <button class="chip" type="button" data-action="lang" data-lang="de">DE</button>
+            </div>
+
+            <button class="chip" type="button" data-action="toggle-theme">
+              <span class="chip-dot" aria-hidden="true"></span>
+              <span class="chip-label" data-i18n="theme">Theme</span>
+            </button>
+
+            <a class="btn btn-ghost btn-sm" href="imprint.html" data-i18n="nav_imprint">Imprint</a>
+          </div>
+
+          <div class="copyright">
+            <span>© </span><span id="year"></span><span> TrainQ</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+>>>>>>> d0cf0e3 (Merge remote README)

@@ -1,0 +1,67 @@
+// src/components/onboarding/StepWrapper.tsx
+import React from "react";
+import type { ReactNode } from "react";
+
+interface StepWrapperProps {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  onNext?: () => void;
+  onBack?: () => void;
+  showBack?: boolean;
+  nextLabel?: string;
+  isNextDisabled?: boolean;
+}
+
+export const StepWrapper: React.FC<StepWrapperProps> = ({
+  title,
+  subtitle,
+  children,
+  onNext,
+  onBack,
+  showBack = true,
+  nextLabel = "Weiter",
+  isNextDisabled = false,
+}) => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#05060A] text-white px-4">
+      <div className="w-full max-w-md space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold mb-2">{title}</h1>
+          {subtitle && (
+            <p className="text-sm text-gray-400 leading-relaxed">{subtitle}</p>
+          )}
+        </div>
+
+        <div className="bg-[#111827] rounded-2xl p-4 space-y-4 shadow-lg border border-[#1F2937]">
+          {children}
+        </div>
+
+        <div className="flex justify-between items-center gap-3">
+          {showBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex-1 text-sm border border-gray-600 rounded-full py-2"
+            >
+              Zurück
+            </button>
+          ) : (
+            <div className="flex-1" />
+          )}
+
+          {onNext && (
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={isNextDisabled}
+              className="flex-1 text-sm rounded-full py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600"
+            >
+              {nextLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
