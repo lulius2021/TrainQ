@@ -10,13 +10,22 @@ export const OnboardingProgress: React.FC<OnboardingProgressProps> = ({
   currentStep,
   totalSteps,
 }) => {
-  const percentage = (currentStep / totalSteps) * 100;
+  const safeTotal = Math.max(1, Number.isFinite(totalSteps) ? totalSteps : 1);
+  const safeCurrent = Math.min(
+    safeTotal,
+    Math.max(1, Number.isFinite(currentStep) ? currentStep : 1)
+  );
+
+  const percentage = (safeCurrent / safeTotal) * 100;
 
   return (
     <div className="w-full max-w-md mx-auto mb-4">
       <div className="flex justify-between text-xs text-gray-400 mb-1">
-        <span>Schritt {currentStep} von {totalSteps}</span>
+        <span>
+          Schritt {safeCurrent} von {safeTotal}
+        </span>
       </div>
+
       <div className="h-2 bg-[#111827] rounded-full overflow-hidden">
         <div
           className="h-full bg-blue-500 transition-all duration-300"

@@ -1,23 +1,28 @@
 // src/pages/ProfilePage.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FeedbackBar } from "../components/feedback/FeedbackBar";
-import type { CalendarEvent } from "../types/training";
 
 import {
   loadWorkoutHistory,
   onWorkoutHistoryUpdated,
+  clearWorkoutHistory,
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
+
+import {
+  readOnboardingDataFromStorage,
+  writeOnboardingDataToStorage,
+  resetOnboardingInStorage, // ✅ sauberer Reset (Single Source of Truth)
+} from "../context/OnboardingContext";
 
 type SettingsTab = "account" | "notifications" | "legal";
 type LegalTab = "privacy" | "imprint" | "terms";
 
 interface ProfilePageProps {
-  events?: CalendarEvent[];
   onClearCalendar?: () => void;
 }
 
-const WEEKLY_GOAL_MINUTES = 5 * 60;
+// -------------------- Helpers --------------------
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -56,12 +61,17 @@ function clampMin(v: number, min = 0) {
   return Number.isFinite(v) ? Math.max(min, v) : min;
 }
 
-function volumeOfEntry(w: WorkoutHistoryEntry): number {
-  return Math.round(clampMin(w.totalVolume, 0));
-}
-
 function durationMinutes(w: WorkoutHistoryEntry): number {
   return Math.max(0, Math.round((w.durationSec ?? 0) / 60));
+}
+
+function normalizeSport(s?: string): "Gym" | "Laufen" | "Radfahren" | "Custom" | "Unknown" {
+  const t = (s || "").trim().toLowerCase();
+  if (t === "gym") return "Gym";
+  if (t === "laufen") return "Laufen";
+  if (t === "radfahren") return "Radfahren";
+  if (t === "custom") return "Custom";
+  return "Unknown";
 }
 
 function isInWeek(entry: WorkoutHistoryEntry, weekStart: Date): boolean {
@@ -82,9 +92,119 @@ function weekIndexInMonth(d: Date): number {
   return Math.min(Math.floor((dayOfMonth - 1) / 7), 4);
 }
 
+function safeInitials(name: string): string {
+  const parts = (name || "")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2);
+
+  const initials = parts.map((p) => p[0]).join("");
+  return (initials || "TQ").slice(0, 2).toUpperCase();
+}
+
+// -------------------- Workout helpers (no any) --------------------
+
+// Wir lesen optionale Felder defensiv als "unknown" und prüfen typ-sicher.
+type WorkoutHistoryEntryExtra = WorkoutHistoryEntry & {
+  totalVolume?: unknown;
+  distanceKm?: unknown;
+  paceSecPerKm?: unknown;
+};
+
+type WorkoutSetLike = { reps?: unknown; weight?: unknown };
+type WorkoutExerciseLike = { sets?: WorkoutSetLike[] };
+type WorkoutWithExercises = WorkoutHistoryEntry & { exercises?: WorkoutExerciseLike[] };
+
+function volumeOfEntryKg(w: WorkoutHistoryEntry): number {
+  const v = (w as WorkoutHistoryEntryExtra).totalVolume;
+  return Math.round(clampMin(typeof v === "number" && Number.isFinite(v) ? v : 0, 0));
+}
+
+function distanceKmOfEntry(w: WorkoutHistoryEntry): number {
+  const direct = (w as WorkoutHistoryEntryExtra).distanceKm;
+  if (typeof direct === "number" && Number.isFinite(direct) && direct > 0) {
+    return Math.round(direct * 100) / 100;
+  }
+
+  let total = 0;
+  const ww = w as WorkoutWithExercises;
+
+  for (const ex of ww.exercises ?? []) {
+    for (const s of ex.sets ?? []) {
+      const raw = s.weight;
+
+      let km = 0;
+      if (typeof raw === "number") km = raw;
+      else if (typeof raw === "string") km = Number(raw);
+
+      if (Number.isFinite(km) && km > 0) total += km;
+    }
+  }
+
+  return Math.round(total * 100) / 100;
+}
+
+function paceLabelOfEntry(w: WorkoutHistoryEntry): string {
+  const p = (w as WorkoutHistoryEntryExtra).paceSecPerKm;
+
+  if (typeof p === "number" && Number.isFinite(p) && p > 0) {
+    const mm = Math.floor(p / 60);
+    const ss = Math.round(p % 60);
+    return `${mm}:${String(ss).padStart(2, "0")} /km`;
+  }
+
+  const mins = durationMinutes(w);
+  const km = distanceKmOfEntry(w);
+  if (!Number.isFinite(mins) || !Number.isFinite(km) || km <= 0) return "—";
+
+  const pace = mins / km;
+  const mm = Math.floor(pace);
+  const ss = Math.round((pace - mm) * 60);
+  const ss2 = String(ss === 60 ? 0 : ss).padStart(2, "0");
+  const mm2 = ss === 60 ? mm + 1 : mm;
+  return `${mm2}:${ss2} /km`;
+}
+
+function speedKmhOfEntry(w: WorkoutHistoryEntry): string {
+  const km = distanceKmOfEntry(w);
+  const minutes = durationMinutes(w);
+  if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(km) || km <= 0) return "—";
+  const hours = minutes / 60;
+  const kmh = km / hours;
+  if (!Number.isFinite(kmh) || kmh <= 0) return "—";
+  return `${(Math.round(kmh * 10) / 10).toLocaleString("de-DE")} km/h`;
+}
+
+// -------------------- Page --------------------
+
+const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
+
 const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
-  const [profileName, setProfileName] = useState("Dein Name");
-  const [profileBio, setProfileBio] = useState("Kurzbeschreibung deines Trainings.");
+  const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
+  const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
+
+  const initialName = useMemo(() => {
+    return (onboarding.profile?.username || "").trim() || "Dein Name";
+  }, [onboarding.profile?.username]);
+
+  const derivedBioFallback = useMemo(() => {
+    const goals = onboarding.goals?.selectedGoals ?? [];
+    const sports = onboarding.goals?.sports ?? [];
+    const g = goals.length ? `Ziele: ${goals.join(", ")}` : "";
+    const s = sports.length ? `Sport: ${sports.join(", ")}` : "";
+    const combined = [g, s].filter(Boolean).join(" • ");
+    return combined || "Kurzbeschreibung deines Trainings.";
+  }, [onboarding.goals?.selectedGoals, onboarding.goals?.sports]);
+
+  const initialBio = useMemo(() => {
+    const stored = (onboarding.profile?.bio || "").trim();
+    return stored || derivedBioFallback;
+  }, [onboarding.profile?.bio, derivedBioFallback]);
+
+  const [profileName, setProfileName] = useState<string>(initialName);
+  const [profileBio, setProfileBio] = useState<string>(initialBio);
+
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -92,43 +212,107 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
 
   const [accountEmail, setAccountEmail] = useState("dein.mail@example.com");
-  const [notificationsTraining, setNotificationsTraining] = useState<boolean>(true);
-  const [notificationsSummary, setNotificationsSummary] = useState<boolean>(true);
-  const [notificationsNews, setNotificationsNews] = useState<boolean>(false);
+  const [notificationsTraining, setNotificationsTraining] = useState(true);
+  const [notificationsSummary, setNotificationsSummary] = useState(true);
+  const [notificationsNews, setNotificationsNews] = useState(false);
 
-  // ✅ Source of Truth: WorkoutHistory
-  const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
+  const WEEKLY_GOAL_MINUTES = useMemo(() => {
+    const h = onboarding.training?.hoursPerWeek;
+    const hours = typeof h === "number" && Number.isFinite(h) && h > 0 ? h : 5;
+    return Math.round(hours * 60);
+  }, [onboarding.training?.hoursPerWeek]);
+
+  const refreshOnboarding = useCallback(() => {
+    setOnboarding(readOnboardingDataFromStorage());
+  }, []);
+
+  const refreshWorkouts = useCallback(() => {
+    setWorkouts(loadWorkoutHistory());
+  }, []);
 
   useEffect(() => {
-    const refresh = () => setWorkouts(loadWorkoutHistory());
-    const off = onWorkoutHistoryUpdated(refresh);
+    const off = onWorkoutHistoryUpdated(refreshWorkouts);
 
-    window.addEventListener("focus", refresh);
-    window.addEventListener("storage", refresh);
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", refreshWorkouts);
+      window.addEventListener("storage", refreshWorkouts);
+
+      window.addEventListener("focus", refreshOnboarding);
+      window.addEventListener("storage", refreshOnboarding);
+
+      window.addEventListener(ONBOARDING_CHANGED_EVENT, refreshOnboarding);
+    }
 
     return () => {
       off();
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("storage", refresh);
+
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", refreshWorkouts);
+        window.removeEventListener("storage", refreshWorkouts);
+
+        window.removeEventListener("focus", refreshOnboarding);
+        window.removeEventListener("storage", refreshOnboarding);
+
+        window.removeEventListener(ONBOARDING_CHANGED_EVENT, refreshOnboarding);
+      }
     };
+  }, [refreshOnboarding, refreshWorkouts]);
+
+  // Name: nur automatisch übernehmen, wenn User es nicht custom geändert hat
+  useEffect(() => {
+    const obName = (onboarding.profile?.username || "").trim();
+    if (!obName) return;
+
+    const isDefaultOrAuto =
+      profileName.trim() === "" || profileName === "Dein Name" || profileName === initialName;
+
+    if (isDefaultOrAuto) setProfileName(obName);
+  }, [onboarding.profile?.username, initialName, profileName]);
+
+  // Bio: nur automatisch übernehmen, wenn User es nicht custom geändert hat
+  useEffect(() => {
+    const storedBio = (onboarding.profile?.bio || "").trim();
+
+    const isDefaultOrAuto =
+      profileBio.trim() === "" ||
+      profileBio === "Kurzbeschreibung deines Trainings." ||
+      profileBio === initialBio ||
+      profileBio === derivedBioFallback;
+
+    if (isDefaultOrAuto) {
+      setProfileBio(storedBio || derivedBioFallback);
+    }
+  }, [onboarding.profile?.bio, derivedBioFallback, initialBio, profileBio]);
+
+  // Close modals with ESC
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setIsEditProfileOpen(false);
+      setIsSettingsOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // ------------------ Diagramme: Monat (Bars) + Woche (Donut) ------------------
+  // ------------------ Diagramme ------------------
 
-  // ✅ wichtig: monthRef auf Monatsanfang, damit es stabil ist
   const [monthRef, setMonthRef] = useState<Date>(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
+
   const [weekRef, setWeekRef] = useState<Date>(new Date());
 
   const monthLabel = useMemo(() => formatMonthLabel(monthRef), [monthRef]);
   const weekStart = useMemo(() => startOfWeekMonday(weekRef), [weekRef]);
   const weekLabel = useMemo(() => formatDateRangeWeek(weekStart), [weekStart]);
 
-  // ✅ zählt: wie oft Training beendet wurde (Workouts) pro W1..W5 im Monat
   const monthCountsByWeek = useMemo(() => {
-    const arr = [0, 0, 0, 0, 0]; // W1..W5
+    const arr = [0, 0, 0, 0, 0];
     for (const w of workouts) {
       if (!isInMonth(w, monthRef)) continue;
       const d = new Date(w.endedAt || w.startedAt);
@@ -139,10 +323,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
     return arr;
   }, [workouts, monthRef]);
 
-  const monthTotalSessions = useMemo(
-    () => monthCountsByWeek.reduce((a, b) => a + b, 0),
-    [monthCountsByWeek]
-  );
+  const monthTotalSessions = useMemo(() => monthCountsByWeek.reduce((a, b) => a + b, 0), [monthCountsByWeek]);
 
   const weekTotalMinutes = useMemo(() => {
     let total = 0;
@@ -162,6 +343,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
     return total;
   }, [workouts, weekStart]);
 
+  const weekTotalRunKm = useMemo(() => {
+    let km = 0;
+    for (const w of workouts) {
+      if (!isInWeek(w, weekStart)) continue;
+      if (normalizeSport(w.sport) !== "Laufen") continue;
+      km += distanceKmOfEntry(w);
+    }
+    return Math.round(km * 100) / 100;
+  }, [workouts, weekStart]);
+
+  const weekTotalBikeKm = useMemo(() => {
+    let km = 0;
+    for (const w of workouts) {
+      if (!isInWeek(w, weekStart)) continue;
+      if (normalizeSport(w.sport) !== "Radfahren") continue;
+      km += distanceKmOfEntry(w);
+    }
+    return Math.round(km * 100) / 100;
+  }, [workouts, weekStart]);
+
   const barMax = Math.max(1, ...monthCountsByWeek);
 
   const donutRatio = Math.min(weekTotalMinutes / Math.max(WEEKLY_GOAL_MINUTES, 1), 1);
@@ -174,12 +375,66 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
   const goPrevWeek = () => setWeekRef((p) => new Date(p.getTime() - 7 * 24 * 60 * 60 * 1000));
   const goNextWeek = () => setWeekRef((p) => new Date(p.getTime() + 7 * 24 * 60 * 60 * 1000));
 
+  // ------------------ Onboarding Stats ------------------
+
+  const obAge = onboarding.personal?.age;
+  const obHeight = onboarding.personal?.height;
+  const obWeight = onboarding.personal?.weight;
+
+  const obSessions = onboarding.training?.sessionsPerWeek;
+  const obHours = onboarding.training?.hoursPerWeek;
+
+  const obSports = onboarding.goals?.sports ?? [];
+  const obGoals = onboarding.goals?.selectedGoals ?? [];
+
+  // ------------------ Save profile edits ------------------
+
+  const saveProfileEdits = () => {
+    const nextName = profileName.trim();
+    const nextBio = profileBio.trim();
+
+    const current = readOnboardingDataFromStorage();
+    const next = {
+      ...current,
+      profile: {
+        ...(current.profile ?? { username: "", bio: "", isPublic: true }),
+        username: nextName,
+        bio: nextBio,
+      },
+    };
+
+    writeOnboardingDataToStorage(next);
+    setOnboarding(next);
+    setIsEditProfileOpen(false);
+  };
+
+  // ✅ Reset Onboarding (Single Source of Truth)
+  const handleRestartOnboarding = () => {
+    if (typeof window === "undefined") return;
+
+    const ok = window.confirm(
+      "Onboarding wirklich erneut starten?\n\n" +
+        "Deine Onboarding-Daten werden auf Standard zurückgesetzt. " +
+        "Du wirst danach beim nächsten App-Render wieder durch das Onboarding geführt."
+    );
+    if (!ok) return;
+
+    // 1) SSoT reset (emittiert trainq:onboarding_changed)
+    resetOnboardingInStorage();
+
+    // 2) Settings-Modal schließen
+    setIsSettingsOpen(false);
+
+    // Optional (nur falls du je nach Routing/State Probleme hast):
+    // window.location.reload();
+  };
+
   // ------------------ UI ------------------
 
   return (
     <>
-      <div className="h-full w-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl space-y-6">
+      <div className="h-full w-full overflow-y-auto px-1 py-5 sm:px-2">
+        <div className="mx-auto w-full max-w-none space-y-6">
           <section className="mt-2 space-y-4">
             <div className="flex items-center justify-between">
               <h1 className="text-xl font-semibold">Profil</h1>
@@ -199,20 +454,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
             <div className="rounded-2xl bg-brand-card border border-white/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-brand-primary to-purple-500 flex items-center justify-center text-lg font-semibold">
-                  {profileName
-                    .trim()
-                    .split(" ")
-                    .filter(Boolean)
-                    .map((part) => part[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
+                  {safeInitials(profileName)}
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-base font-semibold">{profileName}</span>
                   </div>
+
                   <p className="text-xs text-white/70 max-w-xs">{profileBio}</p>
 
                   <div className="flex flex-wrap gap-3 text-[11px] text-white/60">
@@ -225,6 +474,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                         {Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m
                       </span>
                     </span>
+                    {weekTotalRunKm > 0 && (
+                      <span>
+                        Laufen: <span className="text-white/90">{weekTotalRunKm.toLocaleString("de-DE")} km</span>
+                      </span>
+                    )}
+                    {weekTotalBikeKm > 0 && (
+                      <span>
+                        Rad: <span className="text-white/90">{weekTotalBikeKm.toLocaleString("de-DE")} km</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -238,6 +497,55 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                   Profil bearbeiten
                 </button>
               </div>
+            </div>
+
+            {/* ✅ Onboarding Daten sichtbar im Profil */}
+            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-100">Deine Daten</h2>
+                <span className="text-[10px] text-white/50">aus Onboarding</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div className="text-[10px] text-white/55">Alter</div>
+                  <div className="text-sm font-semibold text-white">{typeof obAge === "number" ? `${obAge}` : "—"}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div className="text-[10px] text-white/55">Größe</div>
+                  <div className="text-sm font-semibold text-white">
+                    {typeof obHeight === "number" ? `${obHeight} cm` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div className="text-[10px] text-white/55">Gewicht</div>
+                  <div className="text-sm font-semibold text-white">
+                    {typeof obWeight === "number" ? `${obWeight} kg` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div className="text-[10px] text-white/55">Ziel / Woche</div>
+                  <div className="text-sm font-semibold text-white">
+                    {typeof obHours === "number" ? `${obHours}h` : "—"} <span className="text-white/40">/</span>{" "}
+                    {typeof obSessions === "number" ? `${obSessions}x` : "—"}
+                  </div>
+                </div>
+              </div>
+
+              {(obSports.length > 0 || obGoals.length > 0) && (
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
+                  {obSports.length > 0 && (
+                    <div>
+                      <span className="text-white/55">Sport:</span> {obSports.join(", ")}
+                    </div>
+                  )}
+                  {obGoals.length > 0 && (
+                    <div className="mt-1">
+                      <span className="text-white/55">Ziele:</span> {obGoals.join(", ")}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl bg-brand-card border border-white/5 p-4 space-y-4">
@@ -269,7 +577,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                     </button>
                   </div>
 
-                  {/* ✅ Säulen: sicher sichtbar (keine Brand-Farben) */}
                   <div className="h-32 flex items-end gap-2">
                     {monthCountsByWeek.map((value, index) => {
                       const heightPct = barMax > 0 ? (value / barMax) * 100 : 0;
@@ -277,14 +584,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                       const label = `W${index + 1}`;
 
                       return (
-                        <div key={index} className="flex flex-col items-center flex-1 gap-1 h-full">
-                          {/* Track */}
+                        <div key={label} className="flex flex-col items-center flex-1 gap-1 h-full">
                           <div className="w-full flex-1 rounded-full bg-white/10 overflow-hidden flex items-end">
-                            {/* Fill */}
-                            <div
-                              className="w-full rounded-full bg-blue-500"
-                              style={{ height: `${fillHeight}%` }}
-                            />
+                            <div className="w-full rounded-full bg-blue-500" style={{ height: `${fillHeight}%` }} />
                           </div>
 
                           <span className="text-[9px] text-white/70">{label}</span>
@@ -292,11 +594,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                         </div>
                       );
                     })}
-                  </div>
-
-                  {/* ✅ Debug: zeigt dir sofort, ob gezählt wird */}
-                  <div className="text-[10px] text-white/50">
-                    Debug: {monthCountsByWeek.map((v, i) => `W${i + 1}:${v}`).join("  ")} (barMax:{barMax})
                   </div>
 
                   <div className="text-[10px] text-white/45">
@@ -362,7 +659,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               </div>
             </div>
 
-            {/* Gemachte Trainings / Beiträge */}
+            {/* Gemachte Trainings */}
             <div className="rounded-2xl bg-brand-card border border-white/5 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-100">Gemachte Trainings</h2>
@@ -379,52 +676,126 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
 
               {workouts.length > 0 && (
                 <div className="space-y-2">
-                  {workouts.slice(0, 30).map((w, idx) => {
-                    const vol = volumeOfEntry(w);
+                  {workouts.slice(0, 30).map((w) => {
+                    const sport = normalizeSport(w.sport);
                     const exCount = (w.exercises ?? []).length;
                     const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
                     const mins = durationMinutes(w);
 
+                    const volKg = volumeOfEntryKg(w);
+                    const km = distanceKmOfEntry(w);
+
+                    const badge =
+                      sport === "Gym"
+                        ? { text: "Gym", cls: "bg-indigo-500/15 border border-indigo-400/30 text-indigo-200" }
+                        : sport === "Laufen"
+                        ? { text: "Laufen", cls: "bg-emerald-500/15 border border-emerald-400/30 text-emerald-200" }
+                        : sport === "Radfahren"
+                        ? { text: "Radfahren", cls: "bg-sky-500/15 border border-sky-400/30 text-sky-200" }
+                        : sport === "Custom"
+                        ? { text: "Custom", cls: "bg-slate-500/15 border border-slate-400/30 text-slate-200" }
+                        : { text: "Training", cls: "bg-white/10 border border-white/20 text-white/70" };
+
                     return (
-                      <div key={(w.id ?? "w") + idx} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                      <div key={w.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-[11px] text-white/60">
                               {date} • {mins} min
                             </div>
+
                             <div className="text-sm font-semibold text-white truncate">
                               {w.title ?? "Training"}{" "}
+                              <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px] ${badge.cls}`}>
+                                {badge.text}
+                              </span>
                               <span className="ml-2 inline-flex rounded-full bg-emerald-500/15 border border-emerald-400/30 px-2 py-0.5 text-[10px] text-emerald-200">
                                 Gemacht
                               </span>
                             </div>
-                            <div className="mt-1 text-[11px] text-white/70">
-                              {exCount} Übung{exCount === 1 ? "" : "en"} • Volumen:{" "}
-                              {vol.toLocaleString("de-DE")} kg
-                            </div>
+
+                            {sport === "Gym" ? (
+                              <div className="mt-1 text-[11px] text-white/70">
+                                {exCount} Übung{exCount === 1 ? "" : "en"} • Volumen: {volKg.toLocaleString("de-DE")} kg
+                              </div>
+                            ) : sport === "Laufen" ? (
+                              <div className="mt-1 text-[11px] text-white/70">
+                                Distanz:{" "}
+                                <span className="text-white/90">
+                                  {km > 0 ? `${km.toLocaleString("de-DE")} km` : "—"}
+                                </span>{" "}
+                                • Pace: <span className="text-white/90">{paceLabelOfEntry(w)}</span>
+                              </div>
+                            ) : sport === "Radfahren" ? (
+                              <div className="mt-1 text-[11px] text-white/70">
+                                Distanz:{" "}
+                                <span className="text-white/90">
+                                  {km > 0 ? `${km.toLocaleString("de-DE")} km` : "—"}
+                                </span>{" "}
+                                • Ø: <span className="text-white/90">{speedKmhOfEntry(w)}</span>
+                              </div>
+                            ) : (
+                              <div className="mt-1 text-[11px] text-white/70">
+                                {exCount > 0 ? `${exCount} Eintrag${exCount === 1 ? "" : "e"}` : "—"}
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         {exCount > 0 && (
                           <div className="mt-2 space-y-2">
                             {(w.exercises ?? []).map((ex, exIdx) => (
-                              <div key={exIdx} className="rounded-lg bg-black/25 border border-white/10 p-2">
+                              <div
+                                key={`${ex.exerciseId ?? ex.name}_${exIdx}`}
+                                className="rounded-lg bg-black/25 border border-white/10 p-2"
+                              >
                                 <div className="text-[11px] font-semibold text-white">{ex.name}</div>
 
                                 <div className="mt-1 space-y-1">
-                                  {(ex.sets ?? []).map((s, sIdx) => (
-                                    <div
-                                      key={sIdx}
-                                      className="flex items-center justify-between text-[11px] text-white/75"
-                                    >
-                                      <span className="text-white/55">Satz {sIdx + 1}</span>
-                                      <span className="tabular-nums">
-                                        {typeof s.weight === "number" ? `${s.weight} kg` : "—"}{" "}
-                                        <span className="text-white/40">x</span>{" "}
-                                        {typeof s.reps === "number" ? `${s.reps}` : "—"}
-                                      </span>
-                                    </div>
-                                  ))}
+                                  {(ex.sets ?? []).map((s, sIdx) => {
+                                    const repsRaw = (s as unknown as { reps?: unknown }).reps;
+                                    const weightRaw = (s as unknown as { weight?: unknown }).weight;
+
+                                    if (sport === "Gym") {
+                                      const reps =
+                                        typeof repsRaw === "number" && Number.isFinite(repsRaw) ? repsRaw : null;
+                                      const weight =
+                                        typeof weightRaw === "number" && Number.isFinite(weightRaw) ? weightRaw : null;
+
+                                      return (
+                                        <div
+                                          key={sIdx}
+                                          className="flex items-center justify-between text-[11px] text-white/75"
+                                        >
+                                          <span className="text-white/55">Satz {sIdx + 1}</span>
+                                          <span className="tabular-nums">
+                                            {weight !== null ? `${weight} kg` : "—"}{" "}
+                                            <span className="text-white/40">x</span>{" "}
+                                            {reps !== null ? `${reps}` : "—"}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    // Cardio (min/km)
+                                    const reps = typeof repsRaw === "number" && Number.isFinite(repsRaw) ? repsRaw : null;
+                                    const weight =
+                                      typeof weightRaw === "number" && Number.isFinite(weightRaw) ? weightRaw : null;
+
+                                    return (
+                                      <div
+                                        key={sIdx}
+                                        className="flex items-center justify-between text-[11px] text-white/75"
+                                      >
+                                        <span className="text-white/55">Abschnitt {sIdx + 1}</span>
+                                        <span className="tabular-nums">
+                                          {reps !== null ? `${reps} min` : "—"}{" "}
+                                          <span className="text-white/40">•</span>{" "}
+                                          {weight !== null ? `${weight} km` : "—"}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -444,7 +815,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
 
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setIsEditProfileOpen(false);
+          }}
+        >
           <div className="w-full max-w-md rounded-2xl bg-brand-card border border-white/10 p-4 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Profil bearbeiten</h2>
@@ -468,6 +844,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                   placeholder="Dein Name"
                 />
               </div>
+
               <div className="space-y-1">
                 <label className="block text-white/70">Beschreibung</label>
                 <textarea
@@ -489,7 +866,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               </button>
               <button
                 type="button"
-                onClick={() => setIsEditProfileOpen(false)}
+                onClick={saveProfileEdits}
                 className="px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-[11px] font-medium"
               >
                 Speichern
@@ -501,7 +878,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
 
       {/* MODAL: Einstellungen */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setIsSettingsOpen(false);
+          }}
+        >
           <div className="w-full max-w-3xl max-h-[80vh] rounded-2xl bg-brand-card border border-white/10 p-4 sm:p-6 text-xs flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold">Einstellungen</span>
@@ -527,6 +909,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               >
                 Konto &amp; Daten
               </button>
+
               <button
                 type="button"
                 onClick={() => setSettingsTab("notifications")}
@@ -539,6 +922,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               >
                 Benachrichtigungen
               </button>
+
               <button
                 type="button"
                 onClick={() => setSettingsTab("legal")}
@@ -557,9 +941,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               {settingsTab === "account" && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">Konto &amp; Basisdaten</h3>
-                  <p className="text-[11px] text-white/60">
-                    Hier verwaltest du deine grundlegenden Kontodaten. Die Funktionen sind aktuell noch im Aufbau.
-                  </p>
 
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -572,7 +953,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                         placeholder="dein.mail@example.com"
                       />
                       <span className="text-[10px] text-white/40">
-                        Login-Optionen (Google, Apple, Facebook) folgen später.
+                        Login-Optionen (Apple/Email/Gast) bauen wir als eigenes To-Do.
                       </span>
                     </div>
 
@@ -581,6 +962,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                       <p className="text-[10px] text-white/50">
                         Bitte vorsichtig verwenden – manche Aktionen lassen sich nicht rückgängig machen.
                       </p>
+
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -588,6 +970,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                           className="px-3 py-1.5 rounded-xl border border-red-500/60 bg-red-500/10 text-[11px] text-red-50 hover:bg-red-500/20"
                         >
                           Profil löschen
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const ok = window.confirm(
+                              "Willst du wirklich deinen Trainingsverlauf löschen?\n\nAlle gemachten Trainings (History) werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden."
+                            );
+                            if (!ok) return;
+                            clearWorkoutHistory();
+                            setWorkouts([]);
+                            alert("Trainingsverlauf wurde gelöscht.");
+                          }}
+                          className="px-3 py-1.5 rounded-xl border border-red-500/60 bg-red-500/10 text-[11px] text-red-50 hover:bg-red-500/20"
+                        >
+                          Trainingsverlauf löschen
                         </button>
 
                         <button
@@ -609,6 +1007,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                         >
                           Kalender leeren
                         </button>
+
+                        {/* ✅ neu: Onboarding erneut starten */}
+                        <button
+                          type="button"
+                          onClick={handleRestartOnboarding}
+                          className="px-3 py-1.5 rounded-xl border border-blue-500/60 bg-blue-500/10 text-[11px] text-blue-50 hover:bg-blue-500/20"
+                        >
+                          Onboarding erneut starten
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -618,9 +1025,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
               {settingsTab === "notifications" && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">Benachrichtigungen</h3>
-                  <p className="text-[11px] text-white/60">
-                    Stelle ein, welche Infos du von TrainQ als Erinnerungen bekommen möchtest. Backend-Logik folgt später.
-                  </p>
 
                   <div className="space-y-2">
                     <button
@@ -651,7 +1055,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                     >
                       <div className="text-left">
                         <div className="text-[11px] font-medium">Wöchentliche Zusammenfassung</div>
-                        <div className="text-[10px] text-white/55">Überblick über Woche: Trainings, Minuten, Fortschritt.</div>
+                        <div className="text-[10px] text-white/55">
+                          Überblick über Woche: Trainings, Minuten, Fortschritt.
+                        </div>
                       </div>
                       <span
                         className={
@@ -686,19 +1092,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                       </span>
                     </button>
                   </div>
-
-                  <p className="pt-2 text-[10px] text-white/45">
-                    Hinweis: In der MVP-Version werden noch keine echten Push-Nachrichten verschickt.
-                  </p>
                 </section>
               )}
 
               {settingsTab === "legal" && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">Rechtliches / Impressum</h3>
-                  <p className="text-[11px] text-white/60">
-                    Hier findest du die rechtlich relevenden Informationen für die Nutzung von TrainQ (App und Website).
-                  </p>
 
                   <div className="inline-flex rounded-full bg-black/40 border border-white/15 p-1 text-[11px]">
                     <button
@@ -711,6 +1110,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                     >
                       Datenschutz
                     </button>
+
                     <button
                       type="button"
                       onClick={() => setLegalTab("imprint")}
@@ -721,6 +1121,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                     >
                       Impressum
                     </button>
+
                     <button
                       type="button"
                       onClick={() => setLegalTab("terms")}
@@ -731,6 +1132,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar }) => {
                     >
                       AGB
                     </button>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
+                    {legalTab === "privacy" && "Datenschutz-Text kommt später (Legal Page / Modal Content)."}
+                    {legalTab === "imprint" && "Impressum kommt später (Legal Page / Modal Content)."}
+                    {legalTab === "terms" && "AGB kommt später (Legal Page / Modal Content)."}
                   </div>
                 </section>
               )}

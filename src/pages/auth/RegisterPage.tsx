@@ -32,7 +32,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
         <div>
           <h1 className="text-2xl font-semibold mb-1">Account erstellen</h1>
           <p className="text-sm text-gray-400">
-            Erstelle dein ARVIO Konto, um deinen Alltag und dein Training zu strukturieren.
+            Erstelle dein TrainQ Konto, um deinen Alltag und dein Training zu strukturieren.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
 
           <div className="text-[11px] text-gray-500">
             Mit der Registrierung akzeptierst du die Nutzungsbedingungen und
-            Datenschutzbestimmungen von ARVIO.
+            Datenschutzbestimmungen von TrainQ.
           </div>
 
           <AuthButton type="submit" disabled={loading}>

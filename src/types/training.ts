@@ -2,7 +2,7 @@
 // TrainQ – Zentrale Training Types (UI + Core kompatibel)
 // ACHTUNG: Diese Datei ist die EINZIGE Quelle für Training / LiveWorkout / Plan-nahe Typen
 
-import type { AdaptiveSuggestion } from "./adaptive";
+import type { AdaptiveSuggestion, AdaptiveAnswers } from "./adaptive";
 
 // ---------------------------------------------
 // Kalender / Planung (Backwards Compatible)
@@ -29,9 +29,22 @@ export type TrainingStatus = "open" | "completed" | "skipped";
 
 /**
  * Kategorien für Nicht-Training-Termine (Kalender)
- * ✅ damit category wirklich persistiert & typ-sicher ist
+ *
+ * WICHTIG:
+ * - In Dashboard/Calendar können User eigene Kategorien anlegen.
+ * - Deshalb darf das KEIN festes Union sein, sondern muss string sein.
  */
-export type AppointmentCategory = "alltag" | "arbeit" | "gesundheit" | "freizeit" | "sonstiges";
+export type AppointmentCategory = string;
+
+/**
+ * Zeitangabe:
+ * - HH:mm (z.B. "09:30")
+ * - oder "" (optional / nicht gesetzt)
+ *
+ * Hintergrund: In der App werden fehlende Zeiten beim Laden/Normalisieren auf "" gesetzt,
+ * damit überall stabile Strings existieren (keine undefined/null).
+ */
+export type OptionalTime = string; // "HH:mm" | "" (MVP: bewusst string, aber dokumentiert)
 
 /**
  * Kalender Event
@@ -44,14 +57,16 @@ export interface CalendarEvent {
   notes?: string;
 
   date: string; // YYYY-MM-DD
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+
+  /** optional im UI -> leerer String erlaubt */
+  startTime: OptionalTime; // "HH:mm" | ""
+  /** optional im UI -> leerer String erlaubt */
+  endTime: OptionalTime; // "HH:mm" | ""
 
   type?: EventType;
 
   /**
-   * ✅ Kategorie für "other" Events (Termine)
-   * (wird in CalendarPage als (ev as any).category genutzt)
+   * Kategorie für "other" Events (Termine)
    */
   category?: AppointmentCategory;
 
@@ -68,13 +83,13 @@ export interface CalendarEvent {
 
   /**
    * UI Training Typ (Farben, Labels)
-   * ✅ bleibt klein (TrainingType)
+   * bleibt klein (TrainingType)
    */
   trainingType?: TrainingType;
 
   /**
-   * ✅ OPTIONAL: falls irgendwo historisch "Gym"/"Laufen" etc. als trainingType gespeichert wurde.
-   * Nutze das nur als Migration/Compat, nicht als neues Feld.
+   * OPTIONAL: falls historisch "Gym"/"Laufen" etc. als trainingType gespeichert wurde.
+   * Nur für Migration/Compat, nicht als neues Feld verwenden.
    */
   trainingTypeLegacy?: SportType | string;
 
@@ -97,19 +112,27 @@ export interface CalendarEvent {
   templateId?: string;
 
   // ---------------------------------
-  // 🔹 Adaptive Meta (Dashboard)
+  // Adaptive Meta (Dashboard)
   // ---------------------------------
-  /**
-   * Dashboard nutzt A/B/C (du zeigst das auch so im UI).
-   * (Vorher war hier stabil/kompakt/fokus → das hat mit deinem Dashboard-Code gekracht)
-   */
-  adaptiveProfile?: "A" | "B" | "C";
-  adaptiveEstimatedMinutes?: number;
-  adaptiveAppliedAt?: string;
-  adaptiveAnswers?: any;
 
   /**
-   * ✅ DIE Wahrheit (vollständig)
+   * Dashboard nutzt A/B/C.
+   */
+  adaptiveProfile?: "A" | "B" | "C";
+
+  /**
+   * Optional: kompakte Gründe (Dashboard zeigt max. 3)
+   */
+  adaptiveReasons?: string[];
+
+  adaptiveEstimatedMinutes?: number;
+  adaptiveAppliedAt?: string;
+
+  /** ✅ vorher any -> jetzt korrekt typisiert */
+  adaptiveAnswers?: AdaptiveAnswers;
+
+  /**
+   * DIE Wahrheit (vollständig)
    * Wird vom Dashboard gespeichert und von LiveTrainingPage genutzt.
    */
   adaptiveSuggestion?: AdaptiveSuggestion;
@@ -133,7 +156,7 @@ export interface UpcomingTraining {
 }
 
 // ---------------------------------------------
-// 🔥 CORE PLAN / SPLIT (TrainQ Core)
+// CORE PLAN / SPLIT (TrainQ Core)
 // ---------------------------------------------
 
 export type ISODate = string;
@@ -144,10 +167,7 @@ export type WorkoutType = "Push" | "Pull" | "Upper" | "Lower";
 
 /**
  * Regel: welcher WorkoutType an welchem Wochentag
- *
- * ✅ Update:
- * - PlanDayRule braucht sport, weil planToCalendarEvent(rule.sport) nutzt
- * - workoutType ist nur für Gym relevant → optional
+ * workoutType ist nur für Gym relevant → optional
  */
 export interface PlanDayRule {
   weekday: WeekdayIndex;
@@ -157,8 +177,6 @@ export interface PlanDayRule {
 
 /**
  * Trainingsplan (Core)
- * 👉 für Launch bewusst NUR Gym als Plan-Sport ok,
- * aber Regeln dürfen trotzdem später Laufen/Rad enthalten (optional).
  */
 export interface TrainingPlan {
   id: string;
@@ -175,7 +193,7 @@ export interface TrainingPlan {
 export type NewTrainingPlan = Omit<TrainingPlan, "id" | "createdAt" | "updatedAt">;
 
 // ---------------------------------------------
-// 🔴 LIVE TRAINING (Session, NICHT Kalender)
+// LIVE TRAINING (Session, NICHT Kalender)
 // ---------------------------------------------
 
 export interface LiveSet {
@@ -192,7 +210,13 @@ export interface LiveExercise {
   exerciseId?: string;
   name: string;
   sets: LiveSet[];
-  restSeconds: number;
+
+  /**
+   * ✅ Optional:
+   * - undefined / null / "" im UI bedeutet: kein Pausentimer aktiv
+   * - wenn gesetzt: Sekunden (später clamp/validierung in UI/Logic)
+   */
+  restSeconds?: number;
 }
 
 export interface LiveWorkout {
@@ -208,6 +232,11 @@ export interface LiveWorkout {
   durationSeconds?: number;
 
   isActive: boolean;
+
+  /**
+   * ✅ Minimiert / Vollbild
+   * wird von LiveTrainingPage/App genutzt, um das Fenster nach unten zu „dock’en“
+   */
   isMinimized?: boolean;
 
   exercises: LiveExercise[];

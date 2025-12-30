@@ -25,6 +25,12 @@ export type Difficulty = "Leicht" | "Mittel" | "Schwer";
 
 export type ExerciseType = "Kraft" | "Ausdauer" | "Beweglichkeit";
 
+/**
+ * ✅ Saubere Filter-Typen (statt überall `as any`):
+ * - UI-Filter dürfen "alle" sein, echte ExerciseType bleiben sauber.
+ */
+export type ExerciseTypeFilter = ExerciseType | "alle";
+
 export interface Exercise {
   id: string;
   name: string;
@@ -40,7 +46,7 @@ export interface ExerciseFilters {
   muscle: MuscleGroup | "alle";
   equipment: Equipment | "alle";
   difficulty: Difficulty | "alle";
-  type: ExerciseType | "alle";
+  type: ExerciseTypeFilter;
 }
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
@@ -68,11 +74,7 @@ export const EQUIPMENTS: Equipment[] = [
 
 export const DIFFICULTIES: Difficulty[] = ["Leicht", "Mittel", "Schwer"];
 
-export const EXERCISE_TYPES: ExerciseType[] = [
-  "Kraft",
-  "Ausdauer",
-  "Beweglichkeit",
-];
+export const EXERCISE_TYPES: ExerciseType[] = ["Kraft", "Ausdauer", "Beweglichkeit"];
 
 // Ausgewählte Standardübungen – angelehnt an typische ModusX-Übungen.
 // Du kannst diese Liste jederzeit erweitern.
@@ -324,35 +326,34 @@ export const EXERCISES: Exercise[] = [
   },
 ];
 
-export function filterExercises(
-  exercises: Exercise[],
-  filters: ExerciseFilters
-): Exercise[] {
-  return exercises.filter((ex) => {
-    if (
-      filters.muscle !== "alle" &&
-      !ex.primaryMuscles.includes(filters.muscle)
-    ) {
-      return false;
+/**
+ * ✅ Suche-Normalisierung (robust wie im Modal):
+ * - lowercase
+ * - NFD + Entfernen der Combining Marks (Umlaute/Accents)
+ * - trim
+ * Wichtig: KEIN \p{Diacritic} (kann je nach Target/Bundler brechen)
+ */
+function norm(s: string) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+export function filterExercises(exercises: Exercise[], filters: ExerciseFilters): Exercise[] {
+  const term = filters.search.trim().length > 0 ? norm(filters.search) : "";
+
+  return (exercises || []).filter((ex) => {
+    if (filters.muscle !== "alle" && !ex.primaryMuscles.includes(filters.muscle)) return false;
+    if (filters.equipment !== "alle" && !ex.equipment.includes(filters.equipment)) return false;
+    if (filters.difficulty !== "alle" && ex.difficulty !== filters.difficulty) return false;
+    if (filters.type !== "alle" && ex.type !== filters.type) return false;
+
+    if (term) {
+      if (!norm(ex.name).includes(term)) return false;
     }
-    if (
-      filters.equipment !== "alle" &&
-      !ex.equipment.includes(filters.equipment)
-    ) {
-      return false;
-    }
-    if (filters.difficulty !== "alle" && ex.difficulty !== filters.difficulty) {
-      return false;
-    }
-    if (filters.type !== "alle" && ex.type !== filters.type) {
-      return false;
-    }
-    if (filters.search.trim().length > 0) {
-      const term = filters.search.toLowerCase();
-      if (!ex.name.toLowerCase().includes(term)) {
-        return false;
-      }
-    }
+
     return true;
   });
 }

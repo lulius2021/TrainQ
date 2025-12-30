@@ -1,8 +1,8 @@
 // src/pages/onboarding/steps/Step2Goals.tsx
-import React, { useState } from "react";
-import { StepWrapper } from "../../../components/onboarding/StepWrapper";
-import { useOnboarding } from "../../../context/OnboardingContext";
-import type { Goal } from "../../../types/onboarding";
+import React, { useMemo, useState } from "react";
+import { StepWrapper } from "../../../components/onboarding/StepWrapper.tsx";
+import { useOnboarding } from "../../../context/OnboardingContext.tsx";
+import type { Goal, GoalsData } from "../../../types/onboarding";
 
 interface Step2GoalsProps {
   onNext: () => void;
@@ -18,33 +18,116 @@ const GOAL_OPTIONS: { id: Goal; label: string }[] = [
   { id: "get_fitter", label: "Fitter werden" },
 ];
 
+type BodyShape = NonNullable<GoalsData["buildMuscleBodyShape"]>;
+const BODY_SHAPES: { id: Exclude<BodyShape, "none">; label: string }[] = [
+  { id: "lean", label: "Schlank & definiert" },
+  { id: "athletic", label: "Athletisch" },
+  { id: "muscular", label: "Muskelbetont" },
+  { id: "massive", label: "Massiv" },
+];
+
+function normalizeSportsInput(input: string): string[] {
+  // unterstützt Komma, Semikolon, Slash, Pipe, Zeilenumbrüche
+  const raw = (input || "")
+    .split(/[,\n;|/]+/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // dedupe (case-insensitive) + cap
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const s of raw) {
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+    if (out.length >= 12) break;
+  }
+
+  return out;
+}
+
+function isBodyShape(v: unknown): v is BodyShape {
+  return v === "none" || v === "lean" || v === "athletic" || v === "muscular" || v === "massive";
+}
+
 export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
   const { data, updateData } = useOnboarding();
-  const [goals, setGoals] = useState(data.goals);
+
+  const initialGoals = useMemo<GoalsData>(() => {
+    const g = (data?.goals ?? {}) as Partial<GoalsData>;
+
+    const selectedGoals = Array.isArray(g.selectedGoals)
+      ? (g.selectedGoals.filter(Boolean) as Goal[])
+      : [];
+
+    const sports = Array.isArray(g.sports) ? g.sports.map(String).map((s) => s.trim()).filter(Boolean) : [];
+
+    const buildMuscleBodyShape: BodyShape = isBodyShape(g.buildMuscleBodyShape)
+      ? g.buildMuscleBodyShape
+      : "none";
+
+    return {
+      selectedGoals,
+      sports,
+      loseWeightTargetKg: typeof g.loseWeightTargetKg === "number" ? g.loseWeightTargetKg : undefined,
+      buildMuscleBodyShape,
+      fitterTargetDistanceKm: typeof g.fitterTargetDistanceKm === "number" ? g.fitterTargetDistanceKm : undefined,
+    };
+  }, [
+    data?.goals?.selectedGoals,
+    data?.goals?.sports,
+    data?.goals?.loseWeightTargetKg,
+    data?.goals?.buildMuscleBodyShape,
+    data?.goals?.fitterTargetDistanceKm,
+  ]);
+
+  const [goals, setGoals] = useState<GoalsData>(initialGoals);
+
+  const hasGoal = (g: Goal) => (goals.selectedGoals ?? []).includes(g);
 
   const toggleGoal = (goal: Goal) => {
     setGoals((prev) => {
-      const selected = prev.selectedGoals.includes(goal)
-        ? prev.selectedGoals.filter((g) => g !== goal)
-        : [...prev.selectedGoals, goal];
-      return { ...prev, selectedGoals: selected };
+      const prevSelected = prev.selectedGoals ?? [];
+      const selected = prevSelected.includes(goal)
+        ? prevSelected.filter((x) => x !== goal)
+        : [...prevSelected, goal];
+
+      const next: GoalsData = { ...prev, selectedGoals: selected };
+
+      // abhängigkeits-Reset
+      if (!selected.includes("build_muscle")) next.buildMuscleBodyShape = "none";
+      if (!selected.includes("lose_weight")) next.loseWeightTargetKg = undefined;
+      if (!selected.includes("get_fitter")) next.fitterTargetDistanceKm = undefined;
+
+      return next;
     });
   };
 
-  const hasGoal = (g: Goal) => goals.selectedGoals.includes(g);
-
   const handleNext = () => {
-    updateData({ goals });
+    const cleaned: GoalsData = {
+      ...goals,
+      selectedGoals: (goals.selectedGoals ?? []).filter(Boolean),
+      sports: (goals.sports ?? []).map((s) => s.trim()).filter(Boolean),
+      buildMuscleBodyShape: isBodyShape(goals.buildMuscleBodyShape) ? goals.buildMuscleBodyShape : "none",
+      loseWeightTargetKg: hasGoal("lose_weight") ? goals.loseWeightTargetKg : undefined,
+      fitterTargetDistanceKm: hasGoal("get_fitter") ? goals.fitterTargetDistanceKm : undefined,
+    };
+
+    updateData({ goals: cleaned });
     onNext();
   };
 
+  const sportsValue = (goals.sports ?? []).join(", ");
+
   return (
     <StepWrapper
-      title="Was möchtest du mit ARVIO erreichen?"
+      title="Was möchtest du mit TrainQ erreichen?"
       subtitle="Wähle deine Ziele aus – wir passen deinen Plan automatisch daran an."
       onNext={handleNext}
       onBack={onBack}
-      isNextDisabled={goals.selectedGoals.length === 0}
+      isNextDisabled={(goals.selectedGoals ?? []).length === 0}
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-2">
@@ -54,9 +137,7 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
               type="button"
               onClick={() => toggleGoal(g.id)}
               className={`w-full text-left text-sm px-3 py-2 rounded-xl border ${
-                hasGoal(g.id)
-                  ? "border-blue-500 bg-blue-600/20"
-                  : "border-gray-700 bg-[#05060A]"
+                hasGoal(g.id) ? "border-blue-500 bg-blue-600/20" : "border-gray-700 bg-[#05060A]"
               }`}
             >
               {g.label}
@@ -66,9 +147,7 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
 
         {hasGoal("lose_weight") && (
           <div className="space-y-2 pt-2 border-t border-gray-800">
-            <p className="text-xs text-gray-400">
-              Zielgewicht (nur für Abnehmen):
-            </p>
+            <p className="text-xs text-gray-400">Zielgewicht (nur für Abnehmen):</p>
             <input
               type="range"
               min={55}
@@ -83,36 +162,28 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
               }
               className="w-full"
             />
-            <div className="text-xs text-gray-400">
-              Zielgewicht: {goals.loseWeightTargetKg ?? 80} kg
-            </div>
+            <div className="text-xs text-gray-400">Zielgewicht: {goals.loseWeightTargetKg ?? 80} kg</div>
           </div>
         )}
 
         {hasGoal("build_muscle") && (
           <div className="space-y-2 pt-2 border-t border-gray-800">
-            <p className="text-xs text-gray-400">
-              Welche Körperform kommt deinem Ziel am nächsten?
-            </p>
+            <p className="text-xs text-gray-400">Welche Körperform kommt deinem Ziel am nächsten?</p>
+
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "lean", label: "Schlank & definiert" },
-                { id: "athletic", label: "Athletisch" },
-                { id: "muscular", label: "Muskelbetont" },
-                { id: "massive", label: "Massiv" },
-              ].map((shape) => (
+              {BODY_SHAPES.map((shape) => (
                 <button
                   key={shape.id}
                   type="button"
                   className={`flex flex-col items-center justify-center px-3 py-3 rounded-xl border text-xs ${
-                    goals.buildMuscleBodyShape === (shape.id as any)
+                    goals.buildMuscleBodyShape === shape.id
                       ? "border-blue-500 bg-blue-600/20"
                       : "border-gray-700 bg-[#05060A]"
                   }`}
                   onClick={() =>
                     setGoals((prev) => ({
                       ...prev,
-                      buildMuscleBodyShape: shape.id as any,
+                      buildMuscleBodyShape: shape.id,
                     }))
                   }
                 >
@@ -121,6 +192,7 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
                 </button>
               ))}
             </div>
+
             <button
               type="button"
               className={`w-full mt-2 text-xs px-3 py-2 rounded-xl border ${
@@ -128,12 +200,7 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
                   ? "border-blue-500 bg-blue-600/20"
                   : "border-gray-700 bg-[#05060A]"
               }`}
-              onClick={() =>
-                setGoals((prev) => ({
-                  ...prev,
-                  buildMuscleBodyShape: "none",
-                }))
-              }
+              onClick={() => setGoals((prev) => ({ ...prev, buildMuscleBodyShape: "none" }))}
             >
               Keine dieser Optionen
             </button>
@@ -142,9 +209,7 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
 
         {hasGoal("get_fitter") && (
           <div className="space-y-2 pt-2 border-t border-gray-800">
-            <p className="text-xs text-gray-400">
-              Welches Ausdauer-Ziel hast du?
-            </p>
+            <p className="text-xs text-gray-400">Welches Ausdauer-Ziel hast du?</p>
             <input
               type="range"
               min={3}
@@ -180,14 +245,11 @@ export const Step2Goals: React.FC<Step2GoalsProps> = ({ onNext, onBack }) => {
             type="text"
             className="w-full bg-[#05060A] border border-gray-700 rounded-lg px-3 py-2 text-sm"
             placeholder="Kommagetrennt eingeben..."
-            value={goals.sports.join(", ")}
+            value={sportsValue}
             onChange={(e) =>
               setGoals((prev) => ({
                 ...prev,
-                sports: e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
+                sports: normalizeSportsInput(e.target.value),
               }))
             }
           />

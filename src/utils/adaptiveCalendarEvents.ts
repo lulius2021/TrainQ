@@ -1,5 +1,4 @@
 // src/utils/adaptiveCalendarEvents.ts
-
 import type { CalendarEvent } from "../types/training";
 
 type ApplyAdaptiveInput = {
@@ -18,12 +17,10 @@ export function applyAdaptiveToCalendarEvent(event: CalendarEvent, input: ApplyA
 
   return {
     ...event,
-
     adaptiveProfile: input.adaptiveProfile,
     adaptiveReasons: reasons.length ? reasons : (event as any).adaptiveReasons,
     adaptiveEstimatedMinutes: estimated ?? (event as any).adaptiveEstimatedMinutes,
     adaptiveAppliedAt: new Date().toISOString(),
-
     endTime: input.endTime ?? event.endTime,
     notes: nextNotes || event.notes,
   } as any;

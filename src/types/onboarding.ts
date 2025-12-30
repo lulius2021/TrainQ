@@ -17,7 +17,7 @@ export type TrainingLocation =
 
 export interface PersonalData {
   stressLevel: number; // 1–10
-  sleepHours: number;  // 0–12
+  sleepHours: number; // 0–12
   age: number | null;
   height: number | null; // in cm
   weight: number | null; // in kg
@@ -43,6 +43,7 @@ export interface ObstaclesData {
 
 export interface ProfileData {
   username: string;
+  bio?: string; // ✅ NEU: Profil-Bio persistent
   profileImageUrl?: string;
   stravaUrl?: string;
   isPublic: boolean;

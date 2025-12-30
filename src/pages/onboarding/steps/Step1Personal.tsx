@@ -1,7 +1,8 @@
 // src/pages/onboarding/steps/Step1Personal.tsx
-import React, { useState } from "react";
-import { StepWrapper } from "../../../components/onboarding/StepWrapper";
-import { useOnboarding } from "../../../context/OnboardingContext";
+import React, { useMemo, useState } from "react";
+import { StepWrapper } from "../../../components/onboarding/StepWrapper.tsx";
+import { useOnboarding } from "../../../context/OnboardingContext.tsx";
+import type { PersonalData } from "../../../types/onboarding";
 
 interface Step1PersonalProps {
   onNext: () => void;
@@ -9,11 +10,37 @@ interface Step1PersonalProps {
 
 export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
   const { data, updateData } = useOnboarding();
-  const [local, setLocal] = useState(data.personal);
 
-  const handleChangeNumber = (field: keyof typeof local, value: string) => {
-    const num = value === "" ? null : Number(value);
-    setLocal((prev) => ({ ...prev, [field]: num }));
+  // ✅ defensiv: falls data.personal jemals "kaputt" ist, trotzdem stabil starten
+  const initialLocal = useMemo<PersonalData>(() => {
+    const p = (data?.personal ?? {}) as Partial<PersonalData>;
+
+    return {
+      stressLevel: typeof p.stressLevel === "number" ? p.stressLevel : 5,
+      sleepHours: typeof p.sleepHours === "number" ? p.sleepHours : 7,
+      age: typeof p.age === "number" ? p.age : null,
+      height: typeof p.height === "number" ? p.height : null,
+      weight: typeof p.weight === "number" ? p.weight : null,
+    };
+  }, [
+    data?.personal?.stressLevel,
+    data?.personal?.sleepHours,
+    data?.personal?.age,
+    data?.personal?.height,
+    data?.personal?.weight,
+  ]);
+
+  const [local, setLocal] = useState<PersonalData>(initialLocal);
+
+  const handleChangeNumber = (field: "age" | "height" | "weight", value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      setLocal((prev) => ({ ...prev, [field]: null }));
+      return;
+    }
+
+    const num = Number(trimmed);
+    setLocal((prev) => ({ ...prev, [field]: Number.isFinite(num) ? num : null }));
   };
 
   const handleNext = () => {
@@ -23,7 +50,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
 
   return (
     <StepWrapper
-      title="Willkommen bei ARVIO 👋"
+      title="Willkommen bei TrainQ"
       subtitle="Lass uns mit ein paar persönlichen Infos starten, damit wir dein Training perfekt auf dich anpassen können."
       onNext={handleNext}
       showBack={false}
@@ -46,15 +73,11 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
             }
             className="w-full"
           />
-          <div className="text-xs text-gray-400 mt-1">
-            Stress-Level: {local.stressLevel}/10
-          </div>
+          <div className="text-xs text-gray-400 mt-1">Stress-Level: {local.stressLevel}/10</div>
         </div>
 
         <div>
-          <label className="text-sm text-gray-300">
-            Wie viele Stunden schläfst du durchschnittlich pro Nacht?
-          </label>
+          <label className="text-sm text-gray-300">Wie viele Stunden schläfst du durchschnittlich pro Nacht?</label>
           <input
             type="range"
             min={0}
@@ -68,9 +91,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
             }
             className="w-full"
           />
-          <div className="text-xs text-gray-400 mt-1">
-            Schlaf: {local.sleepHours} Stunden
-          </div>
+          <div className="text-xs text-gray-400 mt-1">Schlaf: {local.sleepHours} Stunden</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
@@ -84,6 +105,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
               onChange={(e) => handleChangeNumber("age", e.target.value)}
             />
           </div>
+
           <div>
             <label className="text-xs text-gray-400">Größe (cm)</label>
             <input
@@ -94,6 +116,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
               onChange={(e) => handleChangeNumber("height", e.target.value)}
             />
           </div>
+
           <div>
             <label className="text-xs text-gray-400">Gewicht (kg)</label>
             <input

@@ -6,6 +6,11 @@
 // - Danach 3 Vorschläge (stabil/kompakt/fokus) inkl. Dauer + Gründe
 // - UI-only: kein Storage, keine Navigation
 // - Parent entscheidet, was bei "Auswählen" passiert
+//
+// Upgrade:
+// - Optionaler Free/Pro Hinweis (A immer free, B/C Rest-Credits) – rein UI.
+// - Reset von Step + Answers beim Öffnen.
+// - Profil-Badge (A/B/C) in den Vorschlägen.
 
 import React, { useMemo, useState, useEffect } from "react";
 import type { SplitType, WorkoutType } from "../../types";
@@ -15,6 +20,13 @@ import { buildAdaptiveSuggestions } from "../../utils/adaptiveScoring";
 // ------------------------------
 // Helpers
 // ------------------------------
+
+const DEFAULT_ANSWERS: AdaptiveAnswers = {
+  timeToday: "20to40",
+  dayForm: "mid",
+  stress: "mid",
+  yesterdayEffort: "mid",
+};
 
 function allowedWorkoutTypes(splitType: SplitType): WorkoutType[] {
   return splitType === "push_pull" ? ["Push", "Pull"] : ["Upper", "Lower"];
@@ -47,10 +59,22 @@ function reasonLabel(r: AdaptiveReason): string {
   }
 }
 
-function profileAccent(profile: AdaptiveSuggestion["profile"]): { border: string; bg: string } {
-  if (profile === "kompakt") return { border: "rgba(56,189,248,0.32)", bg: "rgba(56,189,248,0.10)" };
-  if (profile === "stabil") return { border: "rgba(34,197,94,0.28)", bg: "rgba(34,197,94,0.08)" };
-  return { border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)" };
+function profileAccent(profile: AdaptiveSuggestion["profile"]): { border: string; bg: string; badgeBg: string; badgeText: string } {
+  if (profile === "kompakt") return { border: "rgba(56,189,248,0.32)", bg: "rgba(56,189,248,0.10)", badgeBg: "rgba(56,189,248,0.18)", badgeText: "rgba(186,230,253,0.95)" };
+  if (profile === "stabil") return { border: "rgba(34,197,94,0.28)", bg: "rgba(34,197,94,0.08)", badgeBg: "rgba(34,197,94,0.16)", badgeText: "rgba(167,243,208,0.95)" };
+  return { border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)", badgeBg: "rgba(245,158,11,0.16)", badgeText: "rgba(253,230,138,0.95)" };
+}
+
+function profileABC(profile: AdaptiveSuggestion["profile"]): "A" | "B" | "C" {
+  if (profile === "stabil") return "A";
+  if (profile === "kompakt") return "B";
+  return "C";
+}
+
+function profileLabel(profile: AdaptiveSuggestion["profile"]): string {
+  if (profile === "stabil") return "A · Stabil";
+  if (profile === "kompakt") return "B · Kompakt";
+  return "C · Fokus";
 }
 
 // ------------------------------
@@ -65,6 +89,16 @@ export interface AdaptiveTrainingModalProps {
   splitType: SplitType;
 
   onSelect: (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => void;
+
+  /**
+   * Optional (UI-only):
+   * - isPro: zeigt "Pro: unbegrenzt"
+   * - adaptiveLeftBC: zeigt Rest-Credits für B/C (A immer free)
+   * - bcFreeLimit: für Text "B/C X×/Monat"
+   */
+  isPro?: boolean;
+  adaptiveLeftBC?: number;
+  bcFreeLimit?: number;
 }
 
 // ------------------------------
@@ -72,16 +106,10 @@ export interface AdaptiveTrainingModalProps {
 // ------------------------------
 
 export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps) {
-  const { open, onClose, plannedWorkoutType, splitType, onSelect } = props;
+  const { open, onClose, plannedWorkoutType, splitType, onSelect, isPro, adaptiveLeftBC, bcFreeLimit = 5 } = props;
 
   const [step, setStep] = useState<"questions" | "suggestions">("questions");
-
-  const [answers, setAnswers] = useState<AdaptiveAnswers>({
-    timeToday: "20to40",
-    dayForm: "mid",
-    stress: "mid",
-    yesterdayEffort: "mid",
-  });
+  const [answers, setAnswers] = useState<AdaptiveAnswers>(DEFAULT_ANSWERS);
 
   const allowed = useMemo(() => allowedWorkoutTypes(splitType), [splitType]);
   const plannedOk = allowed.includes(plannedWorkoutType);
@@ -91,6 +119,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   useEffect(() => {
     if (!open) return;
     setStep("questions");
+    setAnswers(DEFAULT_ANSWERS);
   }, [open]);
 
   if (!open) return null;
@@ -159,6 +188,15 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
     whiteSpace: "nowrap",
   };
 
+  const badge: React.CSSProperties = {
+    padding: "5px 8px",
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.10)",
+    fontSize: 11,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
+
   const card: React.CSSProperties = {
     borderRadius: 16,
     border: "1px solid rgba(255,255,255,0.10)",
@@ -206,6 +244,12 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
     cursor: "pointer",
   });
 
+  const entitlementLine = (() => {
+    if (isPro) return "Pro: unbegrenzt (A/B/C).";
+    if (typeof adaptiveLeftBC === "number") return `Free: A immer frei · B/C noch ${Math.max(0, adaptiveLeftBC)} übrig (Limit ${bcFreeLimit}×/Monat).`;
+    return `Free: A immer frei · B/C sind limitiert (${bcFreeLimit}×/Monat).`;
+  })();
+
   // ------------------------------
   // Render
   // ------------------------------
@@ -218,6 +262,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
             <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>Adaptives Training</div>
             <h2 style={hTitle}>Heute: {plannedWorkoutType}</h2>
             <p style={hSub}>Dein Plan bleibt gleich. Wir passen nur Umfang und Intensität an.</p>
+            <p style={{ ...hSub, marginTop: 6 }}>{entitlementLine}</p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -328,8 +373,9 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
               </div>
 
               {suggestions.map((s) => {
-                const blocked = s.profile === "fokus" && s.estimatedMinutes === 0;
+                const blocked = s.estimatedMinutes <= 0;
                 const accent = profileAccent(s.profile);
+                const abc = profileABC(s.profile);
 
                 return (
                   <div
@@ -342,10 +388,24 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div>
-                        <div style={{ fontWeight: 950, fontSize: 14 }}>{s.title}</div>
-                        <div style={{ ...tiny, marginTop: 4 }}>{s.subtitle}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ ...badge, background: accent.badgeBg, color: accent.badgeText }}>
+                            {profileLabel(s.profile)}
+                          </span>
+
+                          {abc === "A" && (
+                            <span style={{ ...badge, background: "rgba(255,255,255,0.06)", color: "rgba(229,231,235,0.80)" }}>
+                              immer frei
+                            </span>
+                          )}
+
+                          <span style={{ fontWeight: 950, fontSize: 14 }}>{s.title}</span>
+                        </div>
+
+                        <div style={{ ...tiny, marginTop: 6 }}>{s.subtitle}</div>
                       </div>
+
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontWeight: 950, fontSize: 16 }}>{s.estimatedMinutes ? `${s.estimatedMinutes} min` : "—"}</div>
                         <div style={tiny}>geschätzt</div>

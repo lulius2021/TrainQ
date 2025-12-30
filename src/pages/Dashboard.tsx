@@ -1,8 +1,18 @@
 // src/pages/Dashboard.tsx
 
-import React, { useMemo, useState } from "react";
-import type { UpcomingTraining, CalendarEvent, NewCalendarEvent } from "../types/training";
+import React, { useEffect, useMemo, useState } from "react";
+import type {
+  UpcomingTraining,
+  CalendarEvent,
+  NewCalendarEvent,
+  TrainingType,
+  EventType,
+} from "../types/training";
 import { FeedbackBar } from "../components/feedback/FeedbackBar";
+
+// ✅ Onboarding (Weekly Goals ins Dashboard übernehmen)
+import { readOnboardingDataFromStorage } from "../context/OnboardingContext";
+import type { OnboardingData } from "../types/onboarding";
 
 // ✅ Adaptives Training
 import AdaptiveTrainingModal from "../components/adaptive/AdaptiveTrainingModal";
@@ -21,50 +31,38 @@ import {
   type LiveTrainingSeed,
 } from "../utils/liveTrainingSeed";
 
-// ✅ Plan Shift
-import {
-  shiftPlanEvents,
-  canUsePlanShiftFree,
-  incrementPlanShiftUsage,
-  getPlanShiftUsage,
-} from "../utils/planShift";
+// ✅ Plan Shift (nur die reine Verschiebe-Logik; Limits laufen über entitlements.ts)
+import { shiftPlanEvents } from "../utils/planShift";
+
+// ✅ Entitlements Hook (Single Source of Truth)
+import { useEntitlements } from "../hooks/useEntitlements";
+import { FREE_LIMITS } from "../utils/entitlements";
 
 interface DashboardProps {
   upcoming: UpcomingTraining[];
   events: CalendarEvent[];
   onCreateQuickTraining: (input: NewCalendarEvent) => void;
 
-  /**
-   * Optional (empfohlen): Damit Dashboard Events auch ändern kann (z.B. Adaptiv/Shift).
-   * Übergib in App.tsx: onUpdateEvents={setEvents}
-   */
   onUpdateEvents?: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
 
-  /**
-   * Monetarisierung Hooks (MVP):
-   * - isPro: true => keine Limits
-   * - onOpenPaywall: wird bei Limit erreicht aufgerufen
-   */
+  // ✅ bleibt optional als Legacy-Fallback (Demo), Source of Truth ist entitlements.ts
   isPro?: boolean;
   onOpenPaywall?: (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => void;
 }
 
-// Manuelle Einzel-Trainings aus dem Dashboard
-interface ManualTraining {
-  id: string;
-  date: string; // YYYY-MM-DD
-  sport: string;
-  title: string;
-  details: string;
-}
-
-const PLAN_SHIFT_FREE_LIMIT = 5;
-
-type TrainingType = "gym" | "laufen" | "radfahren" | "custom";
+// -------------------- Date helpers --------------------
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const d = startOfDay(date);
+  const day = d.getDay(); // 0 So – 6 Sa
+  const diff = (day + 6) % 7; // 0 = Mo
+  d.setDate(d.getDate() - diff);
   return d;
 }
 
@@ -75,17 +73,12 @@ function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function normalizeTitle(t: unknown): string {
   return String(t ?? "").trim();
 }
 
-/**
- * ✅ TrainingType normalisieren: akzeptiert "Gym" und "gym", etc.
- */
+// -------------------- Training guards --------------------
+
 function normalizeTrainingType(input: unknown): TrainingType | null {
   const raw = String(input ?? "").trim();
   if (!raw) return null;
@@ -103,30 +96,38 @@ function normalizeTrainingType(input: unknown): TrainingType | null {
   return null;
 }
 
+function getEventType(e: CalendarEvent): EventType {
+  return e.type ?? "training";
+}
+
 function isTrainingEvent(e: CalendarEvent): boolean {
-  const type = (e.type ?? "training") as any;
-  if (type === "training") return true;
-  return !!normalizeTrainingType((e as any).trainingType);
+  if (getEventType(e) === "training") return true;
+  return normalizeTrainingType(e.trainingType) !== null;
 }
 
 function isGymTraining(e: CalendarEvent): boolean {
-  return normalizeTrainingType((e as any).trainingType) === "gym";
+  return normalizeTrainingType(e.trainingType) === "gym";
 }
 
 function formatDayLabelFromISO(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString("de-DE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
 }
 
 function seedCounts(seed: LiveTrainingSeed | null): { exercises: number; sets: number } {
   if (!seed) return { exercises: 0, sets: 0 };
   const exCount = Array.isArray(seed.exercises) ? seed.exercises.length : 0;
-  const setCount =
-    Array.isArray(seed.exercises)
-      ? seed.exercises.reduce((acc, ex) => acc + (Array.isArray(ex.sets) ? ex.sets.length : 0), 0)
-      : 0;
+  const setCount = Array.isArray(seed.exercises)
+    ? seed.exercises.reduce((acc, ex) => acc + (Array.isArray(ex.sets) ? ex.sets.length : 0), 0)
+    : 0;
   return { exercises: exCount, sets: setCount };
 }
+
+// -------------------- Adaptive helpers --------------------
 
 function inferWorkoutTypeFromTitle(title: string): "Push" | "Pull" | "Upper" | "Lower" {
   const t = (title || "").toLowerCase();
@@ -157,12 +158,12 @@ function addMinutesToHHMM(hhmm: string, minutesToAdd: number): string {
 }
 
 function getTemplateId(ev: CalendarEvent): string | null {
-  const t = (ev as any).templateId;
+  const t = ev.templateId;
   return typeof t === "string" && t.trim() ? t : null;
 }
 
 function fallbackSeedForNonGymEvent(ev: CalendarEvent): LiveTrainingSeed {
-  const tt = normalizeTrainingType((ev as any).trainingType);
+  const tt = normalizeTrainingType(ev.trainingType);
   const sport: LiveTrainingSeed["sport"] =
     tt === "laufen" ? "Laufen" : tt === "radfahren" ? "Radfahren" : "Custom";
 
@@ -174,104 +175,293 @@ function fallbackSeedForNonGymEvent(ev: CalendarEvent): LiveTrainingSeed {
   };
 }
 
+function parseHHMMToMinutes(hhmm: string): number {
+  const [hRaw, mRaw] = (hhmm || "").split(":");
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
+  return Math.max(0, h * 60 + m);
+}
+
+function durationMinutesFromEvent(ev: CalendarEvent): number {
+  const start = parseHHMMToMinutes(ev.startTime);
+  const end = parseHHMMToMinutes(ev.endTime);
+  if (end <= start) return 0;
+  return end - start;
+}
+
+// -------------------- Kategorien (Termine) shared with CalendarPage --------------------
+
+type CategoryDef = { key: string; label: string };
+
+const STORAGE_KEY_CATEGORIES = "trainq_calendar_categories_v1";
+
+const BASE_CATEGORIES: CategoryDef[] = [
+  { key: "alltag", label: "Alltag" },
+  { key: "arbeit", label: "Arbeit" },
+  { key: "gesundheit", label: "Gesundheit" },
+  { key: "freizeit", label: "Freizeit" },
+  { key: "sonstiges", label: "Sonstiges" },
+];
+
+function safeParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function dedupCategories(list: CategoryDef[]): CategoryDef[] {
+  const seen = new Set<string>();
+  const out: CategoryDef[] = [];
+  for (const c of list) {
+    const key = String(c?.key ?? "").trim();
+    const label = String(c?.label ?? "").trim();
+    if (!key || !label) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, label });
+  }
+  return out;
+}
+
+function slugifyCategoryLabel(label: string): string {
+  const s = String(label ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `custom_${s || "kategorie"}`;
+}
+
+// -------------------- UI labels --------------------
+
+const TRAINING_TYPE_LABELS: Record<TrainingType, string> = {
+  gym: "Gym",
+  laufen: "Laufen",
+  radfahren: "Radfahren",
+  custom: "Custom",
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({
   upcoming,
   events,
   onCreateQuickTraining,
   onUpdateEvents,
-  isPro = false,
+  isPro: isProProp = false,
   onOpenPaywall,
 }) => {
   const today = startOfDay(new Date());
   const todayISO = dateKey(today);
 
-  // ---------- Kalender / Events State ----------
+  // -------------------- Entitlements (Hook) --------------------
+
+  const {
+    isPro,
+    canUseAdaptive,
+    consumeAdaptive,
+    adaptiveBCRemaining,
+
+    // ✅ FIX: richtige Namen aus Hook
+    canUseShift,
+    consumeShift,
+    planShiftRemaining,
+  } = useEntitlements();
+
+  const effectiveIsPro = isPro || isProProp;
+
+  // ✅ Free-Limit Anzeige: Nur B/C zählen (A unbegrenzt free)
+  const adaptiveLeft = useMemo(() => {
+    if (effectiveIsPro) return Infinity;
+    return Math.max(0, adaptiveBCRemaining);
+  }, [adaptiveBCRemaining, effectiveIsPro]);
+
+  // ✅ PlanShift remaining (Free)
+  const planShiftLeft = useMemo(() => {
+    if (effectiveIsPro) return Infinity;
+    return Math.max(0, planShiftRemaining);
+  }, [planShiftRemaining, effectiveIsPro]);
+
+  // ✅ Onboarding Daten (für Weekly Goals im Dashboard)
+  const [onboarding, setOnboarding] = useState<OnboardingData>(() => readOnboardingDataFromStorage());
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const refresh = () => setOnboarding(readOnboardingDataFromStorage());
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  const weeklyGoalMinutes = useMemo(() => {
+    const h = (onboarding as any)?.training?.hoursPerWeek;
+    const hours = typeof h === "number" && Number.isFinite(h) && h > 0 ? h : 5;
+    return Math.round(hours * 60);
+  }, [onboarding]);
+
+  const weeklyGoalSessions = useMemo(() => {
+    const s = (onboarding as any)?.training?.sessionsPerWeek;
+    return typeof s === "number" && Number.isFinite(s) && s > 0 ? Math.round(s) : 3;
+  }, [onboarding]);
+
+  // -------------------- Kategorien state (shared with CalendarPage) --------------------
+
+  const [customCategories, setCustomCategories] = useState<CategoryDef[]>(() => {
+    if (typeof window === "undefined") return [];
+    const parsed = safeParse<CategoryDef[]>(window.localStorage.getItem(STORAGE_KEY_CATEGORIES), []);
+    return dedupCategories(parsed);
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(customCategories));
+    } catch {
+      // ignore
+    }
+  }, [customCategories]);
+
+  const allCategories: CategoryDef[] = useMemo(
+    () => dedupCategories([...BASE_CATEGORIES, ...customCategories]),
+    [customCategories]
+  );
+
+  const categoryLabelByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of allCategories) map.set(c.key, c.label);
+    return map;
+  }, [allCategories]);
+
+  // -------------------- "+" Menü / Modals --------------------
+
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isQuickEventModalOpen, setIsQuickEventModalOpen] = useState(false);
+  const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
+
+  // ✅ Plan-Shift Warn/Confirm Step
+  const [shiftWarnOpen, setShiftWarnOpen] = useState(false);
+
+  // -------------------- Quick Termin (Dashboard -> Kalender) --------------------
+
   const [quickEvent, setQuickEvent] = useState({
     title: "",
     date: todayISO,
     startTime: "18:00",
     endTime: "19:00",
+    category: "alltag",
+    description: "",
+    notes: "Erstellt vom Dashboard (+)",
   });
 
-  const todayEvents = useMemo(() => events.filter((e) => e.date === todayISO), [events, todayISO]);
+  const [categoryCreateMode, setCategoryCreateMode] = useState<"select" | "create">("select");
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
 
-  // ---------- Manuelle Trainings (Dashboard) ----------
-  const [manualTrainings, setManualTrainings] = useState<ManualTraining[]>([]);
-  const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
-  const [newTraining, setNewTraining] = useState<ManualTraining>({
-    id: "",
-    date: todayISO,
-    sport: "Gym",
-    title: "",
-    details: "",
-  });
+  const createCategoryIfNeeded = (): string => {
+    if (categoryCreateMode === "select") return quickEvent.category;
 
-  const next3DaysKeys = useMemo(() => {
-    const keys: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      keys.push(dateKey(d));
+    const label = normalizeTitle(newCategoryLabel);
+    if (!label) return quickEvent.category;
+
+    const baseKey = slugifyCategoryLabel(label);
+    let key = baseKey;
+    let n = 2;
+    while (categoryLabelByKey.has(key)) {
+      key = `${baseKey}-${n}`;
+      n++;
     }
-    return keys;
-  }, [today]);
 
-  const manualTrainingsNext3Days = manualTrainings
-    .filter((t) => next3DaysKeys.includes(t.date))
-    .slice()
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    setCustomCategories((prev) => dedupCategories([...prev, { key, label }]));
+    setCategoryCreateMode("select");
+    setNewCategoryLabel("");
+    setQuickEvent((p) => ({ ...p, category: key }));
 
-  // ---------- Stats Training (MVP placeholders) ----------
-  const plannedTrainingsThisWeek = upcoming.length;
-  const completedTrainingsThisWeek = 0;
-  const totalTrainingMinutesThisWeek = 0;
+    return key;
+  };
 
-  // ---------- Quick Event (Termin) ----------
   const handleQuickEventSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!normalizeTitle(quickEvent.title)) return;
 
-    onCreateQuickTraining({
+    const categoryKey = createCategoryIfNeeded();
+
+    const payload: NewCalendarEvent = {
       title: normalizeTitle(quickEvent.title),
-      description: "",
+      description: normalizeTitle(quickEvent.description),
       date: quickEvent.date,
       startTime: quickEvent.startTime,
       endTime: quickEvent.endTime,
       type: "other",
-      notes: "Erstellt vom Dashboard",
-    });
+      notes: normalizeTitle(quickEvent.notes),
+      category: categoryKey,
+    };
 
-    setQuickEvent((prev) => ({ ...prev, title: "" }));
+    onCreateQuickTraining(payload);
+
+    setQuickEvent((prev) => ({ ...prev, title: "", description: "" }));
+    setIsQuickEventModalOpen(false);
   };
 
-  // ---------- Manuelle Trainings Funktionen ----------
+  // -------------------- Quick Training (Dashboard -> Kalender) --------------------
+
+  const [newTraining, setNewTraining] = useState({
+    date: todayISO,
+    startTime: "18:00",
+    endTime: "19:00",
+    trainingType: "gym" as TrainingType,
+    title: "",
+    description: "",
+    notes: "Erstellt vom Dashboard (+)",
+  });
+
   const handleCreateTraining = (e: React.FormEvent) => {
     e.preventDefault();
     if (!normalizeTitle(newTraining.title)) return;
 
-    const training: ManualTraining = {
-      ...newTraining,
-      id: generateId(),
-      date: newTraining.date || todayISO,
+    const payload: NewCalendarEvent = {
       title: normalizeTitle(newTraining.title),
-      details: normalizeTitle(newTraining.details),
+      description: normalizeTitle(newTraining.description),
+      date: newTraining.date || todayISO,
+      startTime: newTraining.startTime,
+      endTime: newTraining.endTime,
+      type: "training",
+      notes: normalizeTitle(newTraining.notes),
+      trainingType: newTraining.trainingType,
+      trainingStatus: "open",
     };
 
-    setManualTrainings((prev) => [...prev, training]);
+    onCreateQuickTraining(payload);
 
-    setNewTraining({
-      id: "",
-      date: todayISO,
-      sport: "Gym",
-      title: "",
-      details: "",
-    });
+    setNewTraining((p) => ({ ...p, title: "", description: "" }));
     setIsTrainingModalOpen(false);
   };
 
-  // ======================================================
-  // ✅ Plan-Training starten (Seed -> Preview -> LiveTraining)
-  // ======================================================
+  // -------------------- Week progress (planned) --------------------
+
+  const weekStartISO = useMemo(() => dateKey(startOfWeekMonday(new Date())), []);
+  const weekEndISO = useMemo(() => {
+    const d = startOfWeekMonday(new Date());
+    d.setDate(d.getDate() + 7);
+    return dateKey(d);
+  }, []);
+
+  const plannedThisWeek = useMemo(() => {
+    const list = events.filter((e) => isTrainingEvent(e) && e.date >= weekStartISO && e.date < weekEndISO);
+    const sessions = list.length;
+    const minutes = list.reduce((acc, ev) => acc + durationMinutesFromEvent(ev), 0);
+    return { sessions, minutes };
+  }, [events, weekStartISO, weekEndISO]);
+
+  // -------------------- Plan-Training starten (Preview -> Live) --------------------
 
   const resolveSeedForEvent = (event: CalendarEvent): LiveTrainingSeed | null => {
     const byEvent = readLiveSeedForEvent(event.id);
@@ -284,11 +474,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return null;
   };
 
+  const next3DaysKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      keys.push(dateKey(d));
+    }
+    return keys;
+  }, [today]);
+
   const plannedEventsNext3Days = useMemo(() => {
     const list = events
       .filter((e) => isTrainingEvent(e) && next3DaysKeys.includes(e.date))
       .slice()
-      .sort((a, b) => (a.date + a.startTime + a.title).localeCompare(b.date + b.startTime + b.title));
+      .sort((a, b) =>
+        (a.date + a.startTime + normalizeTitle(a.title)).localeCompare(
+          b.date + b.startTime + normalizeTitle(b.title)
+        )
+      );
 
     const byDay = new Map<string, CalendarEvent>();
     for (const k of next3DaysKeys) {
@@ -298,15 +502,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return byDay;
   }, [events, next3DaysKeys]);
 
-  const todayTrainingEvents = useMemo(() => {
-    return todayEvents.filter((e) => isTrainingEvent(e));
-  }, [todayEvents]);
+  const todayEvents = useMemo(() => events.filter((e) => e.date === todayISO), [events, todayISO]);
+  const todayTrainingEvents = useMemo(() => todayEvents.filter((e) => isTrainingEvent(e)), [todayEvents]);
 
   const nextTrainingEvent = useMemo(() => {
     const sorted = events
       .filter((e) => isTrainingEvent(e))
       .slice()
-      .sort((a, b) => (a.date + a.startTime + a.title).localeCompare(b.date + b.startTime + b.title));
+      .sort((a, b) =>
+        (a.date + a.startTime + normalizeTitle(a.title)).localeCompare(
+          b.date + b.startTime + normalizeTitle(b.title)
+        )
+      );
 
     const todayFirst = sorted.find((e) => e.date === todayISO);
     if (todayFirst) return todayFirst;
@@ -328,13 +535,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const seed = previewSeed;
 
-    // ✅ Gym braucht Seed
     if (isGymTraining(previewEvent) && !seed) {
       window.alert("Kein Trainings-Seed gefunden. Bitte Plan erneut in den Kalender übernehmen.");
       return;
     }
 
-    // ✅ Non-Gym darf ohne Seed (Fallback)
     const toWrite = seed ?? fallbackSeedForNonGymEvent(previewEvent);
 
     writeGlobalLiveSeed(toWrite);
@@ -353,17 +558,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     openPreviewForEvent(preferred);
   };
 
-  const startFreeTraining = () => {
-    const empty: LiveTrainingSeed = {
-      title: "Freies Training",
-      sport: "Gym",
-      isCardio: false,
-      exercises: [],
-    };
-    writeGlobalLiveSeed(empty);
-    navigateToLiveTraining(undefined);
-  };
-
   const singleTodayTrainingPreview = useMemo(() => {
     if (todayEvents.length !== 1) return null;
     const only = todayEvents[0];
@@ -372,9 +566,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return { event: only, seed };
   }, [todayEvents]);
 
-  // ======================================================
-  // ✅ Adaptives Training (Dashboard Flow)
-  // ======================================================
+  // -------------------- Adaptives Training --------------------
 
   const [adaptiveOpen, setAdaptiveOpen] = useState(false);
   const [adaptiveTargetEvent, setAdaptiveTargetEvent] = useState<CalendarEvent | null>(null);
@@ -400,8 +592,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return;
     }
 
-    if (!isPro) {
-      onOpenPaywall?.("adaptive_limit");
+    // ✅ Rule: A immer free. B/C limitiert; Hook entscheidet das.
+    if (!effectiveIsPro) {
+      const allowed = canUseAdaptive(suggestion.profile);
+      if (!allowed) {
+        onOpenPaywall?.("adaptive_limit");
+        return;
+      }
+      consumeAdaptive(suggestion.profile);
     }
 
     if (suggestion.estimatedMinutes <= 0) {
@@ -423,15 +621,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
           estimatedMinutes: suggestion.estimatedMinutes,
           note: `Adaptiv: ${suggestion.title}`,
           endTime: newEnd,
-        });
+        }) as CalendarEvent;
 
         return {
           ...patched,
-          adaptiveSuggestion: suggestion as any,
+          adaptiveSuggestion: suggestion,
           adaptiveAnswers: answers,
           adaptiveAppliedAt: new Date().toISOString(),
           adaptiveEstimatedMinutes: suggestion.estimatedMinutes,
-        } as any;
+        };
       })
     );
 
@@ -439,17 +637,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setAdaptiveTargetEvent(null);
   };
 
-  // ======================================================
-  // ✅ PLAN SHIFT (um 1 Tag nach hinten)
-  // ======================================================
+  // -------------------- PLAN SHIFT --------------------
 
   const [shiftOpen, setShiftOpen] = useState(false);
   const [shiftCandidates, setShiftCandidates] = useState<Array<{ id: string; label: string }>>([]);
   const [shiftSelectedPlanId, setShiftSelectedPlanId] = useState<string>("__ALL__");
 
-  const futureTrainingEvents = useMemo(() => {
-    return events.filter((e) => isTrainingEvent(e) && e.date >= todayISO);
-  }, [events, todayISO]);
+  const futureTrainingEvents = useMemo(
+    () => events.filter((e) => isTrainingEvent(e) && e.date >= todayISO),
+    [events, todayISO]
+  );
 
   const detectPlans = () => {
     const set = new Set<string>();
@@ -457,11 +654,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const pid = getTemplateId(ev);
       if (pid) set.add(pid);
     }
-    const list = Array.from(set).map((id) => ({ id, label: `Plan ${id.slice(0, 6)}…` }));
-    return list;
+    return Array.from(set).map((id) => ({ id, label: `Plan ${id.slice(0, 6)}…` }));
   };
 
-  const openShiftDialog = () => {
+  const openShiftWarn = () => setShiftWarnOpen(true);
+
+  const proceedToShiftDialog = () => {
+    setShiftWarnOpen(false);
+
     const plans = detectPlans();
     setShiftCandidates(plans);
     setShiftSelectedPlanId(plans.length >= 2 ? plans[0].id : "__ALL__");
@@ -477,11 +677,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return;
     }
 
-    if (!isPro) {
-      const allowed = canUsePlanShiftFree(PLAN_SHIFT_FREE_LIMIT);
+    if (!effectiveIsPro) {
+      const allowed = canUseShift();
       if (!allowed) {
         onOpenPaywall?.("plan_shift");
-        window.alert(`Free-Limit erreicht: ${PLAN_SHIFT_FREE_LIMIT}× Plan verschieben pro Monat. (Pro entsperrt es)`);
         return;
       }
     }
@@ -498,14 +697,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return res.nextEvents;
     });
 
-    if (!isPro) incrementPlanShiftUsage();
-
+    if (!effectiveIsPro) consumeShift();
     setShiftOpen(false);
   };
 
-  const shiftUsage = useMemo(() => getPlanShiftUsage(), [shiftOpen]);
+  // -------------------- Next Training card --------------------
 
-  // ---------- Next Training preview card ----------
   const nextTrainingCard = useMemo(() => {
     const ev = nextTrainingEvent;
     if (!ev) return null;
@@ -517,127 +714,207 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [nextTrainingEvent, todayISO]);
 
-  // ---------- Render ----------
+  // -------------------- Render --------------------
+
   return (
     <>
       <div className="h-full w-full overflow-y-auto">
-        <div className="mx-auto flex h-full max-w-5xl flex-col gap-5 px-4 pb-24 pt-5">
-          {/* Header */}
-          <div className="flex items-end justify-between">
-            <h1 className="text-xl font-semibold">Dashboard</h1>
-            <div className="text-xs text-white/50">
-              Heute: <span className="font-mono">{todayISO}</span>
-            </div>
-          </div>
-
-          {/* Top-Stats */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30">
-              <p className="text-xs text-white/60 mb-1">Trainings diese Woche</p>
-              <p className="text-2xl font-semibold">
-                {completedTrainingsThisWeek} / {plannedTrainingsThisWeek}
-              </p>
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-brand-primary"
-                  style={{
-                    width:
-                      plannedTrainingsThisWeek === 0 ? "0%" : `${(completedTrainingsThisWeek / plannedTrainingsThisWeek) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30">
-              <p className="text-xs text-white/60 mb-1">Zeit im Training</p>
-              <p className="text-2xl font-semibold">
-                {Math.floor(totalTrainingMinutesThisWeek / 60)}h {totalTrainingMinutesThisWeek % 60}m
-              </p>
-              <p className="mt-2 text-[11px] text-white/50">MVP Placeholder (kommt aus History/Stats)</p>
-            </div>
-
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30">
-              <p className="text-xs text-white/60 mb-1">Nächstes Training</p>
-              {nextTrainingCard ? (
-                <div className="space-y-1">
-                  <p className="text-base font-semibold text-white">{nextTrainingCard.title}</p>
-                  <p className="text-[11px] text-white/60">
-                    {nextTrainingCard.dateLabel}
-                    {nextTrainingCard.isToday ? " (heute)" : ""} · {nextTrainingCard.time}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-white/60">Kein Training geplant</p>
-              )}
-            </div>
-          </div>
-
-          {/* Plan Shift Card */}
-          <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="text-sm font-medium">Plan verschieben</div>
-                <div className="text-[11px] text-white/60">
-                  Verschiebt alle geplanten Trainings ab heute um <span className="font-semibold text-white/80">1 Tag</span>.
-                  So bleibt dein Split sauber, wenn du heute keine Zeit hast.
-                </div>
-
-                {!isPro && (
-                  <div className="text-[11px] text-white/50">
-                    Free: {shiftUsage.used}/{PLAN_SHIFT_FREE_LIMIT} Verschiebungen in {shiftUsage.monthKey} genutzt. Pro: unbegrenzt.
-                  </div>
-                )}
-              </div>
+        <div className="mx-auto flex h-full w-full max-w-none flex-col gap-5 px-1 pb-24 pt-5 sm:px-2">
+          {/* PRIMARY ACTION BAR */}
+          <div className="tq-surface relative p-3">
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={openAdaptiveForToday}
+                className="h-12 rounded-2xl border text-sm font-semibold transition"
+                style={{
+                  background: "rgba(37, 99, 235, 0.18)",
+                  borderColor: "rgba(59, 130, 246, 0.35)",
+                  color: "var(--text)",
+                }}
+                title={!effectiveIsPro ? `Free: B/C noch ${adaptiveLeft} übrig (A immer frei)` : "Pro: unbegrenzt"}
+              >
+                Adaptiv
+              </button>
 
               <button
                 type="button"
-                onClick={openShiftDialog}
-                className="shrink-0 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 px-4 py-2 text-[12px] font-semibold text-white"
+                onClick={startPlanTodayOrNextPreview}
+                className="h-12 rounded-2xl border text-sm font-semibold transition"
+                style={{
+                  background: "rgba(37, 99, 235, 0.85)",
+                  borderColor: "rgba(59, 130, 246, 0.35)",
+                  color: "#061226",
+                }}
               >
-                +1 Tag
+                Start
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPlusMenuOpen((v) => !v)}
+                className="h-12 rounded-2xl border text-xl font-semibold leading-none transition"
+                style={{
+                  background: "rgba(37, 99, 235, 0.18)",
+                  borderColor: "rgba(59, 130, 246, 0.35)",
+                  color: "var(--text)",
+                }}
+                aria-label="Mehr"
+                title="Mehr"
+              >
+                +
               </button>
             </div>
+
+            {/* Weekly Goals */}
+            <div
+              className="mt-3 flex items-center justify-between rounded-xl px-3 py-2"
+              style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
+            >
+              <div className="min-w-0">
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Wochenziel (aus Onboarding)
+                </div>
+                <div className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>
+                  {plannedThisWeek.sessions}/{weeklyGoalSessions} Trainings · {plannedThisWeek.minutes}/{weeklyGoalMinutes} min (geplant)
+                </div>
+              </div>
+
+              <span
+                className="rounded-full px-2 py-1 text-[10px]"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  color: "var(--muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                Ziel: {Math.round(weeklyGoalMinutes / 60)}h
+              </span>
+            </div>
+
+            {/* Plus Menu */}
+            {isPlusMenuOpen && (
+              <div
+                className="absolute right-3 top-[58px] z-40 w-56 overflow-hidden rounded-2xl border shadow-xl"
+                style={{ background: "rgba(10,10,14,0.92)", borderColor: "var(--border)" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    setQuickEvent((p) => ({ ...p, date: todayISO, category: "alltag", description: "" }));
+                    setCategoryCreateMode("select");
+                    setNewCategoryLabel("");
+                    setIsQuickEventModalOpen(true);
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm hover:opacity-95"
+                  style={{ color: "var(--text)" }}
+                >
+                  Termin anlegen
+                </button>
+
+                <div style={{ height: 1, background: "var(--border)" }} />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    setNewTraining((p) => ({
+                      ...p,
+                      date: todayISO,
+                      trainingType: "gym",
+                      startTime: "18:00",
+                      endTime: "19:00",
+                      description: "",
+                    }));
+                    setIsTrainingModalOpen(true);
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm hover:opacity-95"
+                  style={{ color: "var(--text)" }}
+                >
+                  Training anlegen
+                </button>
+
+                <div style={{ height: 1, background: "var(--border)" }} />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    openShiftWarn();
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm hover:opacity-95"
+                  style={{ color: "var(--text)" }}
+                >
+                  Plan verschieben (Tag +1)
+                </button>
+              </div>
+            )}
+
+            {nextTrainingCard && (
+              <div
+                className="mt-3 flex items-center justify-between rounded-xl px-3 py-2"
+                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
+              >
+                <div className="min-w-0">
+                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                    Nächstes Training
+                  </div>
+                  <div className="truncate text-sm font-semibold">{nextTrainingCard.title}</div>
+                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                    {nextTrainingCard.dateLabel}
+                    {nextTrainingCard.isToday ? " (heute)" : ""} · {nextTrainingCard.time}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming */}
+            {upcoming?.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Upcoming (Top {Math.min(5, upcoming.length)})
+                </div>
+
+                <div className="space-y-1.5">
+                  {upcoming.slice(0, 5).map((u) => (
+                    <div
+                      key={u.id}
+                      className="flex items-center justify-between rounded-xl px-3 py-2"
+                      style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-semibold" style={{ color: "var(--text)" }}>
+                          {u.title}
+                        </div>
+                        <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                          {formatDayLabelFromISO(u.date)} · {u.time || "—"}
+                        </div>
+                      </div>
+
+                      <span
+                        className="ml-3 rounded-full px-2 py-1 text-[10px]"
+                        style={{
+                          background: "rgba(255,255,255,0.06)",
+                          color: "var(--muted)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        {String((u as any).sport || "").toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Trainingsvorschau + heutige Termine */}
+          {/* Trainingsvorschau + Heutige Termine */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Nächste Trainings */}
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30 space-y-3">
+            {/* Next 3 days */}
+            <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-medium">Trainingsplan – nächste 3 Tage</h2>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={openAdaptiveForToday}
-                    className="px-3 py-2 rounded-2xl bg-sky-500/20 hover:bg-sky-500/25 border border-sky-400/30 text-[12px] font-semibold text-sky-200"
-                    title="Adaptives Training (nur heute, Plan bleibt unverändert)"
-                  >
-                    Adaptiv
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={startPlanTodayOrNextPreview}
-                    className="px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-sm font-semibold text-black shadow-lg shadow-black/30"
-                    title="Öffnet die Vorschau (heutiges Training oder nächstes geplantes)"
-                  >
-                    Start
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewTraining((prev) => ({ ...prev, date: todayISO }));
-                      setIsTrainingModalOpen(true);
-                    }}
-                    className="px-3 py-2 rounded-2xl bg-brand-primary hover:bg-brand-primary/90 text-[12px] font-semibold"
-                  >
-                    Training +
-                  </button>
-                </div>
+                <h2 className="text-sm font-medium">Trainingsplan – nächste 3 Tage</h2>
               </div>
 
               <div className="space-y-2">
@@ -645,57 +922,67 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   const ev = plannedEventsNext3Days.get(k) ?? null;
                   const seed = ev ? resolveSeedForEvent(ev) : null;
                   const counts = seedCounts(seed);
-                  const tt = ev ? normalizeTrainingType((ev as any).trainingType) : null;
+                  const tt = ev ? normalizeTrainingType(ev.trainingType) : null;
 
                   return (
                     <button
                       key={k}
                       type="button"
-                      onClick={() => {
-                        if (ev) openPreviewForEvent(ev);
-                      }}
+                      onClick={() => ev && openPreviewForEvent(ev)}
                       disabled={!ev}
                       className={[
-                        "w-full rounded-xl bg-black/25 px-3 py-2 text-left transition",
-                        ev ? "hover:bg-black/35" : "opacity-70 cursor-not-allowed",
+                        "w-full rounded-xl px-3 py-2 text-left transition",
+                        ev ? "hover:opacity-95" : "cursor-not-allowed opacity-70",
                       ].join(" ")}
+                      style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-0.5">
-                          <div className="text-[11px] text-white/50">{formatDayLabelFromISO(k)}</div>
-                          <div className="text-sm font-medium">{ev ? normalizeTitle(ev.title) : "Kein Training geplant"}</div>
+                          <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                            {formatDayLabelFromISO(k)}
+                          </div>
+
+                          <div className="text-sm font-medium">
+                            {ev ? normalizeTitle(ev.title) : "Kein Training geplant"}
+                          </div>
 
                           {ev && (
-                            <div className="text-[11px] text-white/60">
-                              {counts.exercises > 0 || counts.sets > 0 ? `${counts.exercises} Übungen • ${counts.sets} Sätze` : "Noch keine Übungen"}
+                            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                              {counts.exercises > 0 || counts.sets > 0
+                                ? `${counts.exercises} Übungen • ${counts.sets} Sätze`
+                                : "Noch keine Übungen"}
                             </div>
                           )}
 
-                          {ev?.adaptiveProfile && typeof (ev as any).adaptiveEstimatedMinutes === "number" && (
-                            <div className="text-[11px] text-sky-200/80">
-                              Adaptiv {ev.adaptiveProfile} · {(ev as any).adaptiveEstimatedMinutes} min
+                          {ev && ev.adaptiveProfile && typeof ev.adaptiveEstimatedMinutes === "number" && (
+                            <div className="text-[11px]" style={{ color: "rgba(59,130,246,0.85)" }}>
+                              Adaptiv {ev.adaptiveProfile} · {ev.adaptiveEstimatedMinutes} min
                             </div>
                           )}
                         </div>
 
                         {ev && (
                           <div className="flex flex-col items-end gap-2">
-                            <span className="text-[10px] px-2 py-1 rounded-full bg-white/10 text-white/70">
+                            <span
+                              className="rounded-full px-2 py-1 text-[10px]"
+                              style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted)" }}
+                            >
                               {tt ? tt.toUpperCase() : "TRAINING"}
                             </span>
 
                             <span
-                              className={[
-                                "text-[10px] px-2 py-1 rounded-full",
-                                seed || !isGymTraining(ev) ? "bg-emerald-500/20 text-emerald-200" : "bg-white/10 text-white/60",
-                              ].join(" ")}
-                              title={
-                                seed
-                                  ? "Plan-Übungen vorhanden"
-                                  : isGymTraining(ev)
-                                  ? "Seed fehlt (Plan erneut in Kalender übernehmen)"
-                                  : "Kein Seed nötig (Cardio/Custom)"
-                              }
+                              className="rounded-full px-2 py-1 text-[10px]"
+                              style={{
+                                background:
+                                  seed || !isGymTraining(ev)
+                                    ? "rgba(16,185,129,0.16)"
+                                    : "rgba(255,255,255,0.06)",
+                                color:
+                                  seed || !isGymTraining(ev)
+                                    ? "rgba(167,243,208,0.95)"
+                                    : "var(--muted)",
+                                border: "1px solid var(--border)",
+                              }}
                             >
                               {seed || !isGymTraining(ev) ? "bereit" : "Seed fehlt"}
                             </span>
@@ -706,39 +993,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   );
                 })}
               </div>
-
-              <div className="pt-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={startFreeTraining}
-                  className="w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-[12px] text-white/80 hover:bg-white/5"
-                  title="Freies Training"
-                >
-                  Frei
-                </button>
-              </div>
-
-              {manualTrainingsNext3Days.length > 0 && (
-                <div className="pt-3 border-t border-white/10 space-y-1.5">
-                  <p className="text-[11px] text-white/60">Eigene Trainings (nächste 3 Tage)</p>
-                  {manualTrainingsNext3Days.map((t) => (
-                    <div key={t.id} className="flex items-start justify-between rounded-lg bg-black/30 px-3 py-2">
-                      <div className="space-y-0.5">
-                        <div className="text-[11px] text-white/50">{t.date}</div>
-                        <div className="text-sm font-medium">{t.title}</div>
-                        {t.details && <div className="text-[11px] text-white/60">{t.details}</div>}
-                      </div>
-                      <span className="ml-3 text-[10px] px-2 py-1 rounded-full bg-white/10 text-white/70">
-                        {t.sport}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* Heutige Termine */}
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30 space-y-3">
+            {/* Today events */}
+            <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-medium">Heutige Termine ({todayEvents.length})</h2>
               </div>
@@ -747,21 +1005,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => openPreviewForEvent(singleTodayTrainingPreview.event)}
-                  className="rounded-xl bg-black/25 px-3 py-3 text-left hover:bg-black/35 transition"
+                  className="rounded-xl px-3 py-3 text-left transition"
+                  style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="space-y-0.5">
-                      <div className="text-[11px] text-white/50">Training</div>
-                      <div className="text-base font-semibold text-white">{normalizeTitle(singleTodayTrainingPreview.event.title)}</div>
+                      <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                        Training
+                      </div>
+                      <div className="text-base font-semibold">
+                        {normalizeTitle(singleTodayTrainingPreview.event.title)}
+                      </div>
 
                       {singleTodayTrainingPreview.event.adaptiveProfile &&
-                        typeof (singleTodayTrainingPreview.event as any).adaptiveEstimatedMinutes === "number" && (
-                          <div className="text-[11px] text-sky-200/80">
-                            Adaptiv {singleTodayTrainingPreview.event.adaptiveProfile} · {(singleTodayTrainingPreview.event as any).adaptiveEstimatedMinutes} min
+                        typeof singleTodayTrainingPreview.event.adaptiveEstimatedMinutes === "number" && (
+                          <div className="text-[11px]" style={{ color: "rgba(59,130,246,0.85)" }}>
+                            Adaptiv {singleTodayTrainingPreview.event.adaptiveProfile} ·{" "}
+                            {singleTodayTrainingPreview.event.adaptiveEstimatedMinutes} min
                           </div>
                         )}
                     </div>
-                    <div className="text-[10px] text-white/60 whitespace-nowrap">
+
+                    <div className="whitespace-nowrap text-[10px]" style={{ color: "var(--muted)" }}>
                       {singleTodayTrainingPreview.event.startTime}–{singleTodayTrainingPreview.event.endTime}
                     </div>
                   </div>
@@ -769,200 +1034,147 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ) : todayEvents.length > 0 ? (
                 <div className="space-y-2 text-xs">
                   {todayEvents.map((event) => (
-                    <div key={event.id} className="rounded-lg bg-black/25 px-3 py-2 space-y-0.5">
+                    <div
+                      key={event.id}
+                      className="space-y-0.5 rounded-lg px-3 py-2"
+                      style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
+                    >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-white">{normalizeTitle(event.title)}</span>
-                        <span className="text-[10px] text-white/60">
+                        <span className="font-semibold">{normalizeTitle(event.title)}</span>
+                        <span className="text-[10px]" style={{ color: "var(--muted)" }}>
                           {event.startTime}–{event.endTime}
                         </span>
                       </div>
-                      {event.description && <div className="text-white/70">{event.description}</div>}
+                      {event.description && <div style={{ color: "var(--muted)" }}>{event.description}</div>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl bg-black/25 px-3 py-3 text-xs text-white/60">Keine Termine heute.</div>
+                <div
+                  className="rounded-xl px-3 py-3 text-xs"
+                  style={{
+                    background: "rgba(0,0,0,0.18)",
+                    border: "1px solid var(--border)",
+                    color: "var(--muted)",
+                  }}
+                >
+                  Keine Termine heute.
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Termin anlegen */}
-          <div className="rounded-2xl bg-brand-card border border-white/5 p-4 shadow-lg shadow-black/30 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium">Termin anlegen</h2>
-            </div>
-
-            <form onSubmit={handleQuickEventSubmit} className="grid gap-2 md:grid-cols-4 text-xs">
-              <div className="space-y-1">
-                <label className="block text-[11px] text-white/60">Titel</label>
-                <input
-                  type="text"
-                  value={quickEvent.title}
-                  onChange={(e) => setQuickEvent((prev) => ({ ...prev, title: e.target.value }))}
-                  className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-1"
-                  placeholder="z.B. Meeting"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] text-white/60">Datum</label>
-                <input
-                  type="date"
-                  value={quickEvent.date}
-                  onChange={(e) => setQuickEvent((prev) => ({ ...prev, date: e.target.value }))}
-                  className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-1"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] text-white/60">Start</label>
-                <input
-                  type="time"
-                  value={quickEvent.startTime}
-                  onChange={(e) => setQuickEvent((prev) => ({ ...prev, startTime: e.target.value }))}
-                  className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-1"
-                />
-              </div>
-
-              <div className="flex items-end">
-                <div className="flex w-full gap-2">
-                  <div className="flex-1 space-y-1">
-                    <label className="block text-[11px] text-white/60">Ende</label>
-                    <input
-                      type="time"
-                      value={quickEvent.endTime}
-                      onChange={(e) => setQuickEvent((prev) => ({ ...prev, endTime: e.target.value }))}
-                      className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-1"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="self-end px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-[11px] font-medium"
-                  >
-                    Speichern
-                  </button>
-                </div>
-              </div>
-            </form>
           </div>
 
           <FeedbackBar page="Dashboard" />
         </div>
       </div>
 
-      {/* ---------------- MANUAL TRAINING MODAL ---------------- */}
-      {isTrainingModalOpen && (
+      {/* CLICK OUTSIDE -> close plus menu */}
+      {isPlusMenuOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 cursor-default"
+          onClick={() => setIsPlusMenuOpen(false)}
+          aria-label="Close"
+          style={{ background: "transparent" }}
+        />
+      )}
+
+      {/* SHIFT WARNING MODAL */}
+      {shiftWarnOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-brand-card border border-white/10 p-4 space-y-3">
+          <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] text-white/60">Eigenes Training</div>
-                <div className="text-sm font-semibold text-white">Training hinzufügen</div>
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Hinweis
+                </div>
+                <div className="text-sm font-semibold">Plan verschieben</div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsTrainingModalOpen(false)}
-                className="text-xs text-white/60 hover:text-white"
+                onClick={() => setShiftWarnOpen(false)}
+                className="text-xs"
+                style={{ color: "var(--muted)" }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateTraining} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="block text-[11px] text-white/60">Datum</label>
-                  <input
-                    type="date"
-                    value={newTraining.date}
-                    onChange={(e) => setNewTraining((p) => ({ ...p, date: e.target.value }))}
-                    className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-2"
-                  />
-                </div>
+            <div
+              className="rounded-xl px-3 py-3 text-xs leading-relaxed"
+              style={{
+                background: "rgba(0,0,0,0.18)",
+                border: "1px solid var(--border)",
+                color: "var(--muted)",
+              }}
+            >
+              Du bist dabei, den{" "}
+              <span style={{ color: "var(--text)", fontWeight: 600 }}>gesamten Trainingsplan ab heute</span> um{" "}
+              <span style={{ color: "var(--text)", fontWeight: 600 }}>+1 Tag</span> nach hinten zu verschieben.
+              <br />
+              <br />
+              Das betrifft alle geplanten Trainings (und ggf. mehrere Wochen). Bist du sicher?
+            </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] text-white/60">Sport</label>
-                  <select
-                    value={newTraining.sport}
-                    onChange={(e) => setNewTraining((p) => ({ ...p, sport: e.target.value }))}
-                    className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-2 text-[12px]"
-                  >
-                    <option value="Gym">Gym</option>
-                    <option value="Laufen">Laufen</option>
-                    <option value="Radfahren">Radfahren</option>
-                    <option value="Custom">Custom</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] text-white/60">Titel</label>
-                <input
-                  type="text"
-                  value={newTraining.title}
-                  onChange={(e) => setNewTraining((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-2"
-                  placeholder="z.B. 30 min Lauf"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] text-white/60">Details (optional)</label>
-                <textarea
-                  value={newTraining.details}
-                  onChange={(e) => setNewTraining((p) => ({ ...p, details: e.target.value }))}
-                  className="w-full min-h-[80px] rounded-lg bg-black/30 border border-white/20 px-2 py-2"
-                  placeholder="z.B. Intervall / Pace / Notizen"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsTrainingModalOpen(false)}
-                  className="rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-[12px] text-white/80 hover:bg-white/5"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-[12px] font-semibold text-black"
-                >
-                  Speichern
-                </button>
-              </div>
-            </form>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShiftWarnOpen(false)}
+                className="rounded-xl border px-3 py-2 text-[12px]"
+                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={proceedToShiftDialog}
+                className="rounded-xl px-4 py-2 text-[12px] font-semibold"
+                style={{ background: "rgba(37,99,235,0.9)", color: "#061226" }}
+              >
+                Weiter
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ---------------- SHIFT MODAL ---------------- */}
+      {/* SHIFT MODAL */}
       {shiftOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-brand-card border border-white/10 p-4 space-y-3">
+          <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] text-white/60">Plan verschieben</div>
-                <div className="text-sm font-semibold text-white">Um 1 Tag nach hinten</div>
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Plan
+                </div>
+                <div className="text-sm font-semibold">Tag +1 (Plan verschieben)</div>
               </div>
               <button
                 type="button"
                 onClick={() => setShiftOpen(false)}
-                className="text-xs text-white/60 hover:text-white"
+                className="text-xs"
+                style={{ color: "var(--muted)" }}
               >
                 ✕
               </button>
             </div>
 
+            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+              Verschiebt alle geplanten Trainings ab heute um{" "}
+              <span style={{ color: "var(--text)", fontWeight: 600 }}>1 Tag</span>.
+            </div>
+
             {shiftCandidates.length >= 2 ? (
               <div className="space-y-2 text-xs">
-                <div className="text-[11px] text-white/60">
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
                   Mehrere Trainingspläne erkannt. Welchen Plan möchtest du verschieben?
                 </div>
+
                 <select
                   value={shiftSelectedPlanId}
                   onChange={(e) => setShiftSelectedPlanId(e.target.value)}
-                  className="w-full rounded-lg bg-black/30 border border-white/20 px-2 py-2 text-[12px]"
+                  className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                  style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
                 >
                   {shiftCandidates.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -973,14 +1185,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </select>
               </div>
             ) : (
-              <div className="text-[11px] text-white/60">
+              <div className="text-[11px]" style={{ color: "var(--muted)" }}>
                 Es wurde {shiftCandidates.length === 1 ? "ein Plan" : "kein templateId-Plan"} erkannt. Wir verschieben alle Trainings ab heute.
               </div>
             )}
 
-            {!isPro && (
-              <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-[11px] text-white/70">
-                Free: {shiftUsage.used}/{PLAN_SHIFT_FREE_LIMIT} in {shiftUsage.monthKey}. Pro: unbegrenzt.
+            {!effectiveIsPro && (
+              <div
+                className="rounded-xl px-3 py-2 text-[11px]"
+                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)", color: "var(--muted)" }}
+              >
+                Free: {Math.max(0, planShiftLeft)}/{FREE_LIMITS.planShiftPerMonth} übrig diesen Monat. Pro: unbegrenzt.
               </div>
             )}
 
@@ -988,14 +1203,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setShiftOpen(false)}
-                className="rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-[12px] text-white/80 hover:bg-white/5"
+                className="rounded-xl border px-3 py-2 text-[12px]"
+                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
               >
                 Abbrechen
               </button>
               <button
                 type="button"
                 onClick={doShift}
-                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-[12px] font-semibold text-black"
+                className="rounded-xl px-4 py-2 text-[12px] font-semibold"
+                style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
               >
                 Verschieben
               </button>
@@ -1004,7 +1221,306 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* ---------------- ADAPTIVE MODAL ---------------- */}
+      {/* QUICK EVENT MODAL */}
+      {isQuickEventModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="tq-surface w-full max-w-md space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Termin
+                </div>
+                <div className="text-sm font-semibold">Termin anlegen</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickEventModalOpen(false)}
+                className="text-xs"
+                style={{ color: "var(--muted)" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickEventSubmit} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                  Titel
+                </label>
+                <input
+                  type="text"
+                  value={quickEvent.title}
+                  onChange={(e) => setQuickEvent((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full rounded-lg border px-2 py-2"
+                  style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="z.B. Meeting"
+                  autoFocus
+                />
+              </div>
+
+              {/* Kategorie + neue Kategorie */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Kategorie
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (categoryCreateMode === "select") {
+                        setCategoryCreateMode("create");
+                        setNewCategoryLabel("");
+                      } else {
+                        setCategoryCreateMode("select");
+                        setNewCategoryLabel("");
+                      }
+                    }}
+                    className="text-[11px] underline-offset-2 hover:underline"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    {categoryCreateMode === "select" ? "Neue Kategorie" : "Aus Auswahl"}
+                  </button>
+                </div>
+
+                {categoryCreateMode === "select" ? (
+                  <select
+                    value={quickEvent.category}
+                    onChange={(e) => setQuickEvent((p) => ({ ...p, category: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  >
+                    {allCategories.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="space-y-1">
+                    <input
+                      value={newCategoryLabel}
+                      onChange={(e) => setNewCategoryLabel(e.target.value)}
+                      className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                      style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                      placeholder="z.B. Familie, Uni, Arzt..."
+                    />
+                    <div className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      Beim Speichern wird die Kategorie dauerhaft gespeichert.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Datum
+                  </label>
+                  <input
+                    type="date"
+                    value={quickEvent.date}
+                    onChange={(e) => setQuickEvent((prev) => ({ ...prev, date: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Start
+                  </label>
+                  <input
+                    type="time"
+                    value={quickEvent.startTime}
+                    onChange={(e) => setQuickEvent((prev) => ({ ...prev, startTime: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Ende
+                  </label>
+                  <input
+                    type="time"
+                    value={quickEvent.endTime}
+                    onChange={(e) => setQuickEvent((prev) => ({ ...prev, endTime: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                  Beschreibung (optional)
+                </label>
+                <textarea
+                  value={quickEvent.description}
+                  onChange={(e) => setQuickEvent((p) => ({ ...p, description: e.target.value }))}
+                  className="min-h-[70px] w-full rounded-lg border px-2 py-2"
+                  style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="Notizen / Details"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickEventModalOpen(false)}
+                  className="rounded-xl border px-3 py-2 text-[12px]"
+                  style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl px-4 py-2 text-[12px] font-semibold"
+                  style={{ background: "rgba(37,99,235,0.9)", color: "#061226" }}
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TRAINING MODAL */}
+      {isTrainingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="tq-surface w-full max-w-md space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Training
+                </div>
+                <div className="text-sm font-semibold">Training anlegen</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTrainingModalOpen(false)}
+                className="text-xs"
+                style={{ color: "var(--muted)" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTraining} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Datum
+                  </label>
+                  <input
+                    type="date"
+                    value={newTraining.date}
+                    onChange={(e) => setNewTraining((p) => ({ ...p, date: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Trainingstyp
+                  </label>
+                  <select
+                    value={newTraining.trainingType}
+                    onChange={(e) => setNewTraining((p) => ({ ...p, trainingType: e.target.value as TrainingType }))}
+                    className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  >
+                    {Object.keys(TRAINING_TYPE_LABELS).map((k) => (
+                      <option key={k} value={k}>
+                        {TRAINING_TYPE_LABELS[k as TrainingType]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Start
+                  </label>
+                  <input
+                    type="time"
+                    value={newTraining.startTime}
+                    onChange={(e) => setNewTraining((p) => ({ ...p, startTime: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                    Ende
+                  </label>
+                  <input
+                    type="time"
+                    value={newTraining.endTime}
+                    onChange={(e) => setNewTraining((p) => ({ ...p, endTime: e.target.value }))}
+                    className="w-full rounded-lg border px-2 py-2"
+                    style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                  Titel
+                </label>
+                <input
+                  type="text"
+                  value={newTraining.title}
+                  onChange={(e) => setNewTraining((p) => ({ ...p, title: e.target.value }))}
+                  className="w-full rounded-lg border px-2 py-2"
+                  style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="z.B. Push / 30 min Lauf / Intervalle"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                  Beschreibung (optional)
+                </label>
+                <textarea
+                  value={newTraining.description}
+                  onChange={(e) => setNewTraining((p) => ({ ...p, description: e.target.value }))}
+                  className="min-h-[80px] w-full rounded-lg border px-2 py-2"
+                  style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="z.B. Pace / Notizen"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsTrainingModalOpen(false)}
+                  className="rounded-xl border px-3 py-2 text-[12px]"
+                  style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl px-4 py-2 text-[12px] font-semibold"
+                  style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADAPTIVE MODAL */}
       <AdaptiveTrainingModal
         open={adaptiveOpen}
         onClose={() => {
@@ -1014,16 +1530,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         plannedWorkoutType={inferWorkoutTypeFromTitle(adaptiveTargetEvent?.title ?? "Push")}
         splitType="push_pull"
         onSelect={(s, a) => applyAdaptiveSelection(s, a)}
+        isPro={effectiveIsPro}
+        adaptiveLeftBC={Number.isFinite(adaptiveLeft as number) ? (adaptiveLeft as number) : undefined}
+        bcFreeLimit={FREE_LIMITS.adaptiveBCPerMonth}
       />
 
-      {/* ---------------- PREVIEW MODAL ---------------- */}
+      {/* PREVIEW MODAL */}
       {isPreviewOpen && previewEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-brand-card border border-white/10 p-4 space-y-3">
+          <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <div className="text-[11px] text-white/60">Vorschau</div>
-                <div className="text-sm font-semibold text-white">{normalizeTitle(previewEvent.title)}</div>
+                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Vorschau
+                </div>
+                <div className="text-sm font-semibold">{normalizeTitle(previewEvent.title)}</div>
               </div>
 
               <button
@@ -1032,7 +1553,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   setIsPreviewOpen(false);
                   setPreviewEvent(null);
                 }}
-                className="text-xs text-white/60 hover:text-white"
+                className="text-xs"
+                style={{ color: "var(--muted)" }}
               >
                 ✕
               </button>
@@ -1040,7 +1562,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {previewSeed ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-white/60">
+                <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--muted)" }}>
                   <span>Übungen</span>
                   <span>
                     {seedCounts(previewSeed).exercises} • {seedCounts(previewSeed).sets} Sätze
@@ -1048,42 +1570,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-3 text-xs text-white/70">
+              <div
+                className="rounded-xl px-3 py-3 text-xs"
+                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)", color: "var(--muted)" }}
+              >
                 {isGymTraining(previewEvent)
                   ? "Kein Trainings-Seed gefunden. (Plan ggf. erneut in den Kalender übernehmen)"
                   : "Kein Seed nötig (Cardio/Custom). Du kannst trotzdem starten."}
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
-                onClick={startFreeTraining}
-                className="rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-[12px] text-white/80 hover:bg-white/5"
+                onClick={() => {
+                  setIsPreviewOpen(false);
+                  setPreviewEvent(null);
+                }}
+                className="rounded-xl border px-3 py-2 text-[12px]"
+                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
               >
-                Frei
+                Abbrechen
               </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPreviewOpen(false);
-                    setPreviewEvent(null);
-                  }}
-                  className="rounded-xl bg-black/40 border border-white/15 px-3 py-2 text-[12px] text-white/80 hover:bg-white/5"
-                >
-                  Abbrechen
-                </button>
-
-                <button
-                  type="button"
-                  onClick={startFromPreview}
-                  className="rounded-xl px-4 py-2 text-[12px] font-semibold bg-emerald-500 hover:bg-emerald-400 text-black"
-                >
-                  Training starten
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={startFromPreview}
+                className="rounded-xl px-4 py-2 text-[12px] font-semibold"
+                style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
+              >
+                Training starten
+              </button>
             </div>
           </div>
         </div>

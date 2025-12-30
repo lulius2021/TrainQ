@@ -1,35 +1,39 @@
 // src/utils/trainingHistory.ts
 //
-// Zweck:
-// - Persistenz für Trainings-History (CompletedWorkouts + Übungs-History)
-// - API für LiveTraining: start/save/complete/skip + graue History-Werte je Übung
-//
-// Zusatz (NEU):
-// - Beim "Training beenden" wird 1 Strava-like Beitrag in src/utils/workoutHistory.ts geschrieben
-//   => Source of Truth für Profil + Diagramme
+// Zentrale Live-Workout Recovery + Completion-Flow
+// ✅ Source of Truth fürs Profil/Diagramme: src/utils/workoutHistory.ts
+// ✅ Genau 1 Write pro Training: completeLiveWorkout() -> addWorkoutEntry()
 
 import type {
   CalendarEvent,
-  CompletedWorkout,
   ExerciseHistoryEntry,
   LiveExercise,
+  LiveSet,
   LiveWorkout,
   SportType,
-  TrainingHistoryStore,
   TrainingStatus,
 } from "../types/training";
 
-import { addWorkoutEntry } from "./workoutHistory";
+import {
+  addWorkoutEntry,
+  loadWorkoutHistory,
+  type WorkoutHistoryEntry,
+  type WorkoutHistoryExercise,
+} from "./workoutHistory";
 
-const STORAGE_KEY_HISTORY = "trainq:history:v1";
-const STORAGE_KEY_ACTIVE = "trainq:liveWorkout:active:v1";
+// ------------------------ storage keys ------------------------
 
-const STORE_VERSION = 1;
+const LS_ACTIVE = "trainq_active_live_workout_v1";
+const LS_CORE_HISTORY = "trainq_training_history_store_v1"; // optional/back-compat store
+const CORE_VERSION = 1;
 
-// Debug (optional, aber hilfreich)
-const DEBUG_KEY_LAST_COMPLETE = "trainq:debug:lastComplete";
+// ------------------------ small helpers ------------------------
 
-function safeJsonParse<T>(raw: string | null): T | null {
+function hasWindow(): boolean {
+  return typeof window !== "undefined";
+}
+
+function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as T;
@@ -38,161 +42,232 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
-function safeJsonStringify(value: any): string | null {
+function safeStringify(v: unknown): string | null {
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(v);
   } catch {
     return null;
   }
 }
 
-function safeNowIso(): string {
+function uid(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function nowISO(): string {
   return new Date().toISOString();
 }
 
-function safeUUID(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return String(Date.now()) + ":" + Math.random().toString(16).slice(2);
+/**
+ * ✅ Restzeit ist OPTIONAL:
+ * - undefined/null/""/NaN => kein Timer
+ * - sonst clamp 10s..300s
+ */
+function normalizeRestSeconds(input: unknown): number | undefined {
+  if (input == null) return undefined;
+
+  const n =
+    typeof input === "number"
+      ? input
+      : typeof input === "string"
+      ? Number(input.trim())
+      : Number(String(input).trim());
+
+  if (!Number.isFinite(n)) return undefined;
+
+  const rounded = Math.round(n);
+  if (rounded <= 0) return undefined;
+
+  return Math.max(10, Math.min(300, rounded));
 }
 
-function getExerciseKey(ex: { exerciseId?: string; name: string }): string {
-  const id = ex.exerciseId?.trim();
-  if (id) return `id:${id}`;
-  return `name:${ex.name.trim().toLowerCase()}`;
+function normalizeSport(s?: SportType | string): SportType {
+  const t = String(s || "").trim().toLowerCase();
+
+  if (t === "gym") return "Gym";
+  if (t === "laufen" || t === "run" || t === "running") return "Laufen";
+  if (t === "radfahren" || t === "bike" || t === "cycling") return "Radfahren";
+  if (t === "custom") return "Custom";
+
+  // fallback (wenn unklar): Gym
+  return "Gym";
 }
 
-function clampRestSeconds(v: number): number {
-  if (!Number.isFinite(v)) return 90;
-  return Math.min(300, Math.max(30, Math.round(v)));
+function isCardioSport(sport: SportType | string | undefined): boolean {
+  const s = normalizeSport(sport);
+  return s === "Laufen" || s === "Radfahren";
 }
 
-function normalizeSport(sport: SportType): SportType {
-  return sport;
+function clampNonNegativeInt(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
 }
 
-function computeGymVolumeKg(workout: LiveWorkout): number {
+function computeDurationSeconds(startedAt: string, endedAt: string): number {
+  const a = new Date(startedAt).getTime();
+  const b = new Date(endedAt).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 1000));
+}
+
+function sanitizeSetsForHistory(sets: LiveSet[]): Array<{ reps?: number; weight?: number; notes?: string }> {
+  return (sets || []).map((s) => ({
+    reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : undefined,
+    weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : undefined,
+    notes: typeof (s as any).notes === "string" ? (s as any).notes : undefined,
+  }));
+}
+
+// Gym total volume: Sum(reps*weight) (kg*reps)
+function computeTotalVolumeKg(exercises: LiveExercise[]): number {
   let total = 0;
-  for (const ex of workout.exercises) {
-    for (const s of ex.sets) {
-      if (!s.completed) continue;
-      const reps = typeof s.reps === "number" ? s.reps : 0;
-      const weight = typeof s.weight === "number" ? s.weight : 0;
-      if (reps > 0 && weight > 0) total += reps * weight;
+  for (const ex of exercises || []) {
+    for (const s of ex.sets || []) {
+      const reps = typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : 0;
+      const w = typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : 0;
+      total += reps * w;
     }
   }
-  return total;
+  return Math.round(total);
 }
 
-function computeDistanceKm(workout: LiveWorkout): number | undefined {
-  let total = 0;
-  let hasAny = false;
+// Cardio convention: reps = minutes, weight = km
+function computeCardioFromSets(exercises: LiveExercise[]): { minutes: number; km: number } {
+  let minutes = 0;
+  let km = 0;
 
-  for (const ex of workout.exercises) {
-    for (const s of ex.sets) {
-      if (!s.completed) continue;
-      const km = typeof s.weight === "number" ? s.weight : undefined;
-      if (typeof km === "number" && km > 0) {
-        total += km;
-        hasAny = true;
-      }
+  for (const ex of exercises || []) {
+    for (const s of ex.sets || []) {
+      const reps = typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : 0;
+      const w = typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : 0;
+
+      minutes += Math.max(0, reps);
+      km += Math.max(0, w);
     }
   }
 
-  return hasAny ? total : undefined;
-}
-
-// ---------------------------------------------
-// Store Load/Save
-// ---------------------------------------------
-
-function createEmptyStore(): TrainingHistoryStore {
   return {
-    version: STORE_VERSION,
-    workouts: [],
-    exerciseHistory: {},
+    minutes: Math.max(0, Math.round(minutes)),
+    km: Math.round(km * 100) / 100,
   };
 }
 
-function loadHistoryStore(): TrainingHistoryStore {
-  if (typeof window === "undefined") return createEmptyStore();
+function computePaceSecPerKm(durationSec: number, distanceKm: number): number | undefined {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return undefined;
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) return undefined;
 
-  const parsed = safeJsonParse<TrainingHistoryStore>(window.localStorage.getItem(STORAGE_KEY_HISTORY));
+  const pace = durationSec / distanceKm; // sec/km
+  if (!Number.isFinite(pace)) return undefined;
 
-  if (
-    !parsed ||
-    parsed.version !== STORE_VERSION ||
-    !Array.isArray(parsed.workouts) ||
-    typeof parsed.exerciseHistory !== "object" ||
-    parsed.exerciseHistory === null
-  ) {
-    return createEmptyStore();
-  }
-
-  return parsed;
+  // Guardrail: 60..3600
+  const clamped = Math.max(60, Math.min(3600, Math.round(pace)));
+  return clamped;
 }
 
-function saveHistoryStore(store: TrainingHistoryStore): void {
-  if (typeof window === "undefined") return;
-  const raw = safeJsonStringify(store);
+// ------------------------ core store (optional/back-compat) ------------------------
+
+type TrainingHistoryStore = {
+  version: number;
+  workouts: any[]; // wir halten es bewusst weich (du nutzt primär workoutHistory.ts)
+  exerciseHistory: Record<string, ExerciseHistoryEntry>;
+};
+
+function loadCoreStore(): TrainingHistoryStore {
+  if (!hasWindow()) return { version: CORE_VERSION, workouts: [], exerciseHistory: {} };
+  const parsed = safeParse<TrainingHistoryStore>(window.localStorage.getItem(LS_CORE_HISTORY));
+  if (!parsed || typeof parsed !== "object") {
+    return { version: CORE_VERSION, workouts: [], exerciseHistory: {} };
+  }
+  return {
+    version: CORE_VERSION,
+    workouts: Array.isArray(parsed.workouts) ? parsed.workouts : [],
+    exerciseHistory: parsed.exerciseHistory && typeof parsed.exerciseHistory === "object" ? parsed.exerciseHistory : {},
+  };
+}
+
+function saveCoreStore(next: TrainingHistoryStore): void {
+  if (!hasWindow()) return;
+  const raw = safeStringify(next);
   if (!raw) return;
-
   try {
-    window.localStorage.setItem(STORAGE_KEY_HISTORY, raw);
+    window.localStorage.setItem(LS_CORE_HISTORY, raw);
   } catch {
-    // ignore storage errors
+    // ignore
   }
 }
 
-function loadActiveWorkout(): LiveWorkout | null {
-  if (typeof window === "undefined") return null;
+function updateExerciseHistoryFromWorkout(workout: LiveWorkout, endedAtISO: string): void {
+  const store = loadCoreStore();
+  const eh = { ...(store.exerciseHistory || {}) };
 
-  const parsed = safeJsonParse<LiveWorkout>(window.localStorage.getItem(STORAGE_KEY_ACTIVE));
+  for (const ex of workout.exercises || []) {
+    const key = ex.exerciseId || ex.name || ex.id;
+    if (!key) continue;
 
-  if (!parsed || typeof parsed !== "object") return null;
-  if (!parsed.id || !parsed.startedAt || !Array.isArray(parsed.exercises)) return null;
-
-  return parsed;
-}
-
-function saveActiveWorkout(workout: LiveWorkout | null): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    if (!workout) {
-      window.localStorage.removeItem(STORAGE_KEY_ACTIVE);
-      return;
-    }
-    const raw = safeJsonStringify(workout);
-    if (!raw) return;
-    window.localStorage.setItem(STORAGE_KEY_ACTIVE, raw);
-  } catch {
-    // ignore storage errors
+    eh[key] = {
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.name || "Übung",
+      lastPerformedAt: endedAtISO,
+      sets: sanitizeSetsForHistory(ex.sets),
+    };
   }
+
+  saveCoreStore({ ...store, exerciseHistory: eh });
 }
 
-// ---------------------------------------------
-// Public API
-// ---------------------------------------------
-
-export function getHistoryStore(): TrainingHistoryStore {
-  return loadHistoryStore();
-}
-
-export function getCompletedWorkouts(): CompletedWorkout[] {
-  return loadHistoryStore().workouts;
-}
+// ------------------------ public API used by pages ------------------------
 
 export function getActiveLiveWorkout(): LiveWorkout | null {
-  return loadActiveWorkout();
+  if (!hasWindow()) return null;
+  const parsed = safeParse<LiveWorkout>(window.localStorage.getItem(LS_ACTIVE));
+  if (!parsed || typeof parsed !== "object") return null;
+  if (parsed.isActive !== true) return null;
+
+  // ✅ Defensive normalize: Sport + Restzeiten aus alten Saves
+  const sport = normalizeSport((parsed as any).sport);
+
+  const exercises = Array.isArray((parsed as any).exercises) ? (parsed as any).exercises : [];
+  const normalizedExercises = exercises.map((ex: any) => ({
+    ...ex,
+    restSeconds: normalizeRestSeconds(ex?.restSeconds),
+  }));
+
+  return { ...parsed, sport, exercises: normalizedExercises } as LiveWorkout;
 }
 
 export function persistActiveLiveWorkout(workout: LiveWorkout): void {
-  saveActiveWorkout(workout);
+  if (!hasWindow()) return;
+  if (!workout || typeof workout !== "object") return;
+
+  if (!workout.isActive) return;
+
+  // ✅ Defensive: sport immer normalisiert persistieren
+  const toPersist: LiveWorkout = { ...workout, sport: normalizeSport(workout.sport) };
+
+  const raw = safeStringify(toPersist);
+  if (!raw) return;
+
+  try {
+    window.localStorage.setItem(LS_ACTIVE, raw);
+  } catch {
+    // ignore
+  }
 }
 
-export function startLiveWorkout(params: {
+export function clearActiveLiveWorkout(): void {
+  if (!hasWindow()) return;
+  try {
+    window.localStorage.removeItem(LS_ACTIVE);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Startet ein LiveWorkout (und persistiert als Active)
+ */
+export function startLiveWorkout(args: {
   title: string;
   sport: SportType;
   calendarEventId?: string;
@@ -200,227 +275,192 @@ export function startLiveWorkout(params: {
     exerciseId?: string;
     name: string;
     sets: Array<{ reps?: number; weight?: number; notes?: string }>;
-    restSeconds?: number;
+    restSeconds?: number; // ✅ optional: undefined => kein Timer
   }>;
 }): LiveWorkout {
+  const startedAt = nowISO();
+
+  const exercises: LiveExercise[] = (args.initialExercises || []).map((e) => ({
+    id: uid(),
+    exerciseId: e.exerciseId,
+    name: e.name || "Übung",
+    // ✅ OPTIONAL: undefined => kein Timer
+    restSeconds: normalizeRestSeconds(e.restSeconds),
+    sets: (e.sets || []).map((s) => ({
+      id: uid(),
+      reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : undefined,
+      weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : undefined,
+      notes: typeof (s as any).notes === "string" ? (s as any).notes : undefined,
+      completed: false,
+      completedAt: undefined,
+    })),
+  }));
+
   const workout: LiveWorkout = {
-    id: safeUUID(),
-    calendarEventId: params.calendarEventId,
-    title: params.title,
-    sport: normalizeSport(params.sport),
-    startedAt: safeNowIso(),
+    id: uid(),
+    calendarEventId: args.calendarEventId,
+    title: args.title || "Training",
+    sport: normalizeSport(args.sport),
+    startedAt,
+    endedAt: undefined,
+    durationSeconds: undefined,
     isActive: true,
     isMinimized: false,
-    exercises: (params.initialExercises ?? []).map((ex) => ({
-      id: safeUUID(),
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-      restSeconds: clampRestSeconds(ex.restSeconds ?? 90),
-      sets: ex.sets.map((s) => ({
-        id: safeUUID(),
-        reps: s.reps,
-        weight: s.weight,
-        notes: s.notes,
-        completed: false,
-      })),
-    })),
+    exercises,
+    notes: "",
+    abortedAt: undefined,
   };
 
-  saveActiveWorkout(workout);
+  persistActiveLiveWorkout(workout);
   return workout;
 }
 
 /**
- * Markiert ein Workout als abgeschlossen und schreibt es in die History.
- * Zusätzlich: schreibt 1 "Beitrag" in workoutHistory (Strava-like).
+ * Bricht ein Workout ab (ohne History-Eintrag in workoutHistory)
  */
-export function completeLiveWorkout(workout: LiveWorkout): CompletedWorkout {
-  const endedAt = safeNowIso();
-  const durationSeconds = Math.max(
-    1,
-    Math.round((new Date(endedAt).getTime() - new Date(workout.startedAt).getTime()) / 1000)
-  );
-
-  const completed: CompletedWorkout = {
+export function abortLiveWorkout(workout: LiveWorkout): LiveWorkout {
+  const endedAt = nowISO();
+  const next: LiveWorkout = {
     ...workout,
     isActive: false,
+    abortedAt: endedAt,
     endedAt,
-    durationSeconds,
-    sport: normalizeSport(workout.sport),
-    totalVolumeKg: workout.sport === "Gym" ? computeGymVolumeKg(workout) : undefined,
-    totalDistanceKm: workout.sport !== "Gym" ? computeDistanceKm(workout) : undefined,
+    durationSeconds: clampNonNegativeInt(
+      typeof workout.durationSeconds === "number" && Number.isFinite(workout.durationSeconds)
+        ? workout.durationSeconds
+        : computeDurationSeconds(workout.startedAt, endedAt)
+    ),
   };
 
-  // 1) Interne History
-  const store = loadHistoryStore();
-  store.workouts = [...store.workouts, completed];
-  store.exerciseHistory = {
-    ...store.exerciseHistory,
-    ...buildExerciseHistoryPatch(completed),
-  };
-  saveHistoryStore(store);
-
-  // 2) ✅ Strava-like Beitrag (Source of Truth)
-  //    Wichtig:
-  //    - nur COMPLETED Sets
-  //    - nur Exercises, die mindestens 1 Set enthalten
-  const mappedExercises = (completed.exercises ?? [])
-    .map((ex) => {
-      const sets = (ex.sets ?? [])
-        .filter((s) => s.completed)
-        .map((s) => ({
-          reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : 0,
-          weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : 0,
-        }))
-        // akzeptiere Sets, sobald reps>0 ODER weight>0 (damit nicht alles rausfällt)
-        .filter((s) => s.reps > 0 || s.weight > 0);
-
-      return {
-        name: ex.name || "Übung",
-        exerciseId: ex.exerciseId,
-        sets,
-      };
-    })
-    .filter((ex) => ex.sets.length > 0);
-
-  // Debug: zeigt dir, ob complete wirklich feuert und was gemappt wird
-  try {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        DEBUG_KEY_LAST_COMPLETE,
-        JSON.stringify({
-          at: endedAt,
-          workoutId: completed.id,
-          title: completed.title,
-          durationSeconds,
-          mappedExercisesCount: mappedExercises.length,
-        })
-      );
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    addWorkoutEntry({
-      id: completed.id, // Dedup: 1 Beitrag pro Workout
-      calendarEventId: completed.calendarEventId,
-      title: completed.title || "Training",
-      sport: completed.sport,
-      startedAt: completed.startedAt,
-      endedAt: completed.endedAt!,
-      durationSec: durationSeconds,
-      exercises: mappedExercises,
-    });
-  } catch {
-    // wenn workoutHistory aus irgendeinem Grund crasht, soll das Completion nicht killen
-  }
-
-  // aktive Session entfernen
-  saveActiveWorkout(null);
-
-  return completed;
+  clearActiveLiveWorkout();
+  return next;
 }
 
-export function abortLiveWorkout(workout: LiveWorkout): LiveWorkout {
-  const updated: LiveWorkout = {
-    ...workout,
-    isActive: false,
-    abortedAt: safeNowIso(),
-    endedAt: safeNowIso(),
-  };
-  saveActiveWorkout(null);
-  return updated;
+/**
+ * ✅ Beendet ein Workout und schreibt GENAU 1 Eintrag in workoutHistory.ts
+ */
+export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
+  const endedAt = nowISO();
+  const sport = normalizeSport(workout.sport);
+
+  const durationSeconds =
+    typeof workout.durationSeconds === "number" && Number.isFinite(workout.durationSeconds) && workout.durationSeconds > 0
+      ? clampNonNegativeInt(workout.durationSeconds)
+      : clampNonNegativeInt(computeDurationSeconds(workout.startedAt, endedAt));
+
+  const whExercises: WorkoutHistoryExercise[] = (workout.exercises || []).map((ex) => ({
+    name: ex.name || "Übung",
+    exerciseId: ex.exerciseId,
+    sets: (ex.sets || [])
+      .map((s) => ({
+        reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : 0,
+        weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : 0,
+      }))
+      .filter((s) => (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0),
+  }));
+
+  let distanceKm: number | undefined = undefined;
+  let paceSecPerKm: number | undefined = undefined;
+
+  if (isCardioSport(sport)) {
+    const derived = computeCardioFromSets(workout.exercises || []);
+    if (derived.km > 0) distanceKm = derived.km;
+    if (distanceKm && durationSeconds > 0) {
+      paceSecPerKm = computePaceSecPerKm(durationSeconds, distanceKm);
+    }
+  } else {
+    computeTotalVolumeKg(workout.exercises || []);
+  }
+
+  const entry = addWorkoutEntry({
+    calendarEventId: workout.calendarEventId,
+    title: workout.title || "Training",
+    sport,
+    startedAt: workout.startedAt,
+    endedAt,
+    durationSec: durationSeconds,
+    exercises: whExercises,
+    distanceKm,
+    paceSecPerKm,
+  });
+
+  updateExerciseHistoryFromWorkout(workout, endedAt);
+
+  clearActiveLiveWorkout();
+
+  return entry;
 }
 
 export function applyTrainingStatusToEvent(
-  ev: CalendarEvent,
+  e: CalendarEvent,
   status: TrainingStatus,
-  options?: { workoutId?: string }
+  opts?: { workoutId?: string }
 ): CalendarEvent {
-  const nowIso = safeNowIso();
+  const now = nowISO();
+
+  const base: CalendarEvent = {
+    ...e,
+    trainingStatus: status,
+  };
 
   if (status === "completed") {
     return {
-      ...ev,
-      type: "training",
-      trainingStatus: "completed",
-      completedAt: nowIso,
+      ...base,
+      completedAt: now,
       skippedAt: undefined,
-      workoutId: options?.workoutId ?? ev.workoutId,
+      workoutId: opts?.workoutId ?? base.workoutId,
     };
   }
 
   if (status === "skipped") {
     return {
-      ...ev,
-      type: "training",
-      trainingStatus: "skipped",
-      skippedAt: nowIso,
+      ...base,
+      skippedAt: now,
       completedAt: undefined,
       workoutId: undefined,
     };
   }
 
   return {
-    ...ev,
-    type: "training",
-    trainingStatus: "open",
+    ...base,
     skippedAt: undefined,
     completedAt: undefined,
     workoutId: undefined,
   };
 }
 
-export function getExerciseHistory(exerciseIdOrName: string): ExerciseHistoryEntry | null {
-  const store = loadHistoryStore();
+/**
+ * Graue Werte (History) für ExerciseEditor
+ */
+export function getLastSetsForExercise(ex: { exerciseId?: string; name: string }): ExerciseHistoryEntry | null {
+  const key = ex.exerciseId || ex.name;
+  if (!key) return null;
 
-  const key =
-    exerciseIdOrName.startsWith("id:") || exerciseIdOrName.startsWith("name:")
-      ? exerciseIdOrName
-      : `id:${exerciseIdOrName}`;
+  const store = loadCoreStore();
+  const hit = store.exerciseHistory?.[key];
+  if (hit) return hit;
 
-  return store.exerciseHistory[key] ?? null;
-}
+  const list = loadWorkoutHistory();
+  for (const w of list) {
+    for (const e2 of w.exercises || []) {
+      const match =
+        (ex.exerciseId && e2.exerciseId && e2.exerciseId === ex.exerciseId) ||
+        (!ex.exerciseId && e2.name && e2.name === ex.name);
 
-export function getLastSetsForExercise(ex: LiveExercise): ExerciseHistoryEntry | null {
-  const key = getExerciseKey(ex);
-  const store = loadHistoryStore();
-  return store.exerciseHistory[key] ?? null;
-}
+      if (!match) continue;
 
-export function clearTrainingHistory(): void {
-  saveHistoryStore(createEmptyStore());
-  saveActiveWorkout(null);
-}
-
-// ---------------------------------------------
-// Internal: Exercise History Builder
-// ---------------------------------------------
-
-function buildExerciseHistoryPatch(workout: CompletedWorkout): Record<string, ExerciseHistoryEntry> {
-  const patch: Record<string, ExerciseHistoryEntry> = {};
-
-  for (const ex of workout.exercises) {
-    const completedSets = ex.sets
-      .filter((s) => s.completed)
-      .map((s) => ({
-        reps: s.reps,
-        weight: s.weight,
-        notes: s.notes,
-      }));
-
-    if (completedSets.length === 0) continue;
-
-    const key = getExerciseKey(ex);
-
-    patch[key] = {
-      exerciseId: ex.exerciseId,
-      exerciseName: ex.name,
-      lastPerformedAt: workout.endedAt,
-      sets: completedSets,
-    };
+      return {
+        exerciseId: e2.exerciseId,
+        exerciseName: e2.name || ex.name,
+        lastPerformedAt: w.endedAt || w.startedAt,
+        sets: (e2.sets || []).map((s) => ({
+          reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : undefined,
+          weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : undefined,
+          notes: undefined,
+        })),
+      };
+    }
   }
 
-  return patch;
+  return null;
 }
