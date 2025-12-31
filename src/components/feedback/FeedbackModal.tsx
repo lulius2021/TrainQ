@@ -1,6 +1,5 @@
 // src/components/feedback/FeedbackModal.tsx
-
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FeedbackRating } from "../../types/feedback";
 import { sendFeedbackEmail } from "../../utils/sendFeedbackEmails";
 
@@ -19,6 +18,24 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const closeTimerRef = useRef<number | null>(null);
+
+  // ✅ ESC schließt
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  // ✅ Timer cleanup
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -31,9 +48,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
     }
 
     if (!feedbackMessage.trim() && !note.trim()) {
-      setErrorMessage(
-        "Bitte schreibe kurz dein Feedback oder eine Notiz zum Problem."
-      );
+      setErrorMessage("Bitte schreibe kurz dein Feedback oder eine Notiz zum Problem.");
       return;
     }
 
@@ -57,32 +72,27 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
       setEmail("");
       setRating(null);
 
-      // Modal nach kurzer Zeit schließen
-      setTimeout(() => {
+      closeTimerRef.current = window.setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 1200);
     } catch (err) {
       console.error(err);
-      setErrorMessage(
-        "Leider konnte dein Feedback nicht gesendet werden. Bitte versuche es später erneut."
-      );
+      setErrorMessage("Leider konnte dein Feedback nicht gesendet werden. Bitte versuche es später erneut.");
     } finally {
       setIsSending(false);
     }
   };
 
-  const renderStar = (value: FeedbackRating) => {
-    const isActive = rating !== null && value <= rating;
+  const StarButton = ({ value }: { value: FeedbackRating }) => {
+    const active = rating !== null && value <= rating;
     return (
       <button
-        key={value}
         type="button"
         onClick={() => setRating(value)}
-        className="text-2xl border-none bg-transparent cursor-pointer"
-        style={{
-          color: isActive ? "#00A3FF" : "#777",
-          padding: "0 4px",
-        }}
+        className={
+          "text-2xl leading-none px-1 select-none transition-colors " +
+          (active ? "text-blue-400" : "text-white/25 hover:text-white/45")
+        }
         aria-label={`${value} Sterne`}
       >
         ★
@@ -90,130 +100,118 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
     );
   };
 
+  // WICHTIG: Kein Overlay / kein fixed hier mehr – das macht FeedbackBar.
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{
-        backgroundColor: "rgba(0,0,0,0.5)",
-      }}
-    >
-      <div
-        className="rounded-2xl p-6 max-w-md w-full"
-        style={{
-          backgroundColor: "#111827",
-          border: "1px solid #1f2937",
-        }}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-white">
+    <div className="w-full rounded-2xl bg-brand-card border border-white/10 p-5 sm:p-6 text-white">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <div className="text-[11px] text-white/55">Feedback</div>
+          <h2 className="text-base sm:text-lg font-semibold text-white/90 truncate">
             Feedback zur Seite: {page}
           </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-9 w-9 flex items-center justify-center rounded-full border border-white/15 bg-black/30 text-white/70 hover:bg-white/5"
+          aria-label="Schließen"
+          title="Schließen"
+        >
+          ×
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Sterne */}
+        <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+          <label className="block text-[12px] text-white/75 mb-2">Wie zufrieden bist du? (1–5 Sterne)</label>
+          <div className="flex items-center">
+            {[1, 2, 3, 4, 5].map((v) => (
+              <StarButton key={v} value={v as FeedbackRating} />
+            ))}
+          </div>
+        </div>
+
+        {/* Positives */}
+        <div className="space-y-1">
+          <label className="block text-[12px] text-white/75">Positives oder Verbesserungsvorschläge</label>
+          <textarea
+            value={feedbackMessage}
+            onChange={(e) => setFeedbackMessage(e.target.value)}
+            className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
+            placeholder="Was gefällt dir? Was können wir besser machen?"
+          />
+        </div>
+
+        {/* Problem */}
+        <div className="space-y-1">
+          <label className="block text-[12px] text-white/75">Notiz zum Problem oder zur fehlenden Funktion</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
+            placeholder="Beschreibe hier kurz, was genau nicht funktioniert oder fehlt."
+          />
+        </div>
+
+        {/* Name / Email */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="block text-[12px] text-white/75">Name (optional)</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
+              placeholder="Dein Name"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-[12px] text-white/75">E-Mail (optional)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
+              placeholder="Damit wir dich kontaktieren können"
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+          </div>
+        </div>
+
+        {/* Meldungen */}
+        {errorMessage && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-100">
+            {errorMessage}
+          </div>
+        )}
+        {successMessage && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 text-xl leading-none"
+            className="px-4 py-2 rounded-xl border border-white/15 bg-black/30 text-sm text-white/80 hover:bg-white/5"
           >
-            ×
+            Abbrechen
+          </button>
+
+          <button
+            type="submit"
+            disabled={isSending}
+            className="px-5 py-2 rounded-xl bg-brand-primary text-sm font-semibold text-black hover:bg-brand-primary/90 disabled:opacity-60"
+          >
+            {isSending ? "Senden..." : "Feedback senden"}
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Sterne-Bewertung */}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">
-              Wie zufrieden bist du? (1–5 Sterne)
-            </label>
-            <div className="flex items-center">
-              {[1, 2, 3, 4, 5].map((value) =>
-                renderStar(value as FeedbackRating)
-              )}
-            </div>
-          </div>
-
-          {/* Positives / Verbesserung */}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">
-              Positives oder Verbesserungsvorschläge
-            </label>
-            <textarea
-              value={feedbackMessage}
-              onChange={(e) => setFeedbackMessage(e.target.value)}
-              className="w-full rounded-xl bg-gray-900 text-gray-100 px-3 py-2 text-sm outline-none"
-              style={{ border: "1px solid #374151", minHeight: 70 }}
-              placeholder="Was gefällt dir? Was können wir besser machen?"
-            />
-          </div>
-
-          {/* Notiz zu Problem / fehlender Funktion */}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">
-              Notiz zum Problem oder zur fehlenden Funktion
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full rounded-xl bg-gray-900 text-gray-100 px-3 py-2 text-sm outline-none"
-              style={{ border: "1px solid #374151", minHeight: 70 }}
-              placeholder="Beschreibe hier kurz, was genau nicht funktioniert oder fehlt."
-            />
-          </div>
-
-          {/* Name & Email */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-300 mb-1">
-                Name (optional)
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl bg-gray-900 text-gray-100 px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid #374151" }}
-                placeholder="Dein Name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-300 mb-1">
-                E-Mail (optional)
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl bg-gray-900 text-gray-100 px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid #374151" }}
-                placeholder="Damit wir dich kontaktieren können"
-              />
-            </div>
-          </div>
-
-          {/* Meldungen */}
-          {errorMessage && (
-            <p className="text-sm text-red-400">{errorMessage}</p>
-          )}
-          {successMessage && (
-            <p className="text-sm text-green-400">{successMessage}</p>
-          )}
-
-          {/* Buttons */}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-2 rounded-xl text-sm text-gray-300 bg-gray-800 hover:bg-gray-700"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              disabled={isSending}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-60"
-            >
-              {isSending ? "Senden..." : "Feedback senden"}
-            </button>
-          </div>
-        </form>
-      </div>
+      </form>
     </div>
   );
 }

@@ -7,6 +7,9 @@ import TrainingsplanPage from "./pages/TrainingsplanPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
 
+// ✅ Settings (Achtung: Datei heißt bei dir laut Screenshot "SettingPage.tsx")
+import SettingsPage from "./pages/SettingPage";
+
 // ✅ TrainQ Core Debug
 import TrainQCoreDebug from "./pages/TrainQCoreDebug";
 
@@ -308,7 +311,6 @@ const LiveTrainingMiniBar: React.FC<{
   useEffect(() => {
     if (!visible) return;
 
-    // refresh active workout + elapsed
     const t = window.setInterval(() => {
       setActive(getActiveLiveWorkout());
     }, 1000);
@@ -356,10 +358,15 @@ const LiveTrainingMiniBar: React.FC<{
 
 // -------------------- App Shell --------------------
 
+type ProfileScreen = "profile" | "settings";
+
 const MainAppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
   const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId());
+
+  // ✅ Profile vs Settings Screen (innerhalb des Profil-Tabs)
+  const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
   // ✅ User (Account Source of Truth)
   const { user, setUserPro } = useAuth();
@@ -375,7 +382,6 @@ const MainAppShell: React.FC = () => {
   // ✅ Events (storage)
   const [events, setEvents] = useState<CalendarEvent[]>(() => readEventsFromStorage());
 
-  // Persist events
   useEffect(() => {
     writeEventsToStorage(events);
   }, [events]);
@@ -432,6 +438,30 @@ const MainAppShell: React.FC = () => {
       window.removeEventListener("trainq:navigate", onCustomNavigate as EventListener);
     };
   }, []);
+
+  // ✅ Listen for UI events (Settings + Paywall)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onOpenSettings = () => {
+      setActiveTab("profile");
+      setProfileScreen("settings");
+    };
+
+    const onOpenPaywall = () => {
+      if (isPro) return;
+      setPaywallReason("calendar_7days");
+      setPaywallOpen(true);
+    };
+
+    window.addEventListener("trainq:open_settings", onOpenSettings as EventListener);
+    window.addEventListener("trainq:open_paywall", onOpenPaywall as EventListener);
+
+    return () => {
+      window.removeEventListener("trainq:open_settings", onOpenSettings as EventListener);
+      window.removeEventListener("trainq:open_paywall", onOpenPaywall as EventListener);
+    };
+  }, [isPro]);
 
   // ✅ Mini bar visibility without reading workout store every render
   const [hasActiveWorkout, setHasActiveWorkout] = useState<boolean>(() => !!getActiveLiveWorkout()?.isActive);
@@ -569,6 +599,10 @@ const MainAppShell: React.FC = () => {
     [isPro]
   );
 
+  const openPaywallGeneric = useCallback(() => {
+    openPaywall("calendar_7days");
+  }, [openPaywall]);
+
   // ---------- Routing ----------
   if (route === "/live-training") {
     return (
@@ -593,7 +627,17 @@ const MainAppShell: React.FC = () => {
   }
 
   return (
-    <AppShell bottomNav={<BottomNav activeTab={activeTab} onChange={setActiveTab} />}>
+    <AppShell
+      bottomNav={
+        <BottomNav
+          activeTab={activeTab}
+          onChange={(next) => {
+            setActiveTab(next);
+            if (next !== "profile") setProfileScreen("profile");
+          }}
+        />
+      }
+    >
       <LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />
 
       <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
@@ -622,7 +666,12 @@ const MainAppShell: React.FC = () => {
           <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} onOpenPaywall={openPaywall} />
         )}
 
-        {activeTab === "profile" && <ProfilePage onClearCalendar={handleClearCalendar} />}
+        {activeTab === "profile" &&
+          (profileScreen === "settings" ? (
+            <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenPaywall={openPaywallGeneric} />
+          ) : (
+            <ProfilePage onClearCalendar={handleClearCalendar} />
+          ))}
       </div>
 
       <PaywallModal
@@ -679,7 +728,12 @@ const AuthGate: React.FC = () => {
     if (authScreen === "register") return <RegisterPage onGoToLogin={() => setAuthScreen("login")} />;
     if (authScreen === "forgot") return <ForgotPasswordPage onGoBackToLogin={() => setAuthScreen("login")} />;
 
-    return <LoginPage onGoToRegister={() => setAuthScreen("register")} onGoToForgotPassword={() => setAuthScreen("forgot")} />;
+    return (
+      <LoginPage
+        onGoToRegister={() => setAuthScreen("register")}
+        onGoToForgotPassword={() => setAuthScreen("forgot")}
+      />
+    );
   }
 
   if (!onboardingCompleted) {
@@ -692,8 +746,8 @@ const AuthGate: React.FC = () => {
 // -------------------- Root --------------------
 
 export const App: React.FC = () => {
-  // ✅ Seed TestFlight Accounts einmalig (root-level, damit Login sofort funktioniert)
   const seededRef = useRef(false);
+
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;

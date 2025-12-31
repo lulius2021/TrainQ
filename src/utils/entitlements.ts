@@ -1,65 +1,37 @@
 // src/utils/entitlements.ts
-// ✅ Single Source of Truth für Pro / Free + Limits
-// ✅ MVP-tauglich (LocalStorage)
-// ✅ Apple-Review-freundlich
-// ❌ KEINE DUPLIKATE, KEINE HOOKS
+// ✅ Single Source of Truth für Limits + Counter (persisted)
+// ✅ Pro/Free kommt NUR aus Account/Session (nicht aus localStorage)
+// ✅ Pure mutations (consume/set/reset) -> speichern NUR via saveEntitlements()
+// ❌ KEIN Pro-Leak zwischen Accounts
 
 import type { AdaptiveSuggestion } from "../types/adaptive";
+import { getActiveIsPro, userScopedKey } from "./session";
 
 /* ---------------------------------- Types --------------------------------- */
 
 export type PaywallReason = "plan_shift" | "calendar_7days" | "adaptive_limit";
 
 export type EntitlementsState = {
+  // ⚠️ NICHT persisted – wird beim Laden aus Account/Session gesetzt
   isPro: boolean;
 
-  /**
-   * ✅ Nur Profil B/C zählen hier rein (A ist immer free/unbegrenzt).
-   * Nutzung im aktuellen Monat.
-   */
   adaptiveBCUsedThisMonth: number;
+  adaptiveMonthKey: string; // z.B. 2025-01
 
-  /** Monatsschlüssel z.B. 2025-01 */
-  adaptiveMonthKey: string;
-
-  /**
-   * ✅ Plan Shift (Tag +1 etc.)
-   * Nutzung im aktuellen Monat (Free: limitiert, Pro: unbegrenzt)
-   */
   planShiftUsedThisMonth: number;
-
-  /** Monatsschlüssel z.B. 2025-01 */
   planShiftMonthKey: string;
 
-  /**
-   * ✅ Kalender > 7 Tage voraus planen
-   * Nutzung im aktuellen Monat (Free: limitiert, Pro: unbegrenzt)
-   */
   calendar7DaysUsedThisMonth: number;
-
-  /** Monatsschlüssel z.B. 2025-01 */
   calendar7DaysMonthKey: string;
 };
 
+type PersistedEntitlementsState = Omit<EntitlementsState, "isPro">;
+
 /* -------------------------------- Constants -------------------------------- */
 
-// ✅ pro-user storage
 const STORAGE_KEY_BASE = "trainq_entitlements";
-
-function storageKeyForUser(userId?: string): string {
-  const id = String(userId ?? "").trim();
-  return id ? `${STORAGE_KEY_BASE}_${id}_v1` : "trainq_entitlements_v1";
-}
-
-// ✅ Optional: Custom Event, damit UI sofort syncen kann (ohne Hooks hier)
 export const ENTITLEMENTS_CHANGED_EVENT = "trainq:entitlements_changed";
 
-/**
- * Free Limits:
- * - Adaptive: A („stabil“) unbegrenzt (wird NICHT gezählt), B/C zusammen X pro Monat
- * - Plan Shift: X pro Monat
- * - Kalender > 7 Tage voraus: X pro Monat
- */
 export const FREE_LIMITS = {
   adaptiveBCPerMonth: 5,
   planShiftPerMonth: 5,
@@ -92,38 +64,46 @@ function emitEntitlementsChanged(): void {
   }
 }
 
+function makeDefaultPersisted(): PersistedEntitlementsState {
+  const mk = getMonthKey();
+  return {
+    adaptiveBCUsedThisMonth: 0,
+    adaptiveMonthKey: mk,
+    planShiftUsedThisMonth: 0,
+    planShiftMonthKey: mk,
+    calendar7DaysUsedThisMonth: 0,
+    calendar7DaysMonthKey: mk,
+  };
+}
+
+function mergeIsPro(p: PersistedEntitlementsState, isPro: boolean): EntitlementsState {
+  return { isPro, ...p };
+}
+
+function storageKey(userId?: string): string {
+  // pro-user key; wenn userId fehlt, nimmt userScopedKey active user
+  const key = userScopedKey(`${STORAGE_KEY_BASE}`, userId);
+  return key;
+}
+
 /* ------------------------------- Load / Save ------------------------------- */
 
-export function loadEntitlements(userId?: string): EntitlementsState {
-  const fallback: EntitlementsState = {
-    isPro: false,
+export function loadEntitlements(userId?: string, isProOverride?: boolean): EntitlementsState {
+  const isPro = typeof isProOverride === "boolean" ? isProOverride : getActiveIsPro();
 
-    adaptiveBCUsedThisMonth: 0,
-    adaptiveMonthKey: getMonthKey(),
+  const fallbackPersisted = makeDefaultPersisted();
+  if (typeof window === "undefined") return mergeIsPro(fallbackPersisted, isPro);
 
-    planShiftUsedThisMonth: 0,
-    planShiftMonthKey: getMonthKey(),
-
-    calendar7DaysUsedThisMonth: 0,
-    calendar7DaysMonthKey: getMonthKey(),
-  };
-
-  if (typeof window === "undefined") return fallback;
-
-  const STORAGE_KEY = storageKeyForUser(userId);
+  const STORAGE_KEY = storageKey(userId);
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
+    if (!raw) return mergeIsPro(fallbackPersisted, isPro);
 
-    const parsed = JSON.parse(raw) as Partial<EntitlementsState>;
+    const parsed = JSON.parse(raw) as Partial<PersistedEntitlementsState>;
     const currentMonth = getMonthKey();
 
-    const isPro = parsed.isPro === true;
-
-    const next: EntitlementsState = {
-      isPro,
-
+    const nextPersisted: PersistedEntitlementsState = {
       adaptiveBCUsedThisMonth:
         parsed.adaptiveMonthKey === currentMonth ? clampInt(parsed.adaptiveBCUsedThisMonth, 0) : 0,
       adaptiveMonthKey: currentMonth,
@@ -141,26 +121,37 @@ export function loadEntitlements(userId?: string): EntitlementsState {
       parsed.adaptiveMonthKey !== currentMonth ||
       parsed.planShiftMonthKey !== currentMonth ||
       parsed.calendar7DaysMonthKey !== currentMonth ||
-      typeof parsed.planShiftUsedThisMonth === "undefined" ||
-      typeof parsed.calendar7DaysUsedThisMonth === "undefined";
+      typeof parsed.adaptiveBCUsedThisMonth !== "number" ||
+      typeof parsed.planShiftUsedThisMonth !== "number" ||
+      typeof parsed.calendar7DaysUsedThisMonth !== "number";
 
     if (needsPersist) {
-      saveEntitlements(next, userId);
+      saveEntitlements(mergeIsPro(nextPersisted, isPro), userId);
     }
 
-    return next;
+    return mergeIsPro(nextPersisted, isPro);
   } catch {
-    return fallback;
+    return mergeIsPro(fallbackPersisted, isPro);
   }
 }
 
 export function saveEntitlements(state: EntitlementsState, userId?: string): void {
   if (typeof window === "undefined") return;
 
-  const STORAGE_KEY = storageKeyForUser(userId);
+  const STORAGE_KEY = storageKey(userId);
+
+  // ✅ Persist NUR Counter/Keys, niemals isPro
+  const persisted: PersistedEntitlementsState = {
+    adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0),
+    adaptiveMonthKey: String(state.adaptiveMonthKey || getMonthKey()),
+    planShiftUsedThisMonth: clampInt(state.planShiftUsedThisMonth, 0),
+    planShiftMonthKey: String(state.planShiftMonthKey || getMonthKey()),
+    calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0),
+    calendar7DaysMonthKey: String(state.calendar7DaysMonthKey || getMonthKey()),
+  };
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
     emitEntitlementsChanged();
   } catch {
     // ignore
@@ -175,27 +166,20 @@ export function canUseAdaptiveProfile(state: EntitlementsState, profile: Adaptiv
   // A ist immer free
   if (!isBCProfile(profile)) return true;
 
-  // B/C: Monatslimit
   return clampInt(state.adaptiveBCUsedThisMonth, 0) < FREE_LIMITS.adaptiveBCPerMonth;
 }
 
-export function consumeAdaptiveProfile(
-  state: EntitlementsState,
-  profile: AdaptiveSuggestion["profile"],
-  userId?: string
-): EntitlementsState {
+export function consumeAdaptiveProfile(state: EntitlementsState, profile: AdaptiveSuggestion["profile"]): EntitlementsState {
   if (state.isPro) return state;
   if (!isBCProfile(profile)) return state;
 
   const currentMonth = getMonthKey();
 
-  const next: EntitlementsState =
-    state.adaptiveMonthKey !== currentMonth
-      ? { ...state, adaptiveBCUsedThisMonth: 1, adaptiveMonthKey: currentMonth }
-      : { ...state, adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0) + 1 };
+  if (state.adaptiveMonthKey !== currentMonth) {
+    return { ...state, adaptiveBCUsedThisMonth: 1, adaptiveMonthKey: currentMonth };
+  }
 
-  saveEntitlements(next, userId);
-  return next;
+  return { ...state, adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0) + 1 };
 }
 
 /* ------------------------------- Plan Shift Logic --------------------------- */
@@ -207,26 +191,20 @@ export function canUsePlanShift(state: EntitlementsState): boolean {
   return used < FREE_LIMITS.planShiftPerMonth;
 }
 
-export function consumePlanShift(state: EntitlementsState, userId?: string): EntitlementsState {
+export function consumePlanShift(state: EntitlementsState): EntitlementsState {
   if (state.isPro) return state;
 
   const currentMonth = getMonthKey();
 
-  const next: EntitlementsState =
-    state.planShiftMonthKey !== currentMonth
-      ? { ...state, planShiftUsedThisMonth: 1, planShiftMonthKey: currentMonth }
-      : { ...state, planShiftUsedThisMonth: clampInt(state.planShiftUsedThisMonth, 0) + 1 };
+  if (state.planShiftMonthKey !== currentMonth) {
+    return { ...state, planShiftUsedThisMonth: 1, planShiftMonthKey: currentMonth };
+  }
 
-  saveEntitlements(next, userId);
-  return next;
+  return { ...state, planShiftUsedThisMonth: clampInt(state.planShiftUsedThisMonth, 0) + 1 };
 }
 
 /* --------------------------- Calendar 7 Days Logic -------------------------- */
 
-/**
- * ✅ Nur relevant, wenn man >7 Tage in die Zukunft plant.
- * Free: 3/Monat, Pro: unbegrenzt.
- */
 export function canUseCalendar7Days(state: EntitlementsState): boolean {
   if (state.isPro) return true;
   const currentMonth = getMonthKey();
@@ -234,21 +212,16 @@ export function canUseCalendar7Days(state: EntitlementsState): boolean {
   return used < FREE_LIMITS.calendar7DaysPerMonth;
 }
 
-/**
- * ✅ Konsumiert einen "7 Tage voraus" Credit (nur Free relevant).
- */
-export function consumeCalendar7Days(state: EntitlementsState, userId?: string): EntitlementsState {
+export function consumeCalendar7Days(state: EntitlementsState): EntitlementsState {
   if (state.isPro) return state;
 
   const currentMonth = getMonthKey();
 
-  const next: EntitlementsState =
-    state.calendar7DaysMonthKey !== currentMonth
-      ? { ...state, calendar7DaysUsedThisMonth: 1, calendar7DaysMonthKey: currentMonth }
-      : { ...state, calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0) + 1 };
+  if (state.calendar7DaysMonthKey !== currentMonth) {
+    return { ...state, calendar7DaysUsedThisMonth: 1, calendar7DaysMonthKey: currentMonth };
+  }
 
-  saveEntitlements(next, userId);
-  return next;
+  return { ...state, calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0) + 1 };
 }
 
 /* --------------------- Backward-compat (alte Imports) ---------------------- */
@@ -258,59 +231,30 @@ export function canUseAdaptiveTraining(state: EntitlementsState): boolean {
   return clampInt(state.adaptiveBCUsedThisMonth, 0) < FREE_LIMITS.adaptiveBCPerMonth;
 }
 
-export function consumeAdaptiveTraining(state: EntitlementsState, userId?: string): EntitlementsState {
+export function consumeAdaptiveTraining(state: EntitlementsState): EntitlementsState {
   if (state.isPro) return state;
 
   const currentMonth = getMonthKey();
 
-  const next: EntitlementsState =
-    state.adaptiveMonthKey !== currentMonth
-      ? { ...state, adaptiveBCUsedThisMonth: 1, adaptiveMonthKey: currentMonth }
-      : { ...state, adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0) + 1 };
+  if (state.adaptiveMonthKey !== currentMonth) {
+    return { ...state, adaptiveBCUsedThisMonth: 1, adaptiveMonthKey: currentMonth };
+  }
 
-  saveEntitlements(next, userId);
-  return next;
+  return { ...state, adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0) + 1 };
 }
 
 /* ------------------------------- Mutations -------------------------------- */
 
-export function setPro(state: EntitlementsState, isPro: boolean, userId?: string): EntitlementsState {
-  const currentMonth = getMonthKey();
-
-  const next: EntitlementsState = {
-    ...state,
-    isPro,
-
-    adaptiveMonthKey: state.adaptiveMonthKey || currentMonth,
-    adaptiveBCUsedThisMonth: clampInt(state.adaptiveBCUsedThisMonth, 0),
-
-    planShiftMonthKey: state.planShiftMonthKey || currentMonth,
-    planShiftUsedThisMonth: clampInt(state.planShiftUsedThisMonth, 0),
-
-    calendar7DaysMonthKey: state.calendar7DaysMonthKey || currentMonth,
-    calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0),
-  };
-
-  saveEntitlements(next, userId);
-  return next;
+// ⚠️ setPro ist absichtlich NICHT mehr vorgesehen, weil Pro aus Account kommt.
+// (Wir lassen die Funktion für API-Kompatibilität, aber sie ändert nichts Persistentes.)
+export function setPro(state: EntitlementsState, _isPro: boolean): EntitlementsState {
+  return { ...state, isPro: state.isPro };
 }
 
-export function resetEntitlements(userId?: string): EntitlementsState {
-  const mk = getMonthKey();
-
-  const next: EntitlementsState = {
-    isPro: false,
-
-    adaptiveBCUsedThisMonth: 0,
-    adaptiveMonthKey: mk,
-
-    planShiftUsedThisMonth: 0,
-    planShiftMonthKey: mk,
-
-    calendar7DaysUsedThisMonth: 0,
-    calendar7DaysMonthKey: mk,
-  };
-
+export function resetEntitlements(userId?: string, isProOverride?: boolean): EntitlementsState {
+  const persisted = makeDefaultPersisted();
+  const isPro = typeof isProOverride === "boolean" ? isProOverride : getActiveIsPro();
+  const next = mergeIsPro(persisted, isPro);
   saveEntitlements(next, userId);
   return next;
 }

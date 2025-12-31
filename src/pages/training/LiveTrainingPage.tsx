@@ -183,7 +183,6 @@ export default function LiveTrainingPage({
     const isReallyActive = !!active && active.isActive === true;
 
     // ✅ Wenn eventId gesetzt ist, NUR matchen, wenn active.calendarEventId exakt passt.
-    // (Verhindert “falsches” Resume beim Öffnen eines anderen Kalender-Events.)
     const matchesEvent = !eventId ? true : String(active?.calendarEventId || "") === String(eventId);
 
     if (isReallyActive && matchesEvent) {
@@ -201,9 +200,7 @@ export default function LiveTrainingPage({
     if (globalSeed) {
       clearGlobalLiveSeed();
 
-      const seedToUse = event?.adaptiveSuggestion
-        ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
-        : globalSeed;
+      const seedToUse = event?.adaptiveSuggestion ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion) : globalSeed;
 
       const w = startLiveWorkout({
         title: seedToUse.title || "Training",
@@ -286,7 +283,6 @@ export default function LiveTrainingPage({
     const started = new Date(workout.startedAt).getTime();
     startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
 
-    // direkt initial setzen (falls startedAtRef noch nicht gesetzt war)
     setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
 
     tickRef.current = window.setInterval(() => {
@@ -337,14 +333,11 @@ export default function LiveTrainingPage({
         {
           id: setId,
           completed: false,
-          // ✅ Cardio: sinnvoller Default (Minuten); Gym: leer
           reps: cardio ? 30 : undefined,
-          // ✅ Cardio: km optional; Gym: leer
           weight: undefined,
           notes: "",
         } as any,
       ],
-      // ✅ leer by default (kein Zwang)
       restSeconds: undefined,
     } as any;
 
@@ -355,9 +348,7 @@ export default function LiveTrainingPage({
   const removeExercise = (exerciseId: string) => {
     if (!workout) return;
 
-    setWorkout((prev) =>
-      prev ? { ...prev, exercises: prev.exercises.filter((e) => e.id !== exerciseId) } : prev
-    );
+    setWorkout((prev) => (prev ? { ...prev, exercises: prev.exercises.filter((e) => e.id !== exerciseId) } : prev));
     setActiveRest((r) => (r?.exerciseId === exerciseId ? null : r));
 
     if (pendingScrollToExerciseId === exerciseId) setPendingScrollToExerciseId(null);
@@ -376,7 +367,6 @@ export default function LiveTrainingPage({
 
               const next: any = { ...e, ...patch };
 
-              // ✅ restSeconds: undefined = Feld leer => kein Timer
               if ("restSeconds" in (patch as any)) {
                 next.restSeconds = normalizeRestSeconds((patch as any).restSeconds);
               }
@@ -469,8 +459,6 @@ export default function LiveTrainingPage({
           if (s.id !== setId) return s;
 
           const nextCompleted = !s.completed;
-
-          // ✅ Timer nur wenn restSeconds gesetzt ist
           const rest = normalizeRestSeconds((e as any).restSeconds);
 
           if (nextCompleted && typeof rest === "number") {
@@ -503,9 +491,7 @@ export default function LiveTrainingPage({
 
   const markCalendarEvent = (status: TrainingStatus, workoutId?: string) => {
     if (!eventId) return;
-    onUpdateEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? applyTrainingStatusToEvent(e, status, { workoutId }) : e))
-    );
+    onUpdateEvents((prev) => prev.map((e) => (e.id === eventId ? applyTrainingStatusToEvent(e, status, { workoutId }) : e)));
   };
 
   const finishTraining = () => {
@@ -525,14 +511,13 @@ export default function LiveTrainingPage({
   };
 
   const minimize = () => {
-    // ✅ Minimieren = NICHT abbrechen
     if (workout && workout.isActive) {
       const next = { ...workout, isMinimized: true };
       setWorkout(next);
       persistActiveLiveWorkout(next);
     }
     if (typeof onMinimize === "function") onMinimize();
-    else onExit(); // Fallback falls nicht übergeben
+    else onExit();
   };
 
   // -------- Render --------
@@ -543,48 +528,36 @@ export default function LiveTrainingPage({
 
   const t = formatTimeParts(elapsedSec);
   const showHours = t.h > 0;
+  const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
 
-  // ✅ Cardio-Library schaltet auf CARDIO_EXERCISES im Modal um
   const isCardioLibrary = workout.sport === "Laufen" || workout.sport === "Radfahren";
 
   return (
     <div className="relative flex h-screen w-screen flex-col text-slate-100">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-brand-card/80 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={minimize}
-            className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-white/5"
-          >
-            Minimieren
-          </button>
+      {/* Header: Timer + Training beenden (Minimieren/Abbrechen sind unten) */}
+      <div className="sticky top-0 z-40 px-3 pt-[max(env(safe-area-inset-top),12px)]">
+        <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-3 shadow-lg shadow-black/30">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="text-center sm:text-left">
+              <div className="tabular-nums text-3xl sm:text-4xl font-semibold text-white/90 leading-none">
+                {elapsedText}
+              </div>
+            </div>
 
-          <button
-            onClick={abortAndExit}
-            className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm text-white/70 hover:bg-white/5"
-            title="Training abbrechen"
-          >
-            Abbrechen
-          </button>
-        </div>
-
-        {/* Nur Zeit (ohne Trainingsbezeichnung) */}
-        <div className="min-w-[140px] text-center">
-          <div className="inline-flex items-baseline justify-center tabular-nums text-white/90">
-            {showHours && <span className="mr-1 text-sm font-semibold text-white/70">{t.h}:</span>}
-            <span className="text-2xl font-semibold">{showHours ? `${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`}</span>
+            <div className="flex justify-stretch sm:justify-end">
+              <button
+                type="button"
+                onClick={finishTraining}
+                className="h-11 w-full sm:w-auto min-w-[180px] px-6 rounded-2xl bg-brand-primary text-black text-[13px] font-semibold hover:bg-brand-primary/90 whitespace-nowrap"
+              >
+                Training beenden
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <button
-          onClick={finishTraining}
-          className="rounded-2xl bg-brand-primary px-5 py-3 text-sm font-semibold text-black hover:bg-brand-primary/90"
-        >
-          Training beenden
-        </button>
-      </header>
-
-      {/* Rest Timer (nur wenn aktiv gesetzt wurde) */}
+      {/* Rest Timer */}
       {activeRest && (
         <div className="px-4 pt-3">
           <RestTimerBar
@@ -599,9 +572,21 @@ export default function LiveTrainingPage({
       {/* Content */}
       <main className="flex-1 overflow-y-auto px-4 py-4">
         {workout.exercises.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-            Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten {isCardioWorkout ? "eine Einheit" : "eine Übung"} hinzu.
-          </div>
+          <>
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+              Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten{" "}
+              {isCardioWorkout ? "eine Einheit" : "eine Übung"} hinzu.
+            </div>
+
+            {/* ✅ + Übung als letztes Element (auch wenn leer) */}
+            <button
+              type="button"
+              onClick={() => setLibraryOpen(true)}
+              className="mt-3 w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-4 text-sm font-semibold text-white/90 hover:bg-white/5"
+            >
+              + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+            </button>
+          </>
         ) : (
           <div className="flex flex-col gap-3">
             {workout.exercises.map((ex) => (
@@ -624,25 +609,44 @@ export default function LiveTrainingPage({
                 />
               </div>
             ))}
+
+            {/* ✅ + Übung unter die letzte Übung (immer das letzte Element) */}
+            <button
+              type="button"
+              onClick={() => setLibraryOpen(true)}
+              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-4 text-sm font-semibold text-white/90 hover:bg-white/5"
+            >
+              + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+            </button>
           </div>
         )}
 
         <div className="h-24" />
       </main>
 
-      {/* Bottom Actions */}
+      {/* Bottom Actions: Minimieren/Abbrechen hierhin verschoben */}
       <footer className="sticky bottom-0 border-t border-white/10 bg-brand-card/80 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-md gap-3">
           <button
-            onClick={() => setLibraryOpen(true)}
-            className="flex-1 rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm font-semibold text-white/90 hover:bg-white/5"
+            type="button"
+            onClick={minimize}
+            className="flex-1 h-11 rounded-2xl border border-white/15 bg-black/30 px-4 text-[13px] font-semibold text-white/90 hover:bg-white/5 whitespace-nowrap"
           >
-            + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+            Minimieren
+          </button>
+
+          <button
+            type="button"
+            onClick={abortAndExit}
+            className="flex-1 h-11 rounded-2xl border border-white/15 bg-black/30 px-4 text-[13px] text-white/75 hover:bg-white/5 whitespace-nowrap"
+            title="Training abbrechen"
+          >
+            Abbrechen
           </button>
         </div>
       </footer>
 
-      {/* ✅ Übungsbibliothek Modal (Multi-Add, bleibt offen) */}
+      {/* Übungsbibliothek Modal */}
       <ExerciseLibraryModal
         open={libraryOpen}
         isCardioLibrary={isCardioLibrary}

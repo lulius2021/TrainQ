@@ -9,41 +9,47 @@ interface Props {
 }
 
 const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
-  const { register, loading } = useAuth();
+  const { register } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== repeatPassword) {
       setError("Passwörter stimmen nicht überein.");
       return;
     }
+
     setError(null);
-    await register(email, password);
-    // TODO: nach erfolgreicher Registrierung Onboarding starten
+    setBusy(true);
+
+    try {
+      const res: any = await register(email, password);
+      if (res && res.ok === false) {
+        setError(res.error || "Registrierung fehlgeschlagen.");
+      } else {
+        // optional: nach erfolgreicher Registrierung zurück zum Login
+        onGoToLogin?.();
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#05060A] text-white px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold mb-1">Account erstellen</h1>
-          <p className="text-sm text-gray-400">
-            Erstelle dein TrainQ Konto, um deinen Alltag und dein Training zu strukturieren.
-          </p>
+    <div className="min-h-screen w-full flex items-center justify-center px-4" style={{ background: "transparent" }}>
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/40 p-5 shadow-xl shadow-black/40">
+        <div className="mb-4">
+          <div className="text-lg font-semibold text-white">Account erstellen</div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthInput
-            label="E-Mail"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <AuthInput label="E-Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <AuthInput
             label="Passwort"
             type="password"
@@ -60,23 +66,18 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
             error={error ?? undefined}
           />
 
-          <div className="text-[11px] text-gray-500">
-            Mit der Registrierung akzeptierst du die Nutzungsbedingungen und
-            Datenschutzbestimmungen von TrainQ.
+          <div className="text-[11px] text-white/45">
+            Mit der Registrierung akzeptierst du die Nutzungsbedingungen und Datenschutzbestimmungen von TrainQ.
           </div>
 
-          <AuthButton type="submit" disabled={loading}>
-            Registrieren
+          <AuthButton type="submit" disabled={busy}>
+            {busy ? "Registrieren..." : "Registrieren"}
           </AuthButton>
         </form>
 
-        <div className="text-xs text-center text-gray-400">
+        <div className="mt-4 text-xs text-center text-white/60">
           Bereits ein Konto?{" "}
-          <button
-            type="button"
-            onClick={onGoToLogin}
-            className="text-blue-400 hover:text-blue-300"
-          >
+          <button type="button" onClick={onGoToLogin} className="text-blue-400 hover:text-blue-300">
             Einloggen
           </button>
         </div>

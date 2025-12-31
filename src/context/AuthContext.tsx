@@ -1,41 +1,67 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useEffect, useMemo, useState, useCallback } from "react";
-import { findUserByEmail, getAllUsers, updateUser, type TrainQUser } from "../utils/testAccountsSeed";
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+export type AuthProvider = "email" | "apple";
 
 export type AuthUser = {
   id: string;
-  email: string;
+  provider: AuthProvider;
+  email?: string;
   displayName?: string;
-  isPro: boolean;
-  createdAt?: string;
+  isPro?: boolean;
+
+  // Apple (Stub / später echtes Apple "sub")
+  appleSub?: string;
+
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
 };
 
-type LoginResult = { ok: true } | { ok: false; error: string };
+export type AuthResult = { ok: boolean; error?: string };
 
-type RegisterPayload = {
-  email: string;
-  password: string;
-  displayName?: string;
-};
-
-type AuthContextValue = {
+export type AuthContextValue = {
   user: AuthUser | null;
-  isAuthenticated: boolean;
 
-  login: (email: string, password: string) => Promise<LoginResult>;
+  // Email/Password
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (email: string, password: string) => Promise<AuthResult>;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+
+  // Apple
+  loginWithApple: () => Promise<AuthResult>;
+
+  // Session
   logout: () => void;
 
-  // optional (falls RegisterPage es nutzt)
-  register: (payload: RegisterPayload) => Promise<LoginResult>;
-
-  // ✅ für Paywall/Trial: macht den aktuellen Account Pro/Free
+  // Account flags
   setUserPro: (isPro: boolean) => void;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
-const STORAGE_KEY_CURRENT_USER = "trainq_auth_current_user_v1";
-const USERS_KEY = "trainq_users_v1"; // gleiche LS key wie Seed
+// -------------------- Storage Keys --------------------
+
+const LS_USERS = "trainq_auth_users_v1";
+const LS_SESSION = "trainq_auth_session_v1"; // { userId: string }
+const LS_APPLE_SUB = "trainq_auth_apple_sub_v1"; // stub id
+
+// -------------------- Helpers --------------------
+
+function nowISO(): string {
+  return new Date().toISOString();
+}
+
+function uuidFallback(prefix = "id") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function newId(prefix = "u"): string {
+  // randomUUID ist nicht überall garantiert
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c: any = typeof crypto !== "undefined" ? crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return uuidFallback(prefix);
+}
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -46,237 +72,282 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function normalizeEmail(email: unknown): string {
+function readUsers(): AuthUser[] {
+  if (typeof window === "undefined") return [];
+  return safeParse<AuthUser[]>(window.localStorage.getItem(LS_USERS), []);
+}
+
+function writeUsers(users: AuthUser[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_USERS, JSON.stringify(users));
+  } catch {
+    // ignore
+  }
+}
+
+function readSessionUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  const s = safeParse<{ userId?: string }>(window.localStorage.getItem(LS_SESSION), {});
+  return typeof s.userId === "string" && s.userId.trim() ? s.userId : null;
+}
+
+function writeSessionUserId(userId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!userId) window.localStorage.removeItem(LS_SESSION);
+    else window.localStorage.setItem(LS_SESSION, JSON.stringify({ userId }));
+  } catch {
+    // ignore
+  }
+}
+
+function normalizeEmail(email: string): string {
   return String(email ?? "").trim().toLowerCase();
 }
 
-function nowISO(): string {
-  return new Date().toISOString();
+// Für dein MVP okay (lokal), aber: in Produktion nicht plaintext speichern.
+type StoredUserRecord = AuthUser & { password?: string };
+
+function readStoredUsers(): StoredUserRecord[] {
+  return readUsers() as StoredUserRecord[];
 }
 
-function uuidFallback(prefix = "u") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function writeStoredUsers(users: StoredUserRecord[]) {
+  writeUsers(users as AuthUser[]);
 }
 
-function mapToAuthUser(u: TrainQUser): AuthUser {
-  return {
-    id: String(u.id),
-    email: normalizeEmail(u.email),
-    displayName: u.displayName,
-    isPro: u.isPro === true,
-    createdAt: u.createdAt,
-  };
+// -------------------- Default Seed (damit Login sofort geht) --------------------
+
+function seedDefaultTestAccountsIfMissing() {
+  const users = readStoredUsers();
+  if (users.some((u) => u.provider === "email" && u.email)) return;
+
+  const t = nowISO();
+
+  const seeded: StoredUserRecord[] = [
+    {
+      id: newId("u"),
+      provider: "email",
+      email: "pro01@testflight.trainq",
+      displayName: "Pro 01",
+      isPro: true,
+      password: "trainq1234",
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
+      id: newId("u"),
+      provider: "email",
+      email: "pro02@testflight.trainq",
+      displayName: "Pro 02",
+      isPro: true,
+      password: "trainq1234",
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
+      id: newId("u"),
+      provider: "email",
+      email: "free01@testflight.trainq",
+      displayName: "Free 01",
+      isPro: false,
+      password: "trainq1234",
+      createdAt: t,
+      updatedAt: t,
+    },
+  ];
+
+  writeStoredUsers([...users, ...seeded]);
 }
 
-function readCurrentUserFromStorage(): AuthUser | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(STORAGE_KEY_CURRENT_USER);
-  const parsed = safeParse<AuthUser | null>(raw, null);
-  if (!parsed || !parsed.id || !parsed.email) return null;
-
-  return {
-    id: String(parsed.id),
-    email: normalizeEmail(parsed.email),
-    displayName: parsed.displayName,
-    isPro: parsed.isPro === true,
-    createdAt: parsed.createdAt,
-  };
-}
-
-function writeCurrentUserToStorage(user: AuthUser | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (!user) window.localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
-    else window.localStorage.setItem(STORAGE_KEY_CURRENT_USER, JSON.stringify(user));
-  } catch {
-    // ignore
-  }
-}
-
-function readUsersDirect(): TrainQUser[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(USERS_KEY);
-  const parsed = safeParse<TrainQUser[]>(raw, []);
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-function writeUsersDirect(users: TrainQUser[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
-}
-
-function findUserById(userId: string): TrainQUser | undefined {
-  const id = String(userId ?? "").trim();
-  if (!id) return undefined;
-  return readUsersDirect().find((u) => String(u.id) === id);
-}
+// -------------------- Provider --------------------
 
 export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => readCurrentUserFromStorage());
+  const mountedRef = useRef(true);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  // ✅ Beim Mount: Session refresh aus trainq_users_v1 (Source of Truth)
+  // Init: Seed + Session restore
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    mountedRef.current = true;
 
-    const current = readCurrentUserFromStorage();
-    if (!current?.id) return;
+    // Stelle sicher, dass es Accounts gibt (passt zu deinem TestFlight-Setup)
+    seedDefaultTestAccountsIfMissing();
 
-    const fromStore = findUserById(current.id);
-
-    // wenn User nicht mehr existiert -> logout
-    if (!fromStore) {
+    const sessionUserId = readSessionUserId();
+    if (sessionUserId) {
+      const users = readStoredUsers();
+      const found = users.find((u) => u.id === sessionUserId) ?? null;
+      setUser(found ? sanitizeUser(found) : null);
+      if (!found) writeSessionUserId(null);
+    } else {
       setUser(null);
-      writeCurrentUserToStorage(null);
+    }
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const sanitizeUser = (u: StoredUserRecord): AuthUser => {
+    // Passwort niemals in den React-State übernehmen
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...rest } = u;
+    return rest;
+  };
+
+  const persistAndSetUser = useCallback((u: StoredUserRecord | null) => {
+    if (!mountedRef.current) return;
+    if (!u) {
+      setUser(null);
+      writeSessionUserId(null);
       return;
     }
-
-    // store ist source of truth (isPro, displayName, email)
-    const refreshed = mapToAuthUser(fromStore);
-
-    // nur schreiben wenn wirklich anders, um unnötige rerenders zu vermeiden
-    const changed =
-      refreshed.id !== current.id ||
-      refreshed.email !== current.email ||
-      refreshed.displayName !== current.displayName ||
-      refreshed.isPro !== current.isPro;
-
-    if (changed) {
-      setUser(refreshed);
-      writeCurrentUserToStorage(refreshed);
-    }
+    setUser(sanitizeUser(u));
+    writeSessionUserId(u.id);
   }, []);
 
-  // Sync bei Storage-Änderungen (z.B. Debug / mehrere Tabs)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // -------------------- Email/Password --------------------
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY_CURRENT_USER) {
-        setUser(readCurrentUserFromStorage());
-        return;
-      }
-
-      // wenn Users geändert werden, den aktuellen User refreshen
-      if (e.key === USERS_KEY) {
-        const current = readCurrentUserFromStorage();
-        if (!current?.id) return;
-
-        const fromStore = findUserById(current.id);
-        if (!fromStore) {
-          setUser(null);
-          writeCurrentUserToStorage(null);
-          return;
-        }
-
-        const refreshed = mapToAuthUser(fromStore);
-        setUser(refreshed);
-        writeCurrentUserToStorage(refreshed);
-      }
-    };
-
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     const e = normalizeEmail(email);
-    const pw = String(password ?? "");
+    const p = String(password ?? "");
 
     if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
-    if (!pw) return { ok: false, error: "Bitte Passwort eingeben." };
+    if (!p) return { ok: false, error: "Bitte Passwort eingeben." };
 
-    const found = findUserByEmail(e);
-    if (!found) return { ok: false, error: "Account nicht gefunden (TestFlight Seed)." };
+    const users = readStoredUsers();
+    const found = users.find((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
 
-    if (String(found.password) !== pw) {
-      return { ok: false, error: "Passwort falsch." };
-    }
+    if (!found) return { ok: false, error: "Account nicht gefunden." };
+    if ((found as StoredUserRecord).password !== p) return { ok: false, error: "Passwort ist falsch." };
 
-    const next = mapToAuthUser(found);
-    setUser(next);
-    writeCurrentUserToStorage(next);
-
+    persistAndSetUser(found);
     return { ok: true };
-  }, []);
+  }, [persistAndSetUser]);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    writeCurrentUserToStorage(null);
-  }, []);
+  const register = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const e = normalizeEmail(email);
+    const p = String(password ?? "");
 
-  // Optional: simple Register (legt Free-User in trainq_users_v1 an)
-  const register = useCallback(async (payload: RegisterPayload): Promise<LoginResult> => {
-    const email = normalizeEmail(payload.email);
-    const password = String(payload.password ?? "");
-    const displayName = String(payload.displayName ?? "").trim();
+    if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
+    if (p.length < 6) return { ok: false, error: "Passwort muss mindestens 6 Zeichen haben." };
 
-    if (!email) return { ok: false, error: "Bitte E-Mail eingeben." };
-    if (!password || password.length < 4) return { ok: false, error: "Bitte ein Passwort (min. 4 Zeichen) wählen." };
+    const users = readStoredUsers();
+    const exists = users.some((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
+    if (exists) return { ok: false, error: "Diese E-Mail ist bereits registriert." };
 
-    const existing = findUserByEmail(email);
-    if (existing) return { ok: false, error: "Diese E-Mail ist bereits registriert." };
-
-    const users = getAllUsers();
-    const newUser: TrainQUser = {
-      id: uuidFallback("user"),
-      email,
-      password,
-      displayName: displayName || email.split("@")[0],
+    const t = nowISO();
+    const created: StoredUserRecord = {
+      id: newId("u"),
+      provider: "email",
+      email: e,
+      displayName: e.split("@")[0] || "User",
       isPro: false,
-      createdAt: nowISO(),
+      password: p,
+      createdAt: t,
+      updatedAt: t,
     };
 
-    // keine createUser-API -> direkt speichern
-    writeUsersDirect([...users, newUser]);
+    writeStoredUsers([...users, created]);
+    persistAndSetUser(created);
+    return { ok: true };
+  }, [persistAndSetUser]);
 
-    // direkt einloggen
-    const authUser = mapToAuthUser(newUser);
-    setUser(authUser);
-    writeCurrentUserToStorage(authUser);
+  const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
+    const e = normalizeEmail(email);
+    if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
+
+    // MVP (lokal) – kein echter Mailversand.
+    // Du kannst hier später einen Backend-Call einbauen.
+    const users = readStoredUsers();
+    const exists = users.some((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
+    if (!exists) return { ok: false, error: "Account nicht gefunden." };
 
     return { ok: true };
   }, []);
 
-  const setUserPro = useCallback(
-    (isPro: boolean) => {
-      if (!user?.id) return;
+  // -------------------- Apple (Stub) --------------------
+  // Echte Apple-Integration braucht:
+  // - native Sign in with Apple (Capacitor/React Native) ODER Web-Flow mit Apple Service ID
+  // - serverseitige Token-Validierung und Benutzer-Verknüpfung (empfohlen)
+  //
+  // Diese Stub-Version erzeugt/finder einen lokalen Apple-User, damit UI/Flow testbar ist.
 
-      // ✅ Account-Store updaten (Source of Truth)
-      const updated = updateUser(user.id, { isPro });
+  const loginWithApple = useCallback(async (): Promise<AuthResult> => {
+    if (typeof window === "undefined") return { ok: false, error: "Apple Login ist hier nicht verfügbar." };
 
-      if (updated) {
-        const mapped = mapToAuthUser(updated);
-        setUser(mapped);
-        writeCurrentUserToStorage(mapped);
-        return;
+    let sub = safeParse<string | null>(window.localStorage.getItem(LS_APPLE_SUB), null);
+    if (!sub) {
+      sub = `apple-stub-${newId("sub")}`;
+      try {
+        window.localStorage.setItem(LS_APPLE_SUB, JSON.stringify(sub));
+      } catch {
+        // ignore
       }
+    }
 
-      // Fallback (sollte selten passieren)
-      const next: AuthUser = { ...user, isPro: isPro === true };
-      setUser(next);
-      writeCurrentUserToStorage(next);
-    },
-    [user]
-  );
+    const users = readStoredUsers();
+    let found = users.find((u) => u.provider === "apple" && u.appleSub === sub);
 
-  const value = useMemo<AuthContextValue>(
+    if (!found) {
+      const t = nowISO();
+      const created: StoredUserRecord = {
+        id: newId("u"),
+        provider: "apple",
+        appleSub: sub,
+        displayName: "Apple User",
+        isPro: false,
+        createdAt: t,
+        updatedAt: t,
+      };
+      const next = [...users, created];
+      writeStoredUsers(next);
+      found = created;
+    }
+
+    persistAndSetUser(found);
+    return { ok: true };
+  }, [persistAndSetUser]);
+
+  // -------------------- Session / Flags --------------------
+
+  const logout = useCallback(() => {
+    persistAndSetUser(null);
+  }, [persistAndSetUser]);
+
+  const setUserPro = useCallback((isPro: boolean) => {
+    if (!user) return;
+
+    const users = readStoredUsers();
+    const idx = users.findIndex((u) => u.id === user.id);
+    if (idx < 0) return;
+
+    const updated: StoredUserRecord = {
+      ...users[idx],
+      isPro: !!isPro,
+      updatedAt: nowISO(),
+    };
+
+    const next = [...users];
+    next[idx] = updated;
+    writeStoredUsers(next);
+
+    persistAndSetUser(updated);
+  }, [user, persistAndSetUser]);
+
+  const value: AuthContextValue = useMemo(
     () => ({
       user,
-      isAuthenticated: !!user,
       login,
-      logout,
       register,
+      requestPasswordReset,
+      loginWithApple,
+      logout,
       setUserPro,
     }),
-    [user, login, logout, register, setUserPro]
+    [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export default AuthContext;
-export { AuthContext };
