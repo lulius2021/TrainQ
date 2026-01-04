@@ -1,111 +1,41 @@
 // src/pages/SettingPage.tsx
 import { useCallback, useMemo, useState } from "react";
-
-import {
-  readOnboardingDataFromStorage,
-  writeOnboardingDataToStorage,
-  resetOnboardingInStorage,
-} from "../context/OnboardingContext";
-
-import { clearWorkoutHistory } from "../utils/workoutHistory";
+import type { CSSProperties } from "react";
 import { useAuth } from "../hooks/useAuth";
 
-type SettingsSection = "account" | "notifications" | "legal" | "language" | "theme";
+import { loadTheme, setTheme as setThemeGlobal, type ThemeMode } from "../utils/theme";
+import { resetOnboardingInStorage } from "../context/OnboardingContext";
+
+type SettingsSection = "notifications" | "legal" | "language" | "theme";
 type LegalTab = "privacy" | "imprint" | "terms";
 
 interface SettingPageProps {
   onBack: () => void;
-  onClearCalendar?: () => void;
+  onClearCalendar?: () => void; // aktuell nicht genutzt (liegt bei dir im Profil / Critical Actions)
   onOpenPaywall?: () => void;
 }
 
-function parseCsvList(s: string): string[] {
-  return (s || "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
+export default function SettingPage({
+  onBack,
+  onClearCalendar: _onClearCalendar, // bewusst ungenutzt
+  onOpenPaywall,
+}: SettingPageProps) {
+  const safeTop = "env(safe-area-inset-top, 0px)";
+  const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
-// Onboarding-Typen in deinem Projekt scheinen `number | null` zu erwarten.
-// Deshalb speichern wir IMMER `number | null` (nie `undefined`), um TS-Errors zu vermeiden.
-function toNumberOrNull(raw: string): number | null {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-export default function SettingPage({ onBack, onClearCalendar, onOpenPaywall }: SettingPageProps) {
   const { user, logout } = useAuth();
   const isPro = user?.isPro === true;
 
-  const [section, setSection] = useState<SettingsSection>("account");
+  const [section, setSection] = useState<SettingsSection>("theme");
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
 
-  const initialOnboarding = readOnboardingDataFromStorage();
+  // ✅ Theme State nur für UI-Anzeige; DOM/Storage macht utils/theme.ts zentral
+  const [theme, setThemeState] = useState<ThemeMode>(() => loadTheme("dark"));
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
   }, [onOpenPaywall]);
-
-  // ---- Editable fields (Onboarding) ----
-  const [age, setAge] = useState<string>(() =>
-    typeof initialOnboarding.personal?.age === "number" ? String(initialOnboarding.personal?.age) : ""
-  );
-  const [height, setHeight] = useState<string>(() =>
-    typeof initialOnboarding.personal?.height === "number" ? String(initialOnboarding.personal?.height) : ""
-  );
-  const [weight, setWeight] = useState<string>(() =>
-    typeof initialOnboarding.personal?.weight === "number" ? String(initialOnboarding.personal?.weight) : ""
-  );
-
-  const [hoursPerWeek, setHoursPerWeek] = useState<string>(() =>
-    typeof initialOnboarding.training?.hoursPerWeek === "number" ? String(initialOnboarding.training?.hoursPerWeek) : ""
-  );
-  const [sessionsPerWeek, setSessionsPerWeek] = useState<string>(() =>
-    typeof initialOnboarding.training?.sessionsPerWeek === "number"
-      ? String(initialOnboarding.training?.sessionsPerWeek)
-      : ""
-  );
-
-  const [sportsCsv, setSportsCsv] = useState<string>(() =>
-    Array.isArray(initialOnboarding.goals?.sports) ? initialOnboarding.goals!.sports.join(", ") : ""
-  );
-  const [goalsCsv, setGoalsCsv] = useState<string>(() =>
-    Array.isArray(initialOnboarding.goals?.selectedGoals) ? initialOnboarding.goals!.selectedGoals.join(", ") : ""
-  );
-
-  const saveAccountData = useCallback(() => {
-    const current = readOnboardingDataFromStorage();
-
-    const nextSports = parseCsvList(sportsCsv);
-    const nextGoals = parseCsvList(goalsCsv);
-
-    // WICHTIG:
-    // Wenn deine Types `sports` und `selectedGoals` NICHT als string[] definieren,
-    // musst du hier später auf echte Enums/Union-Types mappen.
-    const next = {
-      ...current,
-      personal: {
-        ...(current.personal ?? {}),
-        age: toNumberOrNull(age),
-        height: toNumberOrNull(height),
-        weight: toNumberOrNull(weight),
-      },
-      training: {
-        ...(current.training ?? {}),
-        hoursPerWeek: toNumberOrNull(hoursPerWeek),
-        sessionsPerWeek: toNumberOrNull(sessionsPerWeek),
-      },
-      goals: {
-        ...(current.goals ?? {}),
-        sports: nextSports as unknown as typeof current.goals extends { sports: infer T } ? T : unknown,
-        selectedGoals: nextGoals as unknown as typeof current.goals extends { selectedGoals: infer T } ? T : unknown,
-      },
-    };
-
-    writeOnboardingDataToStorage(next);
-    alert("Gespeichert.");
-  }, [age, height, weight, hoursPerWeek, sessionsPerWeek, sportsCsv, goalsCsv]);
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -115,36 +45,50 @@ export default function SettingPage({ onBack, onClearCalendar, onOpenPaywall }: 
     onBack();
   }, [logout, onBack]);
 
+  // ✅ Onboarding erneut starten (Reset + Reload, damit Gate sauber greift)
   const handleRestartOnboarding = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm("Onboarding wirklich erneut starten?\n\nDeine Onboarding-Daten werden zurückgesetzt.");
+
+    const ok = window.confirm(
+      "Onboarding wirklich erneut starten?\n\nDeine Onboarding-Angaben werden zurückgesetzt."
+    );
     if (!ok) return;
+
     resetOnboardingInStorage();
-    alert("Onboarding wurde zurückgesetzt.");
+
+    // optional: falls du irgendwo Listener nutzt
+    window.dispatchEvent(new CustomEvent("trainq:restart_onboarding"));
+
+    // safest: App neu laden -> Onboarding-Gate greift sicher
+    window.location.reload();
   }, []);
 
   const menuItems = useMemo(
     () => [
-      { key: "account", label: "Konto & Daten" },
-      { key: "notifications", label: "Benachrichtigungen" },
-      { key: "legal", label: "Rechtliches" },
-      { key: "language", label: "Sprache" },
-      { key: "theme", label: "Theme" },
-      { key: "subscription", label: "Abonnement verwalten" },
-      { key: "faq", label: "Häufig gestellte Fragen" },
-      { key: "rate", label: "Bewerte TrainQ" },
-      { key: "contact", label: "Kontaktiere uns" },
-      { key: "about", label: "Über uns" },
-      { key: "help", label: "Hilfe" },
-      { key: "delete", label: "Profil löschen", danger: true },
+      { key: "notifications", label: "Benachrichtigungen", kind: "section" as const },
+      { key: "legal", label: "Rechtliches", kind: "section" as const },
+      { key: "language", label: "Sprache", kind: "section" as const },
+      { key: "theme", label: "Theme", kind: "section" as const },
+
+      { key: "subscription", label: "Abonnement verwalten", kind: "action" as const },
+      { key: "faq", label: "Häufig gestellte Fragen", kind: "action" as const },
+      { key: "rate", label: "Bewerte TrainQ", kind: "action" as const },
+      { key: "contact", label: "Kontaktiere uns", kind: "action" as const },
+      { key: "about", label: "Über uns", kind: "action" as const },
+      { key: "help", label: "Hilfe", kind: "action" as const },
+
+      // ✅ NEU
+      { key: "restart_onboarding", label: "Onboarding erneut starten", kind: "action" as const },
+
+      { key: "delete", label: "Profil löschen", kind: "action" as const, danger: true },
     ],
     []
   );
 
   const onMenuClick = useCallback(
-    (k: string) => {
-      if (k === "account" || k === "notifications" || k === "legal" || k === "language" || k === "theme") {
-        setSection(k as SettingsSection);
+    (k: string, kind: "section" | "action") => {
+      if (kind === "section") {
+        setSection((prev) => (prev === (k as SettingsSection) ? prev : (k as SettingsSection)));
         return;
       }
 
@@ -159,273 +103,265 @@ export default function SettingPage({ onBack, onClearCalendar, onOpenPaywall }: 
       if (k === "contact") return alert("Kontakt kommt später (Support-Mail / Formular).");
       if (k === "about") return alert("Über uns kommt später.");
       if (k === "help") return alert("Hilfe kommt später.");
+      if (k === "restart_onboarding") return handleRestartOnboarding();
+
       if (k === "delete") return alert("Profil löschen kommt später (Server-Deletion).");
     },
-    [isPro, openPaywall]
+    [isPro, openPaywall, handleRestartOnboarding]
   );
 
+  // ---------- Theme-safe style helpers ----------
+  const surfaceBox: CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)" };
+  const surfaceSoft: CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
+  const muted: CSSProperties = { color: "var(--muted)" };
+
+  // -------- Section Renderers --------
+  const SectionHeader = ({ title }: { title: string }) => (
+    <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+      {title}
+    </div>
+  );
+
+  const NotificationsPanel = () => (
+    <>
+      <SectionHeader title="Benachrichtigungen" />
+      <div className="rounded-xl p-3 text-[11px]" style={surfaceSoft}>
+        <div style={muted}>Kommt später (Push/Local Notifications).</div>
+      </div>
+    </>
+  );
+
+  const LegalPanel = () => (
+    <>
+      <SectionHeader title="Rechtliches" />
+
+      <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceSoft}>
+        {[
+          ["privacy", "Datenschutz"],
+          ["imprint", "Impressum"],
+          ["terms", "AGB"],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setLegalTab(k as LegalTab)}
+            className="px-3 py-1 rounded-full transition"
+            style={
+              legalTab === k
+                ? { background: "var(--primary)", color: "#061226" }
+                : { color: "var(--text)" }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl p-3 text-[11px]" style={surfaceSoft}>
+        <div style={muted}>
+          {legalTab === "privacy" && "Datenschutz-Text kommt später."}
+          {legalTab === "imprint" && "Impressum kommt später."}
+          {legalTab === "terms" && "AGB kommt später."}
+        </div>
+      </div>
+    </>
+  );
+
+  const LanguagePanel = () => (
+    <>
+      <SectionHeader title="Sprache" />
+      <div className="rounded-xl p-3 text-[11px]" style={surfaceSoft}>
+        <div style={muted}>Kommt später (i18n).</div>
+      </div>
+    </>
+  );
+
+  const ThemePanel = () => (
+    <>
+      <SectionHeader title="Theme" />
+
+      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
+        <div className="text-[11px]" style={muted}>
+          Wähle Hell oder Dunkel (wird gespeichert).
+        </div>
+
+        <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
+          <button
+            type="button"
+            onClick={() => {
+              setThemeGlobal("light");
+              setThemeState("light");
+            }}
+            className="px-4 py-1.5 rounded-full transition"
+            style={theme === "light" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
+          >
+            Hell
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setThemeGlobal("dark");
+              setThemeState("dark");
+            }}
+            className="px-4 py-1.5 rounded-full transition"
+            style={theme === "dark" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
+          >
+            Dunkel
+          </button>
+        </div>
+
+        <div className="text-[10px]" style={muted}>
+          Technisch: Theme wird global über <span style={{ color: "var(--text)" }}>html[data-theme]</span> und{" "}
+          <span style={{ color: "var(--text)" }}>html.dark</span> gesteuert.
+        </div>
+      </div>
+    </>
+  );
+
+  const renderSectionContent = (k: SettingsSection) => {
+    if (k === "notifications") return <NotificationsPanel />;
+    if (k === "legal") return <LegalPanel />;
+    if (k === "language") return <LanguagePanel />;
+    return <ThemePanel />;
+  };
+
+  // -------- Layout --------
   return (
-    <div className="h-full w-full overflow-y-auto px-1 py-5 sm:px-2">
+    <div
+      className="h-full w-full overflow-y-auto px-1 sm:px-2"
+      style={{
+        paddingTop: `calc(12px + ${safeTop})`,
+        paddingBottom: `calc(160px + ${safeBottom})`,
+      }}
+    >
       <div className="mx-auto w-full max-w-5xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onBack}
-              className="h-9 w-9 flex items-center justify-center rounded-full bg-black/40 border border-white/15 text-white/80 hover:bg-white/10"
+              className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
               title="Zurück"
+              style={surfaceSoft}
             >
-              {"<"}
+              <span style={{ color: "var(--text)" }}>{"<"}</span>
             </button>
-            <h1 className="text-xl font-semibold">Einstellungen</h1>
+
+            <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>
+              Einstellungen
+            </h1>
           </div>
 
           {!isPro && (
             <button
               type="button"
               onClick={openPaywall}
-              className="rounded-full bg-brand-primary text-black px-4 py-2 text-xs font-semibold hover:bg-brand-primary/90"
+              className="rounded-full px-4 py-2 text-xs font-semibold hover:opacity-95"
+              style={{ background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" }}
             >
               Pro kaufen
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
-          <div className="rounded-2xl bg-brand-card border border-white/5 p-2">
+        {/* MOBILE: Accordion */}
+        <div className="md:hidden space-y-3">
+          <div className="tq-surface p-2">
             <div className="space-y-1">
-              {menuItems.map((it) => (
-                <button
-                  key={it.key}
-                  type="button"
-                  onClick={() => onMenuClick(it.key)}
-                  className={
-                    "w-full text-left px-3 py-2 rounded-xl border " +
-                    (it.danger
-                      ? "border-red-500/30 bg-red-500/5 text-red-100 hover:bg-red-500/10"
-                      : "border-white/10 bg-black/30 text-white/80 hover:bg-white/5")
-                  }
-                >
-                  {it.label}
-                </button>
-              ))}
+              {menuItems.map((it) => {
+                const isSection = it.kind === "section";
+                const isActive = isSection && section === (it.key as SettingsSection);
+
+                const rowStyle: CSSProperties = it.danger
+                  ? {
+                      background: "rgba(239,68,68,0.08)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "rgba(239,68,68,0.95)",
+                    }
+                  : surfaceSoft;
+
+                return (
+                  <div key={it.key} className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => onMenuClick(it.key, it.kind)}
+                      className="w-full text-left px-3 py-2 rounded-xl hover:opacity-95"
+                      style={rowStyle}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: it.danger ? "rgba(239,68,68,0.95)" : "var(--text)" }}>{it.label}</span>
+                        {isSection && (
+                          <span className="text-[12px]" style={muted}>
+                            {isActive ? "–" : "+"}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+
+                    {isSection && isActive && (
+                      <div className="rounded-2xl p-3 space-y-3" style={surfaceBox}>
+                        {renderSectionContent(it.key as SettingsSection)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="mt-3 px-3 pb-2">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-xs text-white/80 hover:bg-white/5"
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
+                style={surfaceSoft}
               >
-                Abmelden
+                <span style={{ color: "var(--text)" }}>Abmelden</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* DESKTOP: Sidebar + Content */}
+        <div className="hidden md:grid grid-cols-[280px_1fr] gap-4">
+          <div className="tq-surface p-2">
+            <div className="space-y-1">
+              {menuItems.map((it) => {
+                const rowStyle: CSSProperties = it.danger
+                  ? {
+                      background: "rgba(239,68,68,0.08)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "rgba(239,68,68,0.95)",
+                    }
+                  : surfaceSoft;
+
+                return (
+                  <button
+                    key={it.key}
+                    type="button"
+                    onClick={() => onMenuClick(it.key, it.kind)}
+                    className="w-full text-left px-3 py-2 rounded-xl hover:opacity-95"
+                    style={rowStyle}
+                  >
+                    <span style={{ color: it.danger ? "rgba(239,68,68,0.95)" : "var(--text)" }}>{it.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 px-3 pb-2">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
+                style={surfaceSoft}
+              >
+                <span style={{ color: "var(--text)" }}>Abmelden</span>
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-brand-card border border-white/5 p-4 space-y-3">
-            {section === "account" && (
-              <>
-                <div className="text-sm font-semibold">Konto & Daten</div>
-
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                  <div className="text-[10px] text-white/55">E-Mail</div>
-                  <div className="mt-1 text-[12px] text-white/85 break-all">{user?.email || "—"}</div>
-                  <div className="mt-2 text-[10px] text-white/50">
-                    Account-Status:{" "}
-                    <span className={isPro ? "text-amber-200" : "text-emerald-200"}>{isPro ? "Pro" : "Free"}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 space-y-3">
-                  <div className="text-[11px] font-semibold text-white/85">Onboarding-Daten</div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] text-white/60">Alter</label>
-                      <input
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                        inputMode="numeric"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-[10px] text-white/60">Größe (cm)</label>
-                      <input
-                        value={height}
-                        onChange={(e) => setHeight(e.target.value)}
-                        className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                        inputMode="numeric"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-[10px] text-white/60">Gewicht (kg)</label>
-                      <input
-                        value={weight}
-                        onChange={(e) => setWeight(e.target.value)}
-                        className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                        inputMode="numeric"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] text-white/60">Ziel Stunden / Woche</label>
-                      <input
-                        value={hoursPerWeek}
-                        onChange={(e) => setHoursPerWeek(e.target.value)}
-                        className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                        inputMode="numeric"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-[10px] text-white/60">Sessions / Woche</label>
-                      <input
-                        value={sessionsPerWeek}
-                        onChange={(e) => setSessionsPerWeek(e.target.value)}
-                        className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                        inputMode="numeric"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[10px] text-white/60">Sportarten (kommagetrennt)</label>
-                    <input
-                      value={sportsCsv}
-                      onChange={(e) => setSportsCsv(e.target.value)}
-                      className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                      placeholder="Gym, Laufen, Radfahren"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[10px] text-white/60">Ziele (kommagetrennt)</label>
-                    <input
-                      value={goalsCsv}
-                      onChange={(e) => setGoalsCsv(e.target.value)}
-                      className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
-                      placeholder="Muskelaufbau, Ausdauer, ..."
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={saveAccountData}
-                      className="rounded-xl bg-brand-primary text-black px-4 py-2 text-xs font-semibold hover:bg-brand-primary/90"
-                    >
-                      Speichern
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-2 rounded-xl border border-white/10 bg-black/30 p-3 space-y-2">
-                  <div className="text-[11px] font-semibold text-red-200/90">Kritische Aktionen</div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeof window === "undefined") return;
-                      const ok = window.confirm(
-                        "Trainingsverlauf wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden."
-                      );
-                      if (!ok) return;
-                      clearWorkoutHistory();
-                      alert("Trainingsverlauf wurde gelöscht.");
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl border border-red-500/40 bg-red-500/10 text-[11px] text-red-50 hover:bg-red-500/20"
-                  >
-                    Trainingsverlauf löschen
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!onClearCalendar) return alert("Kalender leeren ist noch nicht verbunden.");
-                      if (typeof window === "undefined") return;
-                      const ok = window.confirm("Kalender wirklich leeren?");
-                      if (!ok) return;
-                      onClearCalendar();
-                      alert("Kalender wurde geleert.");
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-[11px] text-amber-50 hover:bg-amber-500/20"
-                  >
-                    Kalender leeren
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleRestartOnboarding}
-                    className="w-full text-left px-3 py-2 rounded-xl border border-blue-500/40 bg-blue-500/10 text-[11px] text-blue-50 hover:bg-blue-500/20"
-                  >
-                    Onboarding erneut starten
-                  </button>
-                </div>
-              </>
-            )}
-
-            {section === "notifications" && (
-              <>
-                <div className="text-sm font-semibold">Benachrichtigungen</div>
-                <div className="text-[11px] text-white/60">Kommt später (Push/Local Notifications).</div>
-              </>
-            )}
-
-            {section === "legal" && (
-              <>
-                <div className="text-sm font-semibold">Rechtliches</div>
-
-                <div className="inline-flex rounded-full bg-black/40 border border-white/15 p-1 text-[11px]">
-                  {[
-                    ["privacy", "Datenschutz"],
-                    ["imprint", "Impressum"],
-                    ["terms", "AGB"],
-                  ].map(([k, label]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setLegalTab(k as LegalTab)}
-                      className={
-                        "px-3 py-1 rounded-full " +
-                        (legalTab === k ? "bg-brand-primary text-black" : "text-white/70 hover:bg-white/5")
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
-                  {legalTab === "privacy" && "Datenschutz-Text kommt später."}
-                  {legalTab === "imprint" && "Impressum kommt später."}
-                  {legalTab === "terms" && "AGB kommt später."}
-                </div>
-              </>
-            )}
-
-            {section === "language" && (
-              <>
-                <div className="text-sm font-semibold">Sprache</div>
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
-                  Kommt später (i18n).
-                </div>
-              </>
-            )}
-
-            {section === "theme" && (
-              <>
-                <div className="text-sm font-semibold">Theme</div>
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
-                  Kommt später (Light/Dark/Accent).
-                </div>
-              </>
-            )}
-          </div>
+          <div className="tq-surface p-4 space-y-3">{renderSectionContent(section)}</div>
         </div>
       </div>
     </div>

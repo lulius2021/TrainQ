@@ -154,9 +154,7 @@ function normalizeSeed(raw: any): LiveTrainingSeed | null {
   const sport = normalizeSport(raw.sport);
 
   const isCardio =
-    typeof raw.isCardio === "boolean"
-      ? raw.isCardio
-      : sport === "Laufen" || sport === "Radfahren";
+    typeof raw.isCardio === "boolean" ? raw.isCardio : sport === "Laufen" || sport === "Radfahren";
 
   const exercisesRaw = Array.isArray(raw.exercises) ? raw.exercises : [];
   const exercises: BlockExerciseSeed[] = exercisesRaw
@@ -178,7 +176,8 @@ function normalizeSeed(raw: any): LiveTrainingSeed | null {
         .filter(Boolean) as ExerciseSetSeed[];
 
       const id = (ex.id ?? undefined) as SeedId | undefined;
-      const exerciseId = typeof ex.exerciseId === "string" && ex.exerciseId.trim() ? ex.exerciseId.trim() : undefined;
+      const exerciseId =
+        typeof ex.exerciseId === "string" && ex.exerciseId.trim() ? ex.exerciseId.trim() : undefined;
       const name = normalizeTitle(ex.name || "Übung");
 
       return { id, exerciseId, name, sets } as BlockExerciseSeed;
@@ -186,6 +185,26 @@ function normalizeSeed(raw: any): LiveTrainingSeed | null {
     .filter(Boolean) as BlockExerciseSeed[];
 
   return { title, sport, isCardio, exercises };
+}
+
+/**
+ * ✅ Map-Normalisierung:
+ * - entfernt ungültige keys
+ * - normalisiert jeden Seed defensiv
+ * - verhindert, dass „kaputte“ LS-Einträge später sporadisch resolve() brechen
+ */
+function normalizeSeedRecord(input: any): Record<string, LiveTrainingSeed> {
+  if (!input || typeof input !== "object") return {};
+  const out: Record<string, LiveTrainingSeed> = {};
+
+  for (const [k, v] of Object.entries(input)) {
+    const nk = String(k || "").trim();
+    if (!nk) continue;
+    const n = normalizeSeed(v);
+    if (n) out[nk] = n;
+  }
+
+  return out;
 }
 
 // ---------------- Global Seed ----------------
@@ -235,19 +254,26 @@ function readSeedsByEventId(): SeedsByEventId {
   // new first
   const rawNew = safeGet(STORAGE_KEY_SEEDS_BY_EVENT);
   const parsedNew = safeJSONParse<any>(rawNew, null);
-  if (parsedNew && typeof parsedNew === "object") return parsedNew as SeedsByEventId;
+  if (parsedNew && typeof parsedNew === "object") {
+    const normalized = normalizeSeedRecord(parsedNew);
+    // self-heal writeback (optional, aber praktisch)
+    safeSet(STORAGE_KEY_SEEDS_BY_EVENT, normalized);
+    return normalized as SeedsByEventId;
+  }
 
   // old back-compat
   const rawOld = safeGet(OLD_LS_BY_EVENT) ?? safeGet(OLD_LS_BY_EVENT_2);
   const parsedOld = safeJSONParse<any>(rawOld, {});
-  if (!parsedOld || typeof parsedOld !== "object") return {};
-  // migrate forward once
-  safeSet(STORAGE_KEY_SEEDS_BY_EVENT, parsedOld);
-  return parsedOld as SeedsByEventId;
+  const normalizedOld = normalizeSeedRecord(parsedOld);
+
+  // migrate forward once (normalisiert)
+  safeSet(STORAGE_KEY_SEEDS_BY_EVENT, normalizedOld);
+  return normalizedOld as SeedsByEventId;
 }
 
 function writeSeedsByEventId(map: SeedsByEventId): void {
-  safeSet(STORAGE_KEY_SEEDS_BY_EVENT, map);
+  // ensure only valid seeds persist
+  safeSet(STORAGE_KEY_SEEDS_BY_EVENT, normalizeSeedRecord(map));
 }
 
 export function writeLiveSeedForEvent(eventId: string, seed: LiveTrainingSeed): void {
@@ -301,12 +327,14 @@ function makeSeedKeyLegacy(dateISO: string, title: string): string {
 function readSeedsByKey(): SeedsByKey {
   const raw = safeGet(STORAGE_KEY_SEEDS_BY_KEY);
   const parsed = safeJSONParse<any>(raw, {});
-  if (!parsed || typeof parsed !== "object") return {};
-  return parsed as SeedsByKey;
+  const normalized = normalizeSeedRecord(parsed);
+  // self-heal writeback (optional)
+  safeSet(STORAGE_KEY_SEEDS_BY_KEY, normalized);
+  return normalized as SeedsByKey;
 }
 
 function writeSeedsByKey(map: SeedsByKey): void {
-  safeSet(STORAGE_KEY_SEEDS_BY_KEY, map);
+  safeSet(STORAGE_KEY_SEEDS_BY_KEY, normalizeSeedRecord(map));
 }
 
 export function writeLiveSeedForKey(key: string, seed: LiveTrainingSeed): void {
@@ -342,6 +370,18 @@ export function readLiveSeedForKey(key: string): LiveTrainingSeed | null {
   return null;
 }
 
+// ✅ NEW: Key-Seeds gezielt löschen (für sauberes Cleanup bei Event-Delete)
+export function deleteLiveSeedForKey(key: string): void {
+  const k = String(key || "").trim();
+  if (!k) return;
+
+  const map = readSeedsByKey();
+  if (!(k in map)) return;
+
+  delete map[k];
+  writeSeedsByKey(map);
+}
+
 // ---------------- ✅ Robust Resolver ----------------
 
 /**
@@ -350,11 +390,7 @@ export function readLiveSeedForKey(key: string): LiveTrainingSeed | null {
  * 2) per key (date|title) (normalisiert)
  * 3) legacy key (date+title) (normalisiert)
  */
-export function resolveLiveSeed(input: {
-  eventId?: string;
-  dateISO?: string;
-  title?: string;
-}): LiveTrainingSeed | null {
+export function resolveLiveSeed(input: { eventId?: string; dateISO?: string; title?: string }): LiveTrainingSeed | null {
   if (input.eventId) {
     const byEvent = readLiveSeedForEvent(input.eventId);
     if (byEvent) return byEvent;

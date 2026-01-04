@@ -1,7 +1,7 @@
 // src/pages/onboarding/steps/Step5Profile.tsx
-import React, { useMemo, useState } from "react";
-import { StepWrapper } from "../../../components/onboarding/StepWrapper.tsx";
-import { useOnboarding } from "../../../context/OnboardingContext.tsx";
+import React, { useEffect, useMemo, useState } from "react";
+import { StepWrapper } from "../StepWrapper"; // ✅ gleicher Wrapper wie Step1–4
+import { useOnboarding } from "../../../context/OnboardingContext";
 import type { ProfileData } from "../../../types/onboarding";
 
 interface Step5ProfileProps {
@@ -20,156 +20,173 @@ function initialsOf(name: string): string {
   return (initials || "TQ").slice(0, 2).toUpperCase();
 }
 
+function sanitizeProfile(input?: Partial<ProfileData> | null): ProfileData {
+  const p = (input ?? {}) as Partial<ProfileData>;
+  return {
+    username: typeof p.username === "string" ? p.username : "",
+    bio: typeof p.bio === "string" ? p.bio : "",
+    profileImageUrl: typeof p.profileImageUrl === "string" ? p.profileImageUrl : undefined,
+    stravaUrl: typeof p.stravaUrl === "string" ? p.stravaUrl : undefined,
+    isPublic: typeof p.isPublic === "boolean" ? p.isPublic : true,
+  };
+}
+
 export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) => {
   const { data, updateData, complete } = useOnboarding();
 
-  const initialProfile = useMemo<ProfileData>(() => {
-    const p = data.profile ?? { username: "", isPublic: true };
-    return {
-      username: typeof p.username === "string" ? p.username : "",
-      bio: typeof p.bio === "string" ? p.bio : "",
-      profileImageUrl: p.profileImageUrl,
-      stravaUrl: p.stravaUrl,
-      isPublic: typeof p.isPublic === "boolean" ? p.isPublic : true,
-    };
-  }, [data.profile]);
+  const initial = useMemo(() => sanitizeProfile(data?.profile), [data?.profile]);
 
-  const [profile, setProfile] = useState<ProfileData>(initialProfile);
+  const [profile, setProfile] = useState<ProfileData>(() => initial);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) setProfile(initial);
+  }, [initial, dirty]);
+
+  const setProfileSafe = (next: React.SetStateAction<ProfileData>) => {
+    setDirty(true);
+    setProfile(next);
+  };
+
+  const usernameTrim = (profile.username || "").trim();
+  const isNextDisabled = usernameTrim.length === 0;
 
   const handleFinish = () => {
-    // 1) Profil persistieren
     updateData({
       profile: {
         ...profile,
-        username: (profile.username || "").trim(),
+        username: usernameTrim,
         bio: (profile.bio ?? "").trim(),
+        profileImageUrl: (profile.profileImageUrl ?? "").trim() || undefined,
+        stravaUrl: (profile.stravaUrl ?? "").trim() || undefined,
       },
     });
 
-    // 2) zentraler Completion-Pfad (Single Source of Truth)
     complete();
-
-    // 3) Optionaler Legacy-Flag (nur wenn du ihn wirklich noch irgendwo nutzt)
-    try {
-      localStorage.setItem("trainq_onboarding_completed", "true");
-    } catch {
-      // ignore
-    }
-
     onFinish();
   };
 
-  const bioPreview = (profile.bio ?? "").trim();
+  const card: React.CSSProperties = {
+    background: "var(--surface2)",
+    border: "1px solid var(--border)",
+  };
+
+  const text: React.CSSProperties = { color: "var(--text)" };
+  const muted: React.CSSProperties = { color: "var(--muted)" };
+
+  const inputStyle =
+    "w-full rounded-2xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0";
+  const inputInline: React.CSSProperties = {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+  };
+
+  const toggleStyle = (on: boolean): React.CSSProperties => ({
+    width: 44,
+    height: 26,
+    borderRadius: 999,
+    padding: 2,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: on ? "flex-end" : "flex-start",
+    background: on ? "var(--primary)" : "rgba(255,255,255,0.10)",
+    border: "1px solid var(--border)",
+  });
+
+  const knobStyle: React.CSSProperties = {
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    background: "#fff",
+  };
 
   return (
     <StepWrapper
-      title="Profil vervollständigen"
-      subtitle="Gestalte dein TrainQ-Profil. Du kannst alles später jederzeit anpassen."
-      onNext={handleFinish}
+      hideProgress
+      title="Startklar."
+      subtitle="Name setzen, fertig."
       onBack={onBack}
-      nextLabel="Onboarding abschließen"
-      isNextDisabled={!profile.username.trim()}
+      showBack
+      onNext={handleFinish}
+      nextLabel="Fertig"
+      nextDisabled={isNextDisabled}
     >
-      <div className="space-y-4 text-sm">
-        {/* Profil-Header */}
+      {/* Minimal Profil */}
+      <div className="rounded-2xl p-4 space-y-3" style={card}>
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-gray-800 flex items-center justify-center text-xs text-gray-300">
-            {profile.profileImageUrl?.trim() ? "Bild" : initialsOf(profile.username || "TrainQ")}
+          <div
+            className="h-12 w-12 rounded-full flex items-center justify-center text-[12px] font-semibold"
+            style={{
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+            }}
+          >
+            {initialsOf(usernameTrim || "TrainQ")}
           </div>
 
-          <div className="flex-1">
-            <label className="text-xs text-gray-400">Benutzername</label>
+          <div className="flex-1 space-y-1">
+            <div className="text-[11px]" style={muted}>
+              Benutzername
+            </div>
             <input
               type="text"
-              className="w-full bg-[#05060A] border border-gray-700 rounded-lg px-3 py-2 text-sm"
               placeholder="@deinname"
               value={profile.username}
-              onChange={(e) => setProfile((prev) => ({ ...prev, username: e.target.value }))}
+              onChange={(e) => setProfileSafe((prev) => ({ ...prev, username: e.target.value }))}
+              className={inputStyle}
+              style={inputInline}
+              autoCapitalize="none"
+              autoCorrect="off"
             />
           </div>
         </div>
+      </div>
 
-        {/* Bio */}
-        <div>
-          <label className="text-xs text-gray-400">Bio (optional)</label>
-          <textarea
-            className="w-full bg-[#05060A] border border-gray-700 rounded-lg px-3 py-2 text-sm min-h-[70px]"
-            placeholder="Kurzbeschreibung (z.B. Ziele, Sportarten, Fokus...)"
-            value={profile.bio ?? ""}
-            onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
-          />
-          <div className="text-[11px] text-gray-500 mt-1">
-            Wird im Profil gespeichert und kann später jederzeit geändert werden.
+      {/* Optional: Privat */}
+      <div className="rounded-2xl p-4 flex items-center justify-between" style={card}>
+        <div className="space-y-0.5">
+          <div className="text-sm font-semibold" style={text}>
+            Öffentlich
+          </div>
+          <div className="text-[11px]" style={muted}>
+            Profil sichtbar
           </div>
         </div>
 
-        {/* Profilbild-URL */}
-        <div>
-          <label className="text-xs text-gray-400">Profilbild (URL, optional)</label>
-          <input
-            type="text"
-            className="w-full bg-[#05060A] border border-gray-700 rounded-lg px-3 py-2 text-sm"
-            placeholder="https://..."
-            value={profile.profileImageUrl ?? ""}
-            onChange={(e) =>
-              setProfile((prev) => ({
-                ...prev,
-                profileImageUrl: e.target.value,
-              }))
-            }
-          />
+        <button
+          type="button"
+          onClick={() => setProfileSafe((prev) => ({ ...prev, isPublic: !prev.isPublic }))}
+          aria-label="Profil öffentlich"
+          style={toggleStyle(profile.isPublic)}
+        >
+          <div style={knobStyle} />
+        </button>
+      </div>
+
+      {/* Optional: Mini-Vorschau (kurz, kein Textblock) */}
+      <div className="rounded-2xl p-4" style={card}>
+        <div className="text-[11px] mb-2" style={muted}>
+          Vorschau
         </div>
-
-        {/* Strava-Link */}
-        <div>
-          <label className="text-xs text-gray-400">Strava-Link (optional)</label>
-          <input
-            type="text"
-            className="w-full bg-[#05060A] border border-gray-700 rounded-lg px-3 py-2 text-sm"
-            placeholder="https://www.strava.com/athletes/..."
-            value={profile.stravaUrl ?? ""}
-            onChange={(e) => setProfile((prev) => ({ ...prev, stravaUrl: e.target.value }))}
-          />
-        </div>
-
-        {/* Öffentlich / Privat Switch */}
-        <div className="flex items-center justify-between bg-[#05060A] border border-gray-800 rounded-xl px-3 py-2">
-          <div>
-            <p className="text-xs text-gray-200">Profil öffentlich</p>
-            <p className="text-[11px] text-gray-500">
-              Wenn aktiviert, können andere dein Profil und deine Statistiken sehen.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setProfile((prev) => ({ ...prev, isPublic: !prev.isPublic }))}
-            className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors ${
-              profile.isPublic ? "bg-blue-600" : "bg-gray-700"
-            }`}
+        <div className="flex items-center gap-2">
+          <div
+            className="h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-semibold"
+            style={{
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+            }}
           >
-            <div
-              className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                profile.isPublic ? "translate-x-6" : "translate-x-0"
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Profil-Vorschau */}
-        <div className="mt-2 border border-gray-800 rounded-xl p-3 text-xs text-gray-300">
-          <p className="font-medium mb-2">Profil Vorschau</p>
-
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-[10px] text-gray-300">
-              {initialsOf(profile.username || "TrainQ")}
+            {initialsOf(usernameTrim || "TrainQ")}
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate" style={text}>
+              {usernameTrim || "Dein Name"}
             </div>
-
-            <div className="min-w-0">
-              <p className="text-sm truncate">{profile.username || "Dein Benutzername"}</p>
-              <p className="text-[11px] text-gray-500 truncate">
-                {bioPreview ? bioPreview : "Deine Bio erscheint hier."}
-              </p>
+            <div className="text-[11px] truncate" style={muted}>
+              {profile.isPublic ? "öffentlich" : "privat"}
             </div>
           </div>
         </div>

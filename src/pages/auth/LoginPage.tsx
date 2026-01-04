@@ -15,7 +15,6 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
     loginWithApple?: () => Promise<AuthResult>;
   };
 
-  // ✅ komplett leer starten
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +22,6 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // ✅ erzwingt leere Felder beim Mount (auch wenn Browser/iOS versucht zu prefllen)
   useEffect(() => {
     setEmail("");
     setPassword("");
@@ -78,7 +76,6 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
           </div>
         )}
 
-        {/* ✅ Email/Password zuerst */}
         <form onSubmit={onSubmitEmail} className="space-y-3" autoComplete="off">
           <div className="space-y-1">
             <label className="block text-xs text-white/60">E-Mail</label>
@@ -183,7 +180,6 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
           </div>
         </form>
 
-        {/* ✅ Apple darunter */}
         <div className="mt-4">
           <button
             type="button"

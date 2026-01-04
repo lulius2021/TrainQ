@@ -1,3 +1,4 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,12 +8,19 @@
    ========================= */
 
 /* ---------- LIGHT MODE ---------- */
-:root {
+:root,
+html[data-theme="light"] {
   color-scheme: light;
 
   /* Background */
   --bg: #f0f1f5;
-  --bg-gradient: none;
+  --bg-gradient: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f3f7ff 35%,
+    #d9e8ff 65%,
+    #2d7dff 100%
+  );
 
   /* Surfaces */
   --surface: #ffffff;
@@ -31,10 +39,28 @@
   --shadow: none;
   --r: 18px;
   --r2: 26px;
+
+  /* ✅ iOS Safe Area Insets */
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
 }
 
-/* ---------- DARK MODE (BLACK → DEEP BLUE, FIXED) ---------- */
-html[data-theme="dark"] {
+/* Optional fallback for very old iOS WebViews */
+@supports (padding: constant(safe-area-inset-top)) {
+  :root {
+    --safe-top: constant(safe-area-inset-top);
+    --safe-right: constant(safe-area-inset-right);
+    --safe-bottom: constant(safe-area-inset-bottom);
+    --safe-left: constant(safe-area-inset-left);
+  }
+}
+
+/* ---------- DARK MODE ---------- */
+/* Du setzt beides: data-theme + class dark. Deshalb beide Selektoren unterstützen. */
+html[data-theme="dark"],
+html.dark {
   color-scheme: dark;
 
   --bg-gradient: linear-gradient(
@@ -44,23 +70,18 @@ html[data-theme="dark"] {
     #0b1f3a 65%,
     #0f2a4d 100%
   );
-
   --bg: #000000;
 
-  /* Glassy surfaces */
   --surface: rgba(10, 14, 24, 0.88);
   --surface2: rgba(13, 18, 30, 0.92);
   --border: rgba(255, 255, 255, 0.07);
 
-  /* Text */
   --text: #edeff6;
   --muted: rgba(237, 239, 246, 0.6);
 
-  /* Brand */
   --primary: #2563eb;
   --primarySoft: #3b82f6;
 
-  /* Effects */
   --shadow: none;
 }
 
@@ -68,23 +89,38 @@ html[data-theme="dark"] {
    Global base
    ========================= */
 
+/* ✅ Wichtig für iOS: Scroll-Chain unterbinden.
+   Die App scrollt in ihren eigenen Containern (z.B. LiveTrainingPage main),
+   NICHT der Body. */
 html,
-body,
-#root {
+body {
   height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none; /* ✅ verhindert "bounce" nach außen */
 }
 
 body {
   margin: 0;
   color: var(--text);
   background: var(--bg);
+
+  /* ✅ Body darf nicht vertikal scrollen, sonst wandern Header/Footer */
+  overflow: hidden;
   overflow-x: hidden;
+
+  /* ✅ iOS scrolling: wir scrollen in inneren Containern */
+  -webkit-overflow-scrolling: touch;
+
+  /* Touch */
+  touch-action: pan-y;
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 🔥 FIXED BACKGROUND LAYER */
+/* Background layer */
 body::before {
   content: "";
   position: fixed;
@@ -98,11 +134,25 @@ body::before {
   pointer-events: none;
 }
 
-/* Remove Vite default layout constraints */
+/* ✅ Root muss echte 100% Höhe haben (nicht nur min-height),
+   sonst kann iOS wieder "durchreichen". */
 #root {
+  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  overflow: hidden; /* ✅ Root selbst scrollt nicht */
+  overflow-x: hidden;
+
+  /* Safe Areas */
+  padding-top: var(--safe-top);
+  padding-right: var(--safe-right);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+
+  box-sizing: border-box;
+
   max-width: none;
   margin: 0;
-  padding: 0;
   text-align: left;
   position: relative;
   z-index: 0;
@@ -116,9 +166,7 @@ body::before {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
-
   box-shadow: none;
-
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -126,4 +174,28 @@ body::before {
 .tq-surface-soft {
   background: var(--surface2);
   border-radius: var(--r);
+}
+
+/* =========================
+   Optional: Saubere Inputs auf iOS
+   (verhindert Zoom/Weirdness, ohne Design zu zerstören)
+   ========================= */
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button {
+  -webkit-appearance: none;
+  appearance: none;
 }

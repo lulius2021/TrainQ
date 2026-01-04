@@ -1,6 +1,5 @@
 // src/pages/ProfilePage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FeedbackBar } from "../components/feedback/FeedbackBar";
 
 import {
   loadWorkoutHistory,
@@ -18,7 +17,6 @@ import {
 import { useAuth } from "../hooks/useAuth";
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
-// -> deshalb "./SettingPage" importieren.
 import SettingPage from "./SettingPage";
 
 interface ProfilePageProps {
@@ -161,7 +159,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   }, [refreshOnboarding, refreshWorkouts]);
 
   // -------- Profile basics from storage --------
-  const initialName = useMemo(() => (onboarding.profile?.username || "").trim() || "Dein Name", [onboarding.profile?.username]);
+  const initialName = useMemo(
+    () => (onboarding.profile?.username || "").trim() || "Dein Name",
+    [onboarding.profile?.username]
+  );
 
   const derivedBioFallback = useMemo(() => {
     const goals = onboarding.goals?.selectedGoals ?? [];
@@ -219,7 +220,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Editable onboarding fields (moved into profile edit)
-  const [age, setAge] = useState<string>(() => (typeof onboarding.personal?.age === "number" ? String(onboarding.personal?.age) : ""));
+  const [age, setAge] = useState<string>(() =>
+    typeof onboarding.personal?.age === "number" ? String(onboarding.personal?.age) : ""
+  );
   const [height, setHeight] = useState<string>(() =>
     typeof onboarding.personal?.height === "number" ? String(onboarding.personal?.height) : ""
   );
@@ -253,7 +256,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     setWeight(typeof current.personal?.weight === "number" ? String(current.personal?.weight) : "");
 
     setHoursPerWeek(typeof current.training?.hoursPerWeek === "number" ? String(current.training?.hoursPerWeek) : "");
-    setSessionsPerWeek(typeof current.training?.sessionsPerWeek === "number" ? String(current.training?.sessionsPerWeek) : "");
+    setSessionsPerWeek(
+      typeof current.training?.sessionsPerWeek === "number" ? String(current.training?.sessionsPerWeek) : ""
+    );
 
     setSportsCsv(Array.isArray(current.goals?.sports) ? (current.goals!.sports as any[]).join(", ") : "");
     setGoalsCsv(Array.isArray(current.goals?.selectedGoals) ? (current.goals!.selectedGoals as any[]).join(", ") : "");
@@ -313,6 +318,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   // -------- Settings drawer state --------
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // -------- Stats / Charts --------
+  const [monthRef, setMonthRef] = useState<Date>(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [weekRef, setWeekRef] = useState<Date>(new Date());
+  const [statsOpen, setStatsOpen] = useState(false);
+
   // Close modals with ESC
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -327,14 +340,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  // -------- Stats / Charts --------
-  const [monthRef, setMonthRef] = useState<Date>(() => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1);
-  });
-  const [weekRef, setWeekRef] = useState<Date>(new Date());
-  const [statsOpen, setStatsOpen] = useState(false);
 
   const monthLabel = useMemo(() => formatMonthLabel(monthRef), [monthRef]);
   const weekStart = useMemo(() => startOfWeekMonday(weekRef), [weekRef]);
@@ -417,11 +422,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     alert("Trainingsverlauf wurde gelöscht.");
   }, []);
 
-  // -------------------- UI --------------------
+  // -------------------- Theme-safe style helpers --------------------
 
-  const badge = isPro
-    ? "inline-flex items-center rounded-full bg-amber-500/15 border border-amber-400/35 px-2.5 py-1 text-[11px] text-amber-200"
-    : "inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-400/35 px-2.5 py-1 text-[11px] text-emerald-200";
+  const surfaceBox: React.CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)" };
+  const surfaceSoft: React.CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
+  const muted: React.CSSProperties = { color: "var(--muted)" };
+
+  const primaryBtn: React.CSSProperties = { background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" };
+
+  const badgeStylePro: React.CSSProperties = {
+    background: "rgba(245, 158, 11, 0.16)",
+    border: "1px solid rgba(245, 158, 11, 0.28)",
+    color: "rgba(245, 158, 11, 0.95)",
+  };
+
+  const badgeStyleFree: React.CSSProperties = {
+    background: "rgba(16, 185, 129, 0.14)",
+    border: "1px solid rgba(16, 185, 129, 0.26)",
+    color: "rgba(16, 185, 129, 0.95)",
+  };
+
+  const avatarFallbackStyle: React.CSSProperties = {
+    background: "linear-gradient(135deg, var(--primary) 0%, var(--primarySoft) 100%)",
+    color: "#061226",
+  };
 
   return (
     <>
@@ -429,31 +453,34 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         <div className="mx-auto w-full max-w-none space-y-6">
           <section className="mt-2 space-y-4">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-semibold">Profil</h1>
+              <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>
+                Profil
+              </h1>
 
               <button
                 type="button"
                 onClick={() => setSettingsOpen(true)}
-                className="h-9 w-9 flex items-center justify-center rounded-full bg-black/40 border border-white/15 hover:bg-white/10"
+                className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
                 title="Einstellungen"
                 aria-label="Einstellungen"
+                style={surfaceSoft}
               >
                 <div className="flex flex-col gap-1">
-                  <span className="block h-[2px] w-4 bg-white/70 rounded" />
-                  <span className="block h-[2px] w-4 bg-white/70 rounded" />
-                  <span className="block h-[2px] w-4 bg-white/70 rounded" />
+                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
+                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
+                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
                 </div>
               </button>
             </div>
 
             {/* Profile card */}
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="tq-surface p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-black/30 border border-white/15 overflow-hidden flex items-center justify-center">
+                <div className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center" style={surfaceSoft}>
                   {avatarDataUrl ? (
                     <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-brand-primary to-purple-500 flex items-center justify-center text-lg font-semibold">
+                    <div className="h-full w-full flex items-center justify-center text-lg font-semibold" style={avatarFallbackStyle}>
                       {safeInitials(profileName)}
                     </div>
                   )}
@@ -461,31 +488,43 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-base font-semibold truncate">{profileName}</span>
+                    <span className="text-base font-semibold truncate" style={{ color: "var(--text)" }}>
+                      {profileName}
+                    </span>
 
                     {isPro ? (
-                      <span className={badge}>Pro</span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px]" style={badgeStylePro}>
+                        Pro
+                      </span>
                     ) : (
-                      <button type="button" onClick={openPaywall} className={badge} title="Auf Pro upgraden">
+                      <button
+                        type="button"
+                        onClick={openPaywall}
+                        className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] hover:opacity-95"
+                        style={badgeStyleFree}
+                        title="Auf Pro upgraden"
+                      >
                         Free
                       </button>
                     )}
                   </div>
 
-                  <p className="text-xs text-white/70 max-w-xs">{profileBio}</p>
+                  <p className="text-xs max-w-xs" style={muted}>
+                    {profileBio}
+                  </p>
 
-                  <div className="flex flex-wrap gap-3 text-[11px] text-white/60">
+                  <div className="flex flex-wrap gap-3 text-[11px]" style={muted}>
                     {user?.email && (
                       <span className="truncate">
-                        Account: <span className="text-white/80">{user.email}</span>
+                        Account: <span style={{ color: "var(--text)" }}>{user.email}</span>
                       </span>
                     )}
                     <span>
-                      Trainings diese Woche: <span className="text-white/90">{weekTotalSessions}</span>
+                      Trainings diese Woche: <span style={{ color: "var(--text)" }}>{weekTotalSessions}</span>
                     </span>
                     <span>
                       Zeit diese Woche:{" "}
-                      <span className="text-white/90">
+                      <span style={{ color: "var(--text)" }}>
                         {Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m
                       </span>
                     </span>
@@ -494,70 +533,66 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                <button
-                  type="button"
-                  onClick={openEdit}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs"
-                >
-                  Profil bearbeiten
+                <button type="button" onClick={openEdit} className="px-4 py-2 rounded-xl text-xs hover:opacity-95" style={surfaceSoft}>
+                  <span style={{ color: "var(--text)" }}>Profil bearbeiten</span>
                 </button>
               </div>
             </div>
 
-            {/* Upgrade card (replaces the old limits box) */}
+            {/* Upgrade card */}
             {!isPro && (
-              <div className="rounded-2xl bg-brand-card border border-white/5 p-4">
+              <div className="tq-surface p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white/90">Auf PRO upgraden</div>
-                    <div className="mt-1 text-[11px] text-white/60">
+                    <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                      Auf PRO upgraden
+                    </div>
+                    <div className="mt-1 text-[11px]" style={muted}>
                       Schalte alle Funktionen frei und entferne Limits.
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={openPaywall}
-                    className="rounded-xl bg-brand-primary text-black px-4 py-2 text-xs font-semibold hover:bg-brand-primary/90"
-                  >
+                  <button type="button" onClick={openPaywall} className="rounded-xl px-4 py-2 text-xs font-semibold hover:opacity-95" style={primaryBtn}>
                     Upgrade
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Statistics card -> opens modal with charts */}
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4">
+            {/* Statistics card */}
+            <div className="tq-surface p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-white/90">Statistiken</div>
-                  <div className="mt-1 text-[11px] text-white/60">
+                  <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                    Statistiken
+                  </div>
+                  <div className="mt-1 text-[11px]" style={muted}>
                     Monatliche Häufigkeit und Wochen-Minuten.
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setStatsOpen(true)}
-                  className="rounded-xl border border-white/15 bg-black/30 px-4 py-2 text-xs text-white/80 hover:bg-white/5"
-                >
-                  Ansehen
+                <button type="button" onClick={() => setStatsOpen(true)} className="rounded-xl px-4 py-2 text-xs hover:opacity-95" style={surfaceSoft}>
+                  <span style={{ color: "var(--text)" }}>Ansehen</span>
                 </button>
               </div>
             </div>
 
-            {/* Workout history list (kept) */}
-            <div className="rounded-2xl bg-brand-card border border-white/5 p-4 space-y-3">
+            {/* Workout history list */}
+            <div className="tq-surface p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-100">Gemachte Trainings</h2>
-                <span className="text-[10px] text-white/50">
+                <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                  Gemachte Trainings
+                </h2>
+                <span className="text-[10px]" style={muted}>
                   {workouts.length} Beitrag{workouts.length === 1 ? "" : "e"}
                 </span>
               </div>
 
               {workouts.length === 0 && (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/70">
-                  Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
+                <div className="rounded-xl p-3 text-[11px]" style={surfaceSoft}>
+                  <div style={muted}>
+                    Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
+                  </div>
                 </div>
               )}
 
@@ -569,29 +604,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
                     const mins = durationMinutes(w);
 
-                    const badgeCls =
+                    const sportBadge: React.CSSProperties =
                       sport === "Gym"
-                        ? "bg-indigo-500/15 border border-indigo-400/30 text-indigo-200"
+                        ? { background: "rgba(99,102,241,0.14)", border: "1px solid rgba(99,102,241,0.25)", color: "rgba(99,102,241,0.95)" }
                         : sport === "Laufen"
-                        ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-200"
+                        ? { background: "rgba(16,185,129,0.14)", border: "1px solid rgba(16,185,129,0.25)", color: "rgba(16,185,129,0.95)" }
                         : sport === "Radfahren"
-                        ? "bg-sky-500/15 border border-sky-400/30 text-sky-200"
-                        : "bg-white/10 border border-white/20 text-white/70";
+                        ? { background: "rgba(14,165,233,0.14)", border: "1px solid rgba(14,165,233,0.25)", color: "rgba(14,165,233,0.95)" }
+                        : { background: "rgba(127,127,127,0.10)", border: "1px solid var(--border)", color: "var(--muted)" };
 
                     return (
-                      <div key={w.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
-                        <div className="text-[11px] text-white/60">
+                      <div key={w.id} className="rounded-xl p-3" style={surfaceSoft}>
+                        <div className="text-[11px]" style={muted}>
                           {date} • {mins} min
                         </div>
 
-                        <div className="mt-1 text-sm font-semibold text-white truncate">
+                        <div className="mt-1 text-sm font-semibold truncate" style={{ color: "var(--text)" }}>
                           {w.title ?? "Training"}{" "}
-                          <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px] ${badgeCls}`}>
+                          <span className="ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px]" style={sportBadge}>
                             {sport === "Unknown" ? "Training" : sport}
                           </span>
                         </div>
 
-                        <div className="mt-1 text-[11px] text-white/70">
+                        <div className="mt-1 text-[11px]" style={muted}>
                           {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
                         </div>
                       </div>
@@ -600,13 +635,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </div>
               )}
             </div>
-
-            <FeedbackBar page="Profil" />
           </section>
         </div>
       </div>
 
-      {/* MODAL: Profil bearbeiten (inkl. Onboarding-Daten) */}
+      {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
@@ -614,21 +647,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             if (e.target === e.currentTarget) setIsEditProfileOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-2xl bg-brand-card border border-white/10 p-4 space-y-4 text-xs">
+          <div className="tq-surface w-full max-w-md p-4 space-y-4 text-xs">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Profil bearbeiten</h2>
-              <button type="button" onClick={() => setIsEditProfileOpen(false)} className="text-xs text-white/60 hover:text-white">
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                Profil bearbeiten
+              </h2>
+              <button type="button" onClick={() => setIsEditProfileOpen(false)} className="text-xs hover:opacity-95" style={muted}>
                 ✕
               </button>
             </div>
 
             {/* Avatar */}
             <div className="flex items-center gap-3">
-              <div className="h-14 w-14 rounded-full overflow-hidden border border-white/15 bg-black/30">
+              <div className="h-14 w-14 rounded-full overflow-hidden flex items-center justify-center" style={surfaceSoft}>
                 {avatarDataUrl ? (
                   <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-brand-primary to-purple-500 flex items-center justify-center text-base font-semibold">
+                  <div className="h-full w-full flex items-center justify-center text-base font-semibold" style={avatarFallbackStyle}>
                     {safeInitials(profileName)}
                   </div>
                 )}
@@ -643,21 +678,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)}
                 />
 
-                <button
-                  type="button"
-                  onClick={onPickAvatar}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-[11px]"
-                >
-                  Profilbild auswählen
+                <button type="button" onClick={onPickAvatar} className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95" style={surfaceSoft}>
+                  <span style={{ color: "var(--text)" }}>Profilbild auswählen</span>
                 </button>
 
                 {avatarDataUrl && (
                   <button
                     type="button"
                     onClick={() => setAvatarDataUrl("")}
-                    className="px-3 py-1.5 rounded-xl border border-white/15 bg-black/30 hover:bg-white/5 text-[11px] text-white/80"
+                    className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95"
+                    style={surfaceSoft}
                   >
-                    Profilbild entfernen
+                    <span style={{ color: "var(--text)" }}>Profilbild entfernen</span>
                   </button>
                 )}
               </div>
@@ -666,58 +698,75 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             {/* Name/Bio */}
             <div className="space-y-2">
               <div className="space-y-1">
-                <label className="block text-white/70">Name</label>
+                <label className="block" style={muted}>
+                  Name
+                </label>
                 <input
                   type="text"
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
-                  className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                  className="w-full rounded-lg px-2 py-1.5 text-xs"
+                  style={{ ...surfaceSoft, color: "var(--text)" }}
                   placeholder="Dein Name"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-white/70">Beschreibung</label>
+                <label className="block" style={muted}>
+                  Beschreibung
+                </label>
                 <textarea
                   value={profileBio}
                   onChange={(e) => setProfileBio(e.target.value)}
-                  className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs min-h-[70px]"
+                  className="w-full rounded-lg px-2 py-1.5 text-xs min-h-[70px]"
+                  style={{ ...surfaceSoft, color: "var(--text)" }}
                   placeholder="Kurzbeschreibung deines Trainings, Ziele, Sportarten..."
                 />
               </div>
             </div>
 
             {/* Onboarding data moved into profile */}
-            <div className="rounded-xl border border-white/10 bg-black/30 p-3 space-y-3">
-              <div className="text-[11px] font-semibold text-white/85">Deine Daten</div>
+            <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
+              <div className="text-[11px] font-semibold" style={{ color: "var(--text)" }}>
+                Deine Daten
+              </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-white/60">Alter</label>
+                  <label className="block text-[10px]" style={muted}>
+                    Alter
+                  </label>
                   <input
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs"
+                    style={{ ...surfaceBox, color: "var(--text)" }}
                     inputMode="numeric"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-white/60">Größe (cm)</label>
+                  <label className="block text-[10px]" style={muted}>
+                    Größe (cm)
+                  </label>
                   <input
                     value={height}
                     onChange={(e) => setHeight(e.target.value)}
-                    className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs"
+                    style={{ ...surfaceBox, color: "var(--text)" }}
                     inputMode="numeric"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-white/60">Gewicht (kg)</label>
+                  <label className="block text-[10px]" style={muted}>
+                    Gewicht (kg)
+                  </label>
                   <input
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
-                    className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs"
+                    style={{ ...surfaceBox, color: "var(--text)" }}
                     inputMode="numeric"
                   />
                 </div>
@@ -725,60 +774,64 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-white/60">Ziel Stunden / Woche</label>
+                  <label className="block text-[10px]" style={muted}>
+                    Ziel Stunden / Woche
+                  </label>
                   <input
                     value={hoursPerWeek}
                     onChange={(e) => setHoursPerWeek(e.target.value)}
-                    className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs"
+                    style={{ ...surfaceBox, color: "var(--text)" }}
                     inputMode="numeric"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-white/60">Sessions / Woche</label>
+                  <label className="block text-[10px]" style={muted}>
+                    Sessions / Woche
+                  </label>
                   <input
                     value={sessionsPerWeek}
                     onChange={(e) => setSessionsPerWeek(e.target.value)}
-                    className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs"
+                    style={{ ...surfaceBox, color: "var(--text)" }}
                     inputMode="numeric"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] text-white/60">Sportarten (kommagetrennt)</label>
+                <label className="block text-[10px]" style={muted}>
+                  Sportarten (kommagetrennt)
+                </label>
                 <input
                   value={sportsCsv}
                   onChange={(e) => setSportsCsv(e.target.value)}
-                  className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                  className="w-full rounded-lg px-2 py-1.5 text-xs"
+                  style={{ ...surfaceBox, color: "var(--text)" }}
                   placeholder="Gym, Laufen, Radfahren"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] text-white/60">Ziele (kommagetrennt)</label>
+                <label className="block text-[10px]" style={muted}>
+                  Ziele (kommagetrennt)
+                </label>
                 <input
                   value={goalsCsv}
                   onChange={(e) => setGoalsCsv(e.target.value)}
-                  className="w-full rounded-lg bg-black/40 border border-white/20 px-2 py-1.5 text-xs"
+                  className="w-full rounded-lg px-2 py-1.5 text-xs"
+                  style={{ ...surfaceBox, color: "var(--text)" }}
                   placeholder="Muskelaufbau, Ausdauer, ..."
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setIsEditProfileOpen(false)}
-                className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/15 text-[11px] text-white/80"
-              >
-                Abbrechen
+              <button type="button" onClick={() => setIsEditProfileOpen(false)} className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95" style={surfaceSoft}>
+                <span style={{ color: "var(--text)" }}>Abbrechen</span>
               </button>
-              <button
-                type="button"
-                onClick={saveProfileEdits}
-                className="px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-[11px] font-medium text-black"
-              >
+              <button type="button" onClick={saveProfileEdits} className="px-3 py-1.5 rounded-xl text-[11px] font-medium hover:opacity-95" style={primaryBtn}>
                 Speichern
               </button>
             </div>
@@ -794,20 +847,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             if (e.target === e.currentTarget) setStatsOpen(false);
           }}
         >
-          <div className="w-full max-w-3xl rounded-2xl bg-brand-card border border-white/10 p-4 sm:p-6 space-y-4">
+          <div className="tq-surface w-full max-w-3xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Statistiken</div>
-              <button type="button" onClick={() => setStatsOpen(false)} className="text-xs text-white/60 hover:text-white">
+              <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                Statistiken
+              </div>
+              <button type="button" onClick={() => setStatsOpen(false)} className="text-xs hover:opacity-95" style={muted}>
                 ✕
               </button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               {/* Bars (Monat) */}
-              <div className="rounded-xl bg-black/30 border border-white/10 p-3 space-y-3 text-xs">
+              <div className="rounded-xl p-3 space-y-3 text-xs" style={surfaceSoft}>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Wie oft trainiert (Monat)</span>
-                  <span className="text-[10px] text-white/60">
+                  <span className="font-medium" style={{ color: "var(--text)" }}>
+                    Wie oft trainiert (Monat)
+                  </span>
+                  <span className="text-[10px]" style={muted}>
                     {monthTotalSessions} Training{monthTotalSessions === 1 ? "" : "e"}
                   </span>
                 </div>
@@ -816,17 +873,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   <button
                     type="button"
                     onClick={goPrevMonth}
-                    className="h-7 w-7 flex items-center justify-center rounded-full bg-black/40 border border-white/15"
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
+                    style={surfaceBox}
                   >
-                    {"<"}
+                    <span style={{ color: "var(--text)" }}>{"<"}</span>
                   </button>
-                  <span className="text-white/80 font-medium text-center min-w-[160px]">{monthLabel}</span>
+                  <span className="font-medium text-center min-w-[160px]" style={{ color: "var(--text)" }}>
+                    {monthLabel}
+                  </span>
                   <button
                     type="button"
                     onClick={goNextMonth}
-                    className="h-7 w-7 flex items-center justify-center rounded-full bg-black/40 border border-white/15"
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
+                    style={surfaceBox}
                   >
-                    {">"}
+                    <span style={{ color: "var(--text)" }}>{">"}</span>
                   </button>
                 </div>
 
@@ -838,56 +899,68 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
                     return (
                       <div key={label} className="flex flex-col items-center flex-1 gap-1 h-full">
-                        <div className="w-full flex-1 rounded-full bg-white/10 overflow-hidden flex items-end">
-                          <div className="w-full rounded-full bg-blue-500" style={{ height: `${fillHeight}%` }} />
+                        <div className="w-full flex-1 rounded-full overflow-hidden flex items-end" style={{ background: "rgba(127,127,127,0.10)", border: "1px solid var(--border)" }}>
+                          <div className="w-full rounded-full" style={{ height: `${fillHeight}%`, background: "rgba(37,99,235,0.95)" }} />
                         </div>
 
-                        <span className="text-[9px] text-white/70">{label}</span>
-                        <span className="text-[9px] text-white/60">{value}</span>
+                        <span className="text-[9px]" style={muted}>
+                          {label}
+                        </span>
+                        <span className="text-[9px]" style={muted}>
+                          {value}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="text-[10px] text-white/45">
+                <div className="text-[10px]" style={muted}>
                   Jede Einheit zählt als 1. W1–W5 basiert auf Tag im Monat (1–7, 8–14, ...).
                 </div>
               </div>
 
               {/* Donut (Woche) */}
-              <div className="rounded-xl bg-black/30 border border-white/10 p-3 space-y-3 text-xs flex flex-col">
+              <div className="rounded-xl p-3 space-y-3 text-xs flex flex-col" style={surfaceSoft}>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Zeit im Training (Woche)</span>
-                  <span className="text-[10px] text-white/60">Ziel: {Math.floor(WEEKLY_GOAL_MINUTES / 60)}h</span>
+                  <span className="font-medium" style={{ color: "var(--text)" }}>
+                    Zeit im Training (Woche)
+                  </span>
+                  <span className="text-[10px]" style={muted}>
+                    Ziel: {Math.floor(WEEKLY_GOAL_MINUTES / 60)}h
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
                   <button
                     type="button"
                     onClick={goPrevWeek}
-                    className="h-7 w-7 flex items-center justify-center rounded-full bg-black/40 border border-white/15"
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
+                    style={surfaceBox}
                   >
-                    {"<"}
+                    <span style={{ color: "var(--text)" }}>{"<"}</span>
                   </button>
-                  <span className="text-white/80 font-medium text-center min-w-[160px]">{weekLabel}</span>
+                  <span className="font-medium text-center min-w-[160px]" style={{ color: "var(--text)" }}>
+                    {weekLabel}
+                  </span>
                   <button
                     type="button"
                     onClick={goNextWeek}
-                    className="h-7 w-7 flex items-center justify-center rounded-full bg-black/40 border border-white/15"
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
+                    style={surfaceBox}
                   >
-                    {">"}
+                    <span style={{ color: "var(--text)" }}>{">"}</span>
                   </button>
                 </div>
 
                 <div className="mt-1 flex items-center justify-center w-full flex-1">
                   <div className="relative h-32 w-32">
                     <svg viewBox="0 0 100 100" className="h-full w-full rotate-[-90deg]">
-                      <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.15)" strokeWidth="10" fill="none" />
+                      <circle cx="50" cy="50" r="40" stroke="rgba(127,127,127,0.18)" strokeWidth="10" fill="none" />
                       <circle
                         cx="50"
                         cy="50"
                         r="40"
-                        stroke="#3b82f6"
+                        stroke="rgba(37,99,235,0.95)"
                         strokeWidth="10"
                         fill="none"
                         strokeDasharray={donutCircumference}
@@ -897,15 +970,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     </svg>
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-[11px]">
-                      <span className="text-white/70">
+                      <span style={{ color: "var(--text)" }}>
                         {Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m
                       </span>
-                      <span className="text-[9px] text-white/50">{weekTotalSessions} Trainings</span>
+                      <span className="text-[9px]" style={muted}>
+                        {weekTotalSessions} Trainings
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-[10px] text-white/45 text-center">
+                <div className="text-[10px] text-center" style={muted}>
                   Kreis füllt sich mit der Summe deiner Trainingsdauer dieser Woche.
                 </div>
               </div>
@@ -926,39 +1001,47 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
           />
 
           {/* panel */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-black/20 backdrop-blur">
-            <div className="h-full bg-transparent">
-              <SettingPage
-                onBack={() => setSettingsOpen(false)}
-                onClearCalendar={onClearCalendar}
-                onOpenPaywall={openPaywall}
-              />
+          <div
+            className="absolute right-0 top-0 bottom-0 w-full max-w-md"
+            style={{
+              background: "var(--bg)",
+              borderLeft: "1px solid var(--border)",
+            }}
+          >
+            <div className="h-full">
+              <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar} onOpenPaywall={openPaywall} />
 
-              {/* Quick actions footer (optional, but useful) */}
+              {/* Quick actions footer */}
               <div className="px-4 pb-4 -mt-2">
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={handleClearHistory}
-                    className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-50 hover:bg-red-500/20"
+                    className="rounded-xl px-3 py-2 text-[11px] hover:opacity-95"
+                    style={{
+                      background: "rgba(239,68,68,0.10)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "rgba(239,68,68,0.95)",
+                    }}
                   >
                     Verlauf löschen
                   </button>
                   <button
                     type="button"
                     onClick={handleRestartOnboarding}
-                    className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[11px] text-blue-50 hover:bg-blue-500/20"
+                    className="rounded-xl px-3 py-2 text-[11px] hover:opacity-95"
+                    style={{
+                      background: "rgba(37,99,235,0.12)",
+                      border: "1px solid rgba(37,99,235,0.25)",
+                      color: "rgba(37,99,235,0.95)",
+                    }}
                   >
                     Onboarding reset
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[11px] text-white/80 hover:bg-white/5"
-                >
-                  Abmelden
+                <button type="button" onClick={handleLogout} className="mt-2 w-full rounded-xl px-3 py-2 text-[11px] hover:opacity-95" style={surfaceSoft}>
+                  <span style={{ color: "var(--text)" }}>Abmelden</span>
                 </button>
               </div>
             </div>

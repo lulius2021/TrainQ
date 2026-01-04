@@ -1,27 +1,39 @@
-// src/utils/theme.ts
-export type ThemeMode = "light" | "dark" | "system";
-
-const LS_THEME = "trainq_theme_v1";
-
-function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
-}
+export type ThemeMode = "light" | "dark";
+export const STORAGE_KEY_THEME = "trainq_theme_v1";
 
 export function applyTheme(mode: ThemeMode) {
-  if (typeof document === "undefined") return;
-
-  const resolved = mode === "system" ? getSystemTheme() : mode;
-  document.documentElement.setAttribute("data-theme", resolved);
-}
-
-export function loadTheme(): ThemeMode {
-  if (typeof window === "undefined") return "system";
-  const v = window.localStorage.getItem(LS_THEME) as ThemeMode | null;
-  return v === "light" || v === "dark" || v === "system" ? v : "system";
-}
-
-export function saveTheme(mode: ThemeMode) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(LS_THEME, mode);
+
+  const root = document.documentElement;
+  root.dataset.theme = mode;
+
+  if (mode === "dark") root.classList.add("dark");
+  else root.classList.remove("dark");
+
+  try {
+    root.style.colorScheme = mode;
+  } catch {
+    // ignore
+  }
+}
+
+export function loadTheme(defaultMode: ThemeMode = "dark"): ThemeMode {
+  if (typeof window === "undefined") return defaultMode;
+
+  const stored = window.localStorage.getItem(STORAGE_KEY_THEME);
+  const mode: ThemeMode = stored === "light" || stored === "dark" ? stored : defaultMode;
+
+  applyTheme(mode);
+  return mode;
+}
+
+export function setTheme(mode: ThemeMode) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY_THEME, mode);
+  } catch {
+    // ignore
+  }
+  applyTheme(mode);
 }

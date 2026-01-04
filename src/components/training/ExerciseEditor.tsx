@@ -21,6 +21,11 @@ type Props = {
   onRemoveSet: (setId: string) => void;
   onSetChange: (setId: string, patch: Partial<LiveSet>) => void;
   onToggleSet: (setId: string) => void;
+
+  /** ✅ NEW: wird bei Fokus im kg/k m Feld getriggert (für Plattenrechner-Button) */
+  onWeightFocus?: (setId: string, currentWeight?: unknown) => void;
+  /** ✅ NEW: optionaler Blur-Hook */
+  onWeightBlur?: () => void;
 };
 
 // ---------------- helpers ----------------
@@ -123,6 +128,32 @@ function SwipeSetRow({ onDelete, children }: { onDelete: () => void; children: R
   );
 }
 
+/* ---------------- Rest UI helpers ---------------- */
+
+function ClockPlusIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <span className={`relative inline-flex items-center justify-center ${className}`}>
+      <svg viewBox="0 0 24 24" fill="none" className="h-full w-full" aria-hidden="true">
+        <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" strokeWidth="2" />
+      </svg>
+
+      {/* Plus badge */}
+      <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-black/50">
+        <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+    </span>
+  );
+}
+
+function buildRestOptions(step = 5): number[] {
+  const arr: number[] = [];
+  for (let s = 10; s <= 300; s += step) arr.push(s);
+  return arr;
+}
+
 /* ---------------- Component ---------------- */
 
 export default function ExerciseEditor({
@@ -135,16 +166,9 @@ export default function ExerciseEditor({
   onRemoveSet,
   onSetChange,
   onToggleSet,
+  onWeightFocus,
+  onWeightBlur,
 }: Props) {
-  // ✅ Rest als String puffern (Cursor bleibt stabil)
-  const [restDraft, setRestDraft] = useState<string>(
-    typeof exercise.restSeconds === "number" ? String(exercise.restSeconds) : ""
-  );
-
-  useEffect(() => {
-    setRestDraft(typeof exercise.restSeconds === "number" ? String(exercise.restSeconds) : "");
-  }, [exercise.restSeconds]);
-
   // Autofocus für neue Übung
   const nameRef = useRef<HTMLInputElement | null>(null);
   const didAutoFocusRef = useRef(false);
@@ -169,6 +193,17 @@ export default function ExerciseEditor({
   const addSetLabel = isCardio ? "+ Intervall" : "+ Satz";
   const notesPlaceholder = isCardio ? "Pace / Intervall-Details" : "Notizen / RPE / Tempo";
 
+  // ✅ Pause ist optional: Standard = aus, erst via Uhr+ einblendbar
+  const hasRest = typeof (exercise as any).restSeconds === "number" && (exercise as any).restSeconds > 0;
+  const [showRestPicker, setShowRestPicker] = useState<boolean>(hasRest);
+
+  useEffect(() => {
+    if (hasRest) setShowRestPicker(true);
+    if (!hasRest) setShowRestPicker(false);
+  }, [hasRest]);
+
+  const restOptions = useMemo(() => buildRestOptions(5), []);
+
   return (
     <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-3">
       {/* Header */}
@@ -185,30 +220,59 @@ export default function ExerciseEditor({
         </button>
       </div>
 
-      {/* Pause */}
+      {/* Pause (Uhr+ -> erst dann Picker sichtbar, iOS: select = Wheel) */}
       <div className="flex items-center justify-between text-xs">
         <span className="text-white/60">{restLabel}</span>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            step={5}
-            value={restDraft}
-            onChange={(e) => {
-              const v = e.target.value;
-              setRestDraft(v);
-              onChange({ restSeconds: parseOptionalNumber(v) }); // leer => undefined (clamp passiert in LiveTrainingPage)
-            }}
-            onBlur={() => {
-              const n = parseOptionalNumber(restDraft);
-              setRestDraft(typeof n === "number" ? String(n) : "");
-            }}
-            className="w-20 rounded bg-black/40 px-2 py-1 text-right"
-            placeholder={typeof exercise.restSeconds === "number" ? String(exercise.restSeconds) : ""}
-            aria-label="Pausenzeit in Sekunden"
-          />
-          <span className="text-white/60">sek</span>
-        </div>
+
+        {!showRestPicker ? (
+          <button
+            type="button"
+            onClick={() => setShowRestPicker(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/5"
+            title="Pause hinzufügen (optional)"
+          >
+            <ClockPlusIcon className="h-4 w-4" />
+            Pause
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <select
+              value={hasRest ? String((exercise as any).restSeconds) : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!raw) {
+                  onChange({ restSeconds: undefined });
+                  return;
+                }
+                const n = parseOptionalNumber(raw);
+                onChange({ restSeconds: n });
+              }}
+              className="rounded bg-black/40 px-2 py-1 text-right"
+              aria-label="Pausenzeit in Sekunden"
+              title="Sekunden (optional)"
+            >
+              <option value="">Keine</option>
+              {restOptions.map((s) => (
+                <option key={s} value={String(s)}>
+                  {s} sek
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                onChange({ restSeconds: undefined });
+                setShowRestPicker(false);
+              }}
+              className="rounded bg-black/35 px-2 py-1 text-white/70 hover:text-white"
+              aria-label="Pause entfernen"
+              title="Pause entfernen"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sets */}
@@ -251,6 +315,8 @@ export default function ExerciseEditor({
                       value={typeof set.weight === "number" ? set.weight : ""}
                       placeholder={fmtPlaceholderNumber(last?.weight)}
                       onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
+                      onFocus={() => onWeightFocus?.(set.id, (set as any).weight)}
+                      onBlur={() => onWeightBlur?.()}
                       className="w-16 rounded bg-black/50 px-2 py-1"
                       aria-label={isCardio ? "Kilometer" : "Gewicht in kg"}
                     />
@@ -258,7 +324,7 @@ export default function ExerciseEditor({
                   </div>
                 </div>
 
-                {/* ✅ Notes (wird in History/Seed bereits unterstützt) */}
+                {/* ✅ Notes */}
                 <input
                   type="text"
                   value={typeof (set as any).notes === "string" ? (set as any).notes : ""}

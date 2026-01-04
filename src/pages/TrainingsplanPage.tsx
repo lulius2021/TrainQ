@@ -1,5 +1,5 @@
 // src/pages/TrainingsplanPage.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import type { CalendarEvent, NewCalendarEvent } from "../types/training";
 import {
   EXERCISES,
@@ -15,10 +15,9 @@ import {
 // History für graue Werte in der Vorschau
 import { getLastSetsForExercise } from "../utils/trainingHistory";
 
-// ✅ Seeds stabil per date|title (Dashboard-kompatibel)
+// ✅ Seeds stabil per date|title (Dashboard-kompatibel) + Legacy-Migration
 import {
-  writeLiveSeedForKey,
-  makeSeedKey,
+  writeLiveSeedForEventOrKey,
   writeGlobalLiveSeed,
   navigateToLiveTraining,
 } from "../utils/liveTrainingSeed";
@@ -32,8 +31,8 @@ import { FREE_LIMITS } from "../utils/entitlements";
 
 // -------------------- Typen --------------------
 
-type WeeklyDayType = "training" | "rest";
-type WeeklySportType = "Gym" | "Laufen" | "Radfahren" | "Custom";
+type WeeklySportType = "Gym" | "Laufen" | "Radfahren" | "Custom" | "Ruhetag";
+type TrainingSportType = Exclude<WeeklySportType, "Ruhetag">;
 
 type ExerciseSet = {
   id: number;
@@ -56,30 +55,18 @@ type TrainingTemplate = {
 };
 
 type WeeklyDayConfig = TrainingTemplate & {
-  type: WeeklyDayType;
   sport: WeeklySportType;
   focus: string;
-
-  // ✅ Nur Startzeit (optional)
+  // ✅ Startzeit optional (nur wenn User sie aktiv hinzufügt)
   startTime?: string;
 };
 
-type RoutineBlockType =
-  | "Push"
-  | "Pull"
-  | "Legs"
-  | "Upper"
-  | "Lower"
-  | "Full Body"
-  | "Cardio"
-  | "Rest"
-  | "Custom";
+type RoutineBlockType = "Custom" | "Rest";
 
 type RoutineBlock = TrainingTemplate & {
   type: RoutineBlockType;
   sport: WeeklySportType;
-
-  // ✅ Nur Startzeit (optional)
+  // ✅ Startzeit optional
   startTime?: string;
 };
 
@@ -97,7 +84,7 @@ interface TrainingsplanPageProps {
   onOpenPaywall?: (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => void;
 }
 
-// Vorlagen
+// Vorlagen (Trainingspläne)
 type WeeklyPlanTemplate = {
   id: string;
   name: string;
@@ -112,11 +99,11 @@ type RoutinePlanTemplate = {
   durationWeeks: number;
 };
 
-// ✅ Reine Trainings (Workout-Vorlagen)
+// ✅ Vorlagen (reine Trainings)
 type WorkoutTemplate = {
   id: string;
   name: string;
-  sport: WeeklySportType;
+  sport: TrainingSportType;
   isCardio: boolean;
   exercises: BlockExercise[];
   createdAtISO: string;
@@ -125,20 +112,20 @@ type WorkoutTemplate = {
 // -------------------- Konfiguration --------------------
 
 const DEFAULT_WEEKLY_DAYS: WeeklyDayConfig[] = [
-  { id: 1, label: "Montag", type: "training", sport: "Gym", focus: "Push (Brust/Schulter/Trizeps)", exercises: [], startTime: "" },
-  { id: 2, label: "Dienstag", type: "training", sport: "Gym", focus: "Pull (Rücken/Bizeps)", exercises: [], startTime: "" },
-  { id: 3, label: "Mittwoch", type: "training", sport: "Gym", focus: "Beine", exercises: [], startTime: "" },
-  { id: 4, label: "Donnerstag", type: "rest", sport: "Custom", focus: "Ruhetag", exercises: [], startTime: "" },
-  { id: 5, label: "Freitag", type: "training", sport: "Gym", focus: "Push", exercises: [], startTime: "" },
-  { id: 6, label: "Samstag", type: "training", sport: "Gym", focus: "Pull", exercises: [], startTime: "" },
-  { id: 7, label: "Sonntag", type: "rest", sport: "Custom", focus: "Ruhetag", exercises: [], startTime: "" },
+  { id: 1, label: "Tag 1", sport: "Gym", focus: "Push (Brust/Schulter/Trizeps)", exercises: [], startTime: "" },
+  { id: 2, label: "Tag 2", sport: "Gym", focus: "Pull (Rücken/Bizeps)", exercises: [], startTime: "" },
+  { id: 3, label: "Tag 3", sport: "Gym", focus: "Beine", exercises: [], startTime: "" },
+  { id: 4, label: "Tag 4", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
+  { id: 5, label: "Tag 5", sport: "Gym", focus: "Push", exercises: [], startTime: "" },
+  { id: 6, label: "Tag 6", sport: "Gym", focus: "Pull", exercises: [], startTime: "" },
+  { id: 7, label: "Tag 7", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
 ];
 
 const DEFAULT_ROUTINE_BLOCKS: RoutineBlock[] = [
   { id: 1, type: "Custom", sport: "Gym", label: "Push (Brust/Schulter/Trizeps)", exercises: [], startTime: "" },
   { id: 2, type: "Custom", sport: "Gym", label: "Pull (Rücken/Bizeps)", exercises: [], startTime: "" },
   { id: 3, type: "Custom", sport: "Gym", label: "Beine", exercises: [], startTime: "" },
-  { id: 4, type: "Rest", sport: "Custom", label: "Ruhetag", exercises: [], startTime: "" },
+  { id: 4, type: "Rest", sport: "Ruhetag", label: "Ruhetag", exercises: [], startTime: "" },
 ];
 
 const defaultExerciseFilters: ExerciseFilters = {
@@ -161,6 +148,8 @@ const CARDIO_EXERCISES: Exercise[] = [
 // Storage-Keys
 const STORAGE_KEY_WEEKLY_TEMPLATES = "trainq_weekly_plan_templates";
 const STORAGE_KEY_ROUTINE_TEMPLATES = "trainq_routine_plan_templates";
+
+// ✅ Vorlagen: reine Trainings
 const STORAGE_KEY_WORKOUT_TEMPLATES = "trainq_workout_templates_v1";
 
 // ✅ Startplan-Settings (nur Startdatum)
@@ -196,6 +185,14 @@ function isoToDate(iso: string): Date {
   return dt;
 }
 
+function isRestSport(sport: WeeklySportType): boolean {
+  return sport === "Ruhetag";
+}
+
+function isCardioSport(sport: WeeklySportType): boolean {
+  return sport === "Laufen" || sport === "Radfahren";
+}
+
 function estimateDurationMinutes(exercises: BlockExercise[], isCardio: boolean): number {
   if (!exercises.length) return 0;
 
@@ -209,7 +206,7 @@ function estimateDurationMinutes(exercises: BlockExercise[], isCardio: boolean):
   return Math.max(10, Math.round(sets * 2));
 }
 
-function startLiveTrainingWithSeed(seed: { title: string; sport: WeeklySportType; isCardio: boolean; exercises: BlockExercise[] }) {
+function startLiveTrainingWithSeed(seed: { title: string; sport: TrainingSportType; isCardio: boolean; exercises: BlockExercise[] }) {
   writeGlobalLiveSeed({
     title: seed.title,
     sport: seed.sport,
@@ -266,24 +263,68 @@ function normalizeLastSummary(last: unknown): { weight?: number; reps?: number }
   return null;
 }
 
+// ✅ Migration/Guard für alte WeeklyDays
+function normalizeWeeklyDay(input: any, fallbackId: number): WeeklyDayConfig {
+  const id = typeof input?.id === "number" ? input.id : fallbackId;
+
+  const rawSport = String(input?.sport ?? "").trim() as WeeklySportType;
+  const hasOldRest = String(input?.type ?? "").trim() === "rest";
+  const sport: WeeklySportType =
+    hasOldRest || rawSport === "Ruhetag"
+      ? "Ruhetag"
+      : rawSport === "Gym" || rawSport === "Laufen" || rawSport === "Radfahren" || rawSport === "Custom"
+      ? rawSport
+      : "Gym";
+
+  const label = typeof input?.label === "string" && input.label.trim() ? input.label : `Tag ${id}`;
+
+  const focus =
+    typeof input?.focus === "string" && input.focus.trim()
+      ? input.focus
+      : isRestSport(sport)
+      ? "Ruhetag"
+      : sport === "Gym"
+      ? "Push"
+      : sport === "Laufen"
+      ? "Laufen – locker"
+      : sport === "Radfahren"
+      ? "Radfahren – GA1"
+      : "Training";
+
+  const exercises = Array.isArray(input?.exercises) ? input.exercises : [];
+  const startTime = typeof input?.startTime === "string" ? input.startTime : "";
+
+  return { id, label, sport, focus, exercises, startTime };
+}
+
 // ✅ Migration/Guard für alte Routine-Blocks
 function normalizeRoutineBlock(input: any, fallbackId: number): RoutineBlock {
-  const type: RoutineBlockType = (input?.type as RoutineBlockType) || "Custom";
-  const sportFromOldType: WeeklySportType = type === "Cardio" ? "Laufen" : type === "Rest" ? "Custom" : "Gym";
-  const sport: WeeklySportType = (input?.sport as WeeklySportType) || sportFromOldType;
+  const id = typeof input?.id === "number" ? input.id : fallbackId;
+
+  const rawSport = String(input?.sport ?? "").trim() as WeeklySportType;
+  const rawType = String(input?.type ?? "").trim() as RoutineBlockType;
+
+  const sport: WeeklySportType =
+    rawSport === "Ruhetag" || rawType === "Rest"
+      ? "Ruhetag"
+      : rawSport === "Gym" || rawSport === "Laufen" || rawSport === "Radfahren" || rawSport === "Custom"
+      ? rawSport
+      : "Gym";
+
+  const type: RoutineBlockType = isRestSport(sport) ? "Rest" : "Custom";
 
   const label =
     typeof input?.label === "string" && input.label.trim()
       ? input.label
       : type === "Rest"
       ? "Ruhetag"
-      : "Neuer Block";
+      : "Neues Training";
 
   return {
-    id: typeof input?.id === "number" ? input.id : fallbackId,
+    id,
     type,
     sport,
-    label,
+    label: type === "Rest" ? "Ruhetag" : label,
     exercises: Array.isArray(input?.exercises) ? input.exercises : [],
     startTime: typeof input?.startTime === "string" ? input.startTime : "",
   };
@@ -298,6 +339,7 @@ function isLikelyGymDefaultLabel(text: string): boolean {
 }
 
 function defaultLabelForSport(sport: WeeklySportType): string {
+  if (sport === "Ruhetag") return "Ruhetag";
   if (sport === "Laufen") return "Laufen – locker";
   if (sport === "Radfahren") return "Radfahren – GA1";
   if (sport === "Gym") return "Push";
@@ -325,12 +367,44 @@ function parseMinutesFromTitle(title: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+// ✅ Default Startzeit: auf nächste 15 Minuten runden (damit Uhr(+) sofort sichtbar wird)
+function defaultStartTimeNowRounded(): string {
+  const d = new Date();
+  const total = d.getHours() * 60 + d.getMinutes();
+  const rounded = Math.min(24 * 60 - 1, Math.ceil(total / 15) * 15);
+  const hh = String(Math.floor(rounded / 60)).padStart(2, "0");
+  const mm = String(rounded % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+// -------------------- Mini UI: Uhr (+) --------------------
+
+const ClockPlusButton: React.FC<{ onClick: () => void; title?: string }> = ({ onClick, title }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title ?? "Startzeit hinzufügen"}
+    className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" strokeWidth="2" />
+    </svg>
+    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[12px] font-bold text-white">+</span>
+  </button>
+);
+
 // -------------------- Modal für Trainings-Content --------------------
 
 interface TrainingExercisesModalProps {
   template: TrainingTemplate;
   kind: TrainingContainerKind;
   isCardioLibrary?: boolean;
+  // ✅ reine Trainings Vorlagen
+  workoutTemplates: WorkoutTemplate[];
+  defaultSport: TrainingSportType;
+  onSaveWorkoutTemplate: (tpl: WorkoutTemplate) => void;
+
   onClose: () => void;
   onSave: (updatedTemplate: TrainingTemplate) => void;
 }
@@ -339,11 +413,17 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   template,
   kind,
   isCardioLibrary = false,
+  workoutTemplates,
+  defaultSport,
+  onSaveWorkoutTemplate,
   onClose,
   onSave,
 }) => {
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
+
+  const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : "Training"));
+  const [selectedWorkoutTemplateId, setSelectedWorkoutTemplateId] = useState<string>("");
 
   const filteredExercises = useMemo(() => {
     if (isCardioLibrary) {
@@ -353,6 +433,12 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     }
     return filterExercises(EXERCISES, filters);
   }, [filters, isCardioLibrary]);
+
+  const compatibleWorkoutTemplates = useMemo(() => {
+    return (workoutTemplates || [])
+      .filter((t) => t.isCardio === isCardioLibrary)
+      .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""));
+  }, [workoutTemplates, isCardioLibrary]);
 
   const headingPrefix = kind === "routine" ? "Training für Block" : "Training für Tag";
 
@@ -420,9 +506,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const handleRemoveSet = (exerciseId: number, setId: number) => {
     setDraft((prev) => ({
       ...prev,
-      exercises: prev.exercises.map((ex) =>
-        ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex
-      ),
+      exercises: prev.exercises.map((ex) => (ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex)),
     }));
   };
 
@@ -464,6 +548,37 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     onClose();
   };
 
+  const handleSaveWorkoutTemplate = () => {
+    const name = (templateName || "").trim();
+    if (!name) return;
+
+    const tpl: WorkoutTemplate = {
+      id: makeTemplateId(),
+      name,
+      sport: defaultSport,
+      isCardio: isCardioLibrary,
+      exercises: Array.isArray(draft.exercises) ? draft.exercises : [],
+      createdAtISO: new Date().toISOString(),
+    };
+
+    onSaveWorkoutTemplate(tpl);
+  };
+
+  const handleLoadWorkoutTemplate = (id: string) => {
+    setSelectedWorkoutTemplateId(id);
+    const tpl = compatibleWorkoutTemplates.find((t) => t.id === id);
+    if (!tpl) return;
+
+    // ✅ Laden ersetzt den Draft-Content (bewusst)
+    setDraft((prev) => ({
+      ...prev,
+      exercises: Array.isArray(tpl.exercises) ? tpl.exercises : [],
+    }));
+
+    // optional: Name übernehmen
+    setTemplateName(tpl.name || templateName);
+  };
+
   const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
   const weightPlaceholder = isCardioLibrary ? "Distanz (km)" : "kg";
   const notesPlaceholder = isCardioLibrary ? "Pace / Intervall-Details" : "Notizen / RPE / Tempo";
@@ -472,7 +587,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/95 text-xs shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <div>
+          <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-100">
               {headingPrefix}: {draft.label}
             </div>
@@ -480,7 +595,27 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               {isCardioLibrary ? "Lege Cardio-Einheiten und Intervalle an." : "Lege Kraftübungen und Sätze an."}
             </div>
           </div>
+
           <div className="flex items-center gap-2">
+            {/* ✅ Trainingsvorlage speichern */}
+            <div className="hidden items-center gap-2 md:flex">
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Vorlagenname"
+                className="w-48 rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-[11px] text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
+              />
+              <button
+                type="button"
+                onClick={handleSaveWorkoutTemplate}
+                className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+                title="Speichert dieses Training als Vorlage (reines Training)."
+              >
+                Vorlage speichern
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={onClose}
@@ -501,9 +636,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 md:flex-row">
           <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3 md:w-[40%]">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-slate-100">
-                {isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}
-              </span>
+              <span className="text-[11px] font-semibold text-slate-100">{isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}</span>
 
               <button
                 type="button"
@@ -607,14 +740,30 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
           </div>
 
           <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3 md:w-[60%]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-100">
-                {isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}
-              </span>
-              <span className="text-[10px] text-slate-400">
-                {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
-                {draft.exercises.length === 1 ? "" : "en"}
-              </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-slate-100">{isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}</span>
+
+              {/* ✅ Vorlagen (reine Trainings) laden */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedWorkoutTemplateId}
+                  onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  title="Reines Training als Vorlage laden"
+                >
+                  <option value="">{compatibleWorkoutTemplates.length ? "Vorlage laden…" : "Keine Trainingsvorlagen"}</option>
+                  {compatibleWorkoutTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="text-[10px] text-slate-400">
+                  {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
+                  {draft.exercises.length === 1 ? "" : "en"}
+                </span>
+              </div>
             </div>
 
             {draft.exercises.length === 0 ? (
@@ -701,6 +850,24 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 ))}
               </div>
             )}
+
+            {/* Mobile: Vorlagen speichern */}
+            <div className="mt-1 flex items-center gap-2 md:hidden">
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Vorlagenname"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-100 outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleSaveWorkoutTemplate}
+                className="shrink-0 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-800"
+              >
+                Speichern
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -716,7 +883,7 @@ type PreviewModalState =
       title: string;
       subtitle: string;
       isCardio: boolean;
-      sport: WeeklySportType;
+      sport: TrainingSportType;
       exercises: BlockExercise[];
     };
 
@@ -735,19 +902,14 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
               {state.subtitle} · ca. {estMin} min
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
-          >
+          <button onClick={onClose} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800">
             ✕
           </button>
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
           {state.exercises.length === 0 ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">
-              Keine Übungen/Einheiten hinterlegt.
-            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">Keine Übungen/Einheiten hinterlegt.</div>
           ) : (
             <div className="space-y-3">
               {state.exercises.map((ex) => {
@@ -789,10 +951,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
                     <div className="mt-2 space-y-1">
                       {ex.sets.map((s, idx) => (
-                        <div
-                          key={s.id}
-                          className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-2 py-1 text-[11px]"
-                        >
+                        <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-2 py-1 text-[11px]">
                           <div className="text-slate-400">{idx + 1}</div>
                           <div className="text-slate-200">
                             {state.isCardio ? "Dauer" : "Wdh"}: <span className="text-slate-100">{s.reps ?? "—"}</span>
@@ -812,10 +971,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-slate-800 px-4 py-3">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800"
-          >
+          <button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800">
             Schließen
           </button>
 
@@ -844,14 +1000,19 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
 
   // ✅ Entitlements
-  const {
-    isPro: isProEnt,
-    canUseCalendar7,
-    consumeCalendar7,
-    calendar7DaysRemaining,
-  } = useEntitlements();
-
+  const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
   const effectiveIsPro = isProEnt || isProProp;
+
+  // ✅ Paywall helper (wie ProfilePage)
+  const openPaywall = useCallback(
+    (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => {
+      if (onOpenPaywall) return onOpenPaywall(reason);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason } }));
+      }
+    },
+    [onOpenPaywall]
+  );
 
   // ✅ Startdatum
   const [planStartISO, setPlanStartISO] = useState<string>(() => {
@@ -872,14 +1033,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   }, [planStartISO]);
 
   // Weekly
-  const [weeklyDays, setWeeklyDays] = useState<WeeklyDayConfig[]>(DEFAULT_WEEKLY_DAYS);
+  const [weeklyDays, setWeeklyDays] = useState<WeeklyDayConfig[]>(DEFAULT_WEEKLY_DAYS.map((d, i) => normalizeWeeklyDay(d as any, i + 1)));
   const [weeklyDurationWeeks, setWeeklyDurationWeeks] = useState<number>(6);
   const [weeklySaved, setWeeklySaved] = useState<boolean>(false);
 
   // Routine
-  const [routineBlocks, setRoutineBlocks] = useState<RoutineBlock[]>(
-    DEFAULT_ROUTINE_BLOCKS.map((b, i) => normalizeRoutineBlock(b, i + 1))
-  );
+  const [routineBlocks, setRoutineBlocks] = useState<RoutineBlock[]>(DEFAULT_ROUTINE_BLOCKS.map((b, i) => normalizeRoutineBlock(b as any, i + 1)));
   const [routineDurationWeeks, setRoutineDurationWeeks] = useState<number>(6);
   const [routineSaved, setRoutineSaved] = useState<boolean>(false);
 
@@ -944,7 +1103,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [weeklyTemplatesOpen, setWeeklyTemplatesOpen] = useState(false);
   const [routineTemplatesOpen, setRoutineTemplatesOpen] = useState(false);
 
-  // Reine Trainings Vorlagen-Modal
+  // ✅ Reine Trainings Vorlagen-Modal (Management)
   const [workoutTemplatesOpen, setWorkoutTemplatesOpen] = useState(false);
 
   // Save Dialogs (Plan)
@@ -954,20 +1113,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [weeklyTemplateName, setWeeklyTemplateName] = useState("Wochenplan");
   const [routineTemplateName, setRoutineTemplateName] = useState("Split/Routine");
 
-  // Save Dialog (Training)
-  const [workoutSaveOpen, setWorkoutSaveOpen] = useState(false);
-  const [workoutSaveName, setWorkoutSaveName] = useState("Training");
-  const [workoutSaveDraft, setWorkoutSaveDraft] = useState<{
-    nameFallback: string;
-    sport: WeeklySportType;
-    isCardio: boolean;
-    exercises: BlockExercise[];
-  } | null>(null);
-
   const [activeTrainingTemplate, setActiveTrainingTemplate] = useState<{
     kind: TrainingContainerKind;
     template: TrainingTemplate;
     isCardioLibrary: boolean;
+    sport: TrainingSportType;
   } | null>(null);
 
   const [previewState, setPreviewState] = useState<PreviewModalState>(null);
@@ -983,7 +1133,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     // Free: 3/Monat
     if (!canUseCalendar7()) {
-      onOpenPaywall?.("calendar_7days");
+      openPaywall("calendar_7days");
       return false;
     }
 
@@ -1004,8 +1154,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     const totalDays = weeklyDurationWeeks * 7;
 
     for (let i = 0; i < totalDays; i++) {
-      const dayConfig = weeklyDays[i % weeklyDays.length];
-      if (!dayConfig || dayConfig.type !== "training") continue;
+      const raw = weeklyDays[i % weeklyDays.length];
+      const dayConfig = normalizeWeeklyDay(raw as any, (i % weeklyDays.length) + 1);
+
+      // ✅ Ruhetag wird nicht importiert
+      if (isRestSport(dayConfig.sport)) continue;
 
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
@@ -1013,10 +1166,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       if (!handleCalendar7DaysGate(dateISO)) break;
 
-      const title = dayConfig.focus || `${dayConfig.sport} – ${dayConfig.label}`;
-      const isCardio = dayConfig.sport === "Laufen" || dayConfig.sport === "Radfahren";
+      const title = (dayConfig.focus || `${dayConfig.sport} – ${dayConfig.label}`).trim();
+      const isCardio = isCardioSport(dayConfig.sport);
 
-      // ✅ NUR Startzeit optional (kein Endzeit)
+      // ✅ Startzeit nur wenn gesetzt
       const startTime = (dayConfig.startTime || "").trim();
       const endTime = "";
 
@@ -1031,11 +1184,16 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         trainingStatus: "open",
       } as any;
 
-      writeLiveSeedForKey(makeSeedKey(dateISO, title), {
+      // ✅ Seeds unter stable key + legacy key speichern
+      writeLiveSeedForEventOrKey({
+        dateISO,
         title,
-        sport: dayConfig.sport,
-        isCardio,
-        exercises: normalizeExercisesForSeed(dayConfig.exercises),
+        seed: {
+          title,
+          sport: dayConfig.sport as TrainingSportType,
+          isCardio,
+          exercises: normalizeExercisesForSeed(dayConfig.exercises),
+        },
       });
 
       onAddEvent(newEvent);
@@ -1055,8 +1213,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     for (let i = 0; i < totalDays; i++) {
       const raw = routineBlocks[i % routineBlocks.length];
-      const block = normalizeRoutineBlock(raw as any, i + 1);
-      if (!block || block.type === "Rest") continue;
+      const block = normalizeRoutineBlock(raw as any, (i % routineBlocks.length) + 1);
+
+      // ✅ Ruhetag wird nicht importiert
+      if (block.type === "Rest" || isRestSport(block.sport)) continue;
 
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
@@ -1064,10 +1224,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       if (!handleCalendar7DaysGate(dateISO)) break;
 
-      const title = block.label;
-      const isCardio = block.sport === "Laufen" || block.sport === "Radfahren";
+      const title = (block.label || `Training Tag ${i + 1}`).trim();
+      const isCardio = isCardioSport(block.sport);
 
-      // ✅ NUR Startzeit optional (kein Endzeit)
+      // ✅ Startzeit nur wenn gesetzt
       const startTime = (block.startTime || "").trim();
       const endTime = "";
 
@@ -1082,118 +1242,94 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         trainingStatus: "open",
       } as any;
 
-      writeLiveSeedForKey(makeSeedKey(dateISO, title), {
+      // ✅ Seeds unter stable key + legacy key speichern
+      writeLiveSeedForEventOrKey({
+        dateISO,
         title,
-        sport: block.sport,
-        isCardio,
-        exercises: normalizeExercisesForSeed(block.exercises),
+        seed: {
+          title,
+          sport: block.sport as TrainingSportType,
+          isCardio,
+          exercises: normalizeExercisesForSeed(block.exercises),
+        },
       });
 
       onAddEvent(newEvent);
     }
   };
 
-  // -------------------- Reine Trainings Vorlagen --------------------
-
-  const openSaveWorkoutTemplate = (args: { nameFallback: string; sport: WeeklySportType; exercises: BlockExercise[] }) => {
-    const isCardio = args.sport === "Laufen" || args.sport === "Radfahren";
-    setWorkoutSaveDraft({ ...args, isCardio });
-    setWorkoutSaveName(args.nameFallback || "Training");
-    setWorkoutSaveOpen(true);
-  };
-
-  const saveWorkoutTemplate = () => {
-    if (!workoutSaveDraft) {
-      setWorkoutSaveOpen(false);
-      return;
-    }
-
-    const name = (workoutSaveName || "").trim() || workoutSaveDraft.nameFallback || "Training";
-    const tpl: WorkoutTemplate = {
-      id: makeTemplateId(),
-      name,
-      sport: workoutSaveDraft.sport,
-      isCardio: workoutSaveDraft.isCardio,
-      exercises: workoutSaveDraft.exercises,
-      createdAtISO: new Date().toISOString(),
-    };
-
-    setWorkoutTemplates((prev) => [tpl, ...prev]);
-    setWorkoutSaveDraft(null);
-    setWorkoutSaveOpen(false);
-  };
-
-  const deleteWorkoutTemplate = (id: string) => {
-    if (!window.confirm("Vorlage wirklich löschen?")) return;
-    setWorkoutTemplates((prev) => prev.filter((t) => t.id !== id));
-  };
-
   // -------------------- Weekly --------------------
 
-  const handleWeeklyDayChange = (
-    id: number,
-    field: keyof Omit<WeeklyDayConfig, "id" | "label" | "exercises">,
-    value: string
-  ) => {
+  const handleWeeklyDayChange = (id: number, field: "sport" | "focus" | "startTime", value: string) => {
     setWeeklySaved(false);
 
     setWeeklyDays((prev) =>
       prev.map((day) => {
-        if (day.id !== id) return day;
-
-        if (field === "type") {
-          const nextType = value as WeeklyDayType;
-          if (nextType === "rest") return { ...day, type: nextType, startTime: "" };
-          return { ...day, type: nextType };
-        }
+        const d = normalizeWeeklyDay(day as any, day.id);
+        if (d.id !== id) return d;
 
         if (field === "sport") {
           const nextSport = value as WeeklySportType;
-          const shouldAutoRename = !day.focus?.trim() || isLikelyGymDefaultLabel(day.focus);
-          return { ...day, sport: nextSport, focus: shouldAutoRename ? defaultLabelForSport(nextSport) : day.focus };
+
+          // ✅ wenn Ruhetag -> reset
+          if (isRestSport(nextSport)) {
+            return {
+              ...d,
+              sport: "Ruhetag",
+              focus: "Ruhetag",
+              exercises: [],
+              startTime: "",
+              label: d.label?.trim() ? d.label : `Tag ${d.id}`,
+            };
+          }
+
+          const shouldAutoRename = !d.focus?.trim() || isLikelyGymDefaultLabel(d.focus) || d.focus.trim() === "Ruhetag";
+          return {
+            ...d,
+            sport: nextSport,
+            focus: shouldAutoRename ? defaultLabelForSport(nextSport) : d.focus,
+          };
         }
 
-        if (field === "focus") return { ...day, focus: value };
-        if (field === "startTime") return { ...day, startTime: value };
+        if (field === "focus") return { ...d, focus: value };
+        if (field === "startTime") return { ...d, startTime: value };
 
-        return { ...day, [field]: value } as WeeklyDayConfig;
+        return d;
       })
     );
   };
 
   const openWeeklyTraining = (day: WeeklyDayConfig) => {
-    const isCardioDay = day.sport === "Laufen" || day.sport === "Radfahren";
+    const d = normalizeWeeklyDay(day as any, day.id);
+    if (isRestSport(d.sport)) return;
 
     setActiveTrainingTemplate({
       kind: "weekly",
-      template: { id: day.id, label: day.label, exercises: day.exercises },
-      isCardioLibrary: isCardioDay,
+      template: { id: d.id, label: d.label, exercises: d.exercises },
+      isCardioLibrary: isCardioSport(d.sport),
+      sport: d.sport as TrainingSportType,
     });
   };
 
   const openWeeklyPreviewAndStart = (day: WeeklyDayConfig) => {
-    const isCardioDay = day.sport === "Laufen" || day.sport === "Radfahren";
+    const d = normalizeWeeklyDay(day as any, day.id);
+    if (isRestSport(d.sport)) return;
 
     setPreviewState({
-      title: day.focus || `${day.sport} – ${day.label}`,
-      subtitle: `${day.label} · ${day.sport}`,
-      isCardio: isCardioDay,
-      sport: day.sport,
-      exercises: day.exercises,
+      title: d.focus || `Training · ${d.label}`,
+      subtitle: `${d.label} · ${d.sport}`,
+      isCardio: isCardioSport(d.sport),
+      sport: d.sport as TrainingSportType,
+      exercises: d.exercises,
     });
-  };
-
-  const handleSaveWeeklyTrainingTemplate = (updated: TrainingTemplate) => {
-    setWeeklySaved(false);
-    setWeeklyDays((prev) => prev.map((d) => (d.id === updated.id ? { ...d, exercises: updated.exercises } : d)));
   };
 
   const saveWeeklyTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
       const tpl: WeeklyPlanTemplate = {
-        id: String(Date.now()),
+        id: makeTemplateId(),
         name: weeklyTemplateName.trim() || "Wochenplan",
-        days: weeklyDays,
+        days: weeklyDays.map((d, i) => normalizeWeeklyDay(d as any, i + 1)),
         durationWeeks: weeklyDurationWeeks,
       };
       setWeeklyTemplates((prev) => [...prev, tpl]);
@@ -1205,7 +1341,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   };
 
   const applyWeeklyTemplate = (tpl: WeeklyPlanTemplate) => {
-    setWeeklyDays(tpl.days);
+    const nextDays = (tpl.days || []).map((d, i) => normalizeWeeklyDay(d as any, i + 1));
+    setWeeklyDays(nextDays);
     setWeeklyDurationWeeks(tpl.durationWeeks);
     setWeeklySaved(false);
     setWeeklyTemplatesOpen(false);
@@ -1213,39 +1350,35 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   // -------------------- Routine --------------------
 
-  const handleRoutineBlockChange = (id: number, field: "dayType" | "sport" | "label" | "startTime", value: string) => {
+  const handleRoutineBlockChange = (id: number, field: "sport" | "label" | "startTime", value: string) => {
     setRoutineSaved(false);
 
     setRoutineBlocks((prev) =>
       prev.map((block) => {
-        if (block.id !== id) return block;
-
-        if (field === "dayType") {
-          if (value === "rest") {
-            return { ...block, type: "Rest", sport: "Custom", label: "Ruhetag", exercises: [], startTime: "" };
-          }
-          return {
-            ...block,
-            type: "Custom",
-            sport: block.sport && block.sport !== "Custom" ? block.sport : "Gym",
-            label: block.label && block.label !== "Ruhetag" ? block.label : "Neues Training",
-          };
-        }
+        const b = normalizeRoutineBlock(block as any, block.id);
+        if (b.id !== id) return b;
 
         if (field === "sport") {
           const nextSport = value as WeeklySportType;
-          const shouldAutoRename = !block.label?.trim() || isLikelyGymDefaultLabel(block.label);
 
+          if (isRestSport(nextSport)) {
+            return { ...b, type: "Rest", sport: "Ruhetag", label: "Ruhetag", exercises: [], startTime: "" };
+          }
+
+          const shouldAutoRename = !b.label?.trim() || isLikelyGymDefaultLabel(b.label) || b.label.trim() === "Ruhetag";
           return {
-            ...block,
+            ...b,
+            type: "Custom",
             sport: nextSport,
-            type: block.type === "Rest" ? "Rest" : "Custom",
-            label: shouldAutoRename ? defaultLabelForSport(nextSport) : block.label,
+            label: shouldAutoRename ? defaultLabelForSport(nextSport) : b.label,
           };
         }
 
-        if (field === "startTime") return { ...block, startTime: value };
-        return { ...block, label: value };
+        if (field === "startTime") return { ...b, startTime: value };
+
+        // label
+        if (b.type === "Rest" || isRestSport(b.sport)) return { ...b, label: "Ruhetag" };
+        return { ...b, label: value };
       })
     );
   };
@@ -1254,14 +1387,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     setRoutineSaved(false);
     setRoutineBlocks((prev) => [
       ...prev,
-      {
-        id: prev.length ? prev[prev.length - 1].id + 1 : 1,
-        type: "Custom",
-        sport: "Gym",
-        label: "Neues Training",
-        exercises: [],
-        startTime: "",
-      },
+      normalizeRoutineBlock(
+        {
+          id: prev.length ? (prev[prev.length - 1].id ?? 0) + 1 : 1,
+          type: "Custom",
+          sport: "Gym",
+          label: "Neues Training",
+          exercises: [],
+          startTime: "",
+        },
+        prev.length ? (prev[prev.length - 1].id ?? 0) + 1 : 1
+      ),
     ]);
   };
 
@@ -1271,37 +1407,36 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   };
 
   const openRoutineTraining = (block: RoutineBlock) => {
-    const isCardio = block.sport === "Laufen" || block.sport === "Radfahren";
+    const b = normalizeRoutineBlock(block as any, block.id);
+    if (b.type === "Rest" || isRestSport(b.sport)) return;
+
     setActiveTrainingTemplate({
       kind: "routine",
-      template: { id: block.id, label: block.label, exercises: block.exercises },
-      isCardioLibrary: isCardio,
+      template: { id: b.id, label: b.label, exercises: b.exercises },
+      isCardioLibrary: isCardioSport(b.sport),
+      sport: b.sport as TrainingSportType,
     });
   };
 
-  const openRoutinePreviewAndStart = (block: RoutineBlock, dayLabel?: string, dayIndex?: number) => {
-    const isCardio = block.sport === "Laufen" || block.sport === "Radfahren";
+  const openRoutinePreviewAndStart = (block: RoutineBlock, index: number) => {
+    const b = normalizeRoutineBlock(block as any, block.id);
+    if (b.type === "Rest" || isRestSport(b.sport)) return;
 
     setPreviewState({
-      title: block.label,
-      subtitle: `${dayLabel ? dayLabel : "Tag"}${typeof dayIndex === "number" ? ` / Tag ${dayIndex + 1}` : ""} · ${block.sport}`,
-      isCardio,
-      sport: block.sport,
-      exercises: block.exercises,
+      title: b.label,
+      subtitle: `Tag ${index + 1} · ${b.sport}`,
+      isCardio: isCardioSport(b.sport),
+      sport: b.sport as TrainingSportType,
+      exercises: b.exercises,
     });
-  };
-
-  const handleSaveRoutineTrainingTemplate = (updated: TrainingTemplate) => {
-    setRoutineSaved(false);
-    setRoutineBlocks((prev) => prev.map((b) => (b.id === updated.id ? { ...b, exercises: updated.exercises } : b)));
   };
 
   const saveRoutineTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
       const tpl: RoutinePlanTemplate = {
-        id: String(Date.now()),
+        id: makeTemplateId(),
         name: routineTemplateName.trim() || "Split/Routine",
-        blocks: routineBlocks,
+        blocks: routineBlocks.map((b, i) => normalizeRoutineBlock(b as any, i + 1)),
         durationWeeks: routineDurationWeeks,
       };
       setRoutineTemplates((prev) => [...prev, tpl]);
@@ -1322,12 +1457,23 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   const routinePreview = useMemo(() => {
     if (!routineBlocks.length) return [];
-    const labels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
     return Array.from({ length: 7 }).map((_, i) => {
-      const block = normalizeRoutineBlock(routineBlocks[i % routineBlocks.length] as any, i + 1);
-      return { dayIndex: i, label: labels[i], block };
+      const block = normalizeRoutineBlock(routineBlocks[i % routineBlocks.length] as any, (i % routineBlocks.length) + 1);
+      return { dayIndex: i, label: `Tag ${i + 1}`, block };
     });
   }, [routineBlocks]);
+
+  // ✅ Reine Trainings Vorlagen: Add / Delete
+  const addWorkoutTemplate = (tpl: WorkoutTemplate) => {
+    if (!tpl?.name?.trim()) return;
+
+    // ✅ Name-Duplikate erlauben, aber neueste oben
+    setWorkoutTemplates((prev) => [tpl, ...(prev || [])].slice(0, 200));
+  };
+
+  const deleteWorkoutTemplate = (id: string) => {
+    setWorkoutTemplates((prev) => (prev || []).filter((t) => t.id !== id));
+  };
 
   // -------------------- Render --------------------
 
@@ -1338,26 +1484,22 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="flex gap-2 rounded-xl bg-slate-900/60 p-1 text-sm">
           <button
             onClick={() => setActiveTab("weekly")}
-            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${
-              activeTab === "weekly" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"
-            }`}
+            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"}`}
           >
             Wochenplan
           </button>
           <button
             onClick={() => setActiveTab("routine")}
-            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${
-              activeTab === "routine" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"
-            }`}
+            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "routine" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"}`}
           >
             Split/Routine
           </button>
         </div>
 
-        {/* ✅ Startdatum + Dauer + darunter Vorlagen (Trainings + Trainingspläne) */}
+        {/* ✅ Startdatum + Dauer nebeneinander, Vorlagen darunter */}
         <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
               <span className="text-[11px] text-slate-400">Startdatum</span>
               <input
                 type="date"
@@ -1371,26 +1513,28 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               />
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
+            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
               <span className="text-[11px] text-slate-400">Dauer</span>
-              <input
-                type="number"
-                min={1}
-                max={52}
-                value={activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
-                onChange={(e) => {
-                  const v = Math.max(1, Number(e.target.value) || 1);
-                  if (activeTab === "weekly") {
-                    setWeeklySaved(false);
-                    setWeeklyDurationWeeks(v);
-                  } else {
-                    setRoutineSaved(false);
-                    setRoutineDurationWeeks(v);
-                  }
-                }}
-                className="w-14 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100 outline-none"
-              />
-              <span className="text-[11px] text-slate-400">Wochen</span>
+              <div className="inline-flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={52}
+                  value={activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
+                  onChange={(e) => {
+                    const v = Math.max(1, Number(e.target.value) || 1);
+                    if (activeTab === "weekly") {
+                      setWeeklySaved(false);
+                      setWeeklyDurationWeeks(v);
+                    } else {
+                      setRoutineSaved(false);
+                      setRoutineDurationWeeks(v);
+                    }
+                  }}
+                  className="w-14 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100 outline-none"
+                />
+                <span className="text-[11px] text-slate-400">Wochen</span>
+              </div>
             </div>
           </div>
 
@@ -1404,7 +1548,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             </div>
           )}
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => setWorkoutTemplatesOpen(true)}
@@ -1437,55 +1581,63 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {weeklySaved && <span className="text-xs text-emerald-400">In Kalender übernommen</span>}
-              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">{weeklySaved && <span className="text-xs text-emerald-400">In Kalender übernommen</span>}</div>
             </div>
 
             <div className="space-y-3">
-              {weeklyDays.map((day) => (
-                <div key={day.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium text-slate-100">{day.label}</div>
-                      <span className="text-[11px] text-slate-500">/ Tag {day.id}</span>
-                    </div>
+              {weeklyDays.map((rawDay, idx) => {
+                const day = normalizeWeeklyDay(rawDay as any, idx + 1);
+                const isRest = isRestSport(day.sport);
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={day.type}
-                        onChange={(e) => handleWeeklyDayChange(day.id, "type", e.target.value)}
-                        className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-xs text-slate-100 outline-none"
-                      >
-                        <option value="training">Training</option>
-                        <option value="rest">Ruhetag</option>
-                      </select>
+                return (
+                  <div key={day.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                    {/* Kopfzeile */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-slate-100">Tag {day.id}</div>
+                      </div>
 
-                      {day.type === "training" && (
-                        <>
-                          <select
-                            value={day.sport}
-                            onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
-                            className="rounded-full border border-sky-700 bg-sky-950/60 px-2.5 py-1 text-xs text-sky-100 outline-none"
-                          >
-                            <option value="Gym">Gym</option>
-                            <option value="Laufen">Laufen</option>
-                            <option value="Radfahren">Radfahren</option>
-                            <option value="Custom">Custom</option>
-                          </select>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={day.sport}
+                          onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
+                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-slate-700 bg-slate-900/80 text-slate-200" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
+                        >
+                          <option value="Gym">Gym</option>
+                          <option value="Laufen">Laufen</option>
+                          <option value="Radfahren">Radfahren</option>
+                          <option value="Custom">Custom</option>
+                          <option value="Ruhetag">Ruhetag</option>
+                        </select>
 
-                          {/* ✅ Startzeit OPTIONAL (nur dieses Feld) */}
-                          <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
-                            <span className="text-[11px] text-slate-400">Startzeit</span>
-                            <input
-                              type="time"
-                              value={day.startTime ?? ""}
-                              onChange={(e) => handleWeeklyDayChange(day.id, "startTime", e.target.value)}
-                              className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
-                              title="Optional"
-                            />
-                          </div>
+                        {/* ✅ Startzeit optional */}
+                        {!isRest && (
+                          <>
+                            {day.startTime?.trim() ? (
+                              <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
+                                <input
+                                  type="time"
+                                  value={day.startTime ?? ""}
+                                  onChange={(e) => handleWeeklyDayChange(day.id, "startTime", e.target.value)}
+                                  className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
+                                  title="Optional"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
+                                  className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                                  title="Startzeit entfernen"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <ClockPlusButton onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())} />
+                            )}
+                          </>
+                        )}
 
+                        {!isRest && (
                           <button
                             type="button"
                             onClick={() => openWeeklyTraining(day)}
@@ -1493,48 +1645,34 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           >
                             Training erstellen{day.exercises.length > 0 ? ` (${day.exercises.length})` : ""}
                           </button>
+                        )}
 
-                          {day.exercises.length > 0 && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => openWeeklyPreviewAndStart(day)}
-                                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
-                              >
-                                Vorschau / Start
-                              </button>
+                        {!isRest && day.exercises.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => openWeeklyPreviewAndStart(day)}
+                            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
+                          >
+                            Vorschau / Start
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openSaveWorkoutTemplate({
-                                    nameFallback: day.focus || `${day.sport} – ${day.label}`,
-                                    sport: day.sport,
-                                    exercises: day.exercises,
-                                  })
-                                }
-                                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
-                              >
-                                Als Training speichern
-                              </button>
-                            </>
-                          )}
-                        </>
-                      )}
+                    {/* Trainingsbezeichnung */}
+                    <div className="mt-2">
+                      <label className="block text-[11px] font-medium text-slate-400">Trainingsbezeichnung</label>
+                      <input
+                        type="text"
+                        value={isRest ? "Ruhetag" : day.focus}
+                        disabled={isRest}
+                        onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
+                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-slate-800 bg-slate-950/60 text-slate-500" : "border-slate-800 bg-slate-950 text-slate-100"}`}
+                      />
                     </div>
                   </div>
-
-                  <div className="mt-2">
-                    <label className="block text-[11px] font-medium text-slate-400">Trainingsbezeichnung</label>
-                    <input
-                      type="text"
-                      value={day.focus}
-                      onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -1570,95 +1708,79 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {routineSaved && <span className="text-xs text-emerald-400">In Kalender übernommen</span>}
-              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">{routineSaved && <span className="text-xs text-emerald-400">In Kalender übernommen</span>}</div>
             </div>
 
             <div className="space-y-3">
               {routineBlocks.map((rawBlock, index) => {
                 const block = normalizeRoutineBlock(rawBlock as any, index + 1);
-                const dayNames = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-                const dayLabel = dayNames[index % 7];
-                const dayType: WeeklyDayType = block.type === "Rest" ? "rest" : "training";
+                const isRest = block.type === "Rest" || isRestSport(block.sport);
 
                 return (
                   <div key={block.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-slate-100">{dayLabel}</div>
-                        <span className="text-[11px] text-slate-500">/ Tag {index + 1}</span>
+                        <div className="text-sm font-medium text-slate-100">Tag {index + 1}</div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
                         <select
-                          value={dayType}
-                          onChange={(e) => handleRoutineBlockChange(block.id, "dayType", e.target.value)}
-                          className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-xs text-slate-100 outline-none"
+                          value={block.sport}
+                          onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
+                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-slate-700 bg-slate-900/80 text-slate-200" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
                         >
-                          <option value="training">Training</option>
-                          <option value="rest">Ruhetag</option>
+                          <option value="Gym">Gym</option>
+                          <option value="Laufen">Laufen</option>
+                          <option value="Radfahren">Radfahren</option>
+                          <option value="Custom">Custom</option>
+                          <option value="Ruhetag">Ruhetag</option>
                         </select>
 
-                        {dayType === "training" && (
+                        {/* ✅ Startzeit optional */}
+                        {!isRest && (
                           <>
-                            <select
-                              value={block.sport}
-                              onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
-                              className="rounded-full border border-sky-700 bg-sky-950/60 px-2.5 py-1 text-xs text-sky-100 outline-none"
-                            >
-                              <option value="Gym">Gym</option>
-                              <option value="Laufen">Laufen</option>
-                              <option value="Radfahren">Radfahren</option>
-                              <option value="Custom">Custom</option>
-                            </select>
-
-                            {/* ✅ Startzeit OPTIONAL (nur dieses Feld) */}
-                            <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
-                              <span className="text-[11px] text-slate-400">Startzeit</span>
-                              <input
-                                type="time"
-                                value={block.startTime ?? ""}
-                                onChange={(e) => handleRoutineBlockChange(block.id, "startTime", e.target.value)}
-                                className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
-                                title="Optional"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => openRoutineTraining(block)}
-                              className="rounded-lg border border-sky-500/60 bg-sky-500/10 px-3 py-1.5 text-[11px] font-medium text-sky-100 hover:bg-sky-500/20"
-                            >
-                              Training erstellen{block.exercises.length > 0 ? ` (${block.exercises.length})` : ""}
-                            </button>
-
-                            {block.exercises.length > 0 && (
-                              <>
+                            {block.startTime?.trim() ? (
+                              <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
+                                <input
+                                  type="time"
+                                  value={block.startTime ?? ""}
+                                  onChange={(e) => handleRoutineBlockChange(block.id, "startTime", e.target.value)}
+                                  className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
+                                  title="Optional"
+                                />
                                 <button
                                   type="button"
-                                  onClick={() => openRoutinePreviewAndStart(block, dayLabel, index)}
-                                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
+                                  onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
+                                  className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                                  title="Startzeit entfernen"
                                 >
-                                  Vorschau / Start
+                                  ✕
                                 </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openSaveWorkoutTemplate({
-                                      nameFallback: block.label || `${block.sport} – ${dayLabel}`,
-                                      sport: block.sport,
-                                      exercises: block.exercises,
-                                    })
-                                  }
-                                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
-                                >
-                                  Als Training speichern
-                                </button>
-                              </>
+                              </div>
+                            ) : (
+                              <ClockPlusButton onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())} />
                             )}
                           </>
+                        )}
+
+                        {!isRest && (
+                          <button
+                            type="button"
+                            onClick={() => openRoutineTraining(block)}
+                            className="rounded-lg border border-sky-500/60 bg-sky-500/10 px-3 py-1.5 text-[11px] font-medium text-sky-100 hover:bg-sky-500/20"
+                          >
+                            Training erstellen{block.exercises.length > 0 ? ` (${block.exercises.length})` : ""}
+                          </button>
+                        )}
+
+                        {!isRest && block.exercises.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => openRoutinePreviewAndStart(block, index)}
+                            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
+                          >
+                            Vorschau / Start
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1667,9 +1789,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       <label className="block text-[11px] font-medium text-slate-400">Trainingsbezeichnung</label>
                       <input
                         type="text"
-                        value={block.label}
+                        value={isRest ? "Ruhetag" : block.label}
+                        disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
+                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-slate-800 bg-slate-950/60 text-slate-500" : "border-slate-800 bg-slate-950 text-slate-100"}`}
                       />
                     </div>
 
@@ -1726,14 +1849,29 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           template={activeTrainingTemplate.template}
           kind={activeTrainingTemplate.kind}
           isCardioLibrary={activeTrainingTemplate.isCardioLibrary}
+          workoutTemplates={workoutTemplates}
+          defaultSport={activeTrainingTemplate.sport}
+          onSaveWorkoutTemplate={addWorkoutTemplate}
           onClose={() => setActiveTrainingTemplate(null)}
           onSave={(updated) => {
             if (activeTrainingTemplate.kind === "weekly") {
               setWeeklySaved(false);
-              setWeeklyDays((prev) => prev.map((d) => (d.id === updated.id ? { ...d, exercises: updated.exercises } : d)));
+              setWeeklyDays((prev) =>
+                prev.map((d) =>
+                  d.id === updated.id
+                    ? { ...normalizeWeeklyDay(d as any, d.id), exercises: updated.exercises }
+                    : normalizeWeeklyDay(d as any, d.id)
+                )
+              );
             } else {
               setRoutineSaved(false);
-              setRoutineBlocks((prev) => prev.map((b) => (b.id === updated.id ? { ...b, exercises: updated.exercises } : b)));
+              setRoutineBlocks((prev) =>
+                prev.map((b) =>
+                  b.id === updated.id
+                    ? { ...normalizeRoutineBlock(b as any, b.id), exercises: updated.exercises }
+                    : normalizeRoutineBlock(b as any, b.id)
+                )
+              );
             }
           }}
         />
@@ -1748,40 +1886,35 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-100">Vorschau – Woche</h3>
-              <button
-                type="button"
-                onClick={() => setWeeklyPreviewOpen(false)}
-                className="text-[11px] text-slate-400 hover:text-slate-100"
-              >
+              <button type="button" onClick={() => setWeeklyPreviewOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
                 ✕
               </button>
             </div>
 
             <div className="grid grid-cols-1 gap-2 overflow-y-auto pr-1">
-              {weeklyDays.map((day) => (
-                <div key={day.id} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-slate-100">{day.label}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        day.type === "training"
-                          ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40"
-                          : "bg-slate-700/40 text-slate-200 ring-1 ring-slate-500/40"
-                      }`}
-                    >
-                      {day.type === "training" ? "Training" : "Ruhetag"}
-                    </span>
+              {weeklyDays.map((raw, idx) => {
+                const day = normalizeWeeklyDay(raw as any, idx + 1);
+                const isRest = isRestSport(day.sport);
+
+                return (
+                  <div key={day.id} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-100">Tag {day.id}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          isRest ? "bg-slate-700/40 text-slate-200 ring-1 ring-slate-500/40" : "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40"
+                        }`}
+                      >
+                        {isRest ? "Ruhetag" : day.sport}
+                      </span>
+                    </div>
+
+                    <div className="mt-0.5 text-[11px] text-slate-200">{isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}</div>
+
+                    {!isRest && day.startTime && <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {day.startTime}</div>}
                   </div>
-
-                  <div className="mt-0.5 text-[10px] text-sky-300">{day.type === "training" ? `Sportart: ${day.sport}` : ""}</div>
-                  <div className="mt-0.5 text-[11px] text-slate-200">{day.focus || "Keine Bezeichnung definiert"}</div>
-
-                  {/* ✅ Startzeit nur anzeigen, wenn gesetzt */}
-                  {day.type === "training" && day.startTime && (
-                    <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {day.startTime}</div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1793,34 +1926,79 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-100">Vorschau – Routine (1 Woche)</h3>
-              <button
-                type="button"
-                onClick={() => setRoutinePreviewOpen(false)}
-                className="text-[11px] text-slate-400 hover:text-slate-100"
-              >
+              <button type="button" onClick={() => setRoutinePreviewOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
                 ✕
               </button>
             </div>
 
             <div className="grid grid-cols-1 gap-2 overflow-y-auto pr-1">
-              {routinePreview.map((item, index) => (
-                <div key={index} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-slate-100">{item.label}</span>
-                    <span className="text-[10px] text-slate-400">Tag {index + 1}</span>
-                  </div>
-                  <div className="mt-0.5 text-[11px] font-medium text-slate-100">{item.block.label}</div>
-                  <div className="mt-0.5 text-[10px] text-slate-400">
-                    {item.block.type === "Rest" ? "Ruhetag" : `Sport: ${item.block.sport}`}
-                  </div>
+              {routinePreview.map((item, index) => {
+                const block = normalizeRoutineBlock(item.block as any, index + 1);
+                const isRest = block.type === "Rest" || isRestSport(block.sport);
 
-                  {/* ✅ Startzeit nur anzeigen, wenn gesetzt */}
-                  {item.block.type !== "Rest" && item.block.startTime && (
-                    <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {item.block.startTime}</div>
-                  )}
-                </div>
-              ))}
+                return (
+                  <div key={index} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-100">{item.label}</span>
+                      <span className="text-[10px] text-slate-400">{isRest ? "Ruhetag" : block.sport}</span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-medium text-slate-100">{isRest ? "Ruhetag" : block.label}</div>
+
+                    {!isRest && block.startTime && <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {block.startTime}</div>}
+                  </div>
+                );
+              })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Reine Trainings Vorlagen Modal (Management) */}
+      {workoutTemplatesOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Trainings</h3>
+              <button type="button" onClick={() => setWorkoutTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+                ✕
+              </button>
+            </div>
+
+            {workoutTemplates.length === 0 ? (
+              <p className="text-[11px] text-slate-400">
+                Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen“ und klicke oben im Editor auf „Vorlage speichern“.
+              </p>
+            ) : (
+              <div className="space-y-2 overflow-y-auto pr-1">
+                {workoutTemplates
+                  .slice()
+                  .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""))
+                  .map((tpl) => (
+                    <div key={tpl.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
+                      <div className="min-w-0 text-[11px] text-slate-100">
+                        <div className="truncate font-medium">{tpl.name}</div>
+                        <div className="truncate text-[10px] text-slate-400">
+                          {tpl.isCardio ? "Cardio" : "Gym"} · {tpl.sport} · {tpl.exercises?.length ?? 0} {tpl.isCardio ? "Einheit(en)" : "Übung(en)"}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            const ok = window.confirm(`Vorlage "${tpl.name}" löschen?`);
+                            if (!ok) return;
+                          }
+                          deleteWorkoutTemplate(tpl.id);
+                        }}
+                        className="shrink-0 rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-500/20"
+                      >
+                        Löschen
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1831,11 +2009,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Wochenpläne</h3>
-              <button
-                type="button"
-                onClick={() => setWeeklyTemplatesOpen(false)}
-                className="text-[11px] text-slate-400 hover:text-slate-100"
-              >
+              <button type="button" onClick={() => setWeeklyTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
                 ✕
               </button>
             </div>
@@ -1845,10 +2019,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             ) : (
               <div className="space-y-2 overflow-y-auto pr-1">
                 {weeklyTemplates.map((tpl) => (
-                  <div
-                    key={tpl.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2"
-                  >
+                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
                     <div className="text-[11px] text-slate-100">
                       <div className="font-medium">{tpl.name}</div>
                       <div className="text-[10px] text-slate-400">
@@ -1856,11 +2027,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => applyWeeklyTemplate(tpl)}
-                      className="rounded-lg bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600"
-                    >
+                    <button type="button" onClick={() => applyWeeklyTemplate(tpl)} className="rounded-lg bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600">
                       Übernehmen
                     </button>
                   </div>
@@ -1877,11 +2044,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Split/Routine</h3>
-              <button
-                type="button"
-                onClick={() => setRoutineTemplatesOpen(false)}
-                className="text-[11px] text-slate-400 hover:text-slate-100"
-              >
+              <button type="button" onClick={() => setRoutineTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
                 ✕
               </button>
             </div>
@@ -1891,10 +2054,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             ) : (
               <div className="space-y-2 overflow-y-auto pr-1">
                 {routineTemplates.map((tpl) => (
-                  <div
-                    key={tpl.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2"
-                  >
+                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
                     <div className="text-[11px] text-slate-100">
                       <div className="font-medium">{tpl.name}</div>
                       <div className="text-[10px] text-slate-400">
@@ -1902,96 +2062,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => applyRoutineTemplate(tpl)}
-                      className="rounded-lg bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600"
-                    >
+                    <button type="button" onClick={() => applyRoutineTemplate(tpl)} className="rounded-lg bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600">
                       Übernehmen
                     </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Reine Trainings Vorlagen Modal */}
-      {workoutTemplatesOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Trainings</h3>
-              <button
-                type="button"
-                onClick={() => setWorkoutTemplatesOpen(false)}
-                className="text-[11px] text-slate-400 hover:text-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            {workoutTemplates.length === 0 ? (
-              <p className="text-[11px] text-slate-400">Noch keine Trainings-Vorlagen gespeichert.</p>
-            ) : (
-              <div className="space-y-2 overflow-y-auto pr-1">
-                {workoutTemplates.map((t) => (
-                  <div
-                    key={t.id}
-                    className="rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-[11px] font-medium text-slate-100">{t.name}</div>
-                        <div className="mt-0.5 text-[10px] text-slate-400">
-                          {t.sport} · {estimateDurationMinutes(t.exercises, t.isCardio)} min · {t.exercises.length} {t.isCardio ? "Einheiten" : "Üb."}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => deleteWorkoutTemplate(t.id)}
-                        className="shrink-0 rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-500/20"
-                      >
-                        Löschen
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWorkoutTemplatesOpen(false);
-                          startLiveTrainingWithSeed({
-                            title: t.name,
-                            sport: t.sport,
-                            isCardio: t.isCardio,
-                            exercises: t.exercises,
-                          });
-                        }}
-                        className="flex-1 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-sky-600"
-                      >
-                        Start
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWorkoutTemplatesOpen(false);
-                          setPreviewState({
-                            title: t.name,
-                            subtitle: `Vorlage · ${t.sport}`,
-                            isCardio: t.isCardio,
-                            sport: t.sport,
-                            exercises: t.exercises,
-                          });
-                        }}
-                        className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
-                      >
-                        Vorschau
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -2067,46 +2140,6 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 className="rounded-xl bg-sky-500 px-4 py-1.5 text-[11px] font-medium text-white hover:bg-sky-600"
               >
                 Kalender + Vorlage
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Save Dialog (Training) */}
-      {workoutSaveOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
-            <h3 className="text-sm font-semibold text-slate-100">Training als Vorlage speichern</h3>
-            <p className="mt-1 text-[11px] text-slate-400">Optional um später schnell zu starten.</p>
-
-            <div className="mt-3 space-y-2">
-              <label className="block text-[11px] text-slate-300">Name</label>
-              <input
-                type="text"
-                value={workoutSaveName}
-                onChange={(e) => setWorkoutSaveName(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none"
-              />
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setWorkoutSaveDraft(null);
-                  setWorkoutSaveOpen(false);
-                }}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={saveWorkoutTemplate}
-                className="rounded-xl bg-sky-500 px-4 py-1.5 text-[11px] font-medium text-white hover:bg-sky-600"
-              >
-                Speichern
               </button>
             </div>
           </div>

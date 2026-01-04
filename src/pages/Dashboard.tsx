@@ -1,5 +1,4 @@
 // src/pages/Dashboard.tsx
-
 import React, { useEffect, useMemo, useState } from "react";
 import type {
   UpcomingTraining,
@@ -8,7 +7,6 @@ import type {
   TrainingType,
   EventType,
 } from "../types/training";
-import { FeedbackBar } from "../components/feedback/FeedbackBar";
 
 // ✅ Onboarding (Weekly Goals ins Dashboard übernehmen)
 import { readOnboardingDataFromStorage } from "../context/OnboardingContext";
@@ -39,7 +37,7 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
 
 interface DashboardProps {
-  upcoming: UpcomingTraining[];
+  upcoming: UpcomingTraining[]; // bleibt (App liefert es), wird hier aber nicht mehr angezeigt
   events: CalendarEvent[];
   onCreateQuickTraining: (input: NewCalendarEvent) => void;
 
@@ -102,11 +100,16 @@ function getEventType(e: CalendarEvent): EventType {
 
 function isTrainingEvent(e: CalendarEvent): boolean {
   if (getEventType(e) === "training") return true;
-  return normalizeTrainingType(e.trainingType) !== null;
+  return normalizeTrainingType((e as any).trainingType) !== null;
 }
 
 function isGymTraining(e: CalendarEvent): boolean {
-  return normalizeTrainingType(e.trainingType) === "gym";
+  return normalizeTrainingType((e as any).trainingType) === "gym";
+}
+
+function isCompletedTraining(e: CalendarEvent): boolean {
+  if (!isTrainingEvent(e)) return false;
+  return String((e as any).trainingStatus ?? "").toLowerCase() === "completed";
 }
 
 function formatDayLabelFromISO(iso: string): string {
@@ -158,12 +161,12 @@ function addMinutesToHHMM(hhmm: string, minutesToAdd: number): string {
 }
 
 function getTemplateId(ev: CalendarEvent): string | null {
-  const t = ev.templateId;
+  const t = (ev as any).templateId;
   return typeof t === "string" && t.trim() ? t : null;
 }
 
 function fallbackSeedForNonGymEvent(ev: CalendarEvent): LiveTrainingSeed {
-  const tt = normalizeTrainingType(ev.trainingType);
+  const tt = normalizeTrainingType((ev as any).trainingType);
   const sport: LiveTrainingSeed["sport"] =
     tt === "laufen" ? "Laufen" : tt === "radfahren" ? "Radfahren" : "Custom";
 
@@ -184,10 +187,23 @@ function parseHHMMToMinutes(hhmm: string): number {
 }
 
 function durationMinutesFromEvent(ev: CalendarEvent): number {
-  const start = parseHHMMToMinutes(ev.startTime);
-  const end = parseHHMMToMinutes(ev.endTime);
+  const start = parseHHMMToMinutes((ev as any).startTime);
+  const end = parseHHMMToMinutes((ev as any).endTime);
   if (end <= start) return 0;
   return end - start;
+}
+
+function fallbackMinutesForCompleted(ev: CalendarEvent): number {
+  const byTime = durationMinutesFromEvent(ev);
+  if (byTime > 0) return byTime;
+
+  const adaptive = (ev as any).adaptiveEstimatedMinutes;
+  if (typeof adaptive === "number" && Number.isFinite(adaptive) && adaptive > 0) return Math.round(adaptive);
+
+  const tt = normalizeTrainingType((ev as any).trainingType);
+  if (tt === "laufen" || tt === "radfahren") return 45;
+  if (tt === "custom") return 45;
+  return 60; // Gym default
 }
 
 // -------------------- Kategorien (Termine) shared with CalendarPage --------------------
@@ -250,7 +266,7 @@ const TRAINING_TYPE_LABELS: Record<TrainingType, string> = {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({
-  upcoming,
+  upcoming: _upcoming,
   events,
   onCreateQuickTraining,
   onUpdateEvents,
@@ -268,7 +284,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     consumeAdaptive,
     adaptiveBCRemaining,
 
-    // ✅ FIX: richtige Namen aus Hook
     canUseShift,
     consumeShift,
     planShiftRemaining,
@@ -347,9 +362,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isQuickEventModalOpen, setIsQuickEventModalOpen] = useState(false);
   const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
-
-  // ✅ Plan-Shift Warn/Confirm Step
-  const [shiftWarnOpen, setShiftWarnOpen] = useState(false);
 
   // -------------------- Quick Termin (Dashboard -> Kalender) --------------------
 
@@ -445,7 +457,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setIsTrainingModalOpen(false);
   };
 
-  // -------------------- Week progress (planned) --------------------
+  // -------------------- Week progress --------------------
 
   const weekStartISO = useMemo(() => dateKey(startOfWeekMonday(new Date())), []);
   const weekEndISO = useMemo(() => {
@@ -460,6 +472,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const minutes = list.reduce((acc, ev) => acc + durationMinutesFromEvent(ev), 0);
     return { sessions, minutes };
   }, [events, weekStartISO, weekEndISO]);
+
+  const doneThisWeek = useMemo(() => {
+    const list = events.filter((e) => isCompletedTraining(e) && e.date >= weekStartISO && e.date < weekEndISO);
+    const sessions = list.length;
+    const minutes = list.reduce((acc, ev) => acc + fallbackMinutesForCompleted(ev), 0);
+    return { sessions, minutes };
+  }, [events, weekStartISO, weekEndISO]);
+
+  const weekProgress = useMemo(() => {
+    const goal = Math.max(1, weeklyGoalMinutes);
+    const pct = Math.min(1, Math.max(0, doneThisWeek.minutes / goal));
+    return pct;
+  }, [doneThisWeek.minutes, weeklyGoalMinutes]);
 
   // -------------------- Plan-Training starten (Preview -> Live) --------------------
 
@@ -489,8 +514,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       .filter((e) => isTrainingEvent(e) && next3DaysKeys.includes(e.date))
       .slice()
       .sort((a, b) =>
-        (a.date + a.startTime + normalizeTitle(a.title)).localeCompare(
-          b.date + b.startTime + normalizeTitle(b.title)
+        (a.date + (a.startTime || "") + normalizeTitle(a.title)).localeCompare(
+          b.date + (b.startTime || "") + normalizeTitle(b.title)
         )
       );
 
@@ -510,8 +535,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       .filter((e) => isTrainingEvent(e))
       .slice()
       .sort((a, b) =>
-        (a.date + a.startTime + normalizeTitle(a.title)).localeCompare(
-          b.date + b.startTime + normalizeTitle(b.title)
+        (a.date + (a.startTime || "") + normalizeTitle(a.title)).localeCompare(
+          b.date + (b.startTime || "") + normalizeTitle(b.title)
         )
       );
 
@@ -534,11 +559,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (!previewEvent) return;
 
     const seed = previewSeed;
-
-    if (isGymTraining(previewEvent) && !seed) {
-      window.alert("Kein Trainings-Seed gefunden. Bitte Plan erneut in den Kalender übernehmen.");
-      return;
-    }
+    if (isGymTraining(previewEvent) && !seed) return;
 
     const toWrite = seed ?? fallbackSeedForNonGymEvent(previewEvent);
 
@@ -551,10 +572,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const startPlanTodayOrNextPreview = () => {
     const preferred = todayTrainingEvents[0] ?? nextTrainingEvent;
-    if (!preferred) {
-      window.alert("Kein geplantes Training gefunden.");
-      return;
-    }
+    if (!preferred) return;
     openPreviewForEvent(preferred);
   };
 
@@ -573,26 +591,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const openAdaptiveForToday = () => {
     const target = todayTrainingEvents[0] ?? null;
-    if (!target) {
-      window.alert("Heute ist kein geplantes Training im Kalender.");
-      return;
-    }
+    if (!target) return;
     setAdaptiveTargetEvent(target);
     setAdaptiveOpen(true);
   };
 
   const applyAdaptiveSelection = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
     if (!adaptiveTargetEvent) return;
+    if (!onUpdateEvents) return;
 
-    if (!onUpdateEvents) {
-      window.alert(
-        "Adaptives Training ist noch nicht verdrahtet (Dashboard hat keine Schreibrechte auf Events). " +
-          "Bitte in App.tsx onUpdateEvents={setEvents} an Dashboard übergeben."
-      );
-      return;
-    }
-
-    // ✅ Rule: A immer free. B/C limitiert; Hook entscheidet das.
     if (!effectiveIsPro) {
       const allowed = canUseAdaptive(suggestion.profile);
       if (!allowed) {
@@ -602,14 +609,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       consumeAdaptive(suggestion.profile);
     }
 
-    if (suggestion.estimatedMinutes <= 0) {
-      window.alert("Dieser Vorschlag ist heute deaktiviert.");
-      return;
-    }
+    if (suggestion.estimatedMinutes <= 0) return;
 
     const adaptiveProfileABC = mapSuggestionProfileToABC(suggestion.profile);
     const reasons = (suggestion.reasons ?? []).slice(0, 3).map((r) => String(r));
-    const newEnd = addMinutesToHHMM(adaptiveTargetEvent.startTime, suggestion.estimatedMinutes);
+    const newEnd = addMinutesToHHMM((adaptiveTargetEvent as any).startTime, suggestion.estimatedMinutes);
 
     onUpdateEvents((prev) =>
       prev.map((ev) => {
@@ -657,11 +661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Array.from(set).map((id) => ({ id, label: `Plan ${id.slice(0, 6)}…` }));
   };
 
-  const openShiftWarn = () => setShiftWarnOpen(true);
-
-  const proceedToShiftDialog = () => {
-    setShiftWarnOpen(false);
-
+  const openShiftDialog = () => {
     const plans = detectPlans();
     setShiftCandidates(plans);
     setShiftSelectedPlanId(plans.length >= 2 ? plans[0].id : "__ALL__");
@@ -669,13 +669,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const doShift = () => {
-    if (!onUpdateEvents) {
-      window.alert(
-        "Plan verschieben ist noch nicht verdrahtet (Dashboard hat keine Schreibrechte auf Events). " +
-          "Bitte in App.tsx onUpdateEvents={setEvents} an Dashboard übergeben."
-      );
-      return;
-    }
+    if (!onUpdateEvents) return;
 
     if (!effectiveIsPro) {
       const allowed = canUseShift();
@@ -701,26 +695,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setShiftOpen(false);
   };
 
-  // -------------------- Next Training card --------------------
-
-  const nextTrainingCard = useMemo(() => {
-    const ev = nextTrainingEvent;
-    if (!ev) return null;
-    return {
-      title: normalizeTitle(ev.title),
-      dateLabel: formatDayLabelFromISO(ev.date),
-      time: `${ev.startTime}–${ev.endTime}`,
-      isToday: ev.date === todayISO,
-    };
-  }, [nextTrainingEvent, todayISO]);
-
   // -------------------- Render --------------------
 
   return (
     <>
-      <div className="h-full w-full overflow-y-auto">
-        <div className="mx-auto flex h-full w-full max-w-none flex-col gap-5 px-1 pb-24 pt-5 sm:px-2">
-          {/* PRIMARY ACTION BAR */}
+      <div className="w-full">
+        {/* ✅ Fix: fester Startpunkt direkt unter Safe-Area (Safe-Area kommt schon vom App-Shell) */}
+        <div className="mx-auto w-full max-w-5xl flex flex-col gap-5 pt-4 pb-6">
           <div className="tq-surface relative p-3">
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -732,7 +713,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   borderColor: "rgba(59, 130, 246, 0.35)",
                   color: "var(--text)",
                 }}
-                title={!effectiveIsPro ? `Free: B/C noch ${adaptiveLeft} übrig (A immer frei)` : "Pro: unbegrenzt"}
               >
                 Adaptiv
               </button>
@@ -766,33 +746,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
-            {/* Weekly Goals */}
+            {/* ✅ Wochenziel + kleiner blauer Balken */}
             <div
-              className="mt-3 flex items-center justify-between rounded-xl px-3 py-2"
+              className="mt-3 rounded-xl px-3 py-2"
               style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
             >
-              <div className="min-w-0">
-                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                  Wochenziel (aus Onboarding)
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                    Wochenziel (gemacht)
+                  </div>
+                  <div className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>
+                    {doneThisWeek.sessions}/{weeklyGoalSessions} Trainings · {doneThisWeek.minutes}/{weeklyGoalMinutes} min
+                  </div>
+                  <div className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>
+                    Geplant: {plannedThisWeek.sessions} Trainings · {plannedThisWeek.minutes} min
+                  </div>
                 </div>
-                <div className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>
-                  {plannedThisWeek.sessions}/{weeklyGoalSessions} Trainings · {plannedThisWeek.minutes}/{weeklyGoalMinutes} min (geplant)
-                </div>
+
+                <span
+                  className="shrink-0 rounded-full px-2 py-1 text-[10px]"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--muted)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Ziel: {Math.round(weeklyGoalMinutes / 60)}h
+                </span>
               </div>
 
-              <span
-                className="rounded-full px-2 py-1 text-[10px]"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  color: "var(--muted)",
-                  border: "1px solid var(--border)",
-                }}
+              <div
+                className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)" }}
               >
-                Ziel: {Math.round(weeklyGoalMinutes / 60)}h
-              </span>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.round(weekProgress * 100)}%`,
+                    background: "rgba(37,99,235,0.95)",
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Plus Menu */}
             {isPlusMenuOpen && (
               <div
                 className="absolute right-3 top-[58px] z-40 w-56 overflow-hidden rounded-2xl border shadow-xl"
@@ -841,7 +838,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   type="button"
                   onClick={() => {
                     setIsPlusMenuOpen(false);
-                    openShiftWarn();
+                    openShiftDialog();
                   }}
                   className="w-full px-4 py-3 text-left text-sm hover:opacity-95"
                   style={{ color: "var(--text)" }}
@@ -851,67 +848,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             )}
 
-            {nextTrainingCard && (
-              <div
-                className="mt-3 flex items-center justify-between rounded-xl px-3 py-2"
-                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
-              >
-                <div className="min-w-0">
-                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                    Nächstes Training
-                  </div>
-                  <div className="truncate text-sm font-semibold">{nextTrainingCard.title}</div>
-                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                    {nextTrainingCard.dateLabel}
-                    {nextTrainingCard.isToday ? " (heute)" : ""} · {nextTrainingCard.time}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Upcoming */}
-            {upcoming?.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                  Upcoming (Top {Math.min(5, upcoming.length)})
-                </div>
-
-                <div className="space-y-1.5">
-                  {upcoming.slice(0, 5).map((u) => (
-                    <div
-                      key={u.id}
-                      className="flex items-center justify-between rounded-xl px-3 py-2"
-                      style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-[12px] font-semibold" style={{ color: "var(--text)" }}>
-                          {u.title}
-                        </div>
-                        <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                          {formatDayLabelFromISO(u.date)} · {u.time || "—"}
-                        </div>
-                      </div>
-
-                      <span
-                        className="ml-3 rounded-full px-2 py-1 text-[10px]"
-                        style={{
-                          background: "rgba(255,255,255,0.06)",
-                          color: "var(--muted)",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        {String((u as any).sport || "").toUpperCase()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* ❌ Nächstes Training entfernt */}
+            {/* ❌ Upcoming entfernt */}
           </div>
 
-          {/* Trainingsvorschau + Heutige Termine */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Next 3 days */}
             <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-sm font-medium">Trainingsplan – nächste 3 Tage</h2>
@@ -922,7 +863,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   const ev = plannedEventsNext3Days.get(k) ?? null;
                   const seed = ev ? resolveSeedForEvent(ev) : null;
                   const counts = seedCounts(seed);
-                  const tt = ev ? normalizeTrainingType(ev.trainingType) : null;
+                  const tt = ev ? normalizeTrainingType((ev as any).trainingType) : null;
 
                   return (
                     <button
@@ -943,7 +884,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </div>
 
                           <div className="text-sm font-medium">
-                            {ev ? normalizeTitle(ev.title) : "Kein Training geplant"}
+                            {ev ? normalizeTitle((ev as any).title) : "Kein Training geplant"}
                           </div>
 
                           {ev && (
@@ -954,9 +895,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                           )}
 
-                          {ev && ev.adaptiveProfile && typeof ev.adaptiveEstimatedMinutes === "number" && (
+                          {ev && (ev as any).adaptiveProfile && typeof (ev as any).adaptiveEstimatedMinutes === "number" && (
                             <div className="text-[11px]" style={{ color: "rgba(59,130,246,0.85)" }}>
-                              Adaptiv {ev.adaptiveProfile} · {ev.adaptiveEstimatedMinutes} min
+                              Adaptiv {(ev as any).adaptiveProfile} · {(ev as any).adaptiveEstimatedMinutes} min
                             </div>
                           )}
                         </div>
@@ -995,7 +936,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Today events */}
             <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-medium">Heutige Termine ({todayEvents.length})</h2>
@@ -1014,20 +954,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Training
                       </div>
                       <div className="text-base font-semibold">
-                        {normalizeTitle(singleTodayTrainingPreview.event.title)}
+                        {normalizeTitle((singleTodayTrainingPreview.event as any).title)}
                       </div>
 
-                      {singleTodayTrainingPreview.event.adaptiveProfile &&
-                        typeof singleTodayTrainingPreview.event.adaptiveEstimatedMinutes === "number" && (
+                      {(singleTodayTrainingPreview.event as any).adaptiveProfile &&
+                        typeof (singleTodayTrainingPreview.event as any).adaptiveEstimatedMinutes === "number" && (
                           <div className="text-[11px]" style={{ color: "rgba(59,130,246,0.85)" }}>
-                            Adaptiv {singleTodayTrainingPreview.event.adaptiveProfile} ·{" "}
-                            {singleTodayTrainingPreview.event.adaptiveEstimatedMinutes} min
+                            Adaptiv {(singleTodayTrainingPreview.event as any).adaptiveProfile} ·{" "}
+                            {(singleTodayTrainingPreview.event as any).adaptiveEstimatedMinutes} min
                           </div>
                         )}
                     </div>
 
                     <div className="whitespace-nowrap text-[10px]" style={{ color: "var(--muted)" }}>
-                      {singleTodayTrainingPreview.event.startTime}–{singleTodayTrainingPreview.event.endTime}
+                      {(singleTodayTrainingPreview.event as any).startTime}–{(singleTodayTrainingPreview.event as any).endTime}
                     </div>
                   </div>
                 </button>
@@ -1035,17 +975,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="space-y-2 text-xs">
                   {todayEvents.map((event) => (
                     <div
-                      key={event.id}
+                      key={(event as any).id}
                       className="space-y-0.5 rounded-lg px-3 py-2"
                       style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)" }}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold">{normalizeTitle(event.title)}</span>
+                        <span className="font-semibold">{normalizeTitle((event as any).title)}</span>
                         <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                          {event.startTime}–{event.endTime}
+                          {(event as any).startTime}–{(event as any).endTime}
                         </span>
                       </div>
-                      {event.description && <div style={{ color: "var(--muted)" }}>{event.description}</div>}
+                      {(event as any).description && (
+                        <div style={{ color: "var(--muted)" }}>{(event as any).description}</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1063,12 +1005,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
           </div>
-
-          <FeedbackBar page="Dashboard" />
         </div>
       </div>
 
-      {/* CLICK OUTSIDE -> close plus menu */}
       {isPlusMenuOpen && (
         <button
           type="button"
@@ -1079,66 +1018,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
       )}
 
-      {/* SHIFT WARNING MODAL */}
-      {shiftWarnOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="tq-surface w-full max-w-md space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                  Hinweis
-                </div>
-                <div className="text-sm font-semibold">Plan verschieben</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShiftWarnOpen(false)}
-                className="text-xs"
-                style={{ color: "var(--muted)" }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div
-              className="rounded-xl px-3 py-3 text-xs leading-relaxed"
-              style={{
-                background: "rgba(0,0,0,0.18)",
-                border: "1px solid var(--border)",
-                color: "var(--muted)",
-              }}
-            >
-              Du bist dabei, den{" "}
-              <span style={{ color: "var(--text)", fontWeight: 600 }}>gesamten Trainingsplan ab heute</span> um{" "}
-              <span style={{ color: "var(--text)", fontWeight: 600 }}>+1 Tag</span> nach hinten zu verschieben.
-              <br />
-              <br />
-              Das betrifft alle geplanten Trainings (und ggf. mehrere Wochen). Bist du sicher?
-            </div>
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShiftWarnOpen(false)}
-                className="rounded-xl border px-3 py-2 text-[12px]"
-                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={proceedToShiftDialog}
-                className="rounded-xl px-4 py-2 text-[12px] font-semibold"
-                style={{ background: "rgba(37,99,235,0.9)", color: "#061226" }}
-              >
-                Weiter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SHIFT MODAL */}
       {shiftOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
@@ -1157,11 +1036,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               >
                 ✕
               </button>
-            </div>
-
-            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-              Verschiebt alle geplanten Trainings ab heute um{" "}
-              <span style={{ color: "var(--text)", fontWeight: 600 }}>1 Tag</span>.
             </div>
 
             {shiftCandidates.length >= 2 ? (
@@ -1186,16 +1060,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             ) : (
               <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                Es wurde {shiftCandidates.length === 1 ? "ein Plan" : "kein templateId-Plan"} erkannt. Wir verschieben alle Trainings ab heute.
-              </div>
-            )}
-
-            {!effectiveIsPro && (
-              <div
-                className="rounded-xl px-3 py-2 text-[11px]"
-                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)", color: "var(--muted)" }}
-              >
-                Free: {Math.max(0, planShiftLeft)}/{FREE_LIMITS.planShiftPerMonth} übrig diesen Monat. Pro: unbegrenzt.
+                Es wurde {shiftCandidates.length === 1 ? "ein Plan" : "kein templateId-Plan"} erkannt. Wir verschieben
+                alle Trainings ab heute.
               </div>
             )}
 
@@ -1221,7 +1087,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* QUICK EVENT MODAL */}
       {isQuickEventModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
@@ -1258,7 +1123,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 />
               </div>
 
-              {/* Kategorie + neue Kategorie */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px]" style={{ color: "var(--muted)" }}>
@@ -1387,7 +1251,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* TRAINING MODAL */}
       {isTrainingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
@@ -1520,91 +1383,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* ADAPTIVE MODAL */}
       <AdaptiveTrainingModal
         open={adaptiveOpen}
         onClose={() => {
           setAdaptiveOpen(false);
           setAdaptiveTargetEvent(null);
         }}
-        plannedWorkoutType={inferWorkoutTypeFromTitle(adaptiveTargetEvent?.title ?? "Push")}
+        plannedWorkoutType={inferWorkoutTypeFromTitle((adaptiveTargetEvent as any)?.title ?? "Push")}
         splitType="push_pull"
         onSelect={(s, a) => applyAdaptiveSelection(s, a)}
         isPro={effectiveIsPro}
         adaptiveLeftBC={Number.isFinite(adaptiveLeft as number) ? (adaptiveLeft as number) : undefined}
         bcFreeLimit={FREE_LIMITS.adaptiveBCPerMonth}
       />
-
-      {/* PREVIEW MODAL */}
-      {isPreviewOpen && previewEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="tq-surface w-full max-w-md space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                  Vorschau
-                </div>
-                <div className="text-sm font-semibold">{normalizeTitle(previewEvent.title)}</div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPreviewOpen(false);
-                  setPreviewEvent(null);
-                }}
-                className="text-xs"
-                style={{ color: "var(--muted)" }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {previewSeed ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--muted)" }}>
-                  <span>Übungen</span>
-                  <span>
-                    {seedCounts(previewSeed).exercises} • {seedCounts(previewSeed).sets} Sätze
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="rounded-xl px-3 py-3 text-xs"
-                style={{ background: "rgba(0,0,0,0.18)", border: "1px solid var(--border)", color: "var(--muted)" }}
-              >
-                {isGymTraining(previewEvent)
-                  ? "Kein Trainings-Seed gefunden. (Plan ggf. erneut in den Kalender übernehmen)"
-                  : "Kein Seed nötig (Cardio/Custom). Du kannst trotzdem starten."}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPreviewOpen(false);
-                  setPreviewEvent(null);
-                }}
-                className="rounded-xl border px-3 py-2 text-[12px]"
-                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                Abbrechen
-              </button>
-
-              <button
-                type="button"
-                onClick={startFromPreview}
-                className="rounded-xl px-4 py-2 text-[12px] font-semibold"
-                style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
-              >
-                Training starten
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

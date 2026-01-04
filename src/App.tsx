@@ -7,13 +7,13 @@ import TrainingsplanPage from "./pages/TrainingsplanPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
 
-// ✅ Settings (Achtung: Datei heißt bei dir laut Screenshot "SettingPage.tsx")
+// Settings
 import SettingsPage from "./pages/SettingPage";
 
-// ✅ TrainQ Core Debug
+// TrainQ Core Debug
 import TrainQCoreDebug from "./pages/TrainQCoreDebug";
 
-// Live-Training (Full-screen, kein Reiter)
+// Live-Training
 import LiveTrainingPage from "./pages/training/LiveTrainingPage";
 
 // Auth & Onboarding
@@ -26,41 +26,43 @@ import OnboardingPage from "./pages/onboarding/OnboardingPage";
 import { AuthContextProvider } from "./context/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 
-// ✅ Entitlements (Single Source of Truth für Pro/Limits)
+// Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
 import type { PaywallReason } from "./utils/entitlements";
 
-// ✅ Paywall UI
+// Paywall UI
 import PaywallModal from "./components/paywall/PaywallModal";
 
-// ✅ Onboarding Source of Truth
+// Onboarding Source of Truth
 import { OnboardingProvider, readOnboardingDataFromStorage } from "./context/OnboardingContext";
 
-// Layout
-import { AppShell } from "./components/layout/AppShell";
-import { BottomNav } from "./components/layout/BottomNav";
+// ✅ NavBar (floating)
+import { NavBar } from "./components/NavBar";
 
 // Typen
 import type { CalendarEvent, NewCalendarEvent, UpcomingTraining } from "./types/training";
 
-// ✅ Live Workout API (für Mini-Bar)
+// Live Workout API (für Mini-Bar)
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "./utils/trainingHistory";
 
-// ✅ AUTO-SEED FIX
+// AUTO-SEED FIX
 import { resolveLiveSeed, writeLiveSeedForEventOrKey, type LiveTrainingSeed } from "./utils/liveTrainingSeed";
 
-// ✅ TestFlight Seed (10 Pro + 3 Free)
+// TestFlight Seed (10 Pro + 3 Free)
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
-/** ✅ Exportiert für andere Komponenten (z.B. NavBar) */
+/** Exportiert für andere Komponenten */
 export type TabKey = "dashboard" | "calendar" | "plan" | "profile";
 type AppRoute = "/" | "/live-training" | "/debug/trainq";
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
+
+// Platz, den wir unten IMMER freihalten (NavBar + etwas Luft). Muss zur echten NavBar passen.
+const APP_BOTTOM_SPACE_PX = 110;
 
 // -------------------- Helpers --------------------
 
@@ -189,7 +191,8 @@ function ensureTrainingMeta(input: CalendarEvent): CalendarEvent {
   ev.type = "training";
 
   if (!ev.templateId) {
-    ev.templateId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidFallback("tpl");
+    ev.templateId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidFallback("tpl");
   }
 
   ev.trainingType = deriveTrainingTypeFromMeta(ev);
@@ -247,7 +250,6 @@ function readEventsFromStorage(): CalendarEvent[] {
 
     const normalized = parsed.map(normalizeLoadedEvent).filter(Boolean) as CalendarEvent[];
 
-    // Optional: sanitize once
     try {
       window.localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(normalized));
     } catch {
@@ -306,6 +308,7 @@ const LiveTrainingMiniBar: React.FC<{
   onMaximize: (eventId?: string) => void;
   onAbort: () => void;
 }> = ({ visible, onMaximize, onAbort }) => {
+  const safeBottom = "env(safe-area-inset-bottom, 0px)";
   const [active, setActive] = useState(() => getActiveLiveWorkout());
 
   useEffect(() => {
@@ -321,15 +324,25 @@ const LiveTrainingMiniBar: React.FC<{
   if (!visible) return null;
   if (!active || !active.isActive) return null;
 
+  const MINI_BAR_BOTTOM_PX = Math.max(84, APP_BOTTOM_SPACE_PX - 6);
+
   return (
-    <div className="fixed left-0 right-0 z-50 px-3" style={{ bottom: "76px" }}>
-      <div className="mx-auto max-w-5xl rounded-2xl border border-white/10 bg-brand-card/90 px-4 py-3 backdrop-blur shadow-lg shadow-black/40">
+    <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: `calc(${MINI_BAR_BOTTOM_PX}px + ${safeBottom})` }}>
+      <div
+        className="
+          mx-auto max-w-5xl rounded-2xl border px-4 py-3 backdrop-blur shadow-lg
+          bg-white/85 border-black/10 text-slate-900 shadow-black/10
+          dark:bg-brand-card/90 dark:border-white/10 dark:text-slate-100 dark:shadow-black/40
+        "
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] text-white/60">Live-Training läuft</div>
+            <div className="text-[11px] text-slate-500 dark:text-white/60">Live-Training läuft</div>
             <div className="flex items-baseline gap-2">
-              <div className="text-base font-semibold text-white/90 tabular-nums">{formatElapsedFromISO(active.startedAt)}</div>
-              <div className="text-[11px] text-white/55 truncate">{active.title}</div>
+              <div className="text-base font-semibold tabular-nums text-slate-900 dark:text-white/90">
+                {formatElapsedFromISO(active.startedAt)}
+              </div>
+              <div className="text-[11px] truncate text-slate-600 dark:text-white/55">{active.title}</div>
             </div>
           </div>
 
@@ -345,7 +358,11 @@ const LiveTrainingMiniBar: React.FC<{
             <button
               type="button"
               onClick={onAbort}
-              className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm text-white/80 hover:bg-white/5"
+              className="
+                rounded-2xl border px-4 py-2.5 text-sm
+                border-black/10 bg-black/5 text-slate-700 hover:bg-black/10
+                dark:border-white/15 dark:bg-black/30 dark:text-white/80 dark:hover:bg-white/5
+              "
             >
               Abbrechen
             </button>
@@ -361,32 +378,28 @@ const LiveTrainingMiniBar: React.FC<{
 type ProfileScreen = "profile" | "settings";
 
 const MainAppShell: React.FC = () => {
+  const safeBottom = "env(safe-area-inset-bottom, 0px)";
+
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
   const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId());
 
-  // ✅ Profile vs Settings Screen (innerhalb des Profil-Tabs)
   const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
-  // ✅ User (Account Source of Truth)
   const { user, setUserPro } = useAuth();
   const userId = user?.id;
 
-  // ✅ Entitlements pro User
   const { isPro, setPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(userId);
 
-  // ✅ Paywall Modal State
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
 
-  // ✅ Events (storage)
   const [events, setEvents] = useState<CalendarEvent[]>(() => readEventsFromStorage());
 
   useEffect(() => {
     writeEventsToStorage(events);
   }, [events]);
 
-  // ✅ Keep entitlements aligned with account flag (Account = Source of Truth)
   useEffect(() => {
     if (!userId) return;
     const accountPro = user?.isPro === true;
@@ -394,7 +407,6 @@ const MainAppShell: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, user?.isPro]);
 
-  // ✅ Route sync (popstate + custom navigate)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -439,7 +451,6 @@ const MainAppShell: React.FC = () => {
     };
   }, []);
 
-  // ✅ Listen for UI events (Settings + Paywall)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -463,17 +474,21 @@ const MainAppShell: React.FC = () => {
     };
   }, [isPro]);
 
-  // ✅ Mini bar visibility without reading workout store every render
-  const [hasActiveWorkout, setHasActiveWorkout] = useState<boolean>(() => !!getActiveLiveWorkout()?.isActive);
+  const [hasActiveWorkout, setHasActiveWorkout] = useState<boolean>(() => {
+    const a: any = getActiveLiveWorkout();
+    return !!a?.isActive && a?.isMinimized === true;
+  });
+
   useEffect(() => {
     const t = window.setInterval(() => {
-      setHasActiveWorkout(!!getActiveLiveWorkout()?.isActive);
+      const a: any = getActiveLiveWorkout();
+      setHasActiveWorkout(!!a?.isActive && a?.isMinimized === true);
     }, 500);
     return () => window.clearInterval(t);
   }, []);
+
   const showMiniBar = route !== "/live-training" && hasActiveWorkout;
 
-  // ✅ Auto-seed Gym training once (no overwrite)
   const maybeAutoSeedGymTraining = useCallback((ev: CalendarEvent) => {
     const anyEv: any = ev;
     const isTraining = anyEv?.type === "training";
@@ -573,18 +588,20 @@ const MainAppShell: React.FC = () => {
       setActiveLiveEventId(normalized);
       writeActiveLiveEventId(normalized);
 
-      const active = getActiveLiveWorkout();
+      const active: any = getActiveLiveWorkout();
       if (active && active.isActive) {
         persistActiveLiveWorkout({ ...active, isMinimized: false });
       }
 
-      window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: normalized } }));
+      window.dispatchEvent(
+        new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: normalized } })
+      );
     },
     [activeLiveEventId]
   );
 
   const abortFromMiniBar = useCallback(() => {
-    const active = getActiveLiveWorkout();
+    const active: any = getActiveLiveWorkout();
     if (active && active.isActive) abortLiveWorkout(active);
     exitLiveTraining();
   }, [exitLiveTraining]);
@@ -606,7 +623,8 @@ const MainAppShell: React.FC = () => {
   // ---------- Routing ----------
   if (route === "/live-training") {
     return (
-      <div className="h-screen w-screen" style={{ background: "transparent", color: "var(--text)" }}>
+      // ✅ FIX: h-full statt h-[100dvh]
+      <div className="w-full h-full overflow-hidden" style={{ background: "transparent", color: "var(--text)" }}>
         <LiveTrainingPage
           events={events}
           onUpdateEvents={setEvents}
@@ -620,58 +638,59 @@ const MainAppShell: React.FC = () => {
 
   if (route === "/debug/trainq") {
     return (
-      <div className="h-screen w-screen overflow-auto" style={{ background: "transparent", color: "var(--text)" }}>
+      // ✅ FIX: h-full statt h-[100dvh]
+      <div className="w-full h-full overflow-auto" style={{ background: "transparent", color: "var(--text)" }}>
         <TrainQCoreDebug />
       </div>
     );
   }
 
+  // ---------- Normal App Layout: genau 1 Scroll-Container ----------
   return (
-    <AppShell
-      bottomNav={
-        <BottomNav
-          activeTab={activeTab}
-          onChange={(next) => {
-            setActiveTab(next);
-            if (next !== "profile") setProfileScreen("profile");
-          }}
-        />
-      }
-    >
+    // ✅ FIX: h-full statt h-[100dvh]
+    <div className="relative w-full h-full overflow-hidden" style={{ background: "transparent", color: "var(--text)" }}>
       <LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />
 
-      <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
-        {activeTab === "dashboard" && (
-          <Dashboard
-            events={events}
-            upcoming={upcomingTrainings}
-            onCreateQuickTraining={handleCreateQuickTraining}
-            onUpdateEvents={setEvents}
-            isPro={isPro}
-            onOpenPaywall={openPaywall}
-          />
-        )}
+      <div className="h-full w-full overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto" style={{ paddingBottom: `calc(${APP_BOTTOM_SPACE_PX}px + ${safeBottom})` }}>
+          <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
+            {activeTab === "dashboard" && (
+              <Dashboard
+                events={events}
+                upcoming={upcomingTrainings}
+                onCreateQuickTraining={handleCreateQuickTraining}
+                onUpdateEvents={setEvents}
+                isPro={isPro}
+                onOpenPaywall={openPaywall}
+              />
+            )}
 
-        {activeTab === "calendar" && (
-          <CalendarPage
-            events={events}
-            onAddEvent={handleAddEvent}
-            onDeleteEvent={handleDeleteEvent}
-            isPro={isPro}
-            onOpenPaywall={openPaywall}
-          />
-        )}
+            {activeTab === "calendar" && (
+              <CalendarPage
+                events={events}
+                onAddEvent={handleAddEvent}
+                onDeleteEvent={handleDeleteEvent}
+                isPro={isPro}
+                onOpenPaywall={openPaywall}
+              />
+            )}
 
-        {activeTab === "plan" && (
-          <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} onOpenPaywall={openPaywall} />
-        )}
+            {activeTab === "plan" && (
+              <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} onOpenPaywall={openPaywall} />
+            )}
 
-        {activeTab === "profile" &&
-          (profileScreen === "settings" ? (
-            <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenPaywall={openPaywallGeneric} />
-          ) : (
-            <ProfilePage onClearCalendar={handleClearCalendar} />
-          ))}
+            {activeTab === "profile" &&
+              (profileScreen === "settings" ? (
+                <SettingsPage
+                  onBack={() => setProfileScreen("profile")}
+                  onClearCalendar={handleClearCalendar}
+                  onOpenPaywall={openPaywallGeneric}
+                />
+              ) : (
+                <ProfilePage onClearCalendar={handleClearCalendar} />
+              ))}
+          </div>
+        </div>
       </div>
 
       <PaywallModal
@@ -695,7 +714,15 @@ const MainAppShell: React.FC = () => {
           setUserPro(true);
         }}
       />
-    </AppShell>
+
+      <NavBar
+        activeTab={activeTab}
+        onChange={(next: TabKey) => {
+          setActiveTab(next);
+          if (next !== "profile") setProfileScreen("profile");
+        }}
+      />
+    </div>
   );
 };
 
