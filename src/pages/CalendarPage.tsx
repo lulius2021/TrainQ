@@ -1,10 +1,14 @@
 // src/pages/CalendarPage.tsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/training";
+import type { TrainingPlanTemplate, TrainingTemplate } from "../types/trainingTemplates";
 
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { useProGuard } from "../hooks/useProGuard";
+import { useAuth } from "../hooks/useAuth";
+import { loadTrainingPlanTemplates } from "../services/trainingPlanTemplatesService";
+import { getTrainingTemplateById, loadTrainingTemplates } from "../services/trainingTemplatesService";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 

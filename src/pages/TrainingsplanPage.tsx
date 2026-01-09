@@ -1,16 +1,10 @@
 // src/pages/TrainingsplanPage.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import type { CalendarEvent, NewCalendarEvent } from "../types/training";
-import {
-  EXERCISES,
-  MUSCLE_GROUPS,
-  EQUIPMENTS,
-  DIFFICULTIES,
-  EXERCISE_TYPES,
-  filterExercises,
-  type Exercise,
-  type ExerciseFilters,
-} from "../data/exerciseLibrary";
+import type { SportType } from "../types/training";
+import type { TrainingPlanTemplate, TrainingTemplate as StoredTrainingTemplate, TrainingTemplateExercise } from "../types/trainingTemplates";
+import { type Exercise } from "../data/exerciseLibrary";
+import ExerciseLibraryModal from "../components/training/ExerciseLibraryModal";
 
 // History für graue Werte in der Vorschau
 import { getLastSetsForExercise } from "../utils/trainingHistory";
@@ -28,8 +22,17 @@ import { isWithinDaysAhead } from "../utils/dateLimits";
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { useProGuard } from "../hooks/useProGuard";
+import { useAuth } from "../hooks/useAuth";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
+import {
+  buildTrainingTemplateSignature,
+  deleteTrainingTemplate,
+  loadTrainingTemplates,
+  saveTrainingTemplates,
+  upsertTrainingTemplate,
+} from "../services/trainingTemplatesService";
+import { loadTrainingPlanTemplates, upsertTrainingPlanTemplate } from "../services/trainingPlanTemplatesService";
 
 // -------------------- Typen --------------------
 
@@ -129,29 +132,9 @@ const DEFAULT_ROUTINE_BLOCKS: RoutineBlock[] = [
   { id: 4, type: "Rest", sport: "Ruhetag", label: "Ruhetag", exercises: [], startTime: "" },
 ];
 
-const defaultExerciseFilters: ExerciseFilters = {
-  search: "",
-  muscle: "alle",
-  equipment: "alle",
-  difficulty: "alle",
-  type: "alle",
-};
-
-const CARDIO_EXERCISES: Exercise[] = [
-  { id: "cardio_easy_run_30", name: "Lockerer Lauf – 30 Min", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Leicht", type: "Ausdauer" },
-  { id: "cardio_tempo_run_20", name: "Tempo-Lauf – 20 Min", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Mittel", type: "Ausdauer" },
-  { id: "cardio_interval_run_10x400", name: "Intervalle – 10×400 m", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Schwer", type: "Ausdauer" },
-  { id: "cardio_easy_ride_45", name: "Lockere Radausfahrt – 45 Min", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Leicht", type: "Ausdauer" },
-  { id: "cardio_interval_bike_8x2", name: "Bike-Intervalle – 8×2 Min hart", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Mittel", type: "Ausdauer" },
-  { id: "cardio_long_run_60", name: "Langer Lauf – 60 Min", primaryMuscles: ["Beine"], equipment: ["Sonstiges"], difficulty: "Schwer", type: "Ausdauer" },
-];
-
 // Storage-Keys
 const STORAGE_KEY_WEEKLY_TEMPLATES = "trainq_weekly_plan_templates";
 const STORAGE_KEY_ROUTINE_TEMPLATES = "trainq_routine_plan_templates";
-
-// ✅ Vorlagen: reine Trainings
-const STORAGE_KEY_WORKOUT_TEMPLATES = "trainq_workout_templates_v1";
 
 // ✅ Startplan-Settings (nur Startdatum)
 const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
@@ -378,6 +361,49 @@ function defaultStartTimeNowRounded(): string {
   return `${hh}:${mm}`;
 }
 
+function isCardioSportType(sport: SportType): boolean {
+  return sport === "Laufen" || sport === "Radfahren";
+}
+
+function blockExercisesToStoredExercises(exercises: BlockExercise[]): TrainingTemplateExercise[] {
+  return (exercises || []).map((ex) => ({
+    id: String(ex.id ?? nextBlockExerciseId()),
+    exerciseId: ex.exerciseId,
+    name: ex.name ?? "Übung",
+    sets: (ex.sets || []).map((s) => ({
+      id: String(s.id ?? nextExerciseSetId()),
+      reps: typeof s.reps === "number" ? s.reps : undefined,
+      weight: typeof s.weight === "number" ? s.weight : undefined,
+      notes: typeof s.notes === "string" ? s.notes : undefined,
+    })),
+  }));
+}
+
+function storedExercisesToBlockExercises(exercises: TrainingTemplateExercise[]): BlockExercise[] {
+  return (exercises || []).map((ex) => ({
+    id: nextBlockExerciseId(),
+    exerciseId: ex.exerciseId,
+    name: ex.name ?? "Übung",
+    sets: (ex.sets || []).map((s) => ({
+      id: nextExerciseSetId(),
+      reps: typeof s.reps === "number" ? s.reps : undefined,
+      weight: typeof s.weight === "number" ? s.weight : undefined,
+      notes: typeof s.notes === "string" ? s.notes : "",
+    })),
+  }));
+}
+
+function storedTemplateToWorkoutTemplate(tpl: StoredTrainingTemplate): WorkoutTemplate {
+  return {
+    id: tpl.id,
+    name: tpl.name,
+    sport: tpl.sportType as TrainingSportType,
+    isCardio: isCardioSportType(tpl.sportType),
+    exercises: storedExercisesToBlockExercises(tpl.exercises),
+    createdAtISO: tpl.createdAt,
+  };
+}
+
 // -------------------- Mini UI: Uhr (+) --------------------
 
 const ClockPlusButton: React.FC<{ onClick: () => void; title?: string }> = ({ onClick, title }) => (
@@ -421,19 +447,10 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   onSave,
 }) => {
   const [draft, setDraft] = useState<TrainingTemplate>(template);
-  const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : "Training"));
   const [selectedWorkoutTemplateId, setSelectedWorkoutTemplateId] = useState<string>("");
-
-  const filteredExercises = useMemo(() => {
-    if (isCardioLibrary) {
-      const term = filters.search.trim().toLowerCase();
-      if (!term) return CARDIO_EXERCISES;
-      return CARDIO_EXERCISES.filter((ex) => ex.name.toLowerCase().includes(term));
-    }
-    return filterExercises(EXERCISES, filters);
-  }, [filters, isCardioLibrary]);
 
   const compatibleWorkoutTemplates = useMemo(() => {
     return (workoutTemplates || [])
@@ -460,6 +477,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       ],
     };
     setDraft((prev) => ({ ...prev, exercises: [...prev.exercises, newBlockExercise] }));
+    if (import.meta.env.DEV) {
+      console.log("[Trainingsplan] Added exercise from library", exercise.id, newBlockExercise.name);
+    }
   };
 
   const handleAddCustomExercise = () => {
@@ -476,6 +496,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       ],
     };
     setDraft((prev) => ({ ...prev, exercises: [...prev.exercises, newBlockExercise] }));
+    if (import.meta.env.DEV) {
+      console.log("[Trainingsplan] Added custom exercise", newBlockExercise.name);
+    }
   };
 
   const handleRemoveBlockExercise = (exerciseId: number) => {
@@ -583,6 +606,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
   const weightPlaceholder = isCardioLibrary ? "Distanz (km)" : "kg";
   const notesPlaceholder = isCardioLibrary ? "Pace / Intervall-Details" : "Notizen / RPE / Tempo";
+  const existingExerciseIds = draft.exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[];
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
@@ -634,137 +658,52 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 md:flex-row">
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:w-[40%]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}</span>
-
-              <button
-                type="button"
-                onClick={handleAddCustomExercise}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
-              >
-                + {isCardioLibrary ? "Eigene Einheit" : "Eigene Übung"}
-              </button>
-            </div>
-
-            <input
-              type="text"
-              placeholder={isCardioLibrary ? "Suche (z.B. Lauf, Rad...)" : "Suche (z.B. Bankdrücken)"}
-              value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs text-[var(--text)] outline-none focus:ring-1 focus:ring-sky-500/60"
-            />
-
-            {!isCardioLibrary && (
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={filters.muscle}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as any }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                >
-                  <option value="alle">Muskelgruppe: alle</option>
-                  {MUSCLE_GROUPS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filters.equipment}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as any }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                >
-                  <option value="alle">Equipment: alle</option>
-                  {EQUIPMENTS.map((eq) => (
-                    <option key={eq} value={eq}>
-                      {eq}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filters.difficulty}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                >
-                  <option value="alle">Level: alle</option>
-                  {DIFFICULTIES.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filters.type}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                >
-                  <option value="alle">Typ: alle</option>
-                  {EXERCISE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="mt-1 flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-              {filteredExercises.length === 0 ? (
-                <div className="p-3 text-[11px] text-[var(--muted)]">Keine Einträge gefunden.</div>
-              ) : (
-                <ul className="divide-y divide-slate-800">
-                  {filteredExercises.map((ex) => (
-                    <li key={ex.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--surface2)]">
-                      <div className="min-w-0">
-                        <div className="truncate text-[11px] font-medium text-[var(--text)]">{ex.name}</div>
-                        <div className="truncate text-[10px] text-[var(--muted)]">
-                          {(ex.equipment || []).join(", ")}
-                          {ex.type ? ` · ${ex.type}` : ""}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAddExerciseFromLibrary(ex)}
-                        className="shrink-0 rounded-full bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600"
-                      >
-                        Hinzufügen
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:w-[60%]">
+        <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
+          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}</span>
 
-              {/* ✅ Vorlagen (reine Trainings) laden */}
               <div className="flex items-center gap-2">
-                <select
-                  value={selectedWorkoutTemplateId}
-                  onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                  title="Reines Training als Vorlage laden"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLibraryOpen(true);
+                    if (import.meta.env.DEV) console.log("[Trainingsplan] Open exercise library");
+                  }}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
                 >
-                  <option value="">{compatibleWorkoutTemplates.length ? "Vorlage laden…" : "Keine Trainingsvorlagen"}</option>
-                  {compatibleWorkoutTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-
-                <span className="text-[10px] text-[var(--muted)]">
-                  {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
-                  {draft.exercises.length === 1 ? "" : "en"}
-                </span>
+                  {isCardioLibrary ? "Cardio öffnen" : "Übungsbibliothek"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddCustomExercise}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
+                >
+                  + {isCardioLibrary ? "Eigene Einheit" : "Eigene Übung"}
+                </button>
               </div>
+            </div>
+
+            {/* ✅ Vorlagen (reine Trainings) laden */}
+            <div className="flex items-center justify-between gap-2">
+              <select
+                value={selectedWorkoutTemplateId}
+                onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
+                title="Reines Training als Vorlage laden"
+              >
+                <option value="">{compatibleWorkoutTemplates.length ? "Vorlage laden…" : "Keine Trainingsvorlagen"}</option>
+                {compatibleWorkoutTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
+              <span className="text-[10px] text-[var(--muted)]">
+                {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
+                {draft.exercises.length === 1 ? "" : "en"}
+              </span>
             </div>
 
             {draft.exercises.length === 0 ? (
@@ -872,6 +811,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
           </div>
         </div>
       </div>
+
+      <ExerciseLibraryModal
+        open={libraryOpen}
+        isCardioLibrary={isCardioLibrary}
+        title={isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}
+        onClose={() => setLibraryOpen(false)}
+        existingExerciseIds={existingExerciseIds}
+        onPick={(exercise: Exercise) => handleAddExerciseFromLibrary(exercise)}
+        onPickCustom={handleAddCustomExercise}
+      />
     </div>
   );
 };
@@ -1001,6 +950,8 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
 const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   // ✅ Entitlements
   const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
@@ -1056,16 +1007,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     }
   });
 
-  // ✅ Reine Trainings Vorlagen
-  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = getScopedItem(STORAGE_KEY_WORKOUT_TEMPLATES);
-      return raw ? (JSON.parse(raw) as WorkoutTemplate[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  // ✅ Reine Trainings Vorlagen (neue zentrale Storage)
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1082,11 +1025,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   }, [routineTemplates]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      setScopedItem(STORAGE_KEY_WORKOUT_TEMPLATES, JSON.stringify(workoutTemplates));
-    } catch {}
-  }, [workoutTemplates]);
+    const stored = loadTrainingTemplates(userId ?? "");
+    setWorkoutTemplates(stored.map(storedTemplateToWorkoutTemplate));
+  }, [userId]);
 
   // Modals
   const [weeklyPreviewOpen, setWeeklyPreviewOpen] = useState(false);
@@ -1319,13 +1260,96 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   const saveWeeklyTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
+      const planName = weeklyTemplateName.trim() || "Wochenplan";
+      const normalizedDays = weeklyDays.map((d, i) => normalizeWeeklyDay(d as any, i + 1));
+
+      const existingPlans = loadTrainingPlanTemplates(userId ?? "");
+      const existingPlan = existingPlans.find((p) => p.kind === "weekly" && p.name === planName);
+      const planId = existingPlan?.id ?? makeTemplateId();
+
+      const now = new Date().toISOString();
+      const storedTemplates = loadTrainingTemplates(userId ?? "");
+      const nextStoredTemplates = [...storedTemplates];
+
+      const planDays = normalizedDays.map((day, idx) => {
+        const sportType = (day.sport as SportType) || "Gym";
+        const exercises = blockExercisesToStoredExercises(day.exercises || []);
+
+        let trainingTemplateId: string | undefined;
+        if (!isRestSport(day.sport) && exercises.length > 0) {
+          const signature = buildTrainingTemplateSignature(exercises);
+          const existingBySource = nextStoredTemplates.find(
+            (t) => t.sourcePlanId === planId && t.sourceDayIndex === idx
+          );
+          const existingBySignature = nextStoredTemplates.find((t) => t.signature === signature && t.name === day.label);
+          const existing = existingBySource ?? existingBySignature;
+
+          const updated: StoredTrainingTemplate = {
+            id: existing?.id ?? makeTemplateId(),
+            userId: userId ?? "unknown",
+            name: day.label,
+            sportType,
+            exercises,
+            sourcePlanId: planId,
+            sourceDayIndex: idx,
+            signature,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+          };
+
+          if (existing) {
+            const index = nextStoredTemplates.findIndex((t) => t.id === existing.id);
+            nextStoredTemplates[index] = updated;
+          } else {
+            nextStoredTemplates.push(updated);
+          }
+
+          trainingTemplateId = updated.id;
+        }
+
+        return {
+          dayIndex: idx,
+          title: day.label,
+          trainingTemplateId,
+          trainingSnapshot: {
+            name: day.label,
+            sportType,
+            exercises,
+          },
+        };
+      });
+
+      const planTemplate: TrainingPlanTemplate = {
+        id: planId,
+        userId: userId ?? "unknown",
+        name: planName,
+        kind: "weekly",
+        startDate: planStartISO,
+        durationWeeks: weeklyDurationWeeks,
+        days: planDays,
+        createdAt: existingPlan?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      upsertTrainingPlanTemplate(userId ?? "", planTemplate);
+      saveTrainingTemplates(userId ?? "", nextStoredTemplates);
+      setWorkoutTemplates(nextStoredTemplates.map(storedTemplateToWorkoutTemplate));
+
       const tpl: WeeklyPlanTemplate = {
-        id: makeTemplateId(),
-        name: weeklyTemplateName.trim() || "Wochenplan",
-        days: weeklyDays.map((d, i) => normalizeWeeklyDay(d as any, i + 1)),
+        id: planId,
+        name: planName,
+        days: normalizedDays,
         durationWeeks: weeklyDurationWeeks,
       };
-      setWeeklyTemplates((prev) => [...prev, tpl]);
+      setWeeklyTemplates((prev) => {
+        const idx = prev.findIndex((p) => p.id === planId || p.name === planName);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = tpl;
+          return next;
+        }
+        return [...prev, tpl];
+      });
     }
 
     pushWeeklyToCalendar();
@@ -1426,13 +1450,96 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   const saveRoutineTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
+      const planName = routineTemplateName.trim() || "Split/Routine";
+      const normalizedBlocks = routineBlocks.map((b, i) => normalizeRoutineBlock(b as any, i + 1));
+
+      const existingPlans = loadTrainingPlanTemplates(userId ?? "");
+      const existingPlan = existingPlans.find((p) => p.kind === "routine" && p.name === planName);
+      const planId = existingPlan?.id ?? makeTemplateId();
+
+      const now = new Date().toISOString();
+      const storedTemplates = loadTrainingTemplates(userId ?? "");
+      const nextStoredTemplates = [...storedTemplates];
+
+      const planDays = normalizedBlocks.map((block, idx) => {
+        const sportType = (block.sport as SportType) || "Gym";
+        const exercises = blockExercisesToStoredExercises(block.exercises || []);
+
+        let trainingTemplateId: string | undefined;
+        if (!isRestSport(block.sport) && exercises.length > 0) {
+          const signature = buildTrainingTemplateSignature(exercises);
+          const existingBySource = nextStoredTemplates.find(
+            (t) => t.sourcePlanId === planId && t.sourceDayIndex === idx
+          );
+          const existingBySignature = nextStoredTemplates.find((t) => t.signature === signature && t.name === block.label);
+          const existing = existingBySource ?? existingBySignature;
+
+          const updated: StoredTrainingTemplate = {
+            id: existing?.id ?? makeTemplateId(),
+            userId: userId ?? "unknown",
+            name: block.label,
+            sportType,
+            exercises,
+            sourcePlanId: planId,
+            sourceDayIndex: idx,
+            signature,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+          };
+
+          if (existing) {
+            const index = nextStoredTemplates.findIndex((t) => t.id === existing.id);
+            nextStoredTemplates[index] = updated;
+          } else {
+            nextStoredTemplates.push(updated);
+          }
+
+          trainingTemplateId = updated.id;
+        }
+
+        return {
+          dayIndex: idx,
+          title: block.label,
+          trainingTemplateId,
+          trainingSnapshot: {
+            name: block.label,
+            sportType,
+            exercises,
+          },
+        };
+      });
+
+      const planTemplate: TrainingPlanTemplate = {
+        id: planId,
+        userId: userId ?? "unknown",
+        name: planName,
+        kind: "routine",
+        startDate: planStartISO,
+        durationWeeks: routineDurationWeeks,
+        days: planDays,
+        createdAt: existingPlan?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      upsertTrainingPlanTemplate(userId ?? "", planTemplate);
+      saveTrainingTemplates(userId ?? "", nextStoredTemplates);
+      setWorkoutTemplates(nextStoredTemplates.map(storedTemplateToWorkoutTemplate));
+
       const tpl: RoutinePlanTemplate = {
-        id: makeTemplateId(),
-        name: routineTemplateName.trim() || "Split/Routine",
-        blocks: routineBlocks.map((b, i) => normalizeRoutineBlock(b as any, i + 1)),
+        id: planId,
+        name: planName,
+        blocks: normalizedBlocks,
         durationWeeks: routineDurationWeeks,
       };
-      setRoutineTemplates((prev) => [...prev, tpl]);
+      setRoutineTemplates((prev) => {
+        const idx = prev.findIndex((p) => p.id === planId || p.name === planName);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = tpl;
+          return next;
+        }
+        return [...prev, tpl];
+      });
     }
 
     pushRoutineToCalendar();
@@ -1460,12 +1567,28 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const addWorkoutTemplate = (tpl: WorkoutTemplate) => {
     if (!tpl?.name?.trim()) return;
 
-    // ✅ Name-Duplikate erlauben, aber neueste oben
-    setWorkoutTemplates((prev) => [tpl, ...(prev || [])].slice(0, 200));
+    const now = new Date().toISOString();
+    const storedExercises = blockExercisesToStoredExercises(tpl.exercises || []);
+    const stored: StoredTrainingTemplate = {
+      id: tpl.id || makeTemplateId(),
+      userId: userId ?? "unknown",
+      name: tpl.name.trim(),
+      sportType: (tpl.sport as SportType) || "Gym",
+      exercises: storedExercises,
+      signature: buildTrainingTemplateSignature(storedExercises),
+      createdAt: tpl.createdAtISO || now,
+      updatedAt: now,
+    };
+
+    upsertTrainingTemplate(userId ?? "", stored);
+    const next = loadTrainingTemplates(userId ?? "");
+    setWorkoutTemplates(next.map(storedTemplateToWorkoutTemplate));
   };
 
   const deleteWorkoutTemplate = (id: string) => {
-    setWorkoutTemplates((prev) => (prev || []).filter((t) => t.id !== id));
+    deleteTrainingTemplate(userId ?? "", id);
+    const next = loadTrainingTemplates(userId ?? "");
+    setWorkoutTemplates(next.map(storedTemplateToWorkoutTemplate));
   };
 
   // -------------------- Render --------------------
