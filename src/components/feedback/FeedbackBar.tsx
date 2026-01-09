@@ -25,6 +25,7 @@ export function FeedbackBar({ page }: FeedbackBarProps) {
     };
   }, [isOpen]);
 
+
   return (
     <>
       <div className="w-full flex justify-center mt-6 mb-3 text-[12px]">
@@ -40,6 +41,7 @@ export function FeedbackBar({ page }: FeedbackBarProps) {
       {isOpen && (
         <div
           className="fixed inset-0 z-[999] bg-black/60 flex items-center justify-center p-4 sm:p-6 overscroll-contain touch-pan-y"
+          data-overlay-open="true"
           style={{
             // iOS: weniger "Gummiband"-Scroll/Seitwärts-Drag
             WebkitOverflowScrolling: "touch",

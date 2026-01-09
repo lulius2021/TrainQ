@@ -28,6 +28,7 @@ import { isWithinDaysAhead } from "../utils/dateLimits";
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { useProGuard } from "../hooks/useProGuard";
+import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
 
 // -------------------- Typen --------------------
@@ -584,7 +585,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const notesPlaceholder = isCardioLibrary ? "Pace / Intervall-Details" : "Notizen / RPE / Tempo";
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
       <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-xs shadow-xl">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="min-w-0">
@@ -888,12 +889,14 @@ type PreviewModalState =
     };
 
 const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => void }> = ({ state, onClose }) => {
+  const isOpen = !!state;
+
   if (!state) return null;
 
   const estMin = estimateDurationMinutes(state.exercises, state.isCardio);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
       <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xl">
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="min-w-0">
@@ -1009,7 +1012,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     const today = dateToISO(new Date());
     if (typeof window === "undefined") return today;
     try {
-      return window.localStorage.getItem(STORAGE_KEY_PLAN_START_ISO) || today;
+      return getScopedItem(STORAGE_KEY_PLAN_START_ISO) || today;
     } catch {
       return today;
     }
@@ -1018,7 +1021,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_PLAN_START_ISO, planStartISO);
+      setScopedItem(STORAGE_KEY_PLAN_START_ISO, planStartISO);
     } catch {}
   }, [planStartISO]);
 
@@ -1036,7 +1039,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [weeklyTemplates, setWeeklyTemplates] = useState<WeeklyPlanTemplate[]>(() => {
     if (typeof window === "undefined") return [];
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY_WEEKLY_TEMPLATES);
+      const raw = getScopedItem(STORAGE_KEY_WEEKLY_TEMPLATES);
       return raw ? (JSON.parse(raw) as WeeklyPlanTemplate[]) : [];
     } catch {
       return [];
@@ -1046,7 +1049,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [routineTemplates, setRoutineTemplates] = useState<RoutinePlanTemplate[]>(() => {
     if (typeof window === "undefined") return [];
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY_ROUTINE_TEMPLATES);
+      const raw = getScopedItem(STORAGE_KEY_ROUTINE_TEMPLATES);
       return raw ? (JSON.parse(raw) as RoutinePlanTemplate[]) : [];
     } catch {
       return [];
@@ -1057,7 +1060,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>(() => {
     if (typeof window === "undefined") return [];
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY_WORKOUT_TEMPLATES);
+      const raw = getScopedItem(STORAGE_KEY_WORKOUT_TEMPLATES);
       return raw ? (JSON.parse(raw) as WorkoutTemplate[]) : [];
     } catch {
       return [];
@@ -1067,21 +1070,21 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_WEEKLY_TEMPLATES, JSON.stringify(weeklyTemplates));
+      setScopedItem(STORAGE_KEY_WEEKLY_TEMPLATES, JSON.stringify(weeklyTemplates));
     } catch {}
   }, [weeklyTemplates]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_ROUTINE_TEMPLATES, JSON.stringify(routineTemplates));
+      setScopedItem(STORAGE_KEY_ROUTINE_TEMPLATES, JSON.stringify(routineTemplates));
     } catch {}
   }, [routineTemplates]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_WORKOUT_TEMPLATES, JSON.stringify(workoutTemplates));
+      setScopedItem(STORAGE_KEY_WORKOUT_TEMPLATES, JSON.stringify(workoutTemplates));
     } catch {}
   }, [workoutTemplates]);
 
@@ -1137,7 +1140,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     const templateId = makeTemplateId();
     try {
-      window.localStorage.setItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
+      setScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
     } catch {}
 
     const startDate = isoToDate(planStartISO);
@@ -1195,7 +1198,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     const templateId = makeTemplateId();
     try {
-      window.localStorage.setItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
+      setScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
     } catch {}
 
     const startDate = isoToDate(planStartISO);
@@ -1486,11 +1489,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           </button>
         </div>
 
-        {/* ✅ Startdatum + Dauer nebeneinander, Vorlagen darunter */}
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-              <span className="text-[11px] text-[var(--muted)]">Startdatum</span>
+        {/* ✅ Startdatum + Dauer kompakt, Hinweis klein, Vorlagen als Row */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-xs">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+              <div className="text-[11px] text-[var(--muted)]">Startdatum</div>
               <input
                 type="date"
                 value={planStartISO}
@@ -1499,52 +1502,84 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   setRoutineSaved(false);
                   setPlanStartISO(e.target.value);
                 }}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text)] outline-none"
+                className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[14px] text-[var(--text)] outline-none"
               />
             </div>
 
-            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-              <span className="text-[11px] text-[var(--muted)]">Dauer</span>
-              <div className="inline-flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={52}
-                  value={activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
-                  onChange={(e) => {
-                    const v = Math.max(1, Number(e.target.value) || 1);
-                    if (activeTab === "weekly") {
-                      setWeeklySaved(false);
-                      setWeeklyDurationWeeks(v);
-                    } else {
-                      setRoutineSaved(false);
-                      setRoutineDurationWeeks(v);
-                    }
-                  }}
-                  className="w-14 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text)] outline-none"
-                />
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+              <div className="text-[11px] text-[var(--muted)]">Dauer</div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = Math.max(1, (activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks) - 1);
+                      if (activeTab === "weekly") {
+                        setWeeklySaved(false);
+                        setWeeklyDurationWeeks(next);
+                      } else {
+                        setRoutineSaved(false);
+                        setRoutineDurationWeeks(next);
+                      }
+                    }}
+                    className="h-11 w-11 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-base font-semibold text-[var(--text)]"
+                    aria-label="Weniger Wochen"
+                  >
+                    –
+                  </button>
+                  <div className="min-w-[44px] text-center text-[16px] font-semibold text-[var(--text)]">
+                    {activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = Math.min(52, (activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks) + 1);
+                      if (activeTab === "weekly") {
+                        setWeeklySaved(false);
+                        setWeeklyDurationWeeks(next);
+                      } else {
+                        setRoutineSaved(false);
+                        setRoutineDurationWeeks(next);
+                      }
+                    }}
+                    className="h-11 w-11 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-base font-semibold text-[var(--text)]"
+                    aria-label="Mehr Wochen"
+                  >
+                    +
+                  </button>
+                </div>
                 <span className="text-[11px] text-[var(--muted)]">Wochen</span>
               </div>
             </div>
           </div>
 
           {!effectiveIsPro && (
-            <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] text-[var(--muted)]">
-              Free: Kalender &gt; 7 Tage voraus:{" "}
-              <span className="text-[var(--text)] font-semibold">
-                {Number.isFinite(calendar7DaysRemaining as number) ? (calendar7DaysRemaining as number) : FREE_LIMITS.calendar7DaysPerMonth}
-              </span>{" "}
-              übrig (Limit {FREE_LIMITS.calendar7DaysPerMonth}/Monat). Pro: unbegrenzt.
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px]"
+                style={{ background: "var(--surface2)", color: "var(--text)" }}
+              >
+                i
+              </span>
+              <div className="flex-1 text-[11px] text-[var(--muted)]">
+                Free: Kalender &gt; 7 Tage voraus.
+              </div>
+              <span
+                className="rounded-full px-2 py-1 text-[11px] font-semibold"
+                style={{ background: "var(--surface2)", color: "var(--text)", border: "1px solid var(--border)" }}
+              >
+                {Number.isFinite(calendar7DaysRemaining as number) ? (calendar7DaysRemaining as number) : FREE_LIMITS.calendar7DaysPerMonth} übrig
+              </span>
             </div>
           )}
 
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setWorkoutTemplatesOpen(true)}
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-3 text-[12px] font-semibold text-[var(--text)] hover:opacity-95"
             >
-              Vorlagen: Trainings
+              Trainings
             </button>
 
             <button
@@ -1553,9 +1588,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 if (activeTab === "weekly") setWeeklyTemplatesOpen(true);
                 else setRoutineTemplatesOpen(true);
               }}
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-3 text-[12px] font-semibold text-[var(--text)] hover:opacity-95"
             >
-              Vorlagen: Trainingspläne
+              Trainingspläne
             </button>
           </div>
         </section>
@@ -1872,7 +1907,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* Weekly Vorschau Modal */}
       {weeklyPreviewOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">Vorschau – Woche</h3>
@@ -1919,7 +1954,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* Routine Vorschau Modal */}
       {routinePreviewOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">Vorschau – Routine (1 Woche)</h3>
@@ -1952,7 +1987,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* ✅ Reine Trainings Vorlagen Modal (Management) */}
       {workoutTemplatesOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Trainings</h3>
@@ -2002,7 +2037,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* Trainingspläne Vorlagen Modal (Weekly) */}
       {weeklyTemplatesOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Wochenpläne</h3>
@@ -2037,7 +2072,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* Trainingspläne Vorlagen Modal (Routine) */}
       {routineTemplatesOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Split/Routine</h3>
@@ -2072,7 +2107,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {/* Save Dialogs (Plan) */}
       {weeklySaveDialogOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <h3 className="text-sm font-semibold text-[var(--text)]">Plan in Kalender übernehmen</h3>
             <p className="mt-1 text-[11px] text-[var(--muted)]">Als Vorlage speichern (optional)?</p>
@@ -2108,7 +2143,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       )}
 
       {routineSaveDialogOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <h3 className="text-sm font-semibold text-[var(--text)]">Routine in Kalender übernehmen</h3>
             <p className="mt-1 text-[11px] text-[var(--muted)]">Als Vorlage speichern (optional)?</p>

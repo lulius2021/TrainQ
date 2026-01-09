@@ -10,6 +10,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { OnboardingData } from "../types/onboarding";
+import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 
 const STORAGE_KEY_ONBOARDING_DATA = "trainq_onboarding_data_v1";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
@@ -108,7 +109,7 @@ function normalizeOnboardingData(input: Partial<OnboardingData>): OnboardingData
 
 export function readOnboardingDataFromStorage(): OnboardingData {
   if (typeof window === "undefined") return getDefaultOnboardingData();
-  const raw = window.localStorage.getItem(STORAGE_KEY_ONBOARDING_DATA);
+  const raw = getScopedItem(STORAGE_KEY_ONBOARDING_DATA);
   const parsed = safeParse<Partial<OnboardingData>>(raw, {});
   return normalizeOnboardingData(parsed);
 }
@@ -121,10 +122,10 @@ export function writeOnboardingDataToStorage(data: OnboardingData): void {
 
   try {
     // ✅ No-op wenn identisch (verhindert Event/Sync-Schleifen)
-    const currentRaw = window.localStorage.getItem(STORAGE_KEY_ONBOARDING_DATA);
+    const currentRaw = getScopedItem(STORAGE_KEY_ONBOARDING_DATA);
     if (currentRaw === raw) return;
 
-    window.localStorage.setItem(STORAGE_KEY_ONBOARDING_DATA, raw);
+    setScopedItem(STORAGE_KEY_ONBOARDING_DATA, raw);
   } catch {
     return;
   }
@@ -170,7 +171,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (typeof window === "undefined") return;
 
     const sync = () => {
-      const raw = window.localStorage.getItem(STORAGE_KEY_ONBOARDING_DATA);
+      const raw = getScopedItem(STORAGE_KEY_ONBOARDING_DATA);
       if (!raw) return;
 
       setData((prev) => {
@@ -221,8 +222,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const raw = safeStringify(next);
       if (raw && typeof window !== "undefined") {
-        const cur = window.localStorage.getItem(STORAGE_KEY_ONBOARDING_DATA);
-        if (cur !== raw) window.localStorage.setItem(STORAGE_KEY_ONBOARDING_DATA, raw);
+        const cur = getScopedItem(STORAGE_KEY_ONBOARDING_DATA);
+        if (cur !== raw) setScopedItem(STORAGE_KEY_ONBOARDING_DATA, raw);
       }
     } catch {
       // ignore

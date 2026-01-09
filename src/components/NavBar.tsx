@@ -1,6 +1,7 @@
 // src/components/NavBar.tsx
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { TabKey } from "../App.tsx";
+import { getScopedItem } from "../utils/scopedStorage";
 
 import iconDashboard from "../assets/icons/Dashboard.png";
 import iconKalender from "../assets/icons/Kalender.png";
@@ -28,6 +29,13 @@ function readStoredTheme(): "dark" | "light" | "system" | null {
     "trainq_theme_mode",
     "trainq_color_scheme",
   ];
+
+  try {
+    const scoped = (getScopedItem("trainq_theme_v1") || "").trim().toLowerCase();
+    if (scoped === "dark" || scoped === "light" || scoped === "system") return scoped as any;
+  } catch {
+    // ignore
+  }
 
   for (const k of keys) {
     try {

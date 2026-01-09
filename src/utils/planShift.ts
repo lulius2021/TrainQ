@@ -1,5 +1,6 @@
 // src/utils/planShift.ts
 import type { CalendarEvent } from "../types/training";
+import { getScopedItem, setScopedItem } from "./scopedStorage";
 
 /* -------------------------------- Helpers -------------------------------- */
 
@@ -23,7 +24,7 @@ type UsageStore = Record<string, number>;
 function readUsage(): UsageStore {
   if (!hasLocalStorage()) return {};
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getScopedItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return typeof parsed === "object" && parsed ? (parsed as UsageStore) : {};
@@ -35,7 +36,7 @@ function readUsage(): UsageStore {
 function writeUsage(data: UsageStore): void {
   if (!hasLocalStorage()) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    setScopedItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // ignore
   }

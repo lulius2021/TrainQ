@@ -15,6 +15,7 @@
 // - liest auch alte Keys (trainq_live_seed_global_v1 / trainq_live_seed_by_event_v1 / trainq_live_seed_by_event_v1)
 
 import type { SportType } from "../types/training";
+import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
 
 export type SeedId = string | number;
 
@@ -69,7 +70,7 @@ function safeJSONParse<T>(raw: string | null, fallback: T): T {
 function safeSet(key: string, value: unknown): void {
   if (!hasWindow()) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    setScopedItem(key, JSON.stringify(value));
   } catch {
     // ignore
   }
@@ -78,7 +79,7 @@ function safeSet(key: string, value: unknown): void {
 function safeGet(key: string): string | null {
   if (!hasWindow()) return null;
   try {
-    return window.localStorage.getItem(key);
+    return getScopedItem(key);
   } catch {
     return null;
   }
@@ -87,7 +88,7 @@ function safeGet(key: string): string | null {
 function safeRemove(key: string): void {
   if (!hasWindow()) return;
   try {
-    window.localStorage.removeItem(key);
+    removeScopedItem(key);
   } catch {
     // ignore
   }

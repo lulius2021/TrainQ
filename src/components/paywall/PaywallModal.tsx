@@ -79,6 +79,7 @@ export default function PaywallModal(props: Props) {
   return (
     <div
       className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4"
+      data-overlay-open="true"
       role="dialog"
       aria-modal="true"
       onClick={onClose}

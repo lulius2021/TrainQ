@@ -35,6 +35,7 @@ import { shiftPlanEvents } from "../utils/planShift";
 // ✅ Entitlements Hook (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
+import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 
 interface DashboardProps {
   upcoming: UpcomingTraining[]; // bleibt (App liefert es), wird hier aber nicht mehr angezeigt
@@ -346,14 +347,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const [customCategories, setCustomCategories] = useState<CategoryDef[]>(() => {
     if (typeof window === "undefined") return [];
-    const parsed = safeParse<CategoryDef[]>(window.localStorage.getItem(STORAGE_KEY_CATEGORIES), []);
+    const parsed = safeParse<CategoryDef[]>(getScopedItem(STORAGE_KEY_CATEGORIES), []);
     return dedupCategories(parsed);
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(customCategories));
+      setScopedItem(STORAGE_KEY_CATEGORIES, JSON.stringify(customCategories));
     } catch {
       // ignore
     }
@@ -564,6 +565,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewEvent(null);
+  };
   const previewSeed = useMemo(() => (previewEvent ? resolveSeedForEvent(previewEvent) : null), [previewEvent]);
 
   const openPreviewForEvent = (event: CalendarEvent) => {
@@ -580,11 +585,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const toWrite = seed ?? fallbackSeedForNonGymEvent(previewEvent);
 
     writeGlobalLiveSeed(toWrite);
-    setIsPreviewOpen(false);
-    setPreviewEvent(null);
+    closePreview();
 
     navigateToLiveTraining(previewEvent.id);
   };
+
 
   const startPrimaryTraining = () => {
     if (!primaryTraining) return;
@@ -719,6 +724,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     background: "rgba(37, 99, 235, 0.16)",
     borderColor: "rgba(59, 130, 246, 0.32)",
     color: "var(--text)",
+  };
+
+  const openCommunity = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/community" } }));
   };
 
   // -------------------- Render --------------------
@@ -917,6 +927,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
 
+          {/* Community CTA */}
+          <div className="tq-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12px]" style={{ color: "var(--muted)" }}>
+                  Community
+                </div>
+                <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>
+                  Was Freunde trainiert haben
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={openCommunity}
+                className="rounded-xl px-4 py-2 text-xs font-semibold hover:opacity-95"
+                style={primaryBtnStyle}
+              >
+                Community
+              </button>
+            </div>
+          </div>
+
           {/* =========================================================
               2) Zwei klare Bereiche: “Nächste 3 Tage” & “Heute”
               ========================================================= */}
@@ -1069,16 +1101,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Keine Termine heute.
                 </div>
               )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Close overlay for plus menu */}
       {isPlusMenuOpen && (
         <button
           type="button"
           className="fixed inset-0 z-30 cursor-default"
+          data-overlay-open="true"
           onClick={() => setIsPlusMenuOpen(false)}
           aria-label="Close"
           style={{ background: "transparent" }}
@@ -1089,7 +1122,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           PREVIEW MODAL (minimal, verständlich)
           ========================================================= */}
       {isPreviewOpen && previewEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1237,7 +1270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           QUICK EVENT MODAL (unverändert, nur Typo größer)
           ========================================================= */}
       {isQuickEventModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1404,7 +1437,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           QUICK TRAINING MODAL (unverändert, nur Typo größer)
           ========================================================= */}
       {isTrainingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
           <div className="tq-surface w-full max-w-md space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div>

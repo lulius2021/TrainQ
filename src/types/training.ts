@@ -51,6 +51,7 @@ export type OptionalTime = string; // "HH:mm" | "" (MVP: bewusst string, aber do
  */
 export interface CalendarEvent {
   id: string;
+  userId?: string;
   title: string;
 
   description?: string;

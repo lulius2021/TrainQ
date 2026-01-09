@@ -137,6 +137,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
     setAnswers(DEFAULT_ANSWERS);
   }, [open]);
 
+
   // Background-Scroll-Lock (verhindert Untergrundscroll + reduziert iOS Rubber-Banding)
   useEffect(() => {
     if (!open) return;
@@ -301,7 +302,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   // ------------------------------
 
   return (
-    <div style={overlay} onClick={onClose} role="dialog" aria-modal="true">
+    <div style={overlay} onClick={onClose} role="dialog" aria-modal="true" data-overlay-open="true">
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={header}>
           <div>

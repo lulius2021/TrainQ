@@ -1,4 +1,6 @@
 // src/utils/workoutHistory.ts
+import { getScopedItem, removeScopedItem, scopedKey, setScopedItem } from "./scopedStorage";
+import { getActiveUserId } from "./session";
 //
 // Source of Truth für Profil + Diagramme:
 // - wird bei completeLiveWorkout() genau 1x pro Training geschrieben
@@ -32,6 +34,7 @@ export type WorkoutHistoryExercise = {
 export type WorkoutHistoryEntry = {
   id: string;
   calendarEventId?: string;
+  userId?: string;
 
   title: string;
   sport?: string;
@@ -258,6 +261,7 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
   if (!raw || typeof raw !== "object") return null;
 
   const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : uid();
+  const userId = typeof raw.userId === "string" && raw.userId.trim() ? raw.userId.trim() : getActiveUserId() ?? undefined;
 
   const calendarEventId =
     typeof raw.calendarEventId === "string" && raw.calendarEventId.trim()
@@ -321,6 +325,7 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
   return {
     id,
     calendarEventId,
+    userId,
     title,
     sport,
     startedAt,
@@ -357,7 +362,7 @@ function dedupByIdKeepFirst(list: WorkoutHistoryEntry[]): WorkoutHistoryEntry[] 
 export function loadWorkoutHistory(): WorkoutHistoryEntry[] {
   if (!hasWindow()) return [];
 
-  const parsed = safeParse<any>(window.localStorage.getItem(STORAGE_KEY));
+  const parsed = safeParse<any>(getScopedItem(STORAGE_KEY));
   if (!Array.isArray(parsed)) return [];
 
   const sanitized = parsed.map((x: any) => sanitizeEntry(x)).filter(Boolean) as WorkoutHistoryEntry[];
@@ -379,7 +384,7 @@ export function saveWorkoutHistory(list: WorkoutHistoryEntry[]): void {
   if (!raw) return;
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, raw);
+    setScopedItem(STORAGE_KEY, raw);
     emitUpdated();
   } catch {
     // ignore
@@ -403,6 +408,7 @@ export function addWorkoutEntry(
     sanitizeEntry({ ...entry, id }) ??
     ({
       id,
+      userId: (entry as any).userId ?? getActiveUserId() ?? undefined,
       title: entry.title || "Training",
       sport: entry.sport,
       startedAt: toISO(entry.startedAt),
@@ -451,7 +457,7 @@ export function addWorkoutEntry(
 export function clearWorkoutHistory(): void {
   if (!hasWindow()) return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    removeScopedItem(STORAGE_KEY);
     emitUpdated();
   } catch {
     // ignore

@@ -699,8 +699,9 @@ export default function LiveTrainingPage({
     ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
     : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
 
-  // Footer liegt tiefer (weniger bottom padding) -> Reserve leicht reduziert.
-  const mainPadBottom = "calc(max(env(safe-area-inset-bottom), 0px) + 106px)";
+  // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
+  const footerHeightPx = 140;
+  const mainPadBottom = `calc(max(env(safe-area-inset-bottom), 0px) + ${footerHeightPx}px)`;
 
   return (
     <LiveTrainingErrorBoundary onExit={onExit}>
@@ -852,6 +853,7 @@ export default function LiveTrainingPage({
         isCardioLibrary={isCardioLibrary}
         title={isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}
         onClose={() => setLibraryOpen(false)}
+        existingExerciseIds={exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[]}
         onPick={(exercise: Exercise) => addExerciseDirect({ exerciseId: exercise.id, name: exercise.name })}
         onPickCustom={() => addExerciseDirect({ name: isCardioLibrary ? "Neue Einheit" : "Neue Übung" })}
       />

@@ -3,6 +3,9 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
+import { migrateUserStorage } from "../utils/scopedStorage";
+import { ensureCommunityProfile } from "../services/communityBackend";
+import { signInSupabase, signOutSupabase, signUpSupabase } from "../services/supabaseAuth";
 
 export type AuthProvider = "email" | "apple";
 
@@ -12,6 +15,7 @@ export type AuthUser = {
   email?: string;
   displayName?: string;
   isPro?: boolean;
+  supabaseId?: string;
 
   // Apple stable identifier for this app (profile.user)
   appleSub?: string;
@@ -205,7 +209,22 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setUser(sanitizeUser(u));
     writeSessionUserId(u.id);
     setActiveSession({ userId: u.id, isPro: u.isPro === true, email: u.email });
+    migrateUserStorage(u.id);
   }, []);
+
+  const updateStoredUser = useCallback(
+    (next: StoredUserRecord) => {
+      const users = readStoredUsers();
+      const idx = users.findIndex((u) => u.id === next.id);
+      if (idx < 0) return;
+      const updated = { ...users[idx], ...next, updatedAt: nowISO() };
+      const copy = [...users];
+      copy[idx] = updated;
+      writeStoredUsers(copy);
+      persistAndSetUser(updated);
+    },
+    [persistAndSetUser]
+  );
 
   // Init: Seed + Session restore (+ SocialLogin init)
   useEffect(() => {
@@ -232,6 +251,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         clearActiveSession();
       } else {
         setActiveSession({ userId: found.id, isPro: found.isPro === true, email: found.email });
+        migrateUserStorage(found.id);
       }
     } else {
       setUser(null);
@@ -243,6 +263,15 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!user?.supabaseId) return;
+    ensureCommunityProfile({
+      supabaseUserId: user.supabaseId,
+      displayName: user.displayName,
+      email: user.email,
+    });
+  }, [user?.supabaseId, user?.displayName, user?.email]);
 
   // -------------------- Email/Password --------------------
 
@@ -261,9 +290,19 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if ((found as StoredUserRecord).password !== p) return { ok: false, error: "Passwort ist falsch." };
 
       persistAndSetUser(found);
+
+      const supa = await signInSupabase(e, p);
+      if (supa.userId) {
+        updateStoredUser({ ...found, supabaseId: supa.userId });
+      } else if (supa.error && supa.error.toLowerCase().includes("invalid")) {
+        const created = await signUpSupabase(e, p);
+        if (created.userId) {
+          updateStoredUser({ ...found, supabaseId: created.userId });
+        }
+      }
       return { ok: true };
     },
-    [persistAndSetUser]
+    [persistAndSetUser, updateStoredUser]
   );
 
   const register = useCallback(
@@ -292,9 +331,14 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       writeStoredUsers([...users, created]);
       persistAndSetUser(created);
+
+      const supa = await signUpSupabase(e, p);
+      if (supa.userId) {
+        updateStoredUser({ ...created, supabaseId: supa.userId });
+      }
       return { ok: true };
     },
-    [persistAndSetUser]
+    [persistAndSetUser, updateStoredUser]
   );
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
@@ -423,6 +467,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const logout = useCallback(() => {
     persistAndSetUser(null);
+    signOutSupabase();
   }, [persistAndSetUser]);
 
   const setUserPro = useCallback(

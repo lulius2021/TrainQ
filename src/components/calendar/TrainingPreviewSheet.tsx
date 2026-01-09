@@ -182,6 +182,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
     if (!open) setLibraryOpen(false);
   }, [open]);
 
+
   useEffect(() => {
     if (!open) return;
     const scrollY = window.scrollY || window.pageYOffset;
@@ -218,6 +219,10 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
   }, [draftEvent, draftSeed]);
 
   const previewCounts = useMemo(() => countSeed(draftSeed), [draftSeed]);
+  const existingExerciseIds = useMemo(
+    () => draftExercises.map((ex) => ex.exerciseId).filter(Boolean) as string[],
+    [draftExercises]
+  );
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) {
@@ -354,6 +359,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
       {open && draftEvent && draftSeed && (
         <motion.div
           className="fixed inset-0 z-[80]"
+          data-overlay-open="true"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -590,6 +596,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
         isCardioLibrary={isCardio}
         title={isCardio ? "Cardio-Bibliothek" : "Übungsbibliothek"}
         onClose={() => setLibraryOpen(false)}
+        existingExerciseIds={existingExerciseIds}
         onPick={(exercise: Exercise) => addExerciseFromLibrary(exercise, isCardio)}
         onPickCustom={() => addExerciseFromLibrary(undefined, isCardio)}
       />

@@ -13,6 +13,7 @@
 
 import type { CalendarWorkout, TrainingPlan, WorkoutHistoryEntry } from "../types";
 import type { LiveWorkout } from "../types/liveWorkout";
+import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
 
 const STORAGE_VERSION = 1;
 
@@ -47,7 +48,7 @@ function safeParseJSON<T>(raw: string | null): T | null {
 
 function writeMeta() {
   const meta: Meta = { version: STORAGE_VERSION, updatedAt: nowISO() };
-  localStorage.setItem(KEY_META, JSON.stringify(meta));
+  setScopedItem(KEY_META, JSON.stringify(meta));
 }
 
 function ensureArray<T>(value: unknown): T[] {
@@ -73,17 +74,17 @@ export function generateId(prefix = "tq"): string {
 // ------------------------------
 
 export function loadPlans(): TrainingPlan[] {
-  const parsed = safeParseJSON<unknown>(localStorage.getItem(KEY_PLANS));
+  const parsed = safeParseJSON<unknown>(getScopedItem(KEY_PLANS));
   return ensureArray<TrainingPlan>(parsed);
 }
 
 export function savePlans(plans: TrainingPlan[]): void {
-  localStorage.setItem(KEY_PLANS, JSON.stringify(plans));
+  setScopedItem(KEY_PLANS, JSON.stringify(plans));
   writeMeta();
 }
 
 export function clearPlans(): void {
-  localStorage.removeItem(KEY_PLANS);
+  removeScopedItem(KEY_PLANS);
   writeMeta();
 }
 
@@ -92,17 +93,17 @@ export function clearPlans(): void {
 // ------------------------------
 
 export function loadCalendarWorkouts(): CalendarWorkout[] {
-  const parsed = safeParseJSON<unknown>(localStorage.getItem(KEY_CALENDAR));
+  const parsed = safeParseJSON<unknown>(getScopedItem(KEY_CALENDAR));
   return ensureArray<CalendarWorkout>(parsed);
 }
 
 export function saveCalendarWorkouts(workouts: CalendarWorkout[]): void {
-  localStorage.setItem(KEY_CALENDAR, JSON.stringify(workouts));
+  setScopedItem(KEY_CALENDAR, JSON.stringify(workouts));
   writeMeta();
 }
 
 export function clearCalendarWorkouts(): void {
-  localStorage.removeItem(KEY_CALENDAR);
+  removeScopedItem(KEY_CALENDAR);
   writeMeta();
 }
 
@@ -111,17 +112,17 @@ export function clearCalendarWorkouts(): void {
 // ------------------------------
 
 export function loadWorkoutHistory(): WorkoutHistoryEntry[] {
-  const parsed = safeParseJSON<unknown>(localStorage.getItem(KEY_HISTORY));
+  const parsed = safeParseJSON<unknown>(getScopedItem(KEY_HISTORY));
   return ensureArray<WorkoutHistoryEntry>(parsed);
 }
 
 export function saveWorkoutHistory(history: WorkoutHistoryEntry[]): void {
-  localStorage.setItem(KEY_HISTORY, JSON.stringify(history));
+  setScopedItem(KEY_HISTORY, JSON.stringify(history));
   writeMeta();
 }
 
 export function clearWorkoutHistory(): void {
-  localStorage.removeItem(KEY_HISTORY);
+  removeScopedItem(KEY_HISTORY);
   writeMeta();
 }
 
@@ -130,20 +131,20 @@ export function clearWorkoutHistory(): void {
 // ------------------------------
 
 export function loadActiveLiveWorkout(): LiveWorkout | null {
-  const parsed = safeParseJSON<LiveWorkout>(localStorage.getItem(KEY_ACTIVE_LIVE_WORKOUT));
+  const parsed = safeParseJSON<LiveWorkout>(getScopedItem(KEY_ACTIVE_LIVE_WORKOUT));
   return parsed ?? null;
 }
 
 export function saveActiveLiveWorkout(workout: LiveWorkout | null): void {
   if (!workout) {
-    localStorage.removeItem(KEY_ACTIVE_LIVE_WORKOUT);
+    removeScopedItem(KEY_ACTIVE_LIVE_WORKOUT);
     return;
   }
-  localStorage.setItem(KEY_ACTIVE_LIVE_WORKOUT, JSON.stringify(workout));
+  setScopedItem(KEY_ACTIVE_LIVE_WORKOUT, JSON.stringify(workout));
 }
 
 export function clearActiveLiveWorkout(): void {
-  localStorage.removeItem(KEY_ACTIVE_LIVE_WORKOUT);
+  removeScopedItem(KEY_ACTIVE_LIVE_WORKOUT);
 }
 
 // ------------------------------
@@ -151,11 +152,11 @@ export function clearActiveLiveWorkout(): void {
 // ------------------------------
 
 export function clearAllTrainQCore(): void {
-  localStorage.removeItem(KEY_PLANS);
-  localStorage.removeItem(KEY_CALENDAR);
-  localStorage.removeItem(KEY_HISTORY);
-  localStorage.removeItem(KEY_ACTIVE_LIVE_WORKOUT);
-  localStorage.removeItem(KEY_META);
+  removeScopedItem(KEY_PLANS);
+  removeScopedItem(KEY_CALENDAR);
+  removeScopedItem(KEY_HISTORY);
+  removeScopedItem(KEY_ACTIVE_LIVE_WORKOUT);
+  removeScopedItem(KEY_META);
   writeMeta();
 }
 
@@ -164,5 +165,5 @@ export function clearAllTrainQCore(): void {
 // ------------------------------
 
 export function loadMeta(): Meta | null {
-  return safeParseJSON<Meta>(localStorage.getItem(KEY_META));
+  return safeParseJSON<Meta>(getScopedItem(KEY_META));
 }

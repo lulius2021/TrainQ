@@ -158,6 +158,7 @@ export interface WorkoutHistoryExercise {
 
 export interface WorkoutHistoryEntry {
   id: HistoryEntryId;
+  userId?: string;
   date: ISODate;
 
   workoutType: WorkoutType;

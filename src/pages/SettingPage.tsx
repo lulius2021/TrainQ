@@ -1,5 +1,5 @@
 // src/pages/SettingPage.tsx
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
@@ -7,11 +7,30 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { isBillingSupported, restorePurchases, syncProToSession } from "../services/purchases";
 
 import { loadTheme, setTheme as setThemeGlobal, type ThemeMode } from "../utils/theme";
+import { clearUserScopedData, getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { resetOnboardingInStorage } from "../context/OnboardingContext";
 import { clearWorkoutHistory } from "../utils/workoutHistory";
 import { clearCalendarWorkouts } from "../utils/trainqStorage";
+import {
+  ensureCommunityProfile,
+  loadCommunityProfile,
+  updateCommunitySettings,
+  type CommunityPrivacyLevel,
+  type CommunityProfileRecord,
+} from "../services/communityBackend";
 
-type SettingsSection = "profile" | "account" | "notifications" | "units" | "legal" | "language" | "theme" | "pro" | "data" | "help";
+type SettingsSection =
+  | "profile"
+  | "account"
+  | "notifications"
+  | "units"
+  | "legal"
+  | "language"
+  | "theme"
+  | "pro"
+  | "community"
+  | "data"
+  | "help";
 type LegalTab = "privacy" | "imprint" | "terms";
 
 interface SettingPageProps {
@@ -37,17 +56,19 @@ export default function SettingPage({
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
   const [language, setLanguage] = useState<"de" | "en">(() => {
     if (typeof window === "undefined") return "de";
-    const stored = window.localStorage.getItem("trainq_language");
+    const stored = getScopedItem("trainq_language");
     return (stored === "en" ? "en" : "de") as "de" | "en";
   });
   const [units, setUnits] = useState<"metric" | "imperial">(() => {
     if (typeof window === "undefined") return "metric";
-    const stored = window.localStorage.getItem("trainq_units");
+    const stored = getScopedItem("trainq_units");
     return (stored === "imperial" ? "imperial" : "metric") as "metric" | "imperial";
   });
 
   // ✅ Theme State nur für UI-Anzeige; DOM/Storage macht utils/theme.ts zentral
   const [theme, setThemeState] = useState<ThemeMode>(() => loadTheme("dark"));
+  const [communityProfile, setCommunityProfile] = useState<CommunityProfileRecord | null>(null);
+  const [communityLoading, setCommunityLoading] = useState(false);
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -63,7 +84,7 @@ export default function SettingPage({
       return;
     }
     window.open(url, "_blank", "noopener,noreferrer");
-  }, []);
+  }, [user?.id]);
 
   const handleRestorePurchases = useCallback(async () => {
     if (!user) return;
@@ -121,12 +142,39 @@ export default function SettingPage({
       { key: "language", label: "Sprache", kind: "section" as const },
       { key: "theme", label: "Theme", kind: "section" as const },
       { key: "pro", label: "PRO / Abo", kind: "section" as const },
+      { key: "community", label: "Community / Datenschutz", kind: "section" as const },
       { key: "data", label: "Datenverwaltung", kind: "section" as const },
       { key: "legal", label: "Rechtliches", kind: "section" as const },
       { key: "help", label: "Hilfe & Support", kind: "section" as const },
     ],
     []
   );
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.supabaseId) {
+      setCommunityProfile(null);
+      setCommunityLoading(false);
+      return;
+    }
+    setCommunityLoading(true);
+    (async () => {
+      const loaded = await loadCommunityProfile(user.supabaseId);
+      const ensured =
+        loaded ||
+        (await ensureCommunityProfile({
+          supabaseUserId: user.supabaseId,
+          displayName: user.displayName,
+          email: user.email,
+        }));
+      if (!active) return;
+      setCommunityProfile(ensured);
+      setCommunityLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user?.supabaseId, user?.displayName, user?.email]);
 
   const handleDeleteAccount = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -135,11 +183,11 @@ export default function SettingPage({
     );
     if (!ok) return;
     
-    // In MVP: Lokale Daten löschen
     if (typeof window !== "undefined") {
       try {
-        // Lösche alle lokalen Daten
-        window.localStorage.clear();
+        if (user?.id) {
+          clearUserScopedData(user.id);
+        }
         alert("Profil gelöscht. Die App wird neu geladen.");
         window.location.reload();
       } catch {
@@ -282,7 +330,7 @@ export default function SettingPage({
             type="button"
             onClick={() => {
               setUnits("metric");
-              if (typeof window !== "undefined") window.localStorage.setItem("trainq_units", "metric");
+              if (typeof window !== "undefined") setScopedItem("trainq_units", "metric");
             }}
             className="px-4 py-1.5 rounded-full transition"
             style={units === "metric" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
@@ -293,7 +341,7 @@ export default function SettingPage({
             type="button"
             onClick={() => {
               setUnits("imperial");
-              if (typeof window !== "undefined") window.localStorage.setItem("trainq_units", "imperial");
+              if (typeof window !== "undefined") setScopedItem("trainq_units", "imperial");
             }}
             className="px-4 py-1.5 rounded-full transition"
             style={units === "imperial" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
@@ -395,7 +443,7 @@ export default function SettingPage({
             type="button"
             onClick={() => {
               setLanguage("de");
-              if (typeof window !== "undefined") window.localStorage.setItem("trainq_language", "de");
+              if (typeof window !== "undefined") setScopedItem("trainq_language", "de");
             }}
             className="px-4 py-1.5 rounded-full transition"
             style={language === "de" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
@@ -406,7 +454,7 @@ export default function SettingPage({
             type="button"
             onClick={() => {
               setLanguage("en");
-              if (typeof window !== "undefined") window.localStorage.setItem("trainq_language", "en");
+              if (typeof window !== "undefined") setScopedItem("trainq_language", "en");
             }}
             className="px-4 py-1.5 rounded-full transition"
             style={language === "en" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
@@ -463,6 +511,80 @@ export default function SettingPage({
       </div>
     </>
   );
+
+  const CommunityPanel = () => {
+    const optIn = communityProfile?.community_opt_in ?? false;
+    const privacy = (communityProfile?.privacy_level ?? "private") as CommunityPrivacyLevel;
+
+    return (
+      <>
+        <SectionHeader title="Community / Datenschutz" />
+        <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
+          <div className="text-[11px]" style={muted}>
+            Steuere, ob dein Profil im Community‑Bereich sichtbar ist.
+          </div>
+
+          {!user?.supabaseId && (
+            <div className="text-[11px]" style={muted}>
+              Community‑Profile sind nur nach Login mit E‑Mail aktiv.
+            </div>
+          )}
+
+          {user?.supabaseId && (
+            <>
+              <label className="flex items-center justify-between text-[12px]" style={{ color: "var(--text)" }}>
+                <span>Community aktivieren</span>
+                <input
+                  type="checkbox"
+                  checked={optIn}
+                  onChange={async (e) => {
+                    if (!user.supabaseId) return;
+                    const next = await updateCommunitySettings({
+                      supabaseUserId: user.supabaseId,
+                      communityOptIn: e.target.checked,
+                      privacyLevel: privacy,
+                    });
+                    if (next) setCommunityProfile(next);
+                  }}
+                />
+              </label>
+
+              <div className="space-y-1">
+                <div className="text-[11px]" style={muted}>
+                  Sichtbarkeit
+                </div>
+                <select
+                  value={privacy}
+                  onChange={async (e) => {
+                    if (!user.supabaseId) return;
+                    const value = e.target.value as CommunityPrivacyLevel;
+                    const next = await updateCommunitySettings({
+                      supabaseUserId: user.supabaseId,
+                      communityOptIn: optIn,
+                      privacyLevel: value,
+                    });
+                    if (next) setCommunityProfile(next);
+                  }}
+                  className="w-full rounded-xl px-3 py-2 text-xs"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                >
+                  <option value="private">Privat</option>
+                  <option value="followers">Nur Follower</option>
+                  <option value="public">Öffentlich</option>
+                </select>
+              </div>
+
+              {communityLoading && (
+                <div className="text-[10px]" style={muted}>
+                  Lade Community‑Profil…
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
 
   const ProPanel = () => {
     return (
@@ -633,6 +755,7 @@ export default function SettingPage({
     if (k === "language") return <LanguagePanel />;
     if (k === "theme") return <ThemePanel />;
     if (k === "pro") return <ProPanel />;
+    if (k === "community") return <CommunityPanel />;
     if (k === "data") return <DataPanel />;
     if (k === "help") return <HelpPanel />;
     return null;

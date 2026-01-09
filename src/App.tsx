@@ -15,6 +15,8 @@ import TrainQCoreDebug from "./pages/TrainQCoreDebug";
 
 // Live-Training
 import LiveTrainingPage from "./pages/training/LiveTrainingPage";
+import CommunityPage from "./pages/CommunityPage";
+import CommunityInboxPage from "./pages/CommunityInboxPage";
 
 // Auth & Onboarding
 import LoginPage from "./pages/auth/LoginPage";
@@ -25,6 +27,7 @@ import OnboardingPage from "./pages/onboarding/OnboardingPage";
 // Context + Hooks
 import { AuthContextProvider } from "./context/AuthContext";
 import { useAuth } from "./hooks/useAuth";
+import { useTabSwipeNavigation } from "./hooks/useTabSwipeNavigation";
 
 // Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
@@ -51,12 +54,14 @@ import { resolveLiveSeed, writeLiveSeedForEventOrKey, type LiveTrainingSeed } fr
 
 // TestFlight Seed (10 Pro + 3 Free)
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
+import { getScopedItem, removeScopedItem, setScopedItem } from "./utils/scopedStorage";
+import { getActiveUserId } from "./utils/session";
 
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 /** Exportiert für andere Komponenten */
 export type TabKey = "dashboard" | "calendar" | "plan" | "profile";
-type AppRoute = "/" | "/live-training" | "/debug/trainq";
+type AppRoute = "/" | "/live-training" | "/debug/trainq" | "/community" | "/community/inbox";
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
@@ -139,6 +144,7 @@ function normalizeLoadedEvent(raw: unknown): CalendarEvent | null {
   if (!raw || typeof raw !== "object") return null;
 
   const ev: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  if (!ev.userId) ev.userId = getActiveUserId() ?? undefined;
 
   if (!ev.id) ev.id = ensureId();
   if (ev.title == null) ev.title = "";
@@ -210,6 +216,8 @@ function getRouteFromLocation(): AppRoute {
 
   if (path === "/live-training") return "/live-training";
   if (path === "/debug/trainq") return "/debug/trainq";
+  if (path === "/community/inbox") return "/community/inbox";
+  if (path === "/community") return "/community";
 
   return "/";
 }
@@ -221,30 +229,33 @@ function pushRoute(path: AppRoute): void {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-function readActiveLiveEventId(): string | undefined {
+function readActiveLiveEventId(userId?: string): string | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    const v = window.localStorage.getItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID);
+    const v = getScopedItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID, userId);
     return v || undefined;
   } catch {
     return undefined;
   }
 }
 
-function writeActiveLiveEventId(eventId?: string) {
+function writeActiveLiveEventId(eventId?: string, userId?: string) {
   if (typeof window === "undefined") return;
   try {
-    if (!eventId) window.localStorage.removeItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID);
-    else window.localStorage.setItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID, eventId);
+    if (!eventId) {
+      removeScopedItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID, userId);
+    } else {
+      setScopedItem(STORAGE_KEY_ACTIVE_LIVE_EVENT_ID, eventId, userId);
+    }
   } catch {
     // ignore
   }
 }
 
-function readEventsFromStorage(): CalendarEvent[] {
+function readEventsFromStorage(userId?: string): CalendarEvent[] {
   if (typeof window === "undefined") return INITIAL_EVENTS;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY_EVENTS);
+    const raw = getScopedItem(STORAGE_KEY_EVENTS, userId);
     if (!raw) return INITIAL_EVENTS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EVENTS;
@@ -252,7 +263,7 @@ function readEventsFromStorage(): CalendarEvent[] {
     const normalized = parsed.map(normalizeLoadedEvent).filter(Boolean) as CalendarEvent[];
 
     try {
-      window.localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(normalized));
+      setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(normalized), userId);
     } catch {
       // ignore
     }
@@ -263,10 +274,10 @@ function readEventsFromStorage(): CalendarEvent[] {
   }
 }
 
-function writeEventsToStorage(events: CalendarEvent[]) {
+function writeEventsToStorage(events: CalendarEvent[], userId?: string) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(events));
+    setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId);
   } catch {
     // ignore
   }
@@ -376,14 +387,14 @@ const LiveTrainingMiniBar: React.FC<{
 type ProfileScreen = "profile" | "settings";
 
 const MainAppShell: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
-  const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
-  const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId());
-
-  const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
-
   const { user } = useAuth();
   const userId = user?.id;
+
+  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
+  const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId(userId));
+
+  const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
   const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(userId);
 
@@ -391,7 +402,7 @@ const MainAppShell: React.FC = () => {
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
 
   const [events, setEvents] = useState<CalendarEvent[]>(() => {
-    const loaded = readEventsFromStorage();
+    const loaded = readEventsFromStorage(userId);
     // ✅ Migration: Stelle sicher, dass alle Trainings korrektes trainingType haben
     return loaded.map((ev) => {
       if (ev.type === "training" && !ev.trainingType) {
@@ -402,8 +413,13 @@ const MainAppShell: React.FC = () => {
   });
 
   useEffect(() => {
-    writeEventsToStorage(events);
-  }, [events]);
+    writeEventsToStorage(events, userId);
+  }, [events, userId]);
+
+  useEffect(() => {
+    setEvents(readEventsFromStorage(userId));
+    setActiveLiveEventId(readActiveLiveEventId(userId));
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -413,7 +429,7 @@ const MainAppShell: React.FC = () => {
       setRoute(nextRoute);
 
       if (nextRoute === "/live-training") {
-        setActiveLiveEventId(readActiveLiveEventId());
+        setActiveLiveEventId(readActiveLiveEventId(userId));
       }
     };
 
@@ -426,12 +442,12 @@ const MainAppShell: React.FC = () => {
       if (next === "/live-training") {
         const normalized = typeof nextEventId === "string" && nextEventId.trim() ? nextEventId.trim() : undefined;
         setActiveLiveEventId(normalized);
-        writeActiveLiveEventId(normalized);
+        writeActiveLiveEventId(normalized, userId);
       } else {
         const active = getActiveLiveWorkout();
         if (!active || !active.isActive) {
           setActiveLiveEventId(undefined);
-          writeActiveLiveEventId(undefined);
+          writeActiveLiveEventId(undefined, userId);
         }
       }
 
@@ -447,7 +463,7 @@ const MainAppShell: React.FC = () => {
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("trainq:navigate", onCustomNavigate as EventListener);
     };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -487,6 +503,32 @@ const MainAppShell: React.FC = () => {
 
   const showMiniBar = route !== "/live-training" && hasActiveWorkout;
 
+  const isSwipeBlocked = useCallback(() => {
+    if (paywallOpen) return true;
+    if (typeof document === "undefined") return false;
+    if (document.documentElement.classList.contains("modal-open")) return true;
+    return !!document.querySelector('[data-overlay-open="true"]');
+  }, [paywallOpen]);
+
+  const tabOrder: TabKey[] = ["dashboard", "calendar", "plan", "profile"];
+  const tabSwipeEnabled = route === "/" && profileScreen === "profile";
+
+  useTabSwipeNavigation({
+    enabled: tabSwipeEnabled,
+    isBlocked: isSwipeBlocked,
+    noSwipeSelector: '[data-no-tab-swipe="true"]',
+    onSwipeLeft: () => {
+      const idx = tabOrder.indexOf(activeTab);
+      if (idx < 0 || idx >= tabOrder.length - 1) return;
+      setActiveTab(tabOrder[idx + 1]);
+    },
+    onSwipeRight: () => {
+      const idx = tabOrder.indexOf(activeTab);
+      if (idx <= 0) return;
+      setActiveTab(tabOrder[idx - 1]);
+    },
+  });
+
   const maybeAutoSeedTraining = useCallback((ev: CalendarEvent) => {
     const anyEv: any = ev;
     const isTraining = anyEv?.type === "training";
@@ -520,7 +562,7 @@ const MainAppShell: React.FC = () => {
 
   const createEventFromInput = useCallback(
     (data: NewCalendarEvent): CalendarEvent => {
-      const created: CalendarEvent = { ...data, id: ensureId() } as any;
+      const created: CalendarEvent = { ...data, id: ensureId(), userId: userId ?? getActiveUserId() ?? undefined } as any;
       const newEvent = ensureTrainingMeta(created);
       // ✅ Seed wird NACH Event-Erstellung mit eventId geschrieben
       maybeAutoSeedTraining(newEvent);
@@ -573,7 +615,7 @@ const MainAppShell: React.FC = () => {
 
   const exitLiveTraining = useCallback(() => {
     setActiveLiveEventId(undefined);
-    writeActiveLiveEventId(undefined);
+    writeActiveLiveEventId(undefined, userId);
     pushRoute("/");
     setRoute("/");
     setActiveTab("dashboard");
@@ -592,7 +634,7 @@ const MainAppShell: React.FC = () => {
           : activeLiveEventId;
 
       setActiveLiveEventId(normalized);
-      writeActiveLiveEventId(normalized);
+      writeActiveLiveEventId(normalized, userId);
 
       const active: any = getActiveLiveWorkout();
       if (active && active.isActive) {
@@ -706,7 +748,11 @@ const MainAppShell: React.FC = () => {
       <div className="h-full w-full overflow-hidden flex flex-col">
         <div className="flex-1 overflow-y-auto overflow-x-hidden" data-app-scroll="true" style={{ paddingBottom: BOTTOM_NAV_PADDING }}>
           <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
-            {activeTab === "dashboard" && (
+            {route === "/community" && <CommunityPage />}
+
+            {route === "/community/inbox" && <CommunityInboxPage />}
+
+            {route === "/" && activeTab === "dashboard" && (
               <Dashboard
                 events={events}
                 upcoming={upcomingTrainings}
@@ -717,7 +763,7 @@ const MainAppShell: React.FC = () => {
               />
             )}
 
-            {activeTab === "calendar" && (
+            {route === "/" && activeTab === "calendar" && (
               <CalendarPage
                 events={events}
                 onAddEvent={handleAddEvent}
@@ -727,11 +773,11 @@ const MainAppShell: React.FC = () => {
               />
             )}
 
-            {activeTab === "plan" && (
+            {route === "/" && activeTab === "plan" && (
               <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />
             )}
 
-            {activeTab === "profile" &&
+            {route === "/" && activeTab === "profile" &&
               (profileScreen === "settings" ? (
                 <SettingsPage
                   onBack={() => setProfileScreen("profile")}
@@ -766,6 +812,10 @@ const MainAppShell: React.FC = () => {
         activeTab={activeTab}
         onChange={(next: TabKey) => {
           setActiveTab(next);
+          if (route !== "/") {
+            pushRoute("/");
+            setRoute("/");
+          }
           if (next !== "profile") setProfileScreen("profile");
         }}
       />

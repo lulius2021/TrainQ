@@ -5,6 +5,7 @@ import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/tra
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { useProGuard } from "../hooks/useProGuard";
+import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 // ✅ Plan-Seed -> LiveTraining (Preview + Start)
@@ -226,7 +227,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   const [viewMode, _setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "day";
-    const stored = window.localStorage.getItem(STORAGE_KEY_VIEW);
+    const stored = getScopedItem(STORAGE_KEY_VIEW);
     if (stored === "day" || stored === "week" || stored === "month") return stored;
     return "day";
   });
@@ -235,7 +236,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     _setViewMode(mode);
     if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem(STORAGE_KEY_VIEW, mode);
+        setScopedItem(STORAGE_KEY_VIEW, mode);
       } catch {
         // ignore
       }
@@ -249,7 +250,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   const [customCategories, setCustomCategories] = useState<CategoryDef[]>(() => {
     if (typeof window === "undefined") return [];
-    const parsed = safeParse<CategoryDef[]>(window.localStorage.getItem(STORAGE_KEY_CATEGORIES), []);
+    const parsed = safeParse<CategoryDef[]>(getScopedItem(STORAGE_KEY_CATEGORIES), []);
     return dedupCategories(parsed);
   });
 
@@ -307,7 +308,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(customCategories));
+      setScopedItem(STORAGE_KEY_CATEGORIES, JSON.stringify(customCategories));
     } catch {
       // ignore
     }
@@ -430,6 +431,37 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     setPreviewEvent(null);
   };
 
+  const closeCreateModal = () => {
+    setIsCreateOpen(false);
+    setCreateMode("appointment");
+    setAppointmentCategory("alltag");
+    setCategoryCreateMode("select");
+    setNewCategoryLabel("");
+    setTrainingType("gym");
+    setForm({
+      title: "",
+      description: "",
+      date: selectedKey,
+      startTime: "",
+      endTime: "",
+      type: "other",
+      notes: "",
+    });
+  };
+
+  const openCreateModal = (mode: "appointment" | "training") => {
+    setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
+    setCreateMode(mode);
+    if (mode === "appointment") {
+      setAppointmentCategory("alltag");
+      setCategoryCreateMode("select");
+      setNewCategoryLabel("");
+    } else {
+      setTrainingType("gym");
+    }
+    setIsCreateOpen(true);
+  };
+
   const handlePreviewSave = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
     onUpdateEvents?.((prev) => prev.map((ev) => (ev.id === nextEvent.id ? { ...ev, ...nextEvent } : ev)));
     writeLiveSeedForEventOrKey({ eventId: nextEvent.id, dateISO: nextEvent.date, title: nextEvent.title, seed });
@@ -441,6 +473,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     closeTrainingPreview();
     navigateToLiveTraining(nextEvent.id);
   };
+
 
   const swipeDisabled = previewOpen || infoSheetOpen || isCreateOpen || isPlusMenuOpen;
 
@@ -459,6 +492,26 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
+
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const scrollY = window.scrollY || window.pageYOffset;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [isCreateOpen]);
 
   const handleSwipePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const state = swipeRef.current;
@@ -816,7 +869,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   Woche {weekLabel}
                 </p>
 
-                <div className="grid grid-cols-7 gap-x-1 gap-y-2 flex-1">
+                <div className="grid grid-cols-7 gap-x-1 gap-y-2 flex-1" data-no-tab-swipe="true" data-no-back-swipe="true">
                   {currentWeekDays.map((d, idx) => {
                     const key = dateKey(d);
                     const dayEvents = eventsByDate.get(key) ?? [];
@@ -1069,12 +1122,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     type="button"
                     onClick={() => {
                       setIsPlusMenuOpen(false);
-                      setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
-                      setCreateMode("appointment");
-                      setAppointmentCategory("alltag");
-                      setCategoryCreateMode("select");
-                      setNewCategoryLabel("");
-                      setIsCreateOpen(true);
+                      openCreateModal("appointment");
                     }}
                     className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
                   >
@@ -1085,10 +1133,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     type="button"
                     onClick={() => {
                       setIsPlusMenuOpen(false);
-                      setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
-                      setCreateMode("training");
-                      setTrainingType("gym");
-                      setIsCreateOpen(true);
+                      openCreateModal("training");
                     }}
                     className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
                   >
@@ -1138,6 +1183,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       {infoSheetOpen && infoSheetEvent && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          data-overlay-open="true"
           onClick={closeInfoSheet}
         >
           <div
@@ -1313,46 +1359,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
       {/* Modal: Termin / Training erstellen */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-2xl p-4 space-y-4 text-sm" style={surfaceBox}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="inline-flex rounded-full p-1 text-sm" style={surfaceSoft}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateMode("appointment");
-                    setCategoryCreateMode("select");
-                    setNewCategoryLabel("");
-                  }}
-                  className="px-4 py-2 rounded-full text-sm font-medium"
-                  style={
-                    createMode === "appointment"
-                      ? { background: "var(--primary)", color: "#061226" }
-                      : { color: "var(--text)" }
-                  }
-                >
-                  Termin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateMode("training");
-                    setForm((p) => ({ ...p, endTime: "" }));
-                  }}
-                  className="px-4 py-2 rounded-full text-sm font-medium"
-                  style={
-                    createMode === "training"
-                      ? { background: "var(--primary)", color: "#061226" }
-                      : { color: "var(--text)" }
-                  }
-                >
-                  Training
-                </button>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4" data-overlay-open="true">
+          <div className="w-full max-w-md rounded-2xl text-sm flex flex-col max-h-[85vh] overflow-hidden" style={surfaceBox}>
+            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
+              <div className="text-base font-semibold" style={{ color: "var(--text)" }}>
+                {createMode === "training" ? "Training anlegen" : "Termin anlegen"}
               </div>
-
               <button
                 type="button"
-                onClick={() => setIsCreateOpen(false)}
+                onClick={closeCreateModal}
                 className="text-sm hover:opacity-95"
                 style={muted}
               >
@@ -1360,15 +1375,16 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               </button>
             </div>
 
-            {!effectiveIsPro && (
-              <div className="rounded-xl px-3 py-2.5 text-sm" style={surfaceSoft}>
-                <span style={muted}>
-                  Free: {Math.max(0, Number(calendar7DaysRemaining))} übrig für Termine/Trainings &gt; 7 Tage voraus.
-                </span>
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {!effectiveIsPro && (
+                <div className="rounded-xl px-3 py-2.5 text-sm mb-3" style={surfaceSoft}>
+                  <span style={muted}>
+                    Free: {Math.max(0, Number(calendar7DaysRemaining))} übrig für Termine/Trainings &gt; 7 Tage voraus.
+                  </span>
+                </div>
+              )}
 
-            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <form onSubmit={handleCreateEvent} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium" style={muted}>
                   Titel
@@ -1531,7 +1547,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsCreateOpen(false)}
+                  onClick={closeCreateModal}
                   className="px-4 py-2 rounded-xl border text-sm font-medium hover:opacity-95"
                   style={surfaceSoft}
                 >
@@ -1545,7 +1561,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   Speichern
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

@@ -103,7 +103,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
   // WICHTIG: Kein Overlay / kein fixed hier mehr – das macht FeedbackBar.
   return (
     <div className="w-full rounded-2xl bg-brand-card border border-white/10 p-5 sm:p-6 text-white">
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex items-start justify-between gap-3 mb-4" data-overlay-drag-handle="true">
         <div className="min-w-0">
           <div className="text-[11px] text-white/55">Feedback</div>
           <h2 className="text-base sm:text-lg font-semibold text-white/90 truncate">

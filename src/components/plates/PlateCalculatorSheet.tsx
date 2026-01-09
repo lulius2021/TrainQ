@@ -7,6 +7,7 @@
 // ✅ Minimal, keine extra Karten / keine unnötigen Buttons
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getScopedItem, setScopedItem } from "../../utils/scopedStorage";
 
 type BarType = "standard" | "short";
 
@@ -24,7 +25,7 @@ const DEFAULT_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
 
 function safeReadJSON<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = getScopedItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -34,7 +35,7 @@ function safeReadJSON<T>(key: string, fallback: T): T {
 
 function safeWriteJSON(key: string, v: unknown) {
   try {
-    localStorage.setItem(key, JSON.stringify(v));
+    setScopedItem(key, JSON.stringify(v));
   } catch {
     // ignore
   }
@@ -199,6 +200,7 @@ export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onAppl
     };
   }, [open, onClose]);
 
+
   // Rebuild on changes
   useEffect(() => {
     if (!open) return;
@@ -225,6 +227,7 @@ export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onAppl
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[10000]"
+      data-overlay-open="true"
       style={{ background: "rgba(0,0,0,0.55)" }}
       onMouseDown={(e) => {
         if (e.target === overlayRef.current) onClose();

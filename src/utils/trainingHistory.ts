@@ -13,6 +13,7 @@ import type {
   SportType,
   TrainingStatus,
 } from "../types/training";
+import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
 
 import {
   addWorkoutEntry,
@@ -175,7 +176,7 @@ type TrainingHistoryStore = {
 
 function loadCoreStore(): TrainingHistoryStore {
   if (!hasWindow()) return { version: CORE_VERSION, workouts: [], exerciseHistory: {} };
-  const parsed = safeParse<TrainingHistoryStore>(window.localStorage.getItem(LS_CORE_HISTORY));
+  const parsed = safeParse<TrainingHistoryStore>(getScopedItem(LS_CORE_HISTORY));
   if (!parsed || typeof parsed !== "object") {
     return { version: CORE_VERSION, workouts: [], exerciseHistory: {} };
   }
@@ -191,7 +192,7 @@ function saveCoreStore(next: TrainingHistoryStore): void {
   const raw = safeStringify(next);
   if (!raw) return;
   try {
-    window.localStorage.setItem(LS_CORE_HISTORY, raw);
+    setScopedItem(LS_CORE_HISTORY, raw);
   } catch {
     // ignore
   }
@@ -220,7 +221,7 @@ function updateExerciseHistoryFromWorkout(workout: LiveWorkout, endedAtISO: stri
 
 export function getActiveLiveWorkout(): LiveWorkout | null {
   if (!hasWindow()) return null;
-  const parsed = safeParse<LiveWorkout>(window.localStorage.getItem(LS_ACTIVE));
+  const parsed = safeParse<LiveWorkout>(getScopedItem(LS_ACTIVE));
   if (!parsed || typeof parsed !== "object") return null;
   if (parsed.isActive !== true) return null;
 
@@ -249,7 +250,7 @@ export function persistActiveLiveWorkout(workout: LiveWorkout): void {
   if (!raw) return;
 
   try {
-    window.localStorage.setItem(LS_ACTIVE, raw);
+    setScopedItem(LS_ACTIVE, raw);
   } catch {
     // ignore
   }
@@ -258,7 +259,7 @@ export function persistActiveLiveWorkout(workout: LiveWorkout): void {
 export function clearActiveLiveWorkout(): void {
   if (!hasWindow()) return;
   try {
-    window.localStorage.removeItem(LS_ACTIVE);
+    removeScopedItem(LS_ACTIVE);
   } catch {
     // ignore
   }

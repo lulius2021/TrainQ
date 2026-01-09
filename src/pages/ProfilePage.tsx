@@ -16,6 +16,8 @@ import {
 
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
+import { createWorkoutShare } from "../services/communityService";
+import { ensureCommunityProfile } from "../services/communityBackend";
 import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
@@ -370,6 +372,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     logout();
   }, [logout]);
 
+  const handleShareWorkout = useCallback(
+    (w: WorkoutHistoryEntry) => {
+      if (!user?.id) return;
+      if (user.supabaseId) {
+        ensureCommunityProfile({
+          supabaseUserId: user.supabaseId,
+          displayName: user.displayName,
+          email: user.email,
+        });
+      }
+      createWorkoutShare(user.id, w, "friends");
+      alert("Workout wurde im Community‑Feed geteilt.");
+    },
+    [user?.id, user?.displayName, user?.email, user?.supabaseId]
+  );
+
   const handleRestartOnboarding = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -599,6 +617,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
                         <div className="mt-1 text-[11px]" style={muted}>
                           {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleShareWorkout(w)}
+                            className="rounded-full px-3 py-1 text-[10px] hover:opacity-95"
+                            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                          >
+                            Im Feed teilen
+                          </button>
                         </div>
                       </div>
                     );
