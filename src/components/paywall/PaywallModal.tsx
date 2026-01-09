@@ -42,7 +42,7 @@ const BULLETS: Array<{ label: string; ok: boolean }> = [
   { label: "Unbegrenztes adaptives Training (B/C)", ok: true },
   { label: "Unbegrenztes Plan verschieben", ok: true },
   { label: "Erweiterte Statistiken", ok: true },
-  { label: "KI-Coach (Coming soon)", ok: true },
+  { label: "KI-Coach", ok: true },
   { label: "Frühzugang zu neuen Features", ok: true },
 ];
 

@@ -1,6 +1,7 @@
 // src/components/training/ExerciseLibraryModal.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   EXERCISES,
   MUSCLE_GROUPS,
@@ -169,9 +170,13 @@ export default function ExerciseLibraryModal({
   const headerTitle = title ?? (isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek");
   const headerSub = isCardioLibrary ? "Wähle eine Cardio-Einheit aus." : "Wähle eine Übung aus der Bibliothek.";
 
-  return (
+  const surfaceBox: React.CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" };
+  const surfaceSoft: React.CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
+  const muted: React.CSSProperties = { color: "var(--muted)" };
+
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 px-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -179,18 +184,19 @@ export default function ExerciseLibraryModal({
       aria-modal="true"
       aria-label={headerTitle}
     >
-      <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/95 text-xs shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+      <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl text-xs shadow-xl" style={surfaceBox}>
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-100">{headerTitle}</div>
-            <div className="truncate text-[11px] text-slate-400">{headerSub}</div>
+            <div className="truncate text-sm font-semibold" style={{ color: "var(--text)" }}>{headerTitle}</div>
+            <div className="truncate text-[11px]" style={muted}>{headerSub}</div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-200 hover:bg-slate-800"
+              className="rounded-xl border px-3 py-1.5 text-[11px] hover:opacity-95"
+              style={{ ...surfaceSoft, color: "var(--text)" }}
             >
               Schließen
             </button>
@@ -199,7 +205,7 @@ export default function ExerciseLibraryModal({
 
         <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-slate-100">{headerTitle}</span>
+            <span className="text-[11px] font-semibold" style={{ color: "var(--text)" }}>{headerTitle}</span>
 
             {!isCardioLibrary && (
               <button
@@ -208,7 +214,8 @@ export default function ExerciseLibraryModal({
                   onPickCustom?.();
                   // ✅ Modal bleibt offen (gewollt)
                 }}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="rounded-lg border px-2 py-1 text-[11px] hover:opacity-95"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
               >
                 + Eigene Übung
               </button>
@@ -221,7 +228,8 @@ export default function ExerciseLibraryModal({
             placeholder={isCardioLibrary ? "Suche (z.B. Lauf, Rad...)" : "Suche (z.B. Bankdrücken)"}
             value={filters.search}
             onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
+            className="w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 placeholder:text-[color:var(--muted)]"
+            style={{ ...surfaceSoft, color: "var(--text)" }}
           />
 
           {!isCardioLibrary && (
@@ -229,7 +237,8 @@ export default function ExerciseLibraryModal({
               <select
                 value={filters.muscle}
                 onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as any }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                className="w-full rounded-lg border px-2 py-1.5 text-[11px] outline-none"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
               >
                 <option value="alle">Muskelgruppe: alle</option>
                 {MUSCLE_GROUPS.map((m) => (
@@ -242,7 +251,8 @@ export default function ExerciseLibraryModal({
               <select
                 value={filters.equipment}
                 onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as any }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                className="w-full rounded-lg border px-2 py-1.5 text-[11px] outline-none"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
               >
                 <option value="alle">Equipment: alle</option>
                 {EQUIPMENTS.map((eq) => (
@@ -255,7 +265,8 @@ export default function ExerciseLibraryModal({
               <select
                 value={filters.difficulty}
                 onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                className="w-full rounded-lg border px-2 py-1.5 text-[11px] outline-none"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
               >
                 <option value="alle">Level: alle</option>
                 {DIFFICULTIES.map((d) => (
@@ -268,7 +279,8 @@ export default function ExerciseLibraryModal({
               <select
                 value={filters.type}
                 onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as any }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                className="w-full rounded-lg border px-2 py-1.5 text-[11px] outline-none"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
               >
                 <option value="alle">Typ: alle</option>
                 {EXERCISE_TYPES.map((t) => (
@@ -280,19 +292,20 @@ export default function ExerciseLibraryModal({
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80">
+          <div className="flex-1 overflow-y-auto rounded-lg border" style={surfaceSoft}>
             {filteredExercises.length === 0 ? (
-              <div className="p-3 text-[11px] text-slate-500">Keine Einträge gefunden.</div>
+              <div className="p-3 text-[11px]" style={muted}>Keine Einträge gefunden.</div>
             ) : (
-              <ul className="divide-y divide-slate-800">
+              <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
                 {filteredExercises.map((ex) => (
                   <li
                     key={ex.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-slate-900/80"
+                    className="flex items-center justify-between gap-2 px-3 py-2 hover:opacity-95"
+                    style={{ borderColor: "var(--border)" }}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-[11px] font-medium text-slate-100">{ex.name}</div>
-                      <div className="truncate text-[10px] text-slate-500">
+                      <div className="truncate text-[11px] font-medium" style={{ color: "var(--text)" }}>{ex.name}</div>
+                      <div className="truncate text-[10px]" style={muted}>
                         {(ex.equipment || []).join(", ")}
                         {ex.type ? ` · ${ex.type}` : ""}
                       </div>
@@ -304,7 +317,8 @@ export default function ExerciseLibraryModal({
                         onPick(ex);
                         // ✅ Modal bleibt offen (wie im Trainingsplan-Flow)
                       }}
-                      className="shrink-0 rounded-full bg-sky-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-600"
+                      className="shrink-0 rounded-full px-2 py-1 text-[10px] font-medium hover:opacity-95"
+                      style={{ background: "var(--primary)", color: "#061226" }}
                     >
                       Hinzufügen
                     </button>
@@ -314,11 +328,14 @@ export default function ExerciseLibraryModal({
             )}
           </div>
 
-          <div className="text-[10px] text-slate-500">
+          <div className="text-[10px]" style={muted}>
             Tipp: Du kannst direkt mehrere Übungen hinzufügen – Modal bleibt offen, bis du „Schließen“ drückst.
           </div>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modal;
+  return createPortal(modal, document.body);
 }

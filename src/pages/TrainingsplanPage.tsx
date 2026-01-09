@@ -384,7 +384,7 @@ const ClockPlusButton: React.FC<{ onClick: () => void; title?: string }> = ({ on
     type="button"
     onClick={onClick}
     title={title ?? "Startzeit hinzufügen"}
-    className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2.5 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
   >
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -585,13 +585,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-      <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/95 text-xs shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+      <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-xs shadow-xl">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-100">
+            <div className="text-sm font-semibold text-[var(--text)]">
               {headingPrefix}: {draft.label}
             </div>
-            <div className="text-[11px] text-slate-400">
+            <div className="text-[11px] text-[var(--muted)]">
               {isCardioLibrary ? "Lege Cardio-Einheiten und Intervalle an." : "Lege Kraftübungen und Sätze an."}
             </div>
           </div>
@@ -604,12 +604,12 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="Vorlagenname"
-                className="w-48 rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-[11px] text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
+                className="w-48 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[11px] text-[var(--text)] outline-none focus:ring-1 focus:ring-sky-500/60"
               />
               <button
                 type="button"
                 onClick={handleSaveWorkoutTemplate}
-                className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
                 title="Speichert dieses Training als Vorlage (reines Training)."
               >
                 Vorlage speichern
@@ -619,7 +619,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-200 hover:bg-slate-800"
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
             >
               Abbrechen
             </button>
@@ -634,14 +634,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 md:flex-row">
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3 md:w-[40%]">
+          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:w-[40%]">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-slate-100">{isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}</span>
+              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}</span>
 
               <button
                 type="button"
                 onClick={handleAddCustomExercise}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
               >
                 + {isCardioLibrary ? "Eigene Einheit" : "Eigene Übung"}
               </button>
@@ -652,7 +652,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               placeholder={isCardioLibrary ? "Suche (z.B. Lauf, Rad...)" : "Suche (z.B. Bankdrücken)"}
               value={filters.search}
               onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/60"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs text-[var(--text)] outline-none focus:ring-1 focus:ring-sky-500/60"
             />
 
             {!isCardioLibrary && (
@@ -660,7 +660,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 <select
                   value={filters.muscle}
                   onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as any }))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                 >
                   <option value="alle">Muskelgruppe: alle</option>
                   {MUSCLE_GROUPS.map((m) => (
@@ -673,7 +673,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 <select
                   value={filters.equipment}
                   onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as any }))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                 >
                   <option value="alle">Equipment: alle</option>
                   {EQUIPMENTS.map((eq) => (
@@ -686,7 +686,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 <select
                   value={filters.difficulty}
                   onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                 >
                   <option value="alle">Level: alle</option>
                   {DIFFICULTIES.map((d) => (
@@ -699,7 +699,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 <select
                   value={filters.type}
                   onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                 >
                   <option value="alle">Typ: alle</option>
                   {EXERCISE_TYPES.map((t) => (
@@ -711,16 +711,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               </div>
             )}
 
-            <div className="mt-1 flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80">
+            <div className="mt-1 flex-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]">
               {filteredExercises.length === 0 ? (
-                <div className="p-3 text-[11px] text-slate-500">Keine Einträge gefunden.</div>
+                <div className="p-3 text-[11px] text-[var(--muted)]">Keine Einträge gefunden.</div>
               ) : (
                 <ul className="divide-y divide-slate-800">
                   {filteredExercises.map((ex) => (
-                    <li key={ex.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-slate-900/80">
+                    <li key={ex.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--surface2)]">
                       <div className="min-w-0">
-                        <div className="truncate text-[11px] font-medium text-slate-100">{ex.name}</div>
-                        <div className="truncate text-[10px] text-slate-500">
+                        <div className="truncate text-[11px] font-medium text-[var(--text)]">{ex.name}</div>
+                        <div className="truncate text-[10px] text-[var(--muted)]">
                           {(ex.equipment || []).join(", ")}
                           {ex.type ? ` · ${ex.type}` : ""}
                         </div>
@@ -739,16 +739,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3 md:w-[60%]">
+          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:w-[60%]">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-slate-100">{isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}</span>
+              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}</span>
 
               {/* ✅ Vorlagen (reine Trainings) laden */}
               <div className="flex items-center gap-2">
                 <select
                   value={selectedWorkoutTemplateId}
                   onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
-                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-100 outline-none"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                   title="Reines Training als Vorlage laden"
                 >
                   <option value="">{compatibleWorkoutTemplates.length ? "Vorlage laden…" : "Keine Trainingsvorlagen"}</option>
@@ -759,7 +759,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   ))}
                 </select>
 
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[10px] text-[var(--muted)]">
                   {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
                   {draft.exercises.length === 1 ? "" : "en"}
                 </span>
@@ -767,7 +767,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             </div>
 
             {draft.exercises.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-950/60 p-4 text-[11px] text-slate-500">
+              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-[11px] text-[var(--muted)]">
                 Noch nichts angelegt.
               </div>
             ) : (
@@ -779,7 +779,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                         type="text"
                         value={ex.name}
                         onChange={(e) => handleUpdateExerciseName(ex.id, e.target.value)}
-                        className="w-full rounded-lg border border-sky-900/70 bg-sky-900/25 px-2 py-1.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-sky-500/70"
+                        className="w-full rounded-lg border border-sky-900/70 bg-sky-900/25 px-2 py-1.5 text-xs text-[var(--text)] outline-none focus:ring-1 focus:ring-sky-500/70"
                       />
                       <button
                         type="button"
@@ -791,12 +791,12 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                     </div>
 
                     <div className="space-y-1 rounded-lg border border-sky-900/60 bg-sky-900/25 p-2">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-slate-100/80">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-[var(--text)]">
                         <span>{isCardioLibrary ? "Intervalle / Abschnitte" : "Sätze"}</span>
                         <button
                           type="button"
                           onClick={() => handleAddSet(ex.id)}
-                          className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-100 hover:bg-slate-800"
+                          className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--text)] hover:opacity-95"
                         >
                           + {isCardioLibrary ? "Intervall" : "Satz"}
                         </button>
@@ -805,7 +805,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                       <div className="space-y-1">
                         {ex.sets.map((set, index) => (
                           <div key={set.id} className="grid grid-cols-[auto,1fr,1fr,1.5fr,auto] items-center gap-2 text-[10px]">
-                            <span className="text-slate-100/80">
+                            <span className="text-[var(--text)]">
                               {isCardioLibrary ? "Abschnitt" : "Satz"} {index + 1}
                             </span>
 
@@ -815,7 +815,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               placeholder={repsPlaceholder}
                               value={set.reps ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
-                              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-100 outline-none"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
                             />
 
                             <input
@@ -824,7 +824,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               placeholder={weightPlaceholder}
                               value={set.weight ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
-                              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-100 outline-none"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
                             />
 
                             <input
@@ -832,13 +832,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               placeholder={notesPlaceholder}
                               value={set.notes ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "notes", e.target.value)}
-                              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-100 outline-none"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
                             />
 
                             <button
                               type="button"
                               onClick={() => handleRemoveSet(ex.id, set.id)}
-                              className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                              className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--muted)] hover:opacity-95"
                             >
                               ✕
                             </button>
@@ -858,12 +858,12 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="Vorlagenname"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-100 outline-none"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] text-[var(--text)] outline-none"
               />
               <button
                 type="button"
                 onClick={handleSaveWorkoutTemplate}
-                className="shrink-0 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
               >
                 Speichern
               </button>
@@ -894,22 +894,22 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-100">{state.title}</div>
-            <div className="mt-0.5 text-[11px] text-slate-400">
+            <div className="text-sm font-semibold text-[var(--text)]">{state.title}</div>
+            <div className="mt-0.5 text-[11px] text-[var(--muted)]">
               {state.subtitle} · ca. {estMin} min
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800">
+          <button onClick={onClose} className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-xs text-[var(--text)] hover:opacity-95">
             ✕
           </button>
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
           {state.exercises.length === 0 ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">Keine Übungen/Einheiten hinterlegt.</div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] p-4 text-sm text-[var(--muted)]">Keine Übungen/Einheiten hinterlegt.</div>
           ) : (
             <div className="space-y-3">
               {state.exercises.map((ex) => {
@@ -918,13 +918,13 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                 const last = normalizeLastSummary(lastRaw);
 
                 return (
-                  <div key={ex.id} className="rounded-xl border border-slate-800 bg-slate-900/30 p-3">
+                  <div key={ex.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-100">{ex.name}</div>
+                        <div className="truncate text-sm font-semibold text-[var(--text)]">{ex.name}</div>
 
                         {last && (last.weight !== undefined || last.reps !== undefined) && (
-                          <div className="mt-0.5 text-[11px] text-slate-400">
+                          <div className="mt-0.5 text-[11px] text-[var(--muted)]">
                             {state.isCardio ? (
                               <>
                                 Letztes Mal:
@@ -944,22 +944,22 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                         )}
                       </div>
 
-                      <div className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-slate-300">
+                      <div className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[11px] text-[var(--muted)]">
                         {ex.sets.length} {state.isCardio ? "Abschn." : "Sätze"}
                       </div>
                     </div>
 
                     <div className="mt-2 space-y-1">
                       {ex.sets.map((s, idx) => (
-                        <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-2 py-1 text-[11px]">
-                          <div className="text-slate-400">{idx + 1}</div>
-                          <div className="text-slate-200">
-                            {state.isCardio ? "Dauer" : "Wdh"}: <span className="text-slate-100">{s.reps ?? "—"}</span>
+                        <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px]">
+                          <div className="text-[var(--muted)]">{idx + 1}</div>
+                          <div className="text-[var(--text)]">
+                            {state.isCardio ? "Dauer" : "Wdh"}: <span className="text-[var(--text)]">{s.reps ?? "—"}</span>
                           </div>
-                          <div className="text-slate-200">
-                            {state.isCardio ? "Dist." : "kg"}: <span className="text-slate-100">{s.weight ?? "—"}</span>
+                          <div className="text-[var(--text)]">
+                            {state.isCardio ? "Dist." : "kg"}: <span className="text-[var(--text)]">{s.weight ?? "—"}</span>
                           </div>
-                          <div className="truncate text-slate-400">{s.notes || ""}</div>
+                          <div className="truncate text-[var(--muted)]">{s.notes || ""}</div>
                         </div>
                       ))}
                     </div>
@@ -970,8 +970,8 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-slate-800 px-4 py-3">
-          <button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3">
+          <button onClick={onClose} className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-sm text-[var(--text)] hover:opacity-95">
             Schließen
           </button>
 
@@ -1481,26 +1481,26 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     <div className="h-full w-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-4">
         {/* Tabs */}
-        <div className="flex gap-2 rounded-xl bg-slate-900/60 p-1 text-sm">
+        <div className="flex gap-2 rounded-xl bg-[var(--surface2)] p-1 text-sm">
           <button
             onClick={() => setActiveTab("weekly")}
-            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"}`}
+            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-sky-500 text-white shadow" : "text-[var(--muted)] hover:opacity-95"}`}
           >
             Wochenplan
           </button>
           <button
             onClick={() => setActiveTab("routine")}
-            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "routine" ? "bg-sky-500 text-white shadow" : "text-slate-300 hover:bg-slate-800"}`}
+            className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${activeTab === "routine" ? "bg-sky-500 text-white shadow" : "text-[var(--muted)] hover:opacity-95"}`}
           >
             Split/Routine
           </button>
         </div>
 
         {/* ✅ Startdatum + Dauer nebeneinander, Vorlagen darunter */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
-              <span className="text-[11px] text-slate-400">Startdatum</span>
+            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+              <span className="text-[11px] text-[var(--muted)]">Startdatum</span>
               <input
                 type="date"
                 value={planStartISO}
@@ -1509,12 +1509,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   setRoutineSaved(false);
                   setPlanStartISO(e.target.value);
                 }}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 outline-none"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text)] outline-none"
               />
             </div>
 
-            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
-              <span className="text-[11px] text-slate-400">Dauer</span>
+            <div className="inline-flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+              <span className="text-[11px] text-[var(--muted)]">Dauer</span>
               <div className="inline-flex items-center gap-2">
                 <input
                   type="number"
@@ -1531,17 +1531,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       setRoutineDurationWeeks(v);
                     }
                   }}
-                  className="w-14 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100 outline-none"
+                  className="w-14 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text)] outline-none"
                 />
-                <span className="text-[11px] text-slate-400">Wochen</span>
+                <span className="text-[11px] text-[var(--muted)]">Wochen</span>
               </div>
             </div>
           </div>
 
           {!effectiveIsPro && (
-            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[11px] text-slate-400">
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] text-[var(--muted)]">
               Free: Kalender &gt; 7 Tage voraus:{" "}
-              <span className="text-slate-200 font-semibold">
+              <span className="text-[var(--text)] font-semibold">
                 {Number.isFinite(calendar7DaysRemaining as number) ? (calendar7DaysRemaining as number) : FREE_LIMITS.calendar7DaysPerMonth}
               </span>{" "}
               übrig (Limit {FREE_LIMITS.calendar7DaysPerMonth}/Monat). Pro: unbegrenzt.
@@ -1552,7 +1552,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             <button
               type="button"
               onClick={() => setWorkoutTemplatesOpen(true)}
-              className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-800"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
             >
               Vorlagen: Trainings
             </button>
@@ -1563,7 +1563,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 if (activeTab === "weekly") setWeeklyTemplatesOpen(true);
                 else setRoutineTemplatesOpen(true);
               }}
-              className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-800"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
             >
               Vorlagen: Trainingspläne
             </button>
@@ -1572,12 +1572,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
         {/* Weekly */}
         {activeTab === "weekly" && (
-          <section className="space-y-4 rounded-2xl bg-slate-900/60 p-4 shadow sm:p-6">
+          <section className="space-y-4 rounded-2xl bg-[var(--surface2)] p-4 shadow sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Wochenplan</h2>
-                <div className="mt-0.5 text-[11px] text-slate-400">
-                  Start: <span className="text-slate-200">{planStartISO}</span>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Wochenplan</h2>
+                <div className="mt-0.5 text-[11px] text-[var(--muted)]">
+                  Start: <span className="text-[var(--text)]">{planStartISO}</span>
                 </div>
               </div>
 
@@ -1590,18 +1590,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const isRest = isRestSport(day.sport);
 
                 return (
-                  <div key={day.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div key={day.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
                     {/* Kopfzeile */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-slate-100">Tag {day.id}</div>
+                        <div className="text-sm font-medium text-[var(--text)]">Tag {day.id}</div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={day.sport}
                           onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
-                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-slate-700 bg-slate-900/80 text-slate-200" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
+                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-[var(--border)] bg-[var(--surface2)] text-[var(--text)]" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
                         >
                           <option value="Gym">Gym</option>
                           <option value="Laufen">Laufen</option>
@@ -1614,18 +1614,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         {!isRest && (
                           <>
                             {day.startTime?.trim() ? (
-                              <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
+                              <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface2)] px-3 py-1">
                                 <input
                                   type="time"
                                   value={day.startTime ?? ""}
                                   onChange={(e) => handleWeeklyDayChange(day.id, "startTime", e.target.value)}
-                                  className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
+                                  className="w-[92px] bg-transparent text-[11px] text-[var(--text)] outline-none"
                                   title="Optional"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
-                                  className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                                  className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--muted)] hover:opacity-95"
                                   title="Startzeit entfernen"
                                 >
                                   ✕
@@ -1651,7 +1651,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           <button
                             type="button"
                             onClick={() => openWeeklyPreviewAndStart(day)}
-                            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
+                            className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] font-medium text-[var(--text)] hover:opacity-95"
                           >
                             Vorschau / Start
                           </button>
@@ -1661,13 +1661,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
                     {/* Trainingsbezeichnung */}
                     <div className="mt-2">
-                      <label className="block text-[11px] font-medium text-slate-400">Trainingsbezeichnung</label>
+                      <label className="block text-[11px] font-medium text-[var(--muted)]">Trainingsbezeichnung</label>
                       <input
                         type="text"
                         value={isRest ? "Ruhetag" : day.focus}
                         disabled={isRest}
                         onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
-                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-slate-800 bg-slate-950/60 text-slate-500" : "border-slate-800 bg-slate-950 text-slate-100"}`}
+                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"}`}
                       />
                     </div>
                   </div>
@@ -1679,7 +1679,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => setWeeklyPreviewOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800"
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:opacity-95"
               >
                 Vorschau
               </button>
@@ -1699,12 +1699,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
         {/* Routine */}
         {activeTab === "routine" && (
-          <section className="space-y-4 rounded-2xl bg-slate-900/60 p-4 shadow sm:p-6">
+          <section className="space-y-4 rounded-2xl bg-[var(--surface2)] p-4 shadow sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Split/Routine</h2>
-                <div className="mt-0.5 text-[11px] text-slate-400">
-                  Start: <span className="text-slate-200">{planStartISO}</span>
+                <h2 className="text-lg font-semibold text-[var(--text)]">Split/Routine</h2>
+                <div className="mt-0.5 text-[11px] text-[var(--muted)]">
+                  Start: <span className="text-[var(--text)]">{planStartISO}</span>
                 </div>
               </div>
 
@@ -1717,17 +1717,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const isRest = block.type === "Rest" || isRestSport(block.sport);
 
                 return (
-                  <div key={block.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div key={block.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-slate-100">Tag {index + 1}</div>
+                        <div className="text-sm font-medium text-[var(--text)]">Tag {index + 1}</div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={block.sport}
                           onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
-                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-slate-700 bg-slate-900/80 text-slate-200" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
+                          className={`rounded-full border px-2.5 py-1 text-xs outline-none ${isRest ? "border-[var(--border)] bg-[var(--surface2)] text-[var(--text)]" : "border-sky-700 bg-sky-950/60 text-sky-100"}`}
                         >
                           <option value="Gym">Gym</option>
                           <option value="Laufen">Laufen</option>
@@ -1740,18 +1740,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         {!isRest && (
                           <>
                             {block.startTime?.trim() ? (
-                              <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1">
+                              <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface2)] px-3 py-1">
                                 <input
                                   type="time"
                                   value={block.startTime ?? ""}
                                   onChange={(e) => handleRoutineBlockChange(block.id, "startTime", e.target.value)}
-                                  className="w-[92px] bg-transparent text-[11px] text-slate-100 outline-none"
+                                  className="w-[92px] bg-transparent text-[11px] text-[var(--text)] outline-none"
                                   title="Optional"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
-                                  className="rounded-full border border-slate-600 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                                  className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--muted)] hover:opacity-95"
                                   title="Startzeit entfernen"
                                 >
                                   ✕
@@ -1777,7 +1777,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           <button
                             type="button"
                             onClick={() => openRoutinePreviewAndStart(block, index)}
-                            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:bg-slate-800"
+                            className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] font-medium text-[var(--text)] hover:opacity-95"
                           >
                             Vorschau / Start
                           </button>
@@ -1786,13 +1786,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div className="mt-2">
-                      <label className="block text-[11px] font-medium text-slate-400">Trainingsbezeichnung</label>
+                      <label className="block text-[11px] font-medium text-[var(--muted)]">Trainingsbezeichnung</label>
                       <input
                         type="text"
                         value={isRest ? "Ruhetag" : block.label}
                         disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
-                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-slate-800 bg-slate-950/60 text-slate-500" : "border-slate-800 bg-slate-950 text-slate-100"}`}
+                        className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)]"}`}
                       />
                     </div>
 
@@ -1815,7 +1815,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             <button
               type="button"
               onClick={handleAddRoutineBlock}
-              className="mt-1 inline-flex w-full items-center justify-center rounded-xl border border-dashed border-slate-600 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-900"
+              className="mt-1 inline-flex w-full items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text)] hover:bg-[var(--surface2)]"
             >
               + Tag hinzufügen (Routine-Zyklus erweitern)
             </button>
@@ -1824,7 +1824,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => setRoutinePreviewOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800"
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:opacity-95"
               >
                 Vorschau
               </button>
@@ -1883,10 +1883,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Weekly Vorschau Modal */}
       {weeklyPreviewOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorschau – Woche</h3>
-              <button type="button" onClick={() => setWeeklyPreviewOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Vorschau – Woche</h3>
+              <button type="button" onClick={() => setWeeklyPreviewOpen(false)} className="text-[11px] text-[var(--muted)] hover:text-[var(--text)]">
                 ✕
               </button>
             </div>
@@ -1897,21 +1897,28 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const isRest = isRestSport(day.sport);
 
                 return (
-                  <div key={day.id} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                  <div key={day.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-semibold text-slate-100">Tag {day.id}</span>
+                      <span className="text-[11px] font-semibold text-[var(--text)]">Tag {day.id}</span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isRest ? "bg-slate-700/40 text-slate-200 ring-1 ring-slate-500/40" : "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40"
-                        }`}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={
+                          isRest
+                            ? { background: "var(--surface2)", color: "var(--text)", boxShadow: "0 0 0 1px var(--border)" }
+                            : {
+                                background: "rgba(16,185,129,0.12)",
+                                color: "rgba(16,185,129,0.85)",
+                                boxShadow: "0 0 0 1px rgba(16,185,129,0.4)",
+                              }
+                        }
                       >
                         {isRest ? "Ruhetag" : day.sport}
                       </span>
                     </div>
 
-                    <div className="mt-0.5 text-[11px] text-slate-200">{isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}</div>
+                    <div className="mt-0.5 text-[11px] text-[var(--text)]">{isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}</div>
 
-                    {!isRest && day.startTime && <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {day.startTime}</div>}
+                    {!isRest && day.startTime && <div className="mt-0.5 text-[10px] text-[var(--muted)]">Startzeit: {day.startTime}</div>}
                   </div>
                 );
               })}
@@ -1923,10 +1930,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Routine Vorschau Modal */}
       {routinePreviewOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorschau – Routine (1 Woche)</h3>
-              <button type="button" onClick={() => setRoutinePreviewOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Vorschau – Routine (1 Woche)</h3>
+              <button type="button" onClick={() => setRoutinePreviewOpen(false)} className="text-[11px] text-[var(--muted)] hover:text-[var(--text)]">
                 ✕
               </button>
             </div>
@@ -1937,14 +1944,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const isRest = block.type === "Rest" || isRestSport(block.sport);
 
                 return (
-                  <div key={index} className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                  <div key={index} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-slate-100">{item.label}</span>
-                      <span className="text-[10px] text-slate-400">{isRest ? "Ruhetag" : block.sport}</span>
+                      <span className="font-semibold text-[var(--text)]">{item.label}</span>
+                      <span className="text-[10px] text-[var(--muted)]">{isRest ? "Ruhetag" : block.sport}</span>
                     </div>
-                    <div className="mt-0.5 text-[11px] font-medium text-slate-100">{isRest ? "Ruhetag" : block.label}</div>
+                    <div className="mt-0.5 text-[11px] font-medium text-[var(--text)]">{isRest ? "Ruhetag" : block.label}</div>
 
-                    {!isRest && block.startTime && <div className="mt-0.5 text-[10px] text-slate-400">Startzeit: {block.startTime}</div>}
+                    {!isRest && block.startTime && <div className="mt-0.5 text-[10px] text-[var(--muted)]">Startzeit: {block.startTime}</div>}
                   </div>
                 );
               })}
@@ -1956,16 +1963,16 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* ✅ Reine Trainings Vorlagen Modal (Management) */}
       {workoutTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Trainings</h3>
-              <button type="button" onClick={() => setWorkoutTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Trainings</h3>
+              <button type="button" onClick={() => setWorkoutTemplatesOpen(false)} className="text-[11px] text-[var(--muted)] hover:text-[var(--text)]">
                 ✕
               </button>
             </div>
 
             {workoutTemplates.length === 0 ? (
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--muted)]">
                 Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen“ und klicke oben im Editor auf „Vorlage speichern“.
               </p>
             ) : (
@@ -1974,10 +1981,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   .slice()
                   .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""))
                   .map((tpl) => (
-                    <div key={tpl.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
-                      <div className="min-w-0 text-[11px] text-slate-100">
+                    <div key={tpl.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                      <div className="min-w-0 text-[11px] text-[var(--text)]">
                         <div className="truncate font-medium">{tpl.name}</div>
-                        <div className="truncate text-[10px] text-slate-400">
+                        <div className="truncate text-[10px] text-[var(--muted)]">
                           {tpl.isCardio ? "Cardio" : "Gym"} · {tpl.sport} · {tpl.exercises?.length ?? 0} {tpl.isCardio ? "Einheit(en)" : "Übung(en)"}
                         </div>
                       </div>
@@ -2006,23 +2013,23 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Trainingspläne Vorlagen Modal (Weekly) */}
       {weeklyTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Wochenpläne</h3>
-              <button type="button" onClick={() => setWeeklyTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Wochenpläne</h3>
+              <button type="button" onClick={() => setWeeklyTemplatesOpen(false)} className="text-[11px] text-[var(--muted)] hover:text-[var(--text)]">
                 ✕
               </button>
             </div>
 
             {weeklyTemplates.length === 0 ? (
-              <p className="text-[11px] text-slate-400">Noch keine Vorlagen gespeichert.</p>
+              <p className="text-[11px] text-[var(--muted)]">Noch keine Vorlagen gespeichert.</p>
             ) : (
               <div className="space-y-2 overflow-y-auto pr-1">
                 {weeklyTemplates.map((tpl) => (
-                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
-                    <div className="text-[11px] text-slate-100">
+                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                    <div className="text-[11px] text-[var(--text)]">
                       <div className="font-medium">{tpl.name}</div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-[var(--muted)]">
                         {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.days.length} Tage
                       </div>
                     </div>
@@ -2041,23 +2048,23 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Trainingspläne Vorlagen Modal (Routine) */}
       {routineTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Vorlagen – Split/Routine</h3>
-              <button type="button" onClick={() => setRoutineTemplatesOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-100">
+              <h3 className="text-sm font-semibold text-[var(--text)]">Vorlagen – Split/Routine</h3>
+              <button type="button" onClick={() => setRoutineTemplatesOpen(false)} className="text-[11px] text-[var(--muted)] hover:text-[var(--text)]">
                 ✕
               </button>
             </div>
 
             {routineTemplates.length === 0 ? (
-              <p className="text-[11px] text-slate-400">Noch keine Vorlagen gespeichert.</p>
+              <p className="text-[11px] text-[var(--muted)]">Noch keine Vorlagen gespeichert.</p>
             ) : (
               <div className="space-y-2 overflow-y-auto pr-1">
                 {routineTemplates.map((tpl) => (
-                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2">
-                    <div className="text-[11px] text-slate-100">
+                  <div key={tpl.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                    <div className="text-[11px] text-[var(--text)]">
                       <div className="font-medium">{tpl.name}</div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-[var(--muted)]">
                         {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im Zyklus
                       </div>
                     </div>
@@ -2076,17 +2083,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Save Dialogs (Plan) */}
       {weeklySaveDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
-            <h3 className="text-sm font-semibold text-slate-100">Plan in Kalender übernehmen</h3>
-            <p className="mt-1 text-[11px] text-slate-400">Als Vorlage speichern (optional)?</p>
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
+            <h3 className="text-sm font-semibold text-[var(--text)]">Plan in Kalender übernehmen</h3>
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Als Vorlage speichern (optional)?</p>
 
             <div className="mt-3 space-y-2">
-              <label className="block text-[11px] text-slate-300">Name der Vorlage (optional)</label>
+              <label className="block text-[11px] text-[var(--muted)]">Name der Vorlage (optional)</label>
               <input
                 type="text"
                 value={weeklyTemplateName}
                 onChange={(e) => setWeeklyTemplateName(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs text-[var(--text)] outline-none"
               />
             </div>
 
@@ -2094,7 +2101,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => saveWeeklyTemplateAndCalendar(false)}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
               >
                 Nur Kalender
               </button>
@@ -2112,17 +2119,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {routineSaveDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs">
-            <h3 className="text-sm font-semibold text-slate-100">Routine in Kalender übernehmen</h3>
-            <p className="mt-1 text-[11px] text-slate-400">Als Vorlage speichern (optional)?</p>
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs">
+            <h3 className="text-sm font-semibold text-[var(--text)]">Routine in Kalender übernehmen</h3>
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Als Vorlage speichern (optional)?</p>
 
             <div className="mt-3 space-y-2">
-              <label className="block text-[11px] text-slate-300">Name der Vorlage (optional)</label>
+              <label className="block text-[11px] text-[var(--muted)]">Name der Vorlage (optional)</label>
               <input
                 type="text"
                 value={routineTemplateName}
                 onChange={(e) => setRoutineTemplateName(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs text-[var(--text)] outline-none"
               />
             </div>
 
@@ -2130,7 +2137,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => saveRoutineTemplateAndCalendar(false)}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
               >
                 Nur Kalender
               </button>

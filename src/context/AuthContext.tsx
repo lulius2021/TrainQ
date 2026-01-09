@@ -1,11 +1,7 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import {
-  SignInWithApple,
-  type SignInWithAppleOptions,
-  type SignInWithAppleResponse,
-} from "@capacitor-community/apple-sign-in";
+import { SocialLogin } from "@capgo/capacitor-social-login";
 
 export type AuthProvider = "email" | "apple";
 
@@ -16,7 +12,7 @@ export type AuthUser = {
   displayName?: string;
   isPro?: boolean;
 
-  // Apple stable identifier for this app (response.user)
+  // Apple stable identifier for this app (profile.user)
   appleSub?: string;
 
   createdAt: string; // ISO
@@ -180,13 +176,6 @@ function isNativeIOS(): boolean {
   }
 }
 
-function env(key: string): string {
-  // Vite env
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const v = (import.meta as any)?.env?.[key];
-  return String(v ?? "").trim();
-}
-
 function randomState(prefix = "st") {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -215,11 +204,18 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     writeSessionUserId(u.id);
   }, []);
 
-  // Init: Seed + Session restore
+  // Init: Seed + Session restore (+ SocialLogin init)
   useEffect(() => {
     mountedRef.current = true;
 
     seedDefaultTestAccountsIfMissing();
+
+    // SocialLogin init (native iOS)
+    if (isNativeIOS()) {
+      SocialLogin.initialize({ apple: {} }).catch(() => {
+        // MVP: ignore
+      });
+    }
 
     const sessionUserId = readSessionUserId();
     if (sessionUserId) {
@@ -307,33 +303,27 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const loginWithApple = useCallback(async (): Promise<AuthResult> => {
     if (typeof window === "undefined") return { ok: false, error: "Apple Login ist hier nicht verfügbar." };
 
-    // ✅ Real Apple flow (native iOS)
+    // ✅ Real Apple flow (native iOS) via Capgo SocialLogin
     if (isNativeIOS()) {
       try {
-        const clientId = env("VITE_APPLE_CLIENT_ID");
-        const redirectURI = env("VITE_APPLE_REDIRECT_URI");
+        const nonce = randomState("nonce");
 
-        if (!clientId) return { ok: false, error: "Apple Login: VITE_APPLE_CLIENT_ID fehlt." };
-        if (!redirectURI) return { ok: false, error: "Apple Login: VITE_APPLE_REDIRECT_URI fehlt." };
+        const result = await SocialLogin.login({
+          provider: "apple",
+          options: {
+            scopes: ["email", "name"],
+            nonce,
+          },
+        });
 
-        const options: SignInWithAppleOptions = {
-          clientId,
-          redirectURI,
-          // ✅ FIX: diese Plugin-Version erwartet einen String (nicht string[])
-          scopes: "email name",
-          state: randomState("state"),
-          nonce: randomState("nonce"),
-        };
-
-        const result: SignInWithAppleResponse = await SignInWithApple.authorize(options);
-
-        const r = result?.response;
-        const appleSub = r?.user;
+        const profile = (result as any)?.result?.profile;
+        const appleSub = profile?.user;
         if (!appleSub) return { ok: false, error: "Apple Login: Keine User-ID erhalten." };
 
-        const email = r?.email ?? undefined; // häufig nur beim ersten Mal
-        const givenName = r?.givenName ?? undefined;
-        const familyName = r?.familyName ?? undefined;
+        const email = profile?.email ?? undefined; // häufig nur beim ersten Mal
+        const givenName = profile?.givenName ?? undefined;
+        const familyName = profile?.familyName ?? undefined;
+
         const displayName = buildDisplayNameFromApple(email, givenName, familyName);
 
         // optionaler Cache

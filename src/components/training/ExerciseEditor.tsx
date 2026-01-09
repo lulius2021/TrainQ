@@ -1,7 +1,7 @@
 // src/components/training/ExerciseEditor.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { ExerciseHistoryEntry, LiveExercise, LiveSet } from "../../types/training";
+import type { ExerciseHistoryEntry, LiveExercise, LiveSet, SetType } from "../../types/training";
 
 type Props = {
   exercise: LiveExercise;
@@ -26,6 +26,9 @@ type Props = {
   onWeightFocus?: (setId: string, currentWeight?: unknown) => void;
   /** ✅ NEW: optionaler Blur-Hook */
   onWeightBlur?: () => void;
+  /** ✅ NEW: Workout-Reihenfolge hoch/runter */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 };
 
 // ---------------- helpers ----------------
@@ -139,7 +142,10 @@ function ClockPlusIcon({ className = "h-4 w-4" }: { className?: string }) {
       </svg>
 
       {/* Plus badge */}
-      <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-black/50">
+      <span
+        className="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full border"
+        style={{ background: "var(--surface2)", borderColor: "var(--border)" }}
+      >
         <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
@@ -168,6 +174,8 @@ export default function ExerciseEditor({
   onToggleSet,
   onWeightFocus,
   onWeightBlur,
+  onMoveUp,
+  onMoveDown,
 }: Props) {
   // Autofocus für neue Übung
   const nameRef = useRef<HTMLInputElement | null>(null);
@@ -187,6 +195,10 @@ export default function ExerciseEditor({
 
   const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
 
+  // ✅ Einheiten-Validierung:
+  // - Gym/Custom: reps = Wiederholungen, weight = kg
+  // - Laufen/Radfahren (Cardio): reps = Minuten, weight = km
+  // Diese Logik ist konsistent mit trainingHistory.ts (computeCardioFromSets)
   const repsUnit = isCardio ? "min" : "Wdh";
   const weightUnit = isCardio ? "km" : "kg";
   const restLabel = isCardio ? "Pause (optional)" : "Pause";
@@ -203,32 +215,67 @@ export default function ExerciseEditor({
   }, [hasRest]);
 
   const restOptions = useMemo(() => buildRestOptions(5), []);
+  const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
+  const surfaceSoft: React.CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
+  const muted: React.CSSProperties = { color: "var(--muted)" };
 
   return (
-    <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-3">
+    <div className="space-y-3 rounded-xl p-3" style={surfaceSoft}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          {onMoveUp && (
+            <button
+              type="button"
+              onClick={onMoveUp}
+              className="h-7 w-7 flex items-center justify-center rounded-lg border hover:opacity-95"
+              style={{ ...surfaceSoft, color: "var(--text)" }}
+              title="Nach oben"
+            >
+              ↑
+            </button>
+          )}
+          {onMoveDown && (
+            <button
+              type="button"
+              onClick={onMoveDown}
+              className="h-7 w-7 flex items-center justify-center rounded-lg border hover:opacity-95"
+              style={{ ...surfaceSoft, color: "var(--text)" }}
+              title="Nach unten"
+            >
+              ↓
+            </button>
+          )}
+        </div>
         <input
           ref={nameRef}
           value={String(exercise.name ?? "")}
           onChange={(e) => onChange({ name: e.target.value })}
-          className="w-full bg-transparent text-sm font-semibold outline-none"
+          className="flex-1 bg-transparent text-sm font-semibold outline-none"
+          style={{ color: "var(--text)" }}
           placeholder="Übung"
         />
-        <button type="button" onClick={onRemove} className="text-sm text-white/70 hover:text-white">
-          Löschen
+        <button
+          type="button"
+          onClick={onRemove}
+          className="h-7 w-7 flex items-center justify-center rounded-lg border hover:bg-red-500/20 hover:text-red-400"
+          style={{ ...surfaceSoft, color: "rgba(239,68,68,0.8)" }}
+          title="Übung löschen"
+        >
+          🗑️
         </button>
       </div>
 
       {/* Pause (Uhr+ -> erst dann Picker sichtbar, iOS: select = Wheel) */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-white/60">{restLabel}</span>
+        <span style={muted}>{restLabel}</span>
 
         {!showRestPicker ? (
           <button
             type="button"
             onClick={() => setShowRestPicker(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/5"
+            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold hover:opacity-95"
+            style={{ ...surfaceSoft, color: "var(--text)" }}
             title="Pause hinzufügen (optional)"
           >
             <ClockPlusIcon className="h-4 w-4" />
@@ -247,7 +294,8 @@ export default function ExerciseEditor({
                 const n = parseOptionalNumber(raw);
                 onChange({ restSeconds: n });
               }}
-              className="rounded bg-black/40 px-2 py-1 text-right"
+              className="rounded px-2 py-1 text-right"
+              style={{ ...surfaceSoft, color: "var(--text)" }}
               aria-label="Pausenzeit in Sekunden"
               title="Sekunden (optional)"
             >
@@ -265,7 +313,8 @@ export default function ExerciseEditor({
                 onChange({ restSeconds: undefined });
                 setShowRestPicker(false);
               }}
-              className="rounded bg-black/35 px-2 py-1 text-white/70 hover:text-white"
+              className="rounded px-2 py-1 hover:opacity-95"
+              style={{ ...surfaceSoft, color: "var(--text)" }}
               aria-label="Pause entfernen"
               title="Pause entfernen"
             >
@@ -277,22 +326,36 @@ export default function ExerciseEditor({
 
       {/* Sets */}
       <div className="space-y-2">
-        {exercise.sets.map((set, idx) => {
+        {sets.map((set, idx) => {
           const last = lastSets[idx] as any;
 
           return (
             <SwipeSetRow key={set.id} onDelete={() => onRemoveSet(set.id)}>
-              <div className="space-y-2 rounded-xl border border-white/10 bg-black/40 px-2 py-2 text-xs">
+              <div className="space-y-2 rounded-xl border px-2 py-2 text-xs" style={surfaceSoft}>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => onToggleSet(set.id)}
                     className={`h-5 w-5 rounded border ${
-                      set.completed ? "border-emerald-400 bg-emerald-500" : "border-white/30"
+                      set.completed ? "border-emerald-400 bg-emerald-500" : ""
                     }`}
+                    style={!set.completed ? { borderColor: "var(--border)" } : undefined}
                     aria-label={set.completed ? "Satz als offen markieren" : "Satz als erledigt markieren"}
                   />
-                  <span className="w-6 text-white/50">{idx + 1}</span>
+                  <span className="w-6" style={muted}>{idx + 1}</span>
+                  
+                  {/* ✅ Satztyp-Selector */}
+                  <select
+                    value={set.setType || "normal"}
+                    onChange={(e) => onSetChange(set.id, { setType: e.target.value as SetType })}
+                    className="h-6 rounded px-1.5 text-[10px] border"
+                    style={{ ...surfaceSoft, color: "var(--text)", minWidth: 50 }}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="warmup">W</option>
+                    <option value="failure">F</option>
+                    <option value="1D">1D</option>
+                  </select>
 
                   <div className="flex items-center gap-1">
                     <input
@@ -300,11 +363,12 @@ export default function ExerciseEditor({
                       value={typeof set.reps === "number" ? set.reps : ""}
                       placeholder={fmtPlaceholderNumber(last?.reps)}
                       onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
-                      className="w-16 rounded bg-black/50 px-2 py-1"
+                      className="w-16 rounded px-2 py-1"
+                      style={{ ...surfaceSoft, color: "var(--text)" }}
                       inputMode="numeric"
                       aria-label={isCardio ? "Minuten" : "Wiederholungen"}
                     />
-                    <span className="text-white/55">{repsUnit}</span>
+                    <span style={muted}>{repsUnit}</span>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -317,10 +381,11 @@ export default function ExerciseEditor({
                       onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
                       onFocus={() => onWeightFocus?.(set.id, (set as any).weight)}
                       onBlur={() => onWeightBlur?.()}
-                      className="w-16 rounded bg-black/50 px-2 py-1"
+                      className="w-16 rounded px-2 py-1"
+                      style={{ ...surfaceSoft, color: "var(--text)" }}
                       aria-label={isCardio ? "Kilometer" : "Gewicht in kg"}
                     />
-                    <span className="text-white/55">{weightUnit}</span>
+                    <span style={muted}>{weightUnit}</span>
                   </div>
                 </div>
 
@@ -330,7 +395,8 @@ export default function ExerciseEditor({
                   value={typeof (set as any).notes === "string" ? (set as any).notes : ""}
                   onChange={(e) => onSetChange(set.id, { ...(set as any), notes: e.target.value } as any)}
                   placeholder={notesPlaceholder}
-                  className="w-full rounded bg-black/50 px-2 py-1 text-[11px] text-white/80 outline-none"
+                  className="w-full rounded px-2 py-1 text-[11px] outline-none placeholder:text-[color:var(--muted)]"
+                  style={{ ...surfaceSoft, color: "var(--text)" }}
                   aria-label="Notizen"
                 />
               </div>

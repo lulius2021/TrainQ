@@ -1,9 +1,10 @@
 // src/pages/CalendarPage.tsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/training";
 
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
+import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 // ✅ Plan-Seed -> LiveTraining (Preview + Start)
 import {
@@ -16,11 +17,13 @@ import {
   makeSeedKey,
   deleteLiveSeedForKey,
 } from "../utils/liveTrainingSeed";
+import { shiftPlanEvents } from "../utils/planShift";
 
 interface CalendarPageProps {
   events: CalendarEvent[];
   onAddEvent: (input: NewCalendarEvent) => void;
   onDeleteEvent: (id: string) => void;
+  onUpdateEvents?: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
 
   /** optional (für Free-Limit 7 Tage) */
   isPro?: boolean;
@@ -204,10 +207,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   events,
   onAddEvent,
   onDeleteEvent,
+  onUpdateEvents,
   isPro = false,
   onOpenPaywall,
 }) => {
-  const { isPro: isProEntitlements, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
+  const { isPro: isProEntitlements, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining, canUseShift, consumeShift } = useEntitlements();
   const effectiveIsPro = isProEntitlements || isPro;
 
   // ---------- Theme-safe style helpers (wie Dashboard) ----------
@@ -285,6 +289,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false);
+  const [infoSheetEvent, setInfoSheetEvent] = useState<CalendarEvent | null>(null);
+  const swipeRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    startTime: number;
+    pointerId: number | null;
+    handled: boolean;
+  }>({ active: false, startX: 0, startY: 0, startTime: 0, pointerId: null, handled: false });
 
   const todayKey = dateKey(new Date());
   const selectedKey = dateKey(selectedDate);
@@ -298,12 +313,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     }
   }, [customCategories]);
 
+
   // -------------------- Navigation --------------------
 
   const goToday = () => {
     const today = startOfDay(new Date());
     setSelectedDate(today);
-
+    // ✅ Heute-Button: In Monatsansicht springt auf heutigen Tag und öffnet Tagesansicht
     if (viewMode !== "day") {
       setPreviousView(viewMode);
       setViewMode("day");
@@ -401,6 +417,10 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   };
 
   const openTrainingPreview = (event: CalendarEvent) => {
+    if (infoSheetOpen) {
+      setInfoSheetOpen(false);
+      setInfoSheetEvent(null);
+    }
     setPreviewEvent(event);
     setPreviewOpen(true);
   };
@@ -410,24 +430,59 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     setPreviewEvent(null);
   };
 
-  const previewSeed = useMemo(() => (previewEvent ? resolveSeedForEvent(previewEvent) : null), [previewEvent]);
-  const previewCounts = useMemo(() => countSeed(previewSeed), [previewSeed]);
+  const handlePreviewSave = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+    onUpdateEvents?.((prev) => prev.map((ev) => (ev.id === nextEvent.id ? { ...ev, ...nextEvent } : ev)));
+    writeLiveSeedForEventOrKey({ eventId: nextEvent.id, dateISO: nextEvent.date, title: nextEvent.title, seed });
+    setPreviewEvent(nextEvent);
+  };
 
-  const startPreviewedTraining = () => {
-    if (!previewEvent) return;
-
-    const seed = resolveSeedForEvent(previewEvent);
-
-    if (isGymTraining(previewEvent) && !seed) {
-      window.alert("Kein Trainings-Seed gefunden. Bitte Plan erneut in den Kalender übernehmen.");
-      return;
-    }
-
-    const toWrite = seed ?? fallbackSeedForNonGymEvent(previewEvent);
-
-    writeGlobalLiveSeed(toWrite);
+  const handlePreviewStart = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+    writeGlobalLiveSeed(seed);
     closeTrainingPreview();
-    navigateToLiveTraining(previewEvent.id);
+    navigateToLiveTraining(nextEvent.id);
+  };
+
+  const swipeDisabled = previewOpen || infoSheetOpen || isCreateOpen || isPlusMenuOpen;
+
+  const handleSwipePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (swipeDisabled) return;
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("input, textarea, select, button, a")) return;
+    swipeRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startTime: Date.now(),
+      pointerId: e.pointerId,
+      handled: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleSwipePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const state = swipeRef.current;
+    if (!state.active || state.handled) return;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+    if (Math.abs(dx) > Math.abs(dy) * 1.3 && Math.abs(dx) > 10) {
+      e.preventDefault();
+    }
+  };
+
+  const handleSwipePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const state = swipeRef.current;
+    if (!state.active || state.handled) return;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+    const dt = Date.now() - state.startTime;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3 && dt < 500) {
+      state.handled = true;
+      if (dx < 0) goNext();
+      else goPrev();
+    }
+    swipeRef.current = { active: false, startX: 0, startY: 0, startTime: 0, pointerId: null, handled: false };
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
 
   // -------------------- Event erstellen --------------------
@@ -485,13 +540,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       extra.trainingType = trainingType;
       extra.trainingStatus = "open";
 
-      // ✅ Seed parallel unter stable key speichern (inkl. Legacy-Key Migration)
-      const t = normalizeTitle(form.title);
-      writeLiveSeedForEventOrKey({
-        dateISO: form.date,
-        title: t,
-        seed: seedForCreatedTraining(t, trainingType),
-      });
+      // ✅ Seed wird NACH Event-Erstellung in App.tsx geschrieben (mit eventId)
+      // Hier NICHT schreiben, da eventId noch nicht existiert
     }
 
     onAddEvent({
@@ -540,12 +590,6 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     else setViewMode("month");
   };
 
-  const canStartPreview = useMemo(() => {
-    if (!previewEvent) return false;
-    if (!isTrainingEvent(previewEvent)) return false;
-    return isGymTraining(previewEvent) ? !!previewSeed : true;
-  }, [previewEvent, previewSeed]);
-
   const eventLabel = (ev: CalendarEvent): string | null => {
     if (isTrainingEvent(ev)) {
       const trainingType = getTrainingType(ev);
@@ -555,19 +599,69 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     return getCategoryLabel((ev as any).category);
   };
 
+  // -------------------- Plan Shift --------------------
+  const handlePlanShift = () => {
+    if (!onUpdateEvents) {
+      alert("Plan verschieben: Diese Funktion benötigt Event-Updates. Bitte nutze das Dashboard für Plan-Shift.");
+      return;
+    }
+
+    if (!effectiveIsPro) {
+      const allowed = canUseShift();
+      if (!allowed) {
+        onOpenPaywall?.("plan_shift");
+        return;
+      }
+    }
+
+    const today = dateKey(new Date());
+    const res = shiftPlanEvents({
+      events,
+      planId: null, // Alle Pläne
+      days: 1,
+      fromDateISO: today,
+    });
+
+    onUpdateEvents(res.nextEvents);
+    if (!effectiveIsPro) consumeShift();
+    setIsPlusMenuOpen(false);
+    alert("Plan um +1 Tag verschoben.");
+  };
+
+  // -------------------- Info Sheet --------------------
+  const openInfoSheet = (ev: CalendarEvent) => {
+    setInfoSheetEvent(ev);
+    setInfoSheetOpen(true);
+  };
+
+  const closeInfoSheet = () => {
+    setInfoSheetOpen(false);
+    setInfoSheetEvent(null);
+  };
+
+  const updateEventTime = (eventId: string, startTime: string, endTime?: string) => {
+    if (!onUpdateEvents) return;
+    onUpdateEvents((prev) =>
+      prev.map((ev) => {
+        if (ev.id !== eventId) return ev;
+        return { ...ev, startTime, endTime: endTime ?? ev.endTime };
+      })
+    );
+  };
+
   // -------------------- UI --------------------
 
   return (
     <>
       <div className="w-full">
-        <div className="mx-auto w-full max-w-5xl px-2 pt-4 pb-24 space-y-2">
+        <div className="mx-auto w-full max-w-5xl px-3 sm:px-4 pt-4 pb-24 space-y-4">
           {/* Header / Pager */}
           <div className="flex items-center">
             <div className="w-full inline-flex items-center rounded-full px-1" style={surfaceBox}>
               <button
                 type="button"
                 onClick={goPrev}
-                className="h-10 w-10 text-base flex items-center justify-center rounded-full hover:opacity-95"
+                className="h-11 w-11 text-lg flex items-center justify-center rounded-full hover:opacity-95"
                 aria-label="Zurück"
                 title="Zurück"
                 style={{ color: "var(--text)" }}
@@ -575,14 +669,14 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 ‹
               </button>
 
-              <span className="flex-1 text-center text-[12px] whitespace-nowrap" style={muted}>
+              <span className="flex-1 text-center text-sm whitespace-nowrap" style={muted}>
                 {viewMode === "month" ? monthLabel : viewMode === "week" ? weekLabel : dayLabelFull}
               </span>
 
               <button
                 type="button"
                 onClick={goNext}
-                className="h-10 w-10 text-base flex items-center justify-center rounded-full hover:opacity-95"
+                className="h-11 w-11 text-lg flex items-center justify-center rounded-full hover:opacity-95"
                 aria-label="Weiter"
                 title="Weiter"
                 style={{ color: "var(--text)" }}
@@ -594,11 +688,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
           {/* View switch + Today */}
           <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex rounded-full p-1 text-sm" style={surfaceBox}>
+            <div className="inline-flex rounded-full p-1 text-base" style={surfaceBox}>
               <button
                 type="button"
                 onClick={() => setViewMode("day")}
-                className="px-5 py-2 rounded-full transition"
+                className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "day" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
                 Tag
@@ -606,7 +700,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode("week")}
-                className="px-5 py-2 rounded-full transition"
+                className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "week" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
                 Woche
@@ -614,7 +708,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode("month")}
-                className="px-5 py-2 rounded-full transition"
+                className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "month" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
                 Monat
@@ -624,7 +718,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             <button
               type="button"
               onClick={goToday}
-              className="shrink-0 rounded-full px-4 py-2 text-[12px] hover:opacity-95"
+              className="shrink-0 rounded-full px-4 py-2.5 text-sm font-medium hover:opacity-95"
               style={surfaceBox}
               title={viewMode === "day" ? "Heute" : "Heute (öffnet Tagesansicht)"}
             >
@@ -633,19 +727,26 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           </div>
 
           {/* Main */}
-          <div className="relative rounded-2xl p-3 shadow-lg shadow-black/10 min-h-[430px]" style={surfaceBox}>
+          <div
+            className="relative rounded-2xl p-4 shadow-lg shadow-black/10 min-h-[460px]"
+            style={{ ...surfaceBox, touchAction: "pan-y" }}
+            onPointerDown={handleSwipePointerDown}
+            onPointerMove={handleSwipePointerMove}
+            onPointerUp={handleSwipePointerEnd}
+            onPointerCancel={handleSwipePointerEnd}
+          >
             {/* Monatsansicht */}
             {viewMode === "month" && (
               <div className="space-y-2">
-                <div className="grid grid-cols-7 text-center text-[11px]" style={muted}>
+                <div className="grid grid-cols-7 text-center text-sm" style={muted}>
                   {weekdayShort.map((wd) => (
-                    <div key={wd} className="py-0.5">
+                    <div key={wd} className="py-1">
                       {wd}
                     </div>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1 text-xs sm:text-sm">
+                <div className="grid grid-cols-7 gap-2 text-sm">
                   {monthGrid.map((day) => {
                     const key = dateKey(day);
                     const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
@@ -653,14 +754,14 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     const isSelected = key === selectedKey;
                     const dayEvents = eventsByDate.get(key) ?? [];
 
-                    const minH = monthWeeks === 5 ? 96 : 78;
+                    const minH = monthWeeks === 5 ? 120 : 100;
 
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => openDayViewFromDate(day, "month")}
-                        className="flex flex-col rounded-2xl px-2 py-2 text-left transition hover:opacity-95"
+                        className="flex flex-col rounded-2xl px-3 py-3 text-left transition hover:opacity-95"
                         style={{
                           minHeight: minH,
                           background: isSelected ? "rgba(37,99,235,0.14)" : "var(--surface2)",
@@ -674,10 +775,10 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         }}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] sm:text-xs">{day.getDate().toString().padStart(2, "0")}</span>
+                          <span className="text-base font-semibold">{day.getDate().toString().padStart(2, "0")}</span>
                         </div>
 
-                        <div className="mt-1 space-y-1">
+                        <div className="mt-1 space-y-1.5">
                           {dayEvents.slice(0, 3).map((ev) => {
                             const isDone = isCompletedTraining(ev);
                             const isTraining = isTrainingEvent(ev);
@@ -686,10 +787,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                               : isTraining
                               ? "rgba(37,99,235,0.55)"
                               : "rgba(148,163,184,0.55)";
-                            return <div key={ev.id} className="h-1.5 w-full rounded-full" style={{ background: dot }} />;
+                            return (
+                              <div
+                                key={ev.id}
+                                className="h-2.5 w-full rounded-full flex items-center gap-1"
+                                style={{ background: dot }}
+                                title={normalizeTitle(ev.title)}
+                              />
+                            );
                           })}
                           {dayEvents.length > 3 && (
-                            <div className="text-[9px]" style={muted}>
+                            <div className="text-xs font-medium" style={muted}>
                               +{dayEvents.length - 3}
                             </div>
                           )}
@@ -703,12 +811,12 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
             {/* Wochenansicht */}
             {viewMode === "week" && (
-              <div className="flex flex-col text-xs min-h-[360px] h-full">
-                <p className="text-[11px] mb-1" style={muted}>
+              <div className="flex flex-col text-sm min-h-[390px] h-full">
+                <p className="text-sm mb-3 font-medium" style={{ color: "var(--text)" }}>
                   Woche {weekLabel}
                 </p>
 
-                <div className="grid grid-cols-7 gap-1 flex-1">
+                <div className="grid grid-cols-7 gap-2 flex-1">
                   {currentWeekDays.map((d, idx) => {
                     const key = dateKey(d);
                     const dayEvents = eventsByDate.get(key) ?? [];
@@ -723,23 +831,23 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         key={key}
                         type="button"
                         onClick={() => openDayViewFromDate(d, "week")}
-                        className="flex flex-col h-full rounded-2xl p-2 text-left transition hover:opacity-95"
+                        className="flex flex-col h-full rounded-2xl p-3 text-left transition hover:opacity-95"
                         style={{
                           background: "var(--surface2)",
                           border: isToday ? "1px solid rgba(59,130,246,0.45)" : "1px solid var(--border)",
                           color: "var(--text)",
                         }}
                       >
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-[11px]" style={muted}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-medium" style={muted}>
                             {weekdayShort[idx]}
                           </span>
-                          <span className="text-[11px]">{d.getDate().toString().padStart(2, "0")}</span>
+                          <span className="text-base font-semibold">{d.getDate().toString().padStart(2, "0")}</span>
                         </div>
 
-                        <div className="mt-1 space-y-1 flex-1">
+                        <div className="mt-1 space-y-2 flex-1">
                           {dayEvents.length === 0 && (
-                            <span className="text-[10px]" style={muted}>
+                            <span className="text-xs" style={muted}>
                               –
                             </span>
                           )}
@@ -757,22 +865,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             return (
                               <div
                                 key={ev.id}
-                                className="rounded-md px-1.5 py-0.5"
+                                className="rounded-lg px-2.5 py-2"
                                 style={{
                                   background: done ? "rgba(16,185,129,0.10)" : "rgba(0,0,0,0.06)",
                                   border: "1px solid var(--border)",
                                   borderLeft: `4px solid ${leftBorder}`,
                                 }}
                               >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-[10px] font-medium truncate">{normalizeTitle(ev.title)}</span>
-                                  <span className="text-[9px]" style={muted}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-semibold truncate">{normalizeTitle(ev.title)}</span>
+                                  <span className="text-xs whitespace-nowrap" style={muted}>
                                     {ev.startTime}
                                   </span>
                                 </div>
 
                                 {done && (
-                                  <div className="mt-0.5 text-[9px] font-semibold" style={{ color: "rgba(16,185,129,0.85)" }}>
+                                  <div className="mt-1 text-xs font-semibold" style={{ color: "rgba(16,185,129,0.85)" }}>
                                     Gemacht
                                   </div>
                                 )}
@@ -781,8 +889,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           })}
 
                           {rest > 0 && (
-                            <div className="text-[10px]" style={muted}>
-                              +{rest}
+                            <div className="text-xs pt-1" style={muted}>
+                              +{rest} weitere
                             </div>
                           )}
                         </div>
@@ -795,16 +903,16 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
             {/* Tagesansicht */}
             {viewMode === "day" && (
-              <div className="flex flex-col text-xs min-h-[360px] h-full">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px]" style={muted}>
+              <div className="flex flex-col text-sm min-h-[390px] h-full">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium" style={muted}>
                     {dayLabelFull}
                   </p>
                   {(previousView === "month" || previousView === "week") && (
                     <button
                       type="button"
                       onClick={handleBackFromDay}
-                      className="text-[11px] underline-offset-2 hover:underline"
+                      className="text-sm underline-offset-2 hover:underline"
                       style={muted}
                     >
                       Zurück zur {previousView === "month" ? "Monatsansicht" : "Wochenansicht"}
@@ -812,9 +920,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   )}
                 </div>
 
-                <div className="rounded-2xl p-4 space-y-2 flex-1" style={surfaceSoft}>
+                <div className="rounded-2xl p-4 space-y-3 flex-1" style={surfaceSoft}>
                   {eventsForSelectedDay.length === 0 ? (
-                    <span className="text-[11px]" style={muted}>
+                    <span className="text-sm" style={muted}>
                       Keine Termine an diesem Tag.
                     </span>
                   ) : (
@@ -834,20 +942,21 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       return (
                         <div
                           key={ev.id}
-                          className="rounded-xl px-3 py-2 flex flex-col gap-1"
+                          className="rounded-xl px-4 py-4 flex flex-col gap-3 cursor-pointer"
+                          onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}
                           style={{
                             background: "var(--surface)",
                             border: "1px solid var(--border)",
                             borderLeft: `4px solid ${leftBorder}`,
                           }}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm font-semibold truncate">{normalizeTitle(ev.title)}</span>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2 min-w-0">
+                              <span className="text-base font-semibold truncate">{normalizeTitle(ev.title)}</span>
 
                               {isCompletedTraining(ev) && (
                                 <span
-                                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                  className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold"
                                   style={{
                                     background: "rgba(16,185,129,0.14)",
                                     border: "1px solid var(--border)",
@@ -859,7 +968,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                               )}
                             </div>
 
-                            <span className="text-[10px] whitespace-nowrap" style={muted}>
+                            <span className="text-sm whitespace-nowrap" style={muted}>
                               {isTrainingEvent(ev)
                                 ? ev.startTime
                                   ? ev.startTime
@@ -869,29 +978,34 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           </div>
 
                           {label && (
-                            <div className="text-[10px]" style={muted}>
+                            <div className="text-sm" style={muted}>
                               {label}
                             </div>
                           )}
                           {ev.description && (
-                            <div className="text-[11px]" style={muted}>
+                            <div className="text-sm leading-snug" style={muted}>
                               {ev.description}
                             </div>
                           )}
 
                           {training && (
-                            <div className="mt-1 flex items-center justify-between rounded-lg px-2.5 py-2" style={surfaceSoft}>
-                              <div className="text-[11px]" style={muted}>
+                            <div className="mt-1 flex items-center justify-between rounded-xl px-3 py-2.5" style={surfaceSoft}>
+                              <div className="text-sm" style={muted}>
                                 {counts.exercises} Üb. • {counts.sets} Sätze
                                 {showSeedMissingWarning && (
-                                  <span style={{ marginLeft: 8, color: "rgba(245,158,11,0.95)" }}>Seed fehlt</span>
+                                  <span style={{ marginLeft: 10, color: "rgba(245,158,11,0.95)", fontWeight: 600 }}>
+                                    Seed fehlt
+                                  </span>
                                 )}
                               </div>
 
                               <button
                                 type="button"
-                                onClick={() => openTrainingPreview(ev)}
-                                className="px-3 py-1.5 rounded-xl text-[11px] font-semibold hover:opacity-95"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openTrainingPreview(ev);
+                                }}
+                                className="px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-95"
                                 style={{
                                   background: "rgba(37,99,235,0.14)",
                                   border: "1px solid var(--border)",
@@ -904,12 +1018,32 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             </div>
                           )}
 
-                          <div className="mt-1 flex justify-end gap-3">
+                          <div className="mt-2 flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={() => handleDelete(ev.id)}
-                              className="text-[10px] hover:opacity-95"
-                              style={{ color: "rgba(239,68,68,0.85)" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (training) {
+                                  const seed = resolveSeedForEvent(ev);
+                                  if (seed || !isGymTraining(ev)) {
+                                    writeGlobalLiveSeed(seed || fallbackSeedForNonGymEvent(ev));
+                                    navigateToLiveTraining(ev.id);
+                                  }
+                                }
+                              }}
+                              className="px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-95"
+                              style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
+                            >
+                              Starten
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(ev.id);
+                              }}
+                              className="px-3 py-2 rounded-xl text-sm hover:opacity-95"
+                              style={{ color: "rgba(239,68,68,0.85)", background: "rgba(239,68,68,0.10)" }}
                             >
                               Löschen
                             </button>
@@ -922,98 +1056,255 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               </div>
             )}
 
-            {/* FAB */}
-            <button
-              type="button"
-              onClick={() => {
-                setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
-                setCreateMode("appointment");
-                setAppointmentCategory("alltag");
-                setCategoryCreateMode("select");
-                setNewCategoryLabel("");
-                setTrainingType("gym");
-                setIsCreateOpen(true);
-              }}
-              className="absolute bottom-4 right-4 flex h-12 w-12 items-center justify-center rounded-full text-2xl shadow-xl shadow-black/20 hover:opacity-95"
-              style={{ background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" }}
-            >
-              +
-            </button>
+            {/* FAB mit Plus-Menü */}
+            <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
+              {isPlusMenuOpen && (
+                <div
+                  className="rounded-2xl border shadow-xl overflow-hidden mb-2 text-[var(--text)]"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPlusMenuOpen(false);
+                      setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
+                      setCreateMode("appointment");
+                      setAppointmentCategory("alltag");
+                      setCategoryCreateMode("select");
+                      setNewCategoryLabel("");
+                      setIsCreateOpen(true);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
+                  >
+                    Termin anlegen
+                  </button>
+                  <div style={{ height: 1, background: "var(--border)" }} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPlusMenuOpen(false);
+                      setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
+                      setCreateMode("training");
+                      setTrainingType("gym");
+                      setIsCreateOpen(true);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
+                  >
+                    Training anlegen
+                  </button>
+                  {onUpdateEvents && (
+                    <>
+                      <div style={{ height: 1, background: "var(--border)" }} />
+                      <button
+                        type="button"
+                        onClick={handlePlanShift}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
+                      >
+                        Plan um +1 verschieben
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsPlusMenuOpen((prev) => !prev)}
+                className="flex h-12 w-12 items-center justify-center rounded-full text-2xl shadow-xl shadow-black/20 hover:opacity-95 transition-transform"
+                style={{
+                  background: isPlusMenuOpen ? "rgba(37,99,235,0.85)" : "var(--primary)",
+                  color: "#061226",
+                  border: "1px solid var(--border)",
+                  transform: isPlusMenuOpen ? "rotate(45deg)" : "rotate(0deg)",
+                }}
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ✅ Training Vorschau Modal */}
-      {previewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl p-4 shadow-lg shadow-black/30 space-y-3" style={surfaceBox}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="text-[11px]" style={muted}>
-                  Trainings-Vorschau
+      <TrainingPreviewSheet
+        open={previewOpen}
+        event={previewEvent}
+        onClose={closeTrainingPreview}
+        onSave={handlePreviewSave}
+        onStart={handlePreviewStart}
+      />
+
+      {/* ✅ Training-Info Bottomsheet */}
+      {infoSheetOpen && infoSheetEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          onClick={closeInfoSheet}
+        >
+          <div
+            className="w-full max-w-2xl rounded-t-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+            style={surfaceBox}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle */}
+            <div className="flex justify-center mb-2">
+              <div className="w-12 h-1.5 rounded-full" style={{ background: "var(--border)" }} />
+            </div>
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="text-lg font-semibold" style={{ color: "var(--text)" }}>
+                  {normalizeTitle(infoSheetEvent.title)}
                 </div>
-                <div className="text-base font-semibold">{normalizeTitle(previewEvent?.title) || "Training"}</div>
-                {previewEvent && (
-                  <div className="text-[11px]" style={muted}>
-                    {previewEvent.date}
-                    {previewEvent.startTime ? ` • ${previewEvent.startTime}` : ""}
-                    {!isTrainingEvent(previewEvent) && previewEvent.endTime ? `–${previewEvent.endTime}` : ""}
+                <div className="text-sm mt-1" style={muted}>
+                  {infoSheetEvent.date}
+                  {infoSheetEvent.startTime ? ` • ${infoSheetEvent.startTime}` : ""}
+                  {infoSheetEvent.endTime ? ` – ${infoSheetEvent.endTime}` : ""}
+                </div>
+                {isTrainingEvent(infoSheetEvent) && (
+                  <div className="text-xs mt-1" style={muted}>
+                    {eventLabel(infoSheetEvent)}
                   </div>
                 )}
               </div>
-
-              <button type="button" onClick={closeTrainingPreview} className="text-xs hover:opacity-95" style={muted}>
+              <button
+                type="button"
+                onClick={closeInfoSheet}
+                className="text-xl hover:opacity-95 shrink-0"
+                style={muted}
+              >
                 ✕
               </button>
             </div>
 
-            <div className="rounded-xl px-3 py-2" style={surfaceSoft}>
-              <div className="flex items-center justify-between">
-                <div className="text-[11px]" style={muted}>
-                  Umfang
+            {isTrainingEvent(infoSheetEvent) && (
+              <>
+                <div className="rounded-xl p-4 space-y-4" style={surfaceSoft}>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                      Startzeit
+                    </label>
+                    <input
+                      type="time"
+                      value={infoSheetEvent.startTime || ""}
+                      onChange={(e) => updateEventTime(infoSheetEvent.id, e.target.value, infoSheetEvent.endTime)}
+                      className="w-full rounded-lg px-3 py-2.5 text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
+                  {(() => {
+                    const seed = resolveSeedForEvent(infoSheetEvent);
+                    const counts = countSeed(seed);
+                    if (counts.exercises > 0) {
+                      return (
+                        <div>
+                          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                            Übungen ({counts.exercises} Üb. • {counts.sets} Sätze)
+                          </label>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {seed?.exercises?.map((ex, idx) => (
+                              <div key={idx} className="rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(0,0,0,0.2)" }}>
+                                <div className="font-medium" style={{ color: "var(--text)" }}>
+                                  {ex.name || "Übung"}
+                                </div>
+                                {ex.sets && ex.sets.length > 0 && (
+                                  <div className="text-xs mt-1" style={muted}>
+                                    {ex.sets.length} {ex.sets.length === 1 ? "Satz" : "Sätze"}
+                                    {ex.sets[0]?.reps !== undefined && ` • ${ex.sets[0].reps}${isGymTraining(infoSheetEvent) ? " Wdh" : " min"}`}
+                                    {ex.sets[0]?.weight !== undefined && ` • ${ex.sets[0].weight}${isGymTraining(infoSheetEvent) ? " kg" : " km"}`}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {infoSheetEvent.description && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                        Beschreibung
+                      </label>
+                      <div className="text-sm" style={{ color: "var(--text)" }}>
+                        {infoSheetEvent.description}
+                      </div>
+                    </div>
+                  )}
+                  {infoSheetEvent.notes && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                        Notizen
+                      </label>
+                      <div className="text-sm" style={{ color: "var(--text)" }}>
+                        {infoSheetEvent.notes}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="text-[11px]">
-                  {previewCounts.exercises} Üb. • {previewCounts.sets} Sätze
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isTrainingEvent(infoSheetEvent)) {
+                        const seed = resolveSeedForEvent(infoSheetEvent);
+                        if (seed || !isGymTraining(infoSheetEvent)) {
+                          writeGlobalLiveSeed(seed || fallbackSeedForNonGymEvent(infoSheetEvent));
+                          navigateToLiveTraining(infoSheetEvent.id);
+                          closeInfoSheet();
+                        } else {
+                          alert("Kein Seed gefunden. Bitte Plan erneut importieren.");
+                        }
+                      }
+                    }}
+                    className="flex-1 px-4 py-3.5 rounded-xl text-base font-semibold hover:opacity-95"
+                    style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
+                  >
+                    Training starten
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeInfoSheet}
+                    className="px-4 py-3.5 rounded-xl text-sm hover:opacity-95"
+                    style={surfaceSoft}
+                  >
+                    Schließen
+                  </button>
                 </div>
+              </>
+            )}
+
+            {!isTrainingEvent(infoSheetEvent) && (
+              <div className="rounded-xl p-4" style={surfaceSoft}>
+                <div className="text-sm" style={{ color: "var(--text)" }}>
+                  {infoSheetEvent.description || "Keine weiteren Details."}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                    Startzeit
+                  </label>
+                  <input
+                    type="time"
+                    value={infoSheetEvent.startTime || ""}
+                    onChange={(e) => updateEventTime(infoSheetEvent.id, e.target.value, infoSheetEvent.endTime)}
+                    className="w-full rounded-lg px-3 py-2.5 text-sm"
+                    style={inputStyle}
+                  />
+                </div>
+                {infoSheetEvent.endTime && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                      Endzeit
+                    </label>
+                    <input
+                      type="time"
+                      value={infoSheetEvent.endTime || ""}
+                      onChange={(e) => updateEventTime(infoSheetEvent.id, infoSheetEvent.startTime || "", e.target.value)}
+                      className="w-full rounded-lg px-3 py-2.5 text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
               </div>
-
-              {previewEvent && isGymTraining(previewEvent) && !previewSeed && (
-                <div className="mt-1 text-[11px]" style={{ color: "rgba(245,158,11,0.95)" }}>
-                  Hinweis: Kein Plan-Seed gefunden. Plan bitte erneut in den Kalender übernehmen.
-                </div>
-              )}
-
-              {previewEvent && !isGymTraining(previewEvent) && !previewSeed && (
-                <div className="mt-1 text-[11px]" style={muted}>
-                  Kein Plan-Seed nötig (MVP). Du kannst trotzdem starten.
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={startPreviewedTraining}
-                disabled={!canStartPreview}
-                className="flex-1 px-4 py-2 rounded-2xl text-sm font-semibold shadow hover:opacity-95 disabled:cursor-not-allowed"
-                style={
-                  canStartPreview
-                    ? { background: "rgba(16,185,129,0.95)", color: "#06120c" }
-                    : { background: "rgba(148,163,184,0.25)", color: "var(--muted)" }
-                }
-              >
-                Training starten
-              </button>
-
-              <button
-                type="button"
-                onClick={closeTrainingPreview}
-                className="px-3 py-2 rounded-2xl text-[12px] hover:opacity-95"
-                style={surfaceSoft}
-              >
-                Schließen
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1021,9 +1312,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       {/* Modal: Termin / Training erstellen */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-2xl p-4 space-y-3 text-xs" style={surfaceBox}>
+          <div className="w-full max-w-md rounded-2xl p-4 space-y-4 text-sm" style={surfaceBox}>
             <div className="flex items-center justify-between mb-1">
-              <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceSoft}>
+              <div className="inline-flex rounded-full p-1 text-sm" style={surfaceSoft}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1031,7 +1322,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     setCategoryCreateMode("select");
                     setNewCategoryLabel("");
                   }}
-                  className="px-3 py-1.5 rounded-full"
+                  className="px-4 py-2 rounded-full text-sm font-medium"
                   style={
                     createMode === "appointment"
                       ? { background: "var(--primary)", color: "#061226" }
@@ -1046,7 +1337,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     setCreateMode("training");
                     setForm((p) => ({ ...p, endTime: "" }));
                   }}
-                  className="px-3 py-1.5 rounded-full"
+                  className="px-4 py-2 rounded-full text-sm font-medium"
                   style={
                     createMode === "training"
                       ? { background: "var(--primary)", color: "#061226" }
@@ -1060,7 +1351,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="text-xs hover:opacity-95"
+                className="text-sm hover:opacity-95"
                 style={muted}
               >
                 ✕
@@ -1068,65 +1359,65 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
 
             {!effectiveIsPro && (
-              <div className="rounded-xl px-3 py-2 text-[10px]" style={surfaceSoft}>
+              <div className="rounded-xl px-3 py-2.5 text-sm" style={surfaceSoft}>
                 <span style={muted}>
                   Free: {Math.max(0, Number(calendar7DaysRemaining))} übrig für Termine/Trainings &gt; 7 Tage voraus.
                 </span>
               </div>
             )}
 
-            <form onSubmit={handleCreateEvent} className="space-y-3">
-              <div className="space-y-1">
-                <label className="block text-[11px]" style={muted}>
+            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium" style={muted}>
                   Titel
                 </label>
                 <input
                   value={form.title}
                   onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full rounded-lg border px-2 py-2"
+                  className="w-full rounded-xl border px-3 py-2.5 text-base"
                   style={inputStyle}
                   placeholder={createMode === "training" ? "z.B. Push" : "z.B. Meeting"}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="block text-[11px]" style={muted}>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium" style={muted}>
                     Datum
                   </label>
                   <input
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                    className="w-full rounded-lg border px-2 py-2"
+                    className="w-full rounded-xl border px-3 py-2.5 text-base"
                     style={inputStyle}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="block text-[11px]" style={muted}>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium" style={muted}>
                       Start
                     </label>
                     <input
                       type="time"
                       value={form.startTime}
                       onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}
-                      className="w-full rounded-lg border px-2 py-2"
+                      className="w-full rounded-xl border px-3 py-2.5 text-base"
                       style={inputStyle}
                     />
                   </div>
 
                   {createMode === "appointment" ? (
-                    <div className="space-y-1">
-                      <label className="block text-[11px]" style={muted}>
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium" style={muted}>
                         Ende
                       </label>
                       <input
                         type="time"
                         value={form.endTime}
                         onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}
-                        className="w-full rounded-lg border px-2 py-2"
+                        className="w-full rounded-xl border px-3 py-2.5 text-base"
                         style={inputStyle}
                       />
                     </div>
@@ -1139,7 +1430,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               {createMode === "appointment" ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="block text-[11px]" style={muted}>
+                    <label className="block text-sm font-medium" style={muted}>
                       Kategorie
                     </label>
 
@@ -1154,7 +1445,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           setNewCategoryLabel("");
                         }
                       }}
-                      className="text-[11px] underline-offset-2 hover:underline"
+                      className="text-sm underline-offset-2 hover:underline"
                       style={muted}
                     >
                       {categoryCreateMode === "select" ? "Neue Kategorie" : "Aus Auswahl"}
@@ -1165,7 +1456,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     <select
                       value={appointmentCategory}
                       onChange={(e) => setAppointmentCategory(e.target.value as AppointmentCategory)}
-                      className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                      className="w-full rounded-xl border px-3 py-2.5 text-base"
                       style={inputStyle}
                     >
                       {allCategories.map((c) => (
@@ -1175,29 +1466,29 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       ))}
                     </select>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <input
                         value={newCategoryLabel}
                         onChange={(e) => setNewCategoryLabel(e.target.value)}
-                        className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                        className="w-full rounded-xl border px-3 py-2.5 text-base"
                         style={inputStyle}
                         placeholder="z.B. Familie, Uni, Termine, Arzt..."
                       />
-                      <div className="text-[10px]" style={muted}>
+                      <div className="text-sm" style={muted}>
                         Beim Speichern wird die Kategorie dauerhaft gespeichert.
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <label className="block text-[11px]" style={muted}>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium" style={muted}>
                     Trainingstyp
                   </label>
                   <select
                     value={trainingType}
                     onChange={(e) => setTrainingType(e.target.value as TrainingType)}
-                    className="w-full rounded-lg border px-2 py-2 text-[12px]"
+                    className="w-full rounded-xl border px-3 py-2.5 text-base"
                     style={inputStyle}
                   >
                     {Object.keys(TRAINING_TYPE_LABELS).map((k) => (
@@ -1209,44 +1500,44 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className="block text-[11px]" style={muted}>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium" style={muted}>
                   Beschreibung (optional)
                 </label>
                 <textarea
                   value={form.description ?? ""}
                   onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  className="w-full min-h-[70px] rounded-lg border px-2 py-2"
+                  className="w-full min-h-[90px] rounded-xl border px-3 py-2.5 text-base"
                   style={inputStyle}
                   placeholder="Notizen / Details"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-[11px]" style={muted}>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium" style={muted}>
                   Notizen (optional)
                 </label>
                 <input
                   value={form.notes ?? ""}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  className="w-full rounded-lg border px-2 py-2"
+                  className="w-full rounded-xl border px-3 py-2.5 text-base"
                   style={inputStyle}
                   placeholder="z.B. Ort / Reminder"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-3 py-1.5 rounded-xl border text-[11px] hover:opacity-95"
+                  className="px-4 py-2 rounded-xl border text-sm font-medium hover:opacity-95"
                   style={surfaceSoft}
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 rounded-xl text-[11px] font-medium hover:opacity-95"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-95"
                   style={{ background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" }}
                 >
                   Speichern

@@ -196,6 +196,8 @@ export type NewTrainingPlan = Omit<TrainingPlan, "id" | "createdAt" | "updatedAt
 // LIVE TRAINING (Session, NICHT Kalender)
 // ---------------------------------------------
 
+export type SetType = "normal" | "warmup" | "failure" | "1D";
+
 export interface LiveSet {
   id: string;
   reps?: number;
@@ -203,6 +205,7 @@ export interface LiveSet {
   notes?: string;
   completed: boolean;
   completedAt?: string;
+  setType?: SetType; // ✅ Satztyp: Warmup (W), Failure (F), 1D, normal
 }
 
 export interface LiveExercise {

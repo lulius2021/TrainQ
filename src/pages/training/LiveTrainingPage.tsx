@@ -56,6 +56,48 @@ type LiveTrainingPageProps = {
   onMinimize?: () => void;
 };
 
+class LiveTrainingErrorBoundary extends React.Component<
+  { onExit: () => void; children: React.ReactNode },
+  { hasError: boolean; errorMessage?: string }
+> {
+  state = { hasError: false, errorMessage: undefined };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMessage: error?.message };
+  }
+
+  componentDidCatch(error: Error) {
+    if (import.meta.env.DEV) {
+      console.error("[LiveTraining] render error", error);
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center px-4" style={{ color: "var(--text)" }}>
+        <div
+          className="w-full max-w-md rounded-2xl p-4 text-center"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        >
+          <div className="text-sm font-semibold">Live-Training ist abgestürzt.</div>
+          <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+            {this.state.errorMessage || "Bitte erneut versuchen."}
+          </div>
+          <button
+            type="button"
+            onClick={this.props.onExit}
+            className="mt-3 rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-95"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+          >
+            Zurück
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 function nowISO(): string {
   return new Date().toISOString();
 }
@@ -157,6 +199,8 @@ export default function LiveTrainingPage({
   );
 
   const [workout, setWorkout] = useState<LiveWorkout | null>(null);
+  const [initDone, setInitDone] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const tickRef = useRef<number | null>(null);
@@ -193,88 +237,111 @@ export default function LiveTrainingPage({
   // ✅ Init: Active -> GlobalSeed -> resolveSeed -> Event -> Default
   useEffect(() => {
     if (workout) return;
+    const log = (...args: unknown[]) => {
+      if (import.meta.env.DEV) console.log("[LiveTraining]", ...args);
+    };
 
-    const active = getActiveLiveWorkout();
-    const isReallyActive = !!active && active.isActive === true;
-    const matchesEvent = !eventId ? true : String(active?.calendarEventId || "") === String(eventId);
+    const setAndMark = (next: LiveWorkout) => {
+      setInitError(null);
+      setWorkout(next);
+      setInitDone(true);
+    };
 
-    if (isReallyActive && matchesEvent) {
-      const merged = { ...active, ...(initialWorkout as any) } as LiveWorkout;
-      setWorkout(merged);
+    try {
+      const active = getActiveLiveWorkout();
+      const isReallyActive = !!active && active.isActive === true;
+      const matchesEvent = !eventId ? true : String(active?.calendarEventId || "") === String(eventId);
 
-      const started = new Date(merged.startedAt).getTime();
-      startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
-      return;
-    }
+      log("init", {
+        eventId,
+        hasEvent: !!event,
+        hasActive: !!active,
+        isReallyActive,
+        matchesEvent,
+      });
 
-    const globalSeed = readGlobalLiveSeed();
-    if (globalSeed) {
-      clearGlobalLiveSeed();
+      if (isReallyActive && matchesEvent) {
+        const merged = { ...active, ...(initialWorkout as any) } as LiveWorkout;
+        setAndMark(merged);
 
-      const seedToUse = event?.adaptiveSuggestion
-        ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
-        : globalSeed;
+        const started = new Date(merged.startedAt).getTime();
+        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
+        return;
+      }
+
+      const globalSeed = readGlobalLiveSeed();
+      if (globalSeed) {
+        clearGlobalLiveSeed();
+
+        const seedToUse = event?.adaptiveSuggestion
+          ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
+          : globalSeed;
+
+        const w = startLiveWorkout({
+          title: seedToUse.title || "Training",
+          sport: seedSportToSportType(seedToUse.sport),
+          calendarEventId: eventId,
+          initialExercises: seedToInitialExercises(seedToUse),
+        });
+
+        const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
+        setAndMark(merged);
+
+        const started = new Date(merged.startedAt).getTime();
+        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
+        return;
+      }
+
+      const resolvedSeed = resolveLiveSeed({
+        eventId,
+        dateISO: event?.date,
+        title: event?.title,
+      });
+
+      if (resolvedSeed) {
+        const seedToUse = event?.adaptiveSuggestion
+          ? applyAdaptiveToSeed(resolvedSeed, event.adaptiveSuggestion)
+          : resolvedSeed;
+
+        const w = startLiveWorkout({
+          title: seedToUse.title || event?.title || "Training",
+          sport: seedSportToSportType(seedToUse.sport),
+          calendarEventId: eventId,
+          initialExercises: seedToInitialExercises(seedToUse),
+        });
+
+        const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
+        setAndMark(merged);
+
+        const started = new Date(merged.startedAt).getTime();
+        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
+        return;
+      }
+
+      const title = event?.title || "Training";
+      const sport = trainingTypeToSport((event as any)?.trainingType, (event as any)?.sport);
 
       const w = startLiveWorkout({
-        title: seedToUse.title || "Training",
-        sport: seedSportToSportType(seedToUse.sport),
+        title,
+        sport,
         calendarEventId: eventId,
-        initialExercises: seedToInitialExercises(seedToUse),
+        initialExercises: [],
       });
 
       const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
-      setWorkout(merged);
+      setAndMark(merged);
 
       const started = new Date(merged.startedAt).getTime();
       startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
       setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
-      return;
+    } catch (err) {
+      console.error("[LiveTraining] init error", err);
+      setInitError("Live-Training konnte nicht gestartet werden.");
+      setInitDone(true);
     }
-
-    const resolvedSeed = resolveLiveSeed({
-      eventId,
-      dateISO: event?.date,
-      title: event?.title,
-    });
-
-    if (resolvedSeed) {
-      const seedToUse = event?.adaptiveSuggestion
-        ? applyAdaptiveToSeed(resolvedSeed, event.adaptiveSuggestion)
-        : resolvedSeed;
-
-      const w = startLiveWorkout({
-        title: seedToUse.title || event?.title || "Training",
-        sport: seedSportToSportType(seedToUse.sport),
-        calendarEventId: eventId,
-        initialExercises: seedToInitialExercises(seedToUse),
-      });
-
-      const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
-      setWorkout(merged);
-
-      const started = new Date(merged.startedAt).getTime();
-      startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
-      return;
-    }
-
-    const title = event?.title || "Training";
-    const sport = trainingTypeToSport((event as any)?.trainingType, (event as any)?.sport);
-
-    const w = startLiveWorkout({
-      title,
-      sport,
-      calendarEventId: eventId,
-      initialExercises: [],
-    });
-
-    const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
-    setWorkout(merged);
-
-    const started = new Date(merged.startedAt).getTime();
-    startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
-    setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
   }, [
     workout,
     eventId,
@@ -287,6 +354,28 @@ export default function LiveTrainingPage({
   ]);
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
+
+  // ✅ Volumen/Zeit-Berechnung (Hooks dürfen nicht hinter Early-Returns liegen)
+  const totalVolume = useMemo(() => {
+    if (!workout) return 0;
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    return exercises.reduce((acc, ex) => {
+      return (
+        acc +
+        (ex.sets || []).reduce((setAcc, set) => {
+          const reps = typeof set.reps === "number" ? set.reps : 0;
+          const weight = typeof set.weight === "number" ? set.weight : 0;
+          return setAcc + reps * weight;
+        }, 0)
+      );
+    }, 0);
+  }, [workout]);
+
+  const totalSets = useMemo(() => {
+    if (!workout) return 0;
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    return exercises.reduce((acc, ex) => acc + (ex.sets ? ex.sets.length : 0), 0);
+  }, [workout]);
 
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
   useEffect(() => {
@@ -352,14 +441,22 @@ export default function LiveTrainingPage({
       restSeconds: undefined,
     } as any;
 
-    setWorkout((prev) => (prev ? { ...prev, exercises: [...prev.exercises, newEx] } : prev));
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return { ...prev, exercises: [...prevExercises, newEx] };
+    });
     setPendingScrollToExerciseId(exId);
   };
 
   const removeExercise = (exerciseId: string) => {
     if (!workout) return;
 
-    setWorkout((prev) => (prev ? { ...prev, exercises: prev.exercises.filter((e) => e.id !== exerciseId) } : prev));
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return { ...prev, exercises: prevExercises.filter((e) => e.id !== exerciseId) };
+    });
     setActiveRest((r) => (r?.exerciseId === exerciseId ? null : r));
     setFocusedWeightField((f) => (f?.exerciseId === exerciseId ? null : f));
 
@@ -367,23 +464,35 @@ export default function LiveTrainingPage({
     delete exerciseRefs.current[exerciseId];
   };
 
+  const moveExercise = (exerciseId: string, direction: "up" | "down") => {
+    if (!workout) return;
+    const idx = workout.exercises.findIndex((e) => e.id === exerciseId);
+    if (idx === -1) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= workout.exercises.length) return;
+
+    const newExercises = [...workout.exercises];
+    [newExercises[idx], newExercises[newIdx]] = [newExercises[newIdx], newExercises[idx]];
+    setWorkout((prev) => (prev ? { ...prev, exercises: newExercises } : prev));
+  };
+
   const updateExercise = (exerciseId: string, patch: Partial<LiveExercise>) => {
     if (!workout) return;
 
-    setWorkout((prev) =>
-      prev
-        ? {
-            ...prev,
-            exercises: prev.exercises.map((e) => {
-              if (e.id !== exerciseId) return e;
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return {
+        ...prev,
+        exercises: prevExercises.map((e) => {
+          if (e.id !== exerciseId) return e;
 
-              const next: any = { ...e, ...patch };
-              if ("restSeconds" in (patch as any)) next.restSeconds = normalizeRestSeconds((patch as any).restSeconds);
-              return next as LiveExercise;
-            }),
-          }
-        : prev
-    );
+          const next: any = { ...e, ...patch };
+          if ("restSeconds" in (patch as any)) next.restSeconds = normalizeRestSeconds((patch as any).restSeconds);
+          return next as LiveExercise;
+        }),
+      };
+    });
   };
 
   const addSet = (exerciseId: string) => {
@@ -392,45 +501,45 @@ export default function LiveTrainingPage({
     const cardio = isCardioWorkout;
     const newSetId = uid();
 
-    setWorkout((prev) =>
-      prev
-        ? {
-            ...prev,
-            exercises: prev.exercises.map((e) =>
-              e.id === exerciseId
-                ? {
-                    ...e,
-                    sets: [
-                      ...e.sets,
-                      {
-                        id: newSetId,
-                        completed: false,
-                        reps: cardio ? 10 : undefined,
-                        weight: undefined,
-                        notes: "",
-                      } as any,
-                    ],
-                  }
-                : e
-            ),
-          }
-        : prev
-    );
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return {
+        ...prev,
+        exercises: prevExercises.map((e) =>
+          e.id === exerciseId
+            ? {
+                ...e,
+                sets: [
+                  ...(Array.isArray(e.sets) ? e.sets : []),
+                  {
+                    id: newSetId,
+                    completed: false,
+                    reps: cardio ? 10 : undefined,
+                    weight: undefined,
+                    notes: "",
+                  } as any,
+                ],
+              }
+            : e
+        ),
+      };
+    });
   };
 
   const removeSet = (exerciseId: string, setId: string) => {
     if (!workout) return;
 
-    setWorkout((prev) =>
-      prev
-        ? {
-            ...prev,
-            exercises: prev.exercises.map((e) =>
-              e.id === exerciseId ? { ...e, sets: e.sets.filter((s) => s.id !== setId) } : e
-            ),
-          }
-        : prev
-    );
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return {
+        ...prev,
+        exercises: prevExercises.map((e) =>
+          e.id === exerciseId ? { ...e, sets: (e.sets || []).filter((s) => s.id !== setId) } : e
+        ),
+      };
+    });
 
     setActiveRest((r) => (r?.setId === setId && r.exerciseId === exerciseId ? null : r));
     setFocusedWeightField((f) => (f?.exerciseId === exerciseId && f.setId === setId ? null : f));
@@ -439,17 +548,18 @@ export default function LiveTrainingPage({
   const updateSet = (exerciseId: string, setId: string, patch: Partial<LiveSet>) => {
     if (!workout) return;
 
-    setWorkout((prev) =>
-      prev
-        ? {
-            ...prev,
-            exercises: prev.exercises.map((e) => {
-              if (e.id !== exerciseId) return e;
-              return { ...e, sets: e.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)) };
-            }),
-          }
-        : prev
-    );
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return {
+        ...prev,
+        exercises: prevExercises.map((e) => {
+          if (e.id !== exerciseId) return e;
+          const sets = Array.isArray(e.sets) ? e.sets : [];
+          return { ...e, sets: sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)) };
+        }),
+      };
+    });
   };
 
   const toggleSetCompleted = (exerciseId: string, setId: string) => {
@@ -457,11 +567,13 @@ export default function LiveTrainingPage({
 
     setWorkout((prev) => {
       if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
 
-      const nextExercises = prev.exercises.map((e) => {
+      const nextExercises = prevExercises.map((e) => {
         if (e.id !== exerciseId) return e;
 
-        const nextSets = e.sets.map((s) => {
+        const sets = Array.isArray(e.sets) ? e.sets : [];
+        const nextSets = sets.map((s) => {
           if (s.id !== setId) return s;
 
           const nextCompleted = !s.completed;
@@ -548,13 +660,38 @@ export default function LiveTrainingPage({
   // -------- Render --------
 
   if (!workout) {
-    return <div className="flex h-screen w-screen items-center justify-center text-white/60">Lade Live-Training…</div>;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center px-4" style={{ color: "var(--text)" }}>
+        <div
+          className="w-full max-w-md rounded-2xl p-4 text-center"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        >
+          <div className="text-sm font-semibold">Lade Live-Training…</div>
+          {initDone && (
+            <>
+              <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+                {initError || "Kein Live-Workout gefunden."}
+              </div>
+              <button
+                type="button"
+                onClick={onExit}
+                className="mt-3 rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-95"
+                style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+              >
+                Zurück
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
   }
 
   const t = formatTimeParts(elapsedSec);
   const showHours = t.h > 0;
   const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
   const isCardioLibrary = isCardioWorkout;
+  const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
 
   // ✅ STABIL: Reserve space für fixed Header + optional Restbar
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
@@ -566,7 +703,8 @@ export default function LiveTrainingPage({
   const mainPadBottom = "calc(max(env(safe-area-inset-bottom), 0px) + 106px)";
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden text-slate-100">
+    <LiveTrainingErrorBoundary onExit={onExit}>
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden text-slate-100">
       {/* ✅ FIXED HEADER */}
       <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
         <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-2.5 shadow-lg shadow-black/30">
@@ -612,7 +750,7 @@ export default function LiveTrainingPage({
         }}
       >
         <div className="py-4">
-          {workout.exercises.length === 0 ? (
+          {exercises.length === 0 ? (
             <>
               <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
                 Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten{" "}
@@ -629,7 +767,7 @@ export default function LiveTrainingPage({
             </>
           ) : (
             <div className="flex flex-col gap-3">
-              {workout.exercises.map((ex) => (
+              {exercises.map((ex, exIdx) => (
                 <div
                   key={ex.id}
                   ref={(node) => {
@@ -654,6 +792,8 @@ export default function LiveTrainingPage({
                         currentWeight: toNumberOrUndefined(currentWeight),
                       });
                     }}
+                    onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
+                    onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
                   />
                 </div>
               ))}
@@ -673,6 +813,18 @@ export default function LiveTrainingPage({
       {/* ✅ FIXED FOOTER */}
       <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),0px)] pt-0">
         <div className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-3 shadow-lg shadow-black/30">
+          {/* ✅ Volumen/Zeit-Anzeige */}
+          <div className="mb-2 flex items-center justify-center gap-4 text-xs text-white/70">
+            {!isCardioWorkout && (
+              <>
+                <span>Volumen: {totalVolume.toFixed(1)} kg</span>
+                <span>•</span>
+              </>
+            )}
+            <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
+            <span>•</span>
+            <span>Zeit: {elapsedText}</span>
+          </div>
           <div className="flex gap-3">
             <button
               type="button"
@@ -742,6 +894,7 @@ export default function LiveTrainingPage({
         initialTotalKg={focusedWeightField?.currentWeight ?? 0}
         onApply={(totalKg: number) => applyPlatesWeight(totalKg)}
       />
-    </div>
+      </div>
+    </LiveTrainingErrorBoundary>
   );
 }

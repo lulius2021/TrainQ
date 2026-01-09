@@ -61,8 +61,8 @@ const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
 
-// Platz, den wir unten IMMER freihalten (NavBar + etwas Luft). Muss zur echten NavBar passen.
-const APP_BOTTOM_SPACE_PX = 110;
+const BOTTOM_NAV_PADDING = "calc(var(--bottom-nav-h) + var(--safe-bottom))";
+const MINI_BAR_BOTTOM = "calc(var(--bottom-nav-h) + var(--bottom-nav-gap) + var(--safe-bottom))";
 
 // -------------------- Helpers --------------------
 
@@ -308,7 +308,6 @@ const LiveTrainingMiniBar: React.FC<{
   onMaximize: (eventId?: string) => void;
   onAbort: () => void;
 }> = ({ visible, onMaximize, onAbort }) => {
-  const safeBottom = "env(safe-area-inset-bottom, 0px)";
   const [active, setActive] = useState(() => getActiveLiveWorkout());
 
   useEffect(() => {
@@ -324,10 +323,8 @@ const LiveTrainingMiniBar: React.FC<{
   if (!visible) return null;
   if (!active || !active.isActive) return null;
 
-  const MINI_BAR_BOTTOM_PX = Math.max(84, APP_BOTTOM_SPACE_PX - 6);
-
   return (
-    <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: `calc(${MINI_BAR_BOTTOM_PX}px + ${safeBottom})` }}>
+    <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: MINI_BAR_BOTTOM }}>
       <div
         className="
           mx-auto max-w-5xl rounded-2xl border px-4 py-3 backdrop-blur shadow-lg
@@ -378,8 +375,6 @@ const LiveTrainingMiniBar: React.FC<{
 type ProfileScreen = "profile" | "settings";
 
 const MainAppShell: React.FC = () => {
-  const safeBottom = "env(safe-area-inset-bottom, 0px)";
-
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
   const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId());
@@ -394,7 +389,16 @@ const MainAppShell: React.FC = () => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
 
-  const [events, setEvents] = useState<CalendarEvent[]>(() => readEventsFromStorage());
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    const loaded = readEventsFromStorage();
+    // ✅ Migration: Stelle sicher, dass alle Trainings korrektes trainingType haben
+    return loaded.map((ev) => {
+      if (ev.type === "training" && !ev.trainingType) {
+        return ensureTrainingMeta(ev);
+      }
+      return ev;
+    });
+  });
 
   useEffect(() => {
     writeEventsToStorage(events);
@@ -489,27 +493,34 @@ const MainAppShell: React.FC = () => {
 
   const showMiniBar = route !== "/live-training" && hasActiveWorkout;
 
-  const maybeAutoSeedGymTraining = useCallback((ev: CalendarEvent) => {
+  const maybeAutoSeedTraining = useCallback((ev: CalendarEvent) => {
     const anyEv: any = ev;
     const isTraining = anyEv?.type === "training";
-    const isGym = String(anyEv?.trainingType ?? "").toLowerCase() === "gym";
-    if (!isTraining || !isGym) return;
+    if (!isTraining) return;
 
     const dateISO = String(anyEv?.date ?? "").trim();
     const title = normalizeTitle(anyEv?.title);
     const eventId = String(anyEv?.id ?? "").trim();
     if (!eventId || !dateISO || !title) return;
 
+    // ✅ Prüfe ob Seed bereits existiert (per eventId oder key)
     const existing = resolveLiveSeed({ eventId, dateISO, title });
     if (existing) return;
 
+    // ✅ Bestimme Training-Typ und Sport
+    const trainingType = String(anyEv?.trainingType ?? "").toLowerCase() as "gym" | "laufen" | "radfahren" | "custom";
+    const sport: LiveTrainingSeed["sport"] =
+      trainingType === "laufen" ? "Laufen" : trainingType === "radfahren" ? "Radfahren" : trainingType === "custom" ? "Custom" : "Gym";
+    const isCardio = trainingType === "laufen" || trainingType === "radfahren";
+
     const seed: LiveTrainingSeed = {
       title,
-      sport: "Gym",
-      isCardio: false,
+      sport,
+      isCardio,
       exercises: [],
     };
 
+    // ✅ Speichere Seed mit eventId (wichtig für Persistenz)
     writeLiveSeedForEventOrKey({ eventId, dateISO, title, seed });
   }, []);
 
@@ -517,10 +528,11 @@ const MainAppShell: React.FC = () => {
     (data: NewCalendarEvent): CalendarEvent => {
       const created: CalendarEvent = { ...data, id: ensureId() } as any;
       const newEvent = ensureTrainingMeta(created);
-      maybeAutoSeedGymTraining(newEvent);
+      // ✅ Seed wird NACH Event-Erstellung mit eventId geschrieben
+      maybeAutoSeedTraining(newEvent);
       return newEvent;
     },
-    [maybeAutoSeedGymTraining]
+    [maybeAutoSeedTraining]
   );
 
   const handleCreateQuickTraining = useCallback(
@@ -652,7 +664,7 @@ const MainAppShell: React.FC = () => {
       <LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />
 
       <div className="h-full w-full overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto" style={{ paddingBottom: `calc(${APP_BOTTOM_SPACE_PX}px + ${safeBottom})` }}>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden" data-app-scroll="true" style={{ paddingBottom: BOTTOM_NAV_PADDING }}>
           <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
             {activeTab === "dashboard" && (
               <Dashboard
@@ -670,6 +682,7 @@ const MainAppShell: React.FC = () => {
                 events={events}
                 onAddEvent={handleAddEvent}
                 onDeleteEvent={handleDeleteEvent}
+                onUpdateEvents={setEvents}
                 isPro={isPro}
                 onOpenPaywall={openPaywall}
               />
@@ -685,6 +698,10 @@ const MainAppShell: React.FC = () => {
                   onBack={() => setProfileScreen("profile")}
                   onClearCalendar={handleClearCalendar}
                   onOpenPaywall={openPaywallGeneric}
+                  onOpenGoals={() => {
+                    // Öffne Onboarding-Ziele-Seite oder ähnliches
+                    alert("Meine Ziele: Diese Funktion öffnet die Ziele-Verwaltung. In der finalen Version wird dies zur Onboarding-Ziele-Seite führen.");
+                  }}
                 />
               ) : (
                 <ProfilePage onClearCalendar={handleClearCalendar} />
@@ -712,6 +729,10 @@ const MainAppShell: React.FC = () => {
         onBuyYearly={() => {
           setPaywallOpen(false);
           setUserPro(true);
+        }}
+        onRestore={() => {
+          // TODO: Implementiere App Store Restore
+          alert("Käufe wiederherstellen: In der MVP wird dies lokal gespeichert. Für echte Käufe integrieren wir später App Store Restore.");
         }}
       />
 

@@ -104,7 +104,6 @@ function useIsDarkMode(): boolean {
 }
 
 export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
-  const safeBottom = "env(safe-area-inset-bottom, 0px)";
   const isDark = useIsDarkMode();
 
   const theme = useMemo(() => {
@@ -172,7 +171,10 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
   };
 
   return (
-    <div className="fixed left-0 right-0 z-50 flex justify-center px-4" style={{ bottom: `calc(10px + ${safeBottom})` }}>
+    <div
+      className="fixed left-0 right-0 bottom-0 z-50 flex justify-center px-4"
+      style={{ paddingBottom: "var(--safe-bottom)" }}
+    >
       <footer
         className="w-full max-w-md rounded-[28px] backdrop-blur-2xl"
         style={{

@@ -1,16 +1,11 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
 // TrainQ Launch: Adaptives Training (Modal, DE)
 //
-// Zweck:
-// - 4 Fragen (Zeit, Tagesform, Stress, Anstrengung gestern) als Buckets
-// - Danach 3 Vorschläge (stabil/kompakt/fokus) inkl. Dauer + Gründe
-// - UI-only: kein Storage, keine Navigation
-// - Parent entscheidet, was bei "Auswählen" passiert
-//
-// Upgrade:
-// - Optionaler Free/Pro Hinweis (A immer free, B/C Rest-Credits) – rein UI.
-// - Reset von Step + Answers beim Öffnen.
-// - Profil-Badge (A/B/C) in den Vorschlägen.
+// Fixes:
+// - Safe-Area Top: nichts wird oben abgeschnitten
+// - Scrollbar: Modal-Body ist sauber scrollbar
+// - iOS Overscroll (weißes Band unten) minimiert: overscrollBehavior + Background-Scroll-Lock
+// - CTA/Actions bleiben erreichbar trotz fixed Bottom-Navbar: extra Bottom-Padding im Body
 
 import React, { useMemo, useState, useEffect } from "react";
 import type { SplitType, WorkoutType } from "../../types";
@@ -59,10 +54,29 @@ function reasonLabel(r: AdaptiveReason): string {
   }
 }
 
-function profileAccent(profile: AdaptiveSuggestion["profile"]): { border: string; bg: string; badgeBg: string; badgeText: string } {
-  if (profile === "kompakt") return { border: "rgba(56,189,248,0.32)", bg: "rgba(56,189,248,0.10)", badgeBg: "rgba(56,189,248,0.18)", badgeText: "rgba(186,230,253,0.95)" };
-  if (profile === "stabil") return { border: "rgba(34,197,94,0.28)", bg: "rgba(34,197,94,0.08)", badgeBg: "rgba(34,197,94,0.16)", badgeText: "rgba(167,243,208,0.95)" };
-  return { border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)", badgeBg: "rgba(245,158,11,0.16)", badgeText: "rgba(253,230,138,0.95)" };
+function profileAccent(
+  profile: AdaptiveSuggestion["profile"]
+): { border: string; bg: string; badgeBg: string; badgeText: string } {
+  if (profile === "kompakt")
+    return {
+      border: "rgba(56,189,248,0.32)",
+      bg: "rgba(56,189,248,0.10)",
+      badgeBg: "rgba(56,189,248,0.18)",
+      badgeText: "rgba(186,230,253,0.95)",
+    };
+  if (profile === "stabil")
+    return {
+      border: "rgba(34,197,94,0.28)",
+      bg: "rgba(34,197,94,0.08)",
+      badgeBg: "rgba(34,197,94,0.16)",
+      badgeText: "rgba(167,243,208,0.95)",
+    };
+  return {
+    border: "rgba(245,158,11,0.28)",
+    bg: "rgba(245,158,11,0.08)",
+    badgeBg: "rgba(245,158,11,0.16)",
+    badgeText: "rgba(253,230,138,0.95)",
+  };
 }
 
 function profileABC(profile: AdaptiveSuggestion["profile"]): "A" | "B" | "C" {
@@ -116,10 +130,27 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
   const suggestions = useMemo(() => buildAdaptiveSuggestions(answers), [answers]);
 
+  // Reset beim Öffnen
   useEffect(() => {
     if (!open) return;
     setStep("questions");
     setAnswers(DEFAULT_ANSWERS);
+  }, [open]);
+
+  // Background-Scroll-Lock (verhindert Untergrundscroll + reduziert iOS Rubber-Banding)
+  useEffect(() => {
+    if (!open) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
   }, [open]);
 
   if (!open) return null;
@@ -128,21 +159,31 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   // Styles (inline)
   // ------------------------------
 
+  // Platz unten, damit die letzten Aktionen auch mit fixed Bottom-Nav erreichbar sind.
+  const NAV_SAFE_SPACE_PX = 110;
+
   const overlay: React.CSSProperties = {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.60)",
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start", // KEY: nicht zentrieren (sonst kann oben clippen)
     justifyContent: "center",
-    padding: 16,
-    zIndex: 9999,
+    paddingTop: "calc(16px + env(safe-area-inset-top))",
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+    overflowY: "auto", // Fallback: falls Modal extrem hoch wird, kann overlay scrollen
+    WebkitOverflowScrolling: "touch",
+    // KEY: reduziert das „weiße Band“ bei iOS Overscroll deutlich
+    overscrollBehaviorY: "contain",
+    zIndex: 20000,
   };
 
   const modal: React.CSSProperties = {
     width: "100%",
     maxWidth: 720,
-    maxHeight: "88vh",
+    maxHeight: "calc(100dvh - (32px + env(safe-area-inset-top) + env(safe-area-inset-bottom)))",
     borderRadius: 18,
     border: "1px solid rgba(255,255,255,0.10)",
     background: "rgba(2,6,23,0.98)",
@@ -165,12 +206,16 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   const body: React.CSSProperties = {
     padding: 16,
     overflowY: "auto",
+    flex: 1, // KEY: Body füllt Rest, Footer/Header bleiben sichtbar
+    minHeight: 0, // KEY: erlaubt korrektes Shrinking für Scroll
+    WebkitOverflowScrolling: "touch",
+    overscrollBehaviorY: "contain",
+    // KEY: Scroll-Raum unten (damit Buttons nicht unter der Nav landen)
+    paddingBottom: `calc(${NAV_SAFE_SPACE_PX}px + env(safe-area-inset-bottom))`,
   };
 
-  const footer: React.CSSProperties = {
-    padding: 14,
-    borderTop: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(2,6,23,0.99)",
+  const actionsRow: React.CSSProperties = {
+    marginTop: 14,
     display: "flex",
     gap: 10,
   };
@@ -246,7 +291,8 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
   const entitlementLine = (() => {
     if (isPro) return "Pro: unbegrenzt (A/B/C).";
-    if (typeof adaptiveLeftBC === "number") return `Free: A immer frei · B/C noch ${Math.max(0, adaptiveLeftBC)} übrig (Limit ${bcFreeLimit}×/Monat).`;
+    if (typeof adaptiveLeftBC === "number")
+      return `Free: A immer frei · B/C noch ${Math.max(0, adaptiveLeftBC)} übrig (Limit ${bcFreeLimit}×/Monat).`;
     return `Free: A immer frei · B/C sind limitiert (${bcFreeLimit}×/Monat).`;
   })();
 
@@ -362,6 +408,20 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                   </button>
                 </div>
               </div>
+
+              <div style={actionsRow}>
+                <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
+                  Abbrechen
+                </button>
+                <button
+                  style={{ ...btn, ...btnPrimary }}
+                  onClick={() => setStep("suggestions")}
+                  disabled={!plannedOk}
+                  title={!plannedOk ? "Plan/Split inkonsistent" : "Vorschläge anzeigen"}
+                >
+                  Vorschläge anzeigen
+                </button>
+              </div>
             </div>
           )}
 
@@ -390,9 +450,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ ...badge, background: accent.badgeBg, color: accent.badgeText }}>
-                            {profileLabel(s.profile)}
-                          </span>
+                          <span style={{ ...badge, background: accent.badgeBg, color: accent.badgeText }}>{profileLabel(s.profile)}</span>
 
                           {abc === "A" && (
                             <span style={{ ...badge, background: "rgba(255,255,255,0.06)", color: "rgba(229,231,235,0.80)" }}>
@@ -436,42 +494,20 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       </button>
                     </div>
 
-                    {blocked && (
-                      <div style={{ ...tiny, marginTop: 8 }}>
-                        Dieser Vorschlag ist heute deaktiviert (Zeit/Erholung nicht optimal).
-                      </div>
-                    )}
+                    {blocked && <div style={{ ...tiny, marginTop: 8 }}>Dieser Vorschlag ist heute deaktiviert (Zeit/Erholung nicht optimal).</div>}
                   </div>
                 );
               })}
-            </div>
-          )}
-        </div>
 
-        <div style={footer}>
-          {step === "questions" ? (
-            <>
-              <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
-                Abbrechen
-              </button>
-              <button
-                style={{ ...btn, ...btnPrimary }}
-                onClick={() => setStep("suggestions")}
-                disabled={!plannedOk}
-                title={!plannedOk ? "Plan/Split inkonsistent" : "Vorschläge anzeigen"}
-              >
-                Vorschläge anzeigen
-              </button>
-            </>
-          ) : (
-            <>
-              <button style={{ ...btn, ...btnGhost }} onClick={() => setStep("questions")}>
-                Zurück
-              </button>
-              <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
-                Schließen
-              </button>
-            </>
+              <div style={actionsRow}>
+                <button style={{ ...btn, ...btnGhost }} onClick={() => setStep("questions")}>
+                  Zurück
+                </button>
+                <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
+                  Schließen
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
