@@ -812,11 +812,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             {/* Wochenansicht */}
             {viewMode === "week" && (
               <div className="flex flex-col text-sm min-h-[390px] h-full">
-                <p className="text-sm mb-3 font-medium" style={{ color: "var(--text)" }}>
+                <p className="text-[13px] mb-2 font-medium" style={{ color: "var(--text)" }}>
                   Woche {weekLabel}
                 </p>
 
-                <div className="grid grid-cols-7 gap-2 flex-1">
+                <div className="grid grid-cols-7 gap-x-1 gap-y-2 flex-1">
                   {currentWeekDays.map((d, idx) => {
                     const key = dateKey(d);
                     const dayEvents = eventsByDate.get(key) ?? [];
@@ -831,23 +831,25 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         key={key}
                         type="button"
                         onClick={() => openDayViewFromDate(d, "week")}
-                        className="flex flex-col h-full rounded-2xl p-3 text-left transition hover:opacity-95"
+                        className="flex flex-col h-full rounded-xl p-2 text-left transition hover:opacity-95 min-w-0"
                         style={{
                           background: "var(--surface2)",
                           border: isToday ? "1px solid rgba(59,130,246,0.45)" : "1px solid var(--border)",
                           color: "var(--text)",
                         }}
                       >
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-xs font-medium" style={muted}>
+                        <div className="mb-1 flex items-center justify-between min-w-0">
+                          <span className="text-[11px] font-medium leading-tight truncate" style={muted}>
                             {weekdayShort[idx]}
                           </span>
-                          <span className="text-base font-semibold">{d.getDate().toString().padStart(2, "0")}</span>
+                          <span className="text-[13px] font-semibold leading-none">
+                            {d.getDate().toString().padStart(2, "0")}
+                          </span>
                         </div>
 
-                        <div className="mt-1 space-y-2 flex-1">
+                        <div className="mt-0.5 space-y-1.5 flex-1 min-w-0">
                           {dayEvents.length === 0 && (
-                            <span className="text-xs" style={muted}>
+                            <span className="text-[11px]" style={muted}>
                               –
                             </span>
                           )}
@@ -865,22 +867,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             return (
                               <div
                                 key={ev.id}
-                                className="rounded-lg px-2.5 py-2"
+                                className="rounded-lg px-2 py-1.5 min-w-0"
                                 style={{
                                   background: done ? "rgba(16,185,129,0.10)" : "rgba(0,0,0,0.06)",
                                   border: "1px solid var(--border)",
                                   borderLeft: `4px solid ${leftBorder}`,
                                 }}
                               >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold truncate">{normalizeTitle(ev.title)}</span>
-                                  <span className="text-xs whitespace-nowrap" style={muted}>
+                                <div className="flex items-center justify-between gap-1 min-w-0">
+                                  <span className="text-[11px] font-semibold truncate">{normalizeTitle(ev.title)}</span>
+                                  <span className="text-[11px] whitespace-nowrap" style={muted}>
                                     {ev.startTime}
                                   </span>
                                 </div>
 
                                 {done && (
-                                  <div className="mt-1 text-xs font-semibold" style={{ color: "rgba(16,185,129,0.85)" }}>
+                                  <div className="mt-0.5 text-[11px] font-semibold" style={{ color: "rgba(16,185,129,0.85)" }}>
                                     Gemacht
                                   </div>
                                 )}
@@ -889,7 +891,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           })}
 
                           {rest > 0 && (
-                            <div className="text-xs pt-1" style={muted}>
+                            <div className="text-[11px] pt-0.5" style={muted}>
                               +{rest} weitere
                             </div>
                           )}

@@ -115,20 +115,8 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
     return next;
   }, [state, userId]);
 
-  // ---------- Pro toggle (nur Debug/UI) ----------
-  // Wichtig: In der echten App sollte Pro aus Billing/Auth kommen.
-  const setPro = useCallback(
-    (nextPro: boolean) => {
-      const next: EntitlementsState = { ...state, isPro: nextPro };
-      saveEntitlements(next, userId);
-      setState(next);
-    },
-    [state, userId]
-  );
-
   return {
     isPro,
-    setPro,
 
     adaptiveBCRemaining,
     planShiftRemaining,

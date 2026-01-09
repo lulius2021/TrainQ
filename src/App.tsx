@@ -29,6 +29,7 @@ import { useAuth } from "./hooks/useAuth";
 // Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
 import type { PaywallReason } from "./utils/entitlements";
+import { ENTITLEMENTS_CHANGED_EVENT } from "./utils/entitlements";
 
 // Paywall UI
 import PaywallModal from "./components/paywall/PaywallModal";
@@ -381,10 +382,13 @@ const MainAppShell: React.FC = () => {
 
   const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
-  const { user, setUserPro } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id;
 
-  const { isPro, setPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(userId);
+  const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(
+    userId,
+    user?.isPro
+  );
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
@@ -403,13 +407,6 @@ const MainAppShell: React.FC = () => {
   useEffect(() => {
     writeEventsToStorage(events);
   }, [events]);
-
-  useEffect(() => {
-    if (!userId) return;
-    const accountPro = user?.isPro === true;
-    if (accountPro !== isPro) setPro(accountPro);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, user?.isPro]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -632,6 +629,20 @@ const MainAppShell: React.FC = () => {
     openPaywall("calendar_7days");
   }, [openPaywall]);
 
+  const handlePurchase = useCallback((plan: "monthly" | "yearly") => {
+    setPaywallOpen(false);
+    const label = plan === "yearly" ? "Jahresabo" : "Monatsabo";
+    alert(`${label}: In-App-Kauf ist noch nicht integriert. Pro wird erst nach erfolgreicher Zahlung aktiviert.`);
+  }, []);
+
+  const handleRestorePurchases = useCallback(() => {
+    setPaywallOpen(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(ENTITLEMENTS_CHANGED_EVENT));
+    }
+    alert("Käufe wiederherstellen: Bitte melde dich mit dem Account an, der das Abo gekauft hat.");
+  }, []);
+
   // ---------- Routing ----------
   if (route === "/live-training") {
     return (
@@ -718,22 +729,9 @@ const MainAppShell: React.FC = () => {
         adaptiveBCRemaining={Math.max(0, adaptiveBCRemaining)}
         planShiftRemaining={Math.max(0, planShiftRemaining)}
         calendar7DaysRemaining={Math.max(0, calendar7DaysRemaining)}
-        onStartTrial={() => {
-          setPaywallOpen(false);
-          setUserPro(true);
-        }}
-        onBuyMonthly={() => {
-          setPaywallOpen(false);
-          setUserPro(true);
-        }}
-        onBuyYearly={() => {
-          setPaywallOpen(false);
-          setUserPro(true);
-        }}
-        onRestore={() => {
-          // TODO: Implementiere App Store Restore
-          alert("Käufe wiederherstellen: In der MVP wird dies lokal gespeichert. Für echte Käufe integrieren wir später App Store Restore.");
-        }}
+        onBuyMonthly={() => handlePurchase("monthly")}
+        onBuyYearly={() => handlePurchase("yearly")}
+        onRestore={handleRestorePurchases}
       />
 
       <NavBar
@@ -799,7 +797,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;
-    ensureTestAccountsSeeded();
+    if (import.meta.env.DEV) {
+      ensureTestAccountsSeeded();
+    }
   }, []);
 
   return (

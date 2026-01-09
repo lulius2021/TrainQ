@@ -1,6 +1,7 @@
 // src/pages/SettingPage.tsx
 import { useCallback, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
 
@@ -29,7 +30,12 @@ export default function SettingPage({
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
   const { user, logout } = useAuth();
-  const isPro = user?.isPro === true;
+  const {
+    isPro,
+    adaptiveBCRemaining,
+    planShiftRemaining,
+    calendar7DaysRemaining,
+  } = useEntitlements(user?.id, user?.isPro);
 
   const [section, setSection] = useState<SettingsSection>("theme");
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
@@ -51,6 +57,21 @@ export default function SettingPage({
     if (onOpenPaywall) return onOpenPaywall();
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
   }, [onOpenPaywall]);
+
+  const MANAGE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
+
+  const openExternalUrl = useCallback((url: string) => {
+    if (typeof window === "undefined") return;
+    if (Capacitor.isNativePlatform()) {
+      window.open(url, "_blank");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const handleRestorePurchases = useCallback(() => {
+    alert("Käufe wiederherstellen: Bitte melde dich mit dem Account an, der das Abo gekauft hat.");
+  }, []);
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -431,8 +452,6 @@ export default function SettingPage({
   );
 
   const ProPanel = () => {
-    const { adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements();
-    
     return (
       <>
         <SectionHeader title="PRO / Abo" />
@@ -448,13 +467,20 @@ export default function SettingPage({
               <button
                 type="button"
                 onClick={() => {
-                  // TODO: App Store Subscriptions Integration
-                  alert("Abonnement-Verwaltung wird über die App Store-Einstellungen verwaltet.");
+                  openExternalUrl(MANAGE_SUBSCRIPTIONS_URL);
                 }}
                 className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
                 style={surfaceBox}
               >
-                <span style={{ color: "var(--text)" }}>Abonnement verwalten</span>
+                <span style={{ color: "var(--text)" }}>Abo verwalten / kündigen</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRestorePurchases}
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
+                style={surfaceBox}
+              >
+                <span style={{ color: "var(--text)" }}>Käufe wiederherstellen</span>
               </button>
             </div>
           ) : (
@@ -481,6 +507,14 @@ export default function SettingPage({
                 style={{ background: "var(--primary)", color: "#061226" }}
               >
                 Pro kaufen
+              </button>
+              <button
+                type="button"
+                onClick={handleRestorePurchases}
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
+                style={surfaceBox}
+              >
+                <span style={{ color: "var(--text)" }}>Käufe wiederherstellen</span>
               </button>
             </div>
           )}

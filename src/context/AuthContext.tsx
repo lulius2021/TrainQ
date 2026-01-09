@@ -2,6 +2,7 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
+import { clearActiveSession, setActiveSession } from "../utils/session";
 
 export type AuthProvider = "email" | "apple";
 
@@ -198,17 +199,21 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!u) {
       setUser(null);
       writeSessionUserId(null);
+      clearActiveSession();
       return;
     }
     setUser(sanitizeUser(u));
     writeSessionUserId(u.id);
+    setActiveSession({ userId: u.id, isPro: u.isPro === true, email: u.email });
   }, []);
 
   // Init: Seed + Session restore (+ SocialLogin init)
   useEffect(() => {
     mountedRef.current = true;
 
-    seedDefaultTestAccountsIfMissing();
+    if (import.meta.env.DEV) {
+      seedDefaultTestAccountsIfMissing();
+    }
 
     // SocialLogin init (native iOS)
     if (isNativeIOS()) {
@@ -222,9 +227,15 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const users = readStoredUsers();
       const found = users.find((u) => u.id === sessionUserId) ?? null;
       setUser(found ? sanitizeUser(found) : null);
-      if (!found) writeSessionUserId(null);
+      if (!found) {
+        writeSessionUserId(null);
+        clearActiveSession();
+      } else {
+        setActiveSession({ userId: found.id, isPro: found.isPro === true, email: found.email });
+      }
     } else {
       setUser(null);
+      clearActiveSession();
     }
 
     return () => {
@@ -416,6 +427,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const setUserPro = useCallback(
     (isPro: boolean) => {
+      if (!import.meta.env.DEV) return;
       if (!user) return;
 
       const users = readStoredUsers();

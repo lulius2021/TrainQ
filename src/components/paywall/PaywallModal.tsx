@@ -16,7 +16,6 @@ type Props = {
   calendar7DaysRemaining: number;
 
   // actions
-  onStartTrial: () => void; // MVP CTA (Trial “immer möglich”)
   onBuyMonthly: () => void; // später IAP
   onBuyYearly: () => void; // später IAP
   onRestore?: () => void; // optional später
@@ -60,7 +59,6 @@ export default function PaywallModal(props: Props) {
     adaptiveBCRemaining,
     planShiftRemaining,
     calendar7DaysRemaining,
-    onStartTrial,
     onBuyMonthly,
     onBuyYearly,
     onRestore,
@@ -154,15 +152,6 @@ export default function PaywallModal(props: Props) {
             </div>
           </button>
 
-          {/* Trial CTA (immer möglich als MVP CTA) */}
-          <button
-            type="button"
-            onClick={onStartTrial}
-            className="mt-1 w-full rounded-2xl bg-blue-500 px-4 py-3 text-sm font-semibold text-[#061226] hover:bg-blue-500/90"
-          >
-            Kostenlos testen
-          </button>
-
           {typeof onRestore === "function" && (
             <button
               type="button"
@@ -172,11 +161,6 @@ export default function PaywallModal(props: Props) {
               Käufe wiederherstellen
             </button>
           )}
-        </div>
-
-        <div className="mt-4 text-[11px] text-white/45 leading-relaxed">
-          Hinweis: In der MVP/Demo wird Pro lokal gespeichert. Für echte Käufe integrieren wir später In-App Purchases
-          (App Store).
         </div>
       </div>
     </div>
