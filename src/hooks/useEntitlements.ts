@@ -14,6 +14,7 @@ import {
   consumeCalendar7Days,
   type EntitlementsState,
 } from "../utils/entitlements";
+import { onSessionChanged } from "../utils/session";
 
 export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
   const [state, setState] = useState<EntitlementsState>(() => loadEntitlements(userId));
@@ -49,10 +50,12 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
 
     window.addEventListener(ENTITLEMENTS_CHANGED_EVENT, refresh as any);
     window.addEventListener("storage", refresh);
+    const offSession = onSessionChanged(refresh);
 
     return () => {
       window.removeEventListener(ENTITLEMENTS_CHANGED_EVENT, refresh as any);
       window.removeEventListener("storage", refresh);
+      offSession();
     };
   }, [userId, isProFromAccount]);
 

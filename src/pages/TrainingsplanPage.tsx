@@ -27,6 +27,7 @@ import { isWithinDaysAhead } from "../utils/dateLimits";
 
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
+import { useProGuard } from "../hooks/useProGuard";
 import { FREE_LIMITS } from "../utils/entitlements";
 
 // -------------------- Typen --------------------
@@ -81,7 +82,6 @@ interface TrainingsplanPageProps {
   onUpdateEvents?: (next: CalendarEvent[]) => void;
 
   isPro?: boolean;
-  onOpenPaywall?: (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => void;
 }
 
 // Vorlagen (Trainingspläne)
@@ -996,23 +996,13 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
 // -------------------- Haupt-Komponente --------------------
 
-const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false, onOpenPaywall }) => {
+const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
 
   // ✅ Entitlements
   const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
   const effectiveIsPro = isProEnt || isProProp;
-
-  // ✅ Paywall helper (wie ProfilePage)
-  const openPaywall = useCallback(
-    (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => {
-      if (onOpenPaywall) return onOpenPaywall(reason);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason } }));
-      }
-    },
-    [onOpenPaywall]
-  );
+  const requirePro = useProGuard();
 
   // ✅ Startdatum
   const [planStartISO, setPlanStartISO] = useState<string>(() => {
@@ -1133,7 +1123,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     // Free: 3/Monat
     if (!canUseCalendar7()) {
-      openPaywall("calendar_7days");
+      requirePro("calendar_7days");
       return false;
     }
 

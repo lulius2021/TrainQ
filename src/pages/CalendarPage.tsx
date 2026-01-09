@@ -4,6 +4,7 @@ import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/tra
 
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
+import { useProGuard } from "../hooks/useProGuard";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 // ✅ Plan-Seed -> LiveTraining (Preview + Start)
@@ -27,7 +28,6 @@ interface CalendarPageProps {
 
   /** optional (für Free-Limit 7 Tage) */
   isPro?: boolean;
-  onOpenPaywall?: (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => void;
 }
 
 type ViewMode = "month" | "week" | "day";
@@ -209,10 +209,10 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   onDeleteEvent,
   onUpdateEvents,
   isPro = false,
-  onOpenPaywall,
 }) => {
   const { isPro: isProEntitlements, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining, canUseShift, consumeShift } = useEntitlements();
   const effectiveIsPro = isProEntitlements || isPro;
+  const requirePro = useProGuard();
 
   // ---------- Theme-safe style helpers (wie Dashboard) ----------
   const surfaceBox: React.CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)" };
@@ -525,7 +525,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     if (!effectiveIsPro && isBeyond7Days) {
       const allowed = canUseCalendar7();
       if (!allowed) {
-        onOpenPaywall?.("calendar_7days");
+        requirePro("calendar_7days");
         return;
       }
     }
@@ -609,7 +609,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     if (!effectiveIsPro) {
       const allowed = canUseShift();
       if (!allowed) {
-        onOpenPaywall?.("plan_shift");
+        requirePro("plan_shift");
         return;
       }
     }

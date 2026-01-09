@@ -355,6 +355,8 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
       .map((s) => ({
         reps: typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : 0,
         weight: typeof s.weight === "number" && Number.isFinite(s.weight) ? s.weight : 0,
+        setType: s.setType,
+        timestamp: s.completedAt,
       }))
       .filter((s) => (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0),
   }));
@@ -379,6 +381,7 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
     startedAt: workout.startedAt,
     endedAt,
     durationSec: durationSeconds,
+    sessionRpe: (workout as any).sessionRpe,
     exercises: whExercises,
     distanceKm,
     paceSecPerKm,

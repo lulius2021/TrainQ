@@ -15,6 +15,8 @@ import {
 } from "../context/OnboardingContext";
 
 import { useAuth } from "../hooks/useAuth";
+import { useEntitlements } from "../hooks/useEntitlements";
+import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
 import SettingPage from "./SettingPage";
@@ -117,7 +119,7 @@ function toNumberOrNull(raw: string): number | null {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall }) => {
   const { user, logout } = useAuth();
-  const isPro = user?.isPro === true;
+  const { isPro } = useEntitlements(user?.id);
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -318,12 +320,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   // -------- Settings drawer state --------
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // -------- Stats / Charts --------
-  const [monthRef, setMonthRef] = useState<Date>(() => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1);
-  });
-  const [weekRef, setWeekRef] = useState<Date>(new Date());
   const [statsOpen, setStatsOpen] = useState(false);
 
   // Close modals with ESC
@@ -341,50 +337,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const monthLabel = useMemo(() => formatMonthLabel(monthRef), [monthRef]);
-  const weekStart = useMemo(() => startOfWeekMonday(weekRef), [weekRef]);
-  const weekLabel = useMemo(() => formatDateRangeWeek(weekStart), [weekStart]);
-
   const WEEKLY_GOAL_MINUTES = useMemo(() => {
     const h = onboarding.training?.hoursPerWeek;
     const hours = typeof h === "number" && Number.isFinite(h) && h > 0 ? h : 5;
     return Math.round(hours * 60);
   }, [onboarding.training?.hoursPerWeek]);
 
+  const weekStart = useMemo(() => startOfWeekMonday(new Date()), []);
+
   const weekTotalMinutes = useMemo(() => {
     let total = 0;
-    for (const w of workouts) if (isInWeek(w, weekStart)) total += durationMinutes(w);
+    for (const w of workouts ?? []) if (isInWeek(w, weekStart)) total += durationMinutes(w);
     return total;
   }, [workouts, weekStart]);
 
   const weekTotalSessions = useMemo(() => {
     let total = 0;
-    for (const w of workouts) if (isInWeek(w, weekStart)) total += 1;
+    for (const w of workouts ?? []) if (isInWeek(w, weekStart)) total += 1;
     return total;
   }, [workouts, weekStart]);
-
-  const monthCountsByWeek = useMemo(() => {
-    const arr = [0, 0, 0, 0, 0];
-    for (const w of workouts) {
-      if (!isInMonth(w, monthRef)) continue;
-      const d = new Date(w.endedAt || w.startedAt);
-      if (Number.isNaN(d.getTime())) continue;
-      arr[weekIndexInMonth(d)] += 1;
-    }
-    return arr;
-  }, [workouts, monthRef]);
-
-  const monthTotalSessions = useMemo(() => monthCountsByWeek.reduce((a, b) => a + b, 0), [monthCountsByWeek]);
-  const barMax = Math.max(1, ...monthCountsByWeek);
-
-  const donutRatio = Math.min(weekTotalMinutes / Math.max(WEEKLY_GOAL_MINUTES, 1), 1);
-  const donutCircumference = 2 * Math.PI * 40;
-  const donutStroke = donutRatio * donutCircumference;
-
-  const goPrevMonth = () => setMonthRef((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1));
-  const goNextMonth = () => setMonthRef((p) => new Date(p.getFullYear(), p.getMonth() + 1, 1));
-  const goPrevWeek = () => setWeekRef((p) => new Date(p.getTime() - 7 * 24 * 60 * 60 * 1000));
-  const goNextWeek = () => setWeekRef((p) => new Date(p.getTime() + 7 * 24 * 60 * 60 * 1000));
 
   // -------- Actions --------
   const handleLogout = useCallback(() => {
@@ -847,7 +818,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             if (e.target === e.currentTarget) setStatsOpen(false);
           }}
         >
-          <div className="tq-surface w-full max-w-3xl p-4 sm:p-6 space-y-4">
+          <div className="tq-surface w-full max-w-5xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
                 Statistiken
@@ -857,134 +828,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Bars (Monat) */}
-              <div className="rounded-xl p-3 space-y-3 text-xs" style={surfaceSoft}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium" style={{ color: "var(--text)" }}>
-                    Wie oft trainiert (Monat)
-                  </span>
-                  <span className="text-[10px]" style={muted}>
-                    {monthTotalSessions} Training{monthTotalSessions === 1 ? "" : "e"}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <button
-                    type="button"
-                    onClick={goPrevMonth}
-                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
-                    style={surfaceBox}
-                  >
-                    <span style={{ color: "var(--text)" }}>{"<"}</span>
-                  </button>
-                  <span className="font-medium text-center min-w-[160px]" style={{ color: "var(--text)" }}>
-                    {monthLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={goNextMonth}
-                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
-                    style={surfaceBox}
-                  >
-                    <span style={{ color: "var(--text)" }}>{">"}</span>
-                  </button>
-                </div>
-
-                <div className="h-32 flex items-end gap-2">
-                  {monthCountsByWeek.map((value, index) => {
-                    const heightPct = barMax > 0 ? (value / barMax) * 100 : 0;
-                    const fillHeight = value === 0 ? 0 : Math.max(6, heightPct);
-                    const label = `W${index + 1}`;
-
-                    return (
-                      <div key={label} className="flex flex-col items-center flex-1 gap-1 h-full">
-                        <div className="w-full flex-1 rounded-full overflow-hidden flex items-end" style={{ background: "rgba(127,127,127,0.10)", border: "1px solid var(--border)" }}>
-                          <div className="w-full rounded-full" style={{ height: `${fillHeight}%`, background: "rgba(37,99,235,0.95)" }} />
-                        </div>
-
-                        <span className="text-[9px]" style={muted}>
-                          {label}
-                        </span>
-                        <span className="text-[9px]" style={muted}>
-                          {value}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="text-[10px]" style={muted}>
-                  Jede Einheit zählt als 1. W1–W5 basiert auf Tag im Monat (1–7, 8–14, ...).
-                </div>
-              </div>
-
-              {/* Donut (Woche) */}
-              <div className="rounded-xl p-3 space-y-3 text-xs flex flex-col" style={surfaceSoft}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium" style={{ color: "var(--text)" }}>
-                    Zeit im Training (Woche)
-                  </span>
-                  <span className="text-[10px]" style={muted}>
-                    Ziel: {Math.floor(WEEKLY_GOAL_MINUTES / 60)}h
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <button
-                    type="button"
-                    onClick={goPrevWeek}
-                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
-                    style={surfaceBox}
-                  >
-                    <span style={{ color: "var(--text)" }}>{"<"}</span>
-                  </button>
-                  <span className="font-medium text-center min-w-[160px]" style={{ color: "var(--text)" }}>
-                    {weekLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={goNextWeek}
-                    className="h-7 w-7 flex items-center justify-center rounded-full hover:opacity-95"
-                    style={surfaceBox}
-                  >
-                    <span style={{ color: "var(--text)" }}>{">"}</span>
-                  </button>
-                </div>
-
-                <div className="mt-1 flex items-center justify-center w-full flex-1">
-                  <div className="relative h-32 w-32">
-                    <svg viewBox="0 0 100 100" className="h-full w-full rotate-[-90deg]">
-                      <circle cx="50" cy="50" r="40" stroke="rgba(127,127,127,0.18)" strokeWidth="10" fill="none" />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        stroke="rgba(37,99,235,0.95)"
-                        strokeWidth="10"
-                        fill="none"
-                        strokeDasharray={donutCircumference}
-                        strokeDashoffset={donutCircumference - donutStroke}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-[11px]">
-                      <span style={{ color: "var(--text)" }}>
-                        {Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m
-                      </span>
-                      <span className="text-[9px]" style={muted}>
-                        {weekTotalSessions} Trainings
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-[10px] text-center" style={muted}>
-                  Kreis füllt sich mit der Summe deiner Trainingsdauer dieser Woche.
-                </div>
-              </div>
-            </div>
+            <ProfileStatsDashboard workouts={workouts} weeklyGoalMinutes={WEEKLY_GOAL_MINUTES} />
           </div>
         </div>
       )}

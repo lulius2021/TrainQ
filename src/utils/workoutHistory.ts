@@ -17,6 +17,10 @@
 export type WorkoutHistorySet = {
   reps: number;
   weight: number;
+  setType?: "normal" | "warmup" | "failure" | "1D";
+  isWarmup?: boolean;
+  rpe?: number;
+  timestamp?: string;
 };
 
 export type WorkoutHistoryExercise = {
@@ -35,6 +39,7 @@ export type WorkoutHistoryEntry = {
   startedAt: string;
   endedAt: string;
   durationSec: number;
+  sessionRpe?: number;
 
   exercises: WorkoutHistoryExercise[];
 
@@ -225,6 +230,15 @@ function sanitizeExercise(ex: any): WorkoutHistoryExercise | null {
     .map((s: any) => ({
       reps: Math.max(0, Math.round(toNumber(s?.reps, 0))),
       weight: Math.max(0, Math.round(toNumber(s?.weight, 0) * 100) / 100),
+      setType: typeof s?.setType === "string" ? s.setType : undefined,
+      isWarmup: s?.isWarmup === true || s?.setType === "warmup",
+      rpe: Number.isFinite(Number(s?.rpe)) ? Math.max(0, Math.min(10, Number(s?.rpe))) : undefined,
+      timestamp:
+        typeof s?.timestamp === "string"
+          ? s.timestamp
+          : typeof s?.completedAt === "string"
+            ? s.completedAt
+            : undefined,
     }))
     // akzeptiere Sets, sobald reps>0 ODER weight>0 (damit nicht alles rausfällt)
     .filter((s: WorkoutHistorySet) => s.reps > 0 || s.weight > 0);
@@ -260,6 +274,12 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
   if (durationSec <= 0) {
     durationSec = computeDurationFallbackSec(startedAt, endedAt);
   }
+
+  const sessionRpeRaw = Number(raw.sessionRpe);
+  const sessionRpe =
+    Number.isFinite(sessionRpeRaw) && sessionRpeRaw > 0
+      ? Math.min(10, Math.max(0, sessionRpeRaw))
+      : undefined;
 
   const exercises: WorkoutHistoryExercise[] = (Array.isArray(raw.exercises) ? raw.exercises : [])
     .map((x: any) => sanitizeExercise(x))
@@ -306,6 +326,7 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
     startedAt,
     endedAt,
     durationSec,
+    sessionRpe,
     exercises,
     distanceKm,
     paceSecPerKm,

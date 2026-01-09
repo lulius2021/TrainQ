@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
+import { isBillingSupported, restorePurchases, syncProToSession } from "../services/purchases";
 
 import { loadTheme, setTheme as setThemeGlobal, type ThemeMode } from "../utils/theme";
 import { resetOnboardingInStorage } from "../context/OnboardingContext";
@@ -30,12 +31,7 @@ export default function SettingPage({
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
   const { user, logout } = useAuth();
-  const {
-    isPro,
-    adaptiveBCRemaining,
-    planShiftRemaining,
-    calendar7DaysRemaining,
-  } = useEntitlements(user?.id, user?.isPro);
+  const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(user?.id);
 
   const [section, setSection] = useState<SettingsSection>("theme");
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
@@ -69,9 +65,26 @@ export default function SettingPage({
     window.open(url, "_blank", "noopener,noreferrer");
   }, []);
 
-  const handleRestorePurchases = useCallback(() => {
-    alert("Käufe wiederherstellen: Bitte melde dich mit dem Account an, der das Abo gekauft hat.");
-  }, []);
+  const handleRestorePurchases = useCallback(async () => {
+    if (!user) return;
+    try {
+      const supported = await isBillingSupported();
+      if (!supported) {
+        alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
+        return;
+      }
+
+      const nextIsPro = await restorePurchases();
+      await syncProToSession({ id: user.id, email: user.email });
+
+      if (!nextIsPro) {
+        alert("Kein aktives Abo gefunden.");
+      }
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Wiederherstellung fehlgeschlagen.");
+      alert(msg);
+    }
+  }, [user]);
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;

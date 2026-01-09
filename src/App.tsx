@@ -29,7 +29,7 @@ import { useAuth } from "./hooks/useAuth";
 // Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
 import type { PaywallReason } from "./utils/entitlements";
-import { ENTITLEMENTS_CHANGED_EVENT } from "./utils/entitlements";
+import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "./services/purchases";
 
 // Paywall UI
 import PaywallModal from "./components/paywall/PaywallModal";
@@ -385,10 +385,7 @@ const MainAppShell: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id;
 
-  const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(
-    userId,
-    user?.isPro
-  );
+  const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(userId);
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
@@ -629,19 +626,51 @@ const MainAppShell: React.FC = () => {
     openPaywall("calendar_7days");
   }, [openPaywall]);
 
-  const handlePurchase = useCallback((plan: "monthly" | "yearly") => {
-    setPaywallOpen(false);
-    const label = plan === "yearly" ? "Jahresabo" : "Monatsabo";
-    alert(`${label}: In-App-Kauf ist noch nicht integriert. Pro wird erst nach erfolgreicher Zahlung aktiviert.`);
-  }, []);
+  const handlePurchase = useCallback(
+    async (plan: "monthly" | "yearly") => {
+      if (!user) return;
+      try {
+        const supported = await isBillingSupported();
+        if (!supported) {
+          alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
+          return;
+        }
 
-  const handleRestorePurchases = useCallback(() => {
-    setPaywallOpen(false);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event(ENTITLEMENTS_CHANGED_EVENT));
+        await purchaseSubscription(plan);
+        const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
+        if (!nextIsPro) {
+          alert("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
+        }
+        setPaywallOpen(false);
+      } catch (e: any) {
+        const msg = String(e?.message ?? "Kauf fehlgeschlagen.");
+        alert(msg);
+      }
+    },
+    [user]
+  );
+
+  const handleRestorePurchases = useCallback(async () => {
+    if (!user) return;
+    try {
+      const supported = await isBillingSupported();
+      if (!supported) {
+        alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
+        return;
+      }
+
+      const nextIsPro = await restorePurchases();
+      await syncProToSession({ id: user.id, email: user.email });
+
+      if (!nextIsPro) {
+        alert("Kein aktives Abo gefunden.");
+      }
+      setPaywallOpen(false);
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Wiederherstellung fehlgeschlagen.");
+      alert(msg);
     }
-    alert("Käufe wiederherstellen: Bitte melde dich mit dem Account an, der das Abo gekauft hat.");
-  }, []);
+  }, [user]);
 
   // ---------- Routing ----------
   if (route === "/live-training") {
@@ -695,12 +724,11 @@ const MainAppShell: React.FC = () => {
                 onDeleteEvent={handleDeleteEvent}
                 onUpdateEvents={setEvents}
                 isPro={isPro}
-                onOpenPaywall={openPaywall}
               />
             )}
 
             {activeTab === "plan" && (
-              <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} onOpenPaywall={openPaywall} />
+              <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />
             )}
 
             {activeTab === "profile" &&
