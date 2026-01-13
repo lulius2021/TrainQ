@@ -14,6 +14,8 @@ import {
   refreshExerciseLibrary,
   findExerciseByToken,
   getExerciseDisplayName,
+  normalizeText,
+  MAX_CUSTOM_EXERCISE_NAME_LENGTH,
   type Exercise,
   type ExerciseFilters,
   type Muscle,
@@ -142,18 +144,10 @@ const CARDIO_EXERCISES: Exercise[] = [
   },
 ];
 
-function normalize(value: string) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
 function cardioFilter(list: Exercise[], term: string, lang: "de" | "en"): Exercise[] {
-  const t = normalize(term);
+  const t = normalizeText(term);
   if (!t) return list;
-  return list.filter((ex) => normalize(getExerciseDisplayName(ex, lang)).includes(t));
+  return list.filter((ex) => normalizeText(getExerciseDisplayName(ex, lang)).includes(t));
 }
 
 function inferMovement(primaryMuscle: Muscle): Movement {
@@ -188,6 +182,8 @@ export default function ExerciseLibraryModal({
   const [createType, setCreateType] = useState<ExerciseType>("strength");
   const [createMetrics, setCreateMetrics] = useState<Metric[]>(DEFAULT_METRICS_BY_TYPE.strength);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createNotice, setCreateNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | null>(null);
 
   // ✅ Track last mode to reset irrelevant filter fields when switching library mode
   const lastModeRef = useRef<boolean>(isCardioLibrary);
@@ -287,6 +283,7 @@ export default function ExerciseLibraryModal({
     // Fokus auf Suche
     requestAnimationFrame(() => searchRef.current?.focus());
     setLocalAddedIds(new Set(existingExerciseIds ?? []));
+    setCreateNotice(null);
   }, [open, isCardioLibrary, existingKey, existingExerciseIds]);
 
   useEffect(() => {
@@ -347,6 +344,7 @@ export default function ExerciseLibraryModal({
     setCreateType("strength");
     setCreateMetrics(DEFAULT_METRICS_BY_TYPE.strength);
     setCreateError(null);
+    setCreateNotice(null);
     setShowCreate(true);
   };
 
@@ -368,11 +366,22 @@ export default function ExerciseLibraryModal({
       setCreateError(t("training.exerciseLibrary.createEmptyName"));
       return;
     }
+    if (name.length > MAX_CUSTOM_EXERCISE_NAME_LENGTH) {
+      setCreateError(
+        t("training.exerciseLibrary.createNameTooLong", { max: MAX_CUSTOM_EXERCISE_NAME_LENGTH })
+      );
+      return;
+    }
 
     const matched = findExerciseByToken(name);
     if (matched) {
       addAliasOverride(matched.id, lang, name);
       refreshExerciseLibrary();
+      setCreateNotice(
+        t("training.exerciseLibrary.createDedupedNotice", { name: getExerciseDisplayName(matched, lang) })
+      );
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+      noticeTimer.current = window.setTimeout(() => setCreateNotice(null), 3500);
       onPick({ ...matched, name: getExerciseDisplayName(matched, lang) });
       closeCreate();
       return;
@@ -550,6 +559,11 @@ export default function ExerciseLibraryModal({
           </div>
 
           <div className="flex-1 overflow-y-auto">
+            {createNotice && (
+              <div className="mb-2 rounded-xl border px-3 py-2 text-[11px]" style={{ ...surfaceSoft, color: "#10b981" }}>
+                {createNotice}
+              </div>
+            )}
             {filteredExercises.length === 0 ? (
               <div className="rounded-xl border p-4 text-[12px]" style={{ ...surfaceSoft, color: "var(--muted)" }}>
                 {t("training.exerciseLibrary.empty")}
@@ -657,8 +671,12 @@ export default function ExerciseLibraryModal({
                 <input
                   type="text"
                   value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
+                  onChange={(e) => {
+                    setCreateName(e.target.value);
+                    if (createError) setCreateError(null);
+                  }}
                   placeholder={t("training.exerciseLibrary.createNamePlaceholder")}
+                  maxLength={MAX_CUSTOM_EXERCISE_NAME_LENGTH}
                   className="mt-1 w-full rounded-xl border px-3 py-2 text-[12px] outline-none"
                   style={{ ...surfaceSoft, color: "var(--text)" }}
                 />

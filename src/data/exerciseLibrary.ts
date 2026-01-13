@@ -178,6 +178,7 @@ export const METRICS: Metric[] = ["weight", "reps", "time", "distance", "pace", 
 
 const DEFAULT_LANG = "de";
 const LANG_STORAGE_KEY = "trainq_lang_v1";
+export const MAX_CUSTOM_EXERCISE_NAME_LENGTH = 80;
 
 function getPreferredLang(): "de" | "en" {
   if (typeof window === "undefined") return DEFAULT_LANG;
@@ -188,7 +189,8 @@ function getPreferredLang(): "de" | "en" {
   return DEFAULT_LANG;
 }
 
-function normalizeSearchValue(value: string): string {
+export function normalizeText(value: string): string {
+  // Keep in sync with normalizeToken in validateExercises.
   return String(value || "")
     .toLowerCase()
     .normalize("NFD")
@@ -198,8 +200,12 @@ function normalizeSearchValue(value: string): string {
     .trim();
 }
 
+function normalizeSearchValue(value: string): string {
+  return normalizeText(value);
+}
+
 export function normalizeExerciseToken(value: string): string {
-  return normalizeSearchValue(value);
+  return normalizeText(value);
 }
 
 export function getExerciseDisplayName(exercise: Exercise, lang: "de" | "en"): string {
@@ -250,7 +256,7 @@ function buildSearchIndex(exercise: Exercise, overrides?: ExerciseAliases): stri
     ...(exercise.secondaryMuscles || []),
     ...(exercise.equipment || []),
   ];
-  return normalizeSearchValue(parts.filter(Boolean).join(" "));
+  return normalizeText(parts.filter(Boolean).join(" "));
 }
 
 function buildTokenList(exercise: Exercise, overrides?: ExerciseAliases): string[] {

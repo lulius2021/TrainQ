@@ -276,6 +276,8 @@ export const translationsDe = {
   "training.exerciseLibrary.createSave": "Speichern",
   "training.exerciseLibrary.createCancel": "Abbrechen",
   "training.exerciseLibrary.createEmptyName": "Bitte gib einen Namen ein.",
+  "training.exerciseLibrary.createNameTooLong": "Bitte halte den Namen unter {max} Zeichen.",
+  "training.exerciseLibrary.createDedupedNotice": "Bestehende Übung gefunden: {name}. Als Alias hinzugefügt.",
   "training.difficulty.Leicht": "Leicht",
   "training.difficulty.Mittel": "Mittel",
   "training.difficulty.Schwer": "Schwer",
