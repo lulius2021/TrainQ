@@ -168,6 +168,7 @@ export default function ExerciseLibraryModal({
   onPick,
 }: Props) {
   const { t, lang } = useI18n();
+  const DEBUG = typeof window !== "undefined" && window.localStorage.getItem("trainq_debug_exlib") === "1";
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -328,6 +329,24 @@ export default function ExerciseLibraryModal({
     return filterExercises(EXERCISES, filters);
   }, [filters, isCardioLibrary, lang]);
 
+  useEffect(() => {
+    if (!DEBUG || !open) return;
+    console.log("[EXLIB]", {
+      tab: isCardioLibrary ? "cardio" : "gym",
+      query: filters.search,
+      lang,
+      total: isCardioLibrary ? CARDIO_EXERCISES.length : EXERCISES.length,
+      filtered: filteredExercises.length,
+      visible: filteredExercises.length,
+      filters: {
+        muscle: filters.muscle,
+        equipment: filters.equipment,
+        difficulty: filters.difficulty,
+        type: filters.type,
+      },
+    });
+  }, [DEBUG, open, isCardioLibrary, filters, filteredExercises.length, lang]);
+
   if (!open) return null;
 
   const headerTitle = "Übungsbibliothek";
@@ -416,7 +435,10 @@ export default function ExerciseLibraryModal({
       aria-modal="true"
       aria-label={headerTitle}
     >
-      <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl text-xs shadow-xl" style={surfaceBox}>
+      <div
+        className="flex h-[85dvh] max-h-[85dvh] w-full max-w-4xl min-h-0 flex-col overflow-hidden rounded-2xl text-xs shadow-xl"
+        style={{ ...surfaceBox, ...(DEBUG ? { outline: "2px solid #ef4444" } : {}) }}
+      >
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold" style={{ color: "var(--text)" }}>
@@ -428,6 +450,11 @@ export default function ExerciseLibraryModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {DEBUG && (
+              <span className="rounded-full border px-2 py-1 text-[10px]" style={{ ...surfaceSoft, color: "#ef4444" }}>
+                EXLIB DEBUG ON (see console)
+              </span>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -439,7 +466,7 @@ export default function ExerciseLibraryModal({
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4">
           <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3" style={{ background: "var(--surface)" }}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
@@ -558,7 +585,13 @@ export default function ExerciseLibraryModal({
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div
+            className="flex h-full min-h-0 flex-1 overflow-y-auto"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              ...(DEBUG ? { outline: "2px solid #22c55e" } : {}),
+            }}
+          >
             {createNotice && (
               <div className="mb-2 rounded-xl border px-3 py-2 text-[11px]" style={{ ...surfaceSoft, color: "#10b981" }}>
                 {createNotice}
@@ -569,7 +602,7 @@ export default function ExerciseLibraryModal({
                 {t("training.exerciseLibrary.empty")}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2" style={DEBUG ? { outline: "2px solid #3b82f6" } : undefined}>
                 {filteredExercises.map((ex) => {
                   const isAdded = existingSet.has(ex.id) || localAddedIds.has(ex.id);
                   return (
