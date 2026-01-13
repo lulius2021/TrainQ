@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { AuthInput } from "../../components/auth/AuthInput";
 import { AuthButton } from "../../components/auth/AuthButton";
 import { useAuth } from "../../hooks/useAuth";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   onGoToLogin?: () => void;
@@ -10,6 +11,7 @@ interface Props {
 
 const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
   const { register } = useAuth();
+  const { t } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +23,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
     e.preventDefault();
 
     if (password !== repeatPassword) {
-      setError("Passwörter stimmen nicht überein.");
+      setError(t("auth.register.passwordMismatch"));
       return;
     }
 
@@ -31,7 +33,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
     try {
       const res: any = await register(email, password);
       if (res && res.ok === false) {
-        setError(res.error || "Registrierung fehlgeschlagen.");
+        setError(res.error || t("auth.register.error"));
       } else {
         // optional: nach erfolgreicher Registrierung zurück zum Login
         onGoToLogin?.();
@@ -45,20 +47,20 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
     <div className="min-h-screen w-full flex items-center justify-center px-4" style={{ background: "transparent" }}>
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/40 p-5 shadow-xl shadow-black/40">
         <div className="mb-4">
-          <div className="text-lg font-semibold text-white">Account erstellen</div>
+          <div className="text-lg font-semibold text-white">{t("auth.register.title")}</div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthInput label="E-Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <AuthInput label={t("auth.email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <AuthInput
-            label="Passwort"
+            label={t("auth.password")}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
           <AuthInput
-            label="Passwort wiederholen"
+            label={t("auth.register.repeatPassword")}
             type="password"
             value={repeatPassword}
             onChange={(e) => setRepeatPassword(e.target.value)}
@@ -67,18 +69,18 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
           />
 
           <div className="text-[11px] text-white/45">
-            Mit der Registrierung akzeptierst du die Nutzungsbedingungen und Datenschutzbestimmungen von TrainQ.
+            {t("auth.register.terms")}
           </div>
 
           <AuthButton type="submit" disabled={busy}>
-            {busy ? "Registrieren..." : "Registrieren"}
+            {busy ? t("auth.register.loading") : t("auth.register.submit")}
           </AuthButton>
         </form>
 
         <div className="mt-4 text-xs text-center text-white/60">
-          Bereits ein Konto?{" "}
+          {t("auth.register.already")}{" "}
           <button type="button" onClick={onGoToLogin} className="text-blue-400 hover:text-blue-300">
-            Einloggen
+            {t("auth.register.login")}
           </button>
         </div>
       </div>

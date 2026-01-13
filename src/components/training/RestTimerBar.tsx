@@ -1,6 +1,7 @@
 // src/components/training/RestTimerBar.tsx
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
   seconds: number;
@@ -97,6 +98,7 @@ function playBoxingBellDouble() {
 /* ------------------------------------------------------------------ */
 
 export default function RestTimerBar({ seconds, running, onDone }: Props) {
+  const { t } = useI18n();
   const total = useMemo(() => clampSeconds(seconds), [seconds]);
   const [left, setLeft] = useState<number>(total);
 
@@ -256,9 +258,9 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
           type="button"
           onClick={() => void skipRest()}
           className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] font-semibold text-white/90 hover:bg-white/5"
-          title="Rest überspringen"
+          title={t("training.rest.skipTitle")}
         >
-          Skip
+          {t("training.rest.skip")}
         </button>
       </div>
     </div>

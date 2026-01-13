@@ -2,6 +2,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { TabKey } from "../App.tsx";
 import { getScopedItem } from "../utils/scopedStorage";
+import { useI18n } from "../i18n/useI18n";
 
 import iconDashboard from "../assets/icons/Dashboard.png";
 import iconKalender from "../assets/icons/Kalender.png";
@@ -113,6 +114,7 @@ function useIsDarkMode(): boolean {
 
 export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
   const isDark = useIsDarkMode();
+  const { t } = useI18n();
 
   const theme = useMemo(() => {
     return isDark
@@ -138,31 +140,52 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
         };
   }, [isDark]);
 
-  const Item: React.FC<{ tab: TabKey; label: string; icon: string }> = ({ tab, label, icon }) => {
+  const Item: React.FC<{
+    tab: TabKey;
+    label: string;
+    icon?: string;
+    renderIcon?: (active: boolean) => React.ReactNode;
+    isPrimary?: boolean;
+  }> = ({ tab, label, icon, renderIcon, isPrimary = false }) => {
     const isActive = activeTab === tab;
+    const baseLabelColor = isActive ? theme.textActive : theme.textIdle;
 
     return (
       <button
         type="button"
         onClick={() => onChange(tab)}
-        className="flex w-full select-none flex-col items-center justify-center gap-1 py-1.5"
+        className="flex w-full min-h-[44px] select-none flex-col items-center justify-center gap-1 py-1.5"
       >
-        <img
-          src={icon}
-          alt={label}
-          draggable={false}
-          className="h-6 w-6"
-          style={{
-            opacity: isActive ? 1 : 0.5,
-            filter: theme.iconFilter,
-          }}
-        />
+        {isPrimary ? (
+          <div
+            className="h-12 w-12 rounded-xl flex items-center justify-center"
+            style={{
+              background: "var(--primary)",
+              boxShadow: isActive ? "0 5px 10px rgba(0,0,0,0.2)" : "0 4px 8px rgba(0,0,0,0.14)",
+            }}
+          >
+            {renderIcon?.(isActive)}
+          </div>
+        ) : renderIcon ? (
+          renderIcon(isActive)
+        ) : (
+          <img
+            src={icon}
+            alt={label}
+            draggable={false}
+            className="h-6 w-6"
+            style={{
+              opacity: isActive ? 1 : 0.5,
+              filter: theme.iconFilter,
+            }}
+          />
+        )}
 
         <span
           className="text-[11px]"
           style={{
             fontWeight: isActive ? 600 : 400,
-            color: isActive ? theme.textActive : theme.textIdle,
+            color: isPrimary ? "var(--text)" : baseLabelColor,
           }}
         >
           {label}
@@ -171,7 +194,7 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
         <div
           className="mt-0.5 h-[2px] w-6 rounded-full"
           style={{
-            background: isActive ? theme.indicator : "transparent",
+            background: isPrimary ? "transparent" : isActive ? theme.indicator : "transparent",
           }}
         />
       </button>
@@ -197,11 +220,21 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
             boxShadow: `inset 0 0 0 1px ${theme.ring}`,
           }}
         >
-          <div className="grid grid-cols-4 px-4 py-3">
-            <Item tab="dashboard" label="Dashboard" icon={iconDashboard} />
-            <Item tab="calendar" label="Kalender" icon={iconKalender} />
-            <Item tab="plan" label="Plan" icon={iconPlan} />
-            <Item tab="profile" label="Profil" icon={iconProfil} />
+          <div className="grid grid-cols-5 px-4 py-3">
+            <Item tab="dashboard" label={t("nav.dashboard")} icon={iconDashboard} />
+            <Item tab="calendar" label={t("nav.calendar")} icon={iconKalender} />
+            <Item
+              tab="today"
+              label={t("nav.play")}
+              isPrimary
+              renderIcon={() => (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 6.5V17.5L18 12L8 6.5Z" fill="#061226" />
+                </svg>
+              )}
+            />
+            <Item tab="plan" label={t("nav.plan")} icon={iconPlan} />
+            <Item tab="profile" label={t("nav.profile")} icon={iconProfil} />
           </div>
         </div>
       </footer>

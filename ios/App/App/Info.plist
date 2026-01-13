@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TrainQ benötigt Zugriff, um Trainingsbilder in die Fotos zu speichern.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TrainQ benötigt Zugriff auf die Fotobibliothek.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

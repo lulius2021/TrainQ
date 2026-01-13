@@ -1,6 +1,7 @@
 // src/components/onboarding/StepWrapper.tsx
 import React from "react";
 import type { ReactNode } from "react";
+import { useI18n } from "../../i18n/useI18n";
 
 interface StepWrapperProps {
   title: string;
@@ -20,9 +21,11 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   onNext,
   onBack,
   showBack = true,
-  nextLabel = "Weiter",
+  nextLabel,
   isNextDisabled = false,
 }) => {
+  const { t } = useI18n();
+  const nextText = nextLabel ?? t("common.next");
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#05060A] text-white px-4">
       <div className="w-full max-w-md space-y-6">
@@ -44,7 +47,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
               onClick={onBack}
               className="flex-1 text-sm border border-gray-600 rounded-full py-2"
             >
-              Zurück
+              {t("common.back")}
             </button>
           ) : (
             <div className="flex-1" />
@@ -57,7 +60,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
               disabled={isNextDisabled}
               className="flex-1 text-sm rounded-full py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600"
             >
-              {nextLabel}
+              {nextText}
             </button>
           )}
         </div>

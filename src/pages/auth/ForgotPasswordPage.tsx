@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { AuthInput } from "../../components/auth/AuthInput.tsx";
 import { AuthButton } from "../../components/auth/AuthButton.tsx";
 import { useAuth } from "../../hooks/useAuth.ts";
+import { useI18n } from "../../i18n/useI18n";
 
 interface ForgotPasswordPageProps {
   onGoBackToLogin: () => void;
@@ -11,39 +12,46 @@ interface ForgotPasswordPageProps {
 const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   onGoBackToLogin,
 }) => {
-  const { resetPassword, loading } = useAuth();
+  const { requestPasswordReset } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await resetPassword(email);
-    setInfo(
-      "Wenn ein Account mit dieser E-Mail existiert, haben wir dir eine Nachricht geschickt."
-    );
+    setSubmitting(true);
+    const result = await requestPasswordReset(email);
+    if (!result.ok && result.error) {
+      setInfo(result.error);
+      setSubmitting(false);
+      return;
+    }
+    setInfo(t("auth.forgot.sent"));
+    setSubmitting(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#05060A] text-white px-4">
       <div className="w-full max-w-sm space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">Passwort zurücksetzen</h1>
+          <h1 className="text-2xl font-semibold mb-1">{t("auth.forgot.title")}</h1>
           <p className="text-sm text-gray-400">
-            Gib deine E-Mail ein, um dein Passwort zu ändern.
+            {t("auth.forgot.subtitle")}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput
-            label="E-Mail"
+            label={t("auth.email")}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
-          <AuthButton type="submit" disabled={loading}>
-            Zurücksetzen
+          <AuthButton type="submit" disabled={submitting}>
+            {submitting ? t("auth.forgot.loading") : t("auth.forgot.submit")}
           </AuthButton>
         </form>
 
@@ -55,7 +63,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
             onClick={onGoBackToLogin}
             className="text-blue-400 hover:text-blue-300"
           >
-            Zurück zum Login
+            {t("auth.forgot.back")}
           </button>
         </div>
       </div>

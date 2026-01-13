@@ -1,6 +1,7 @@
 // src/components/paywall/PaywallModal.tsx
 import type { PaywallReason } from "../../utils/entitlements";
 import { FREE_LIMITS } from "../../utils/entitlements";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
   open: boolean;
@@ -21,29 +22,31 @@ type Props = {
   onRestore?: () => void; // optional später
 };
 
-function reasonTitle(reason: PaywallReason): string {
-  if (reason === "adaptive_limit") return "Adaptives Training freischalten";
-  if (reason === "plan_shift") return "Trainingsplan verschieben freischalten";
-  return "Mehr als 7 Tage voraus planen";
+function reasonTitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
+  if (reason === "adaptive_limit") return t("paywall.reason.adaptive");
+  if (reason === "plan_shift") return t("paywall.reason.planShift");
+  return t("paywall.reason.calendar");
 }
 
-function reasonSubtitle(reason: PaywallReason): string {
+function reasonSubtitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
   if (reason === "adaptive_limit") {
-    return `Du hast dein Free-Limit für Profil B/C erreicht (${FREE_LIMITS.adaptiveBCPerMonth}×/Monat). Profil A bleibt immer frei.`;
+    return t("paywall.reason.adaptiveSub", { limit: FREE_LIMITS.adaptiveBCPerMonth });
   }
   if (reason === "plan_shift") {
-    return `Du hast dein Free-Limit fürs Plan-Verschieben erreicht (${FREE_LIMITS.planShiftPerMonth}×/Monat).`;
+    return t("paywall.reason.planShiftSub", { limit: FREE_LIMITS.planShiftPerMonth });
   }
-  return `Du hast dein Free-Limit fürs Vorausplanen erreicht (${FREE_LIMITS.calendar7DaysPerMonth}×/Monat).`;
+  return t("paywall.reason.calendarSub", { limit: FREE_LIMITS.calendar7DaysPerMonth });
 }
 
-const BULLETS: Array<{ label: string; ok: boolean }> = [
-  { label: "Unbegrenztes adaptives Training (B/C)", ok: true },
-  { label: "Unbegrenztes Plan verschieben", ok: true },
-  { label: "Erweiterte Statistiken", ok: true },
-  { label: "KI-Coach", ok: true },
-  { label: "Frühzugang zu neuen Features", ok: true },
-];
+function buildBullets(t: (key: any) => string): Array<{ label: string; ok: boolean }> {
+  return [
+    { label: t("paywall.bullet.adaptive"), ok: true },
+    { label: t("paywall.bullet.planShift"), ok: true },
+    { label: t("paywall.bullet.stats"), ok: true },
+    { label: t("paywall.bullet.coach"), ok: true },
+    { label: t("paywall.bullet.earlyAccess"), ok: true },
+  ];
+}
 
 function formatRemaining(n: number): string {
   if (!Number.isFinite(n)) return "∞";
@@ -51,6 +54,7 @@ function formatRemaining(n: number): string {
 }
 
 export default function PaywallModal(props: Props) {
+  const { t } = useI18n();
   const {
     open,
     reason,
@@ -67,14 +71,15 @@ export default function PaywallModal(props: Props) {
   if (!open) return null;
 
   const remainingLine = (() => {
-    if (isPro) return "Pro aktiv – unbegrenzt freigeschaltet.";
+    if (isPro) return t("paywall.remaining.proActive");
 
     if (reason === "adaptive_limit")
-      return `Verbleibend diesen Monat: ${formatRemaining(adaptiveBCRemaining)} (B/C)`;
+      return t("paywall.remaining.adaptive", { value: formatRemaining(adaptiveBCRemaining) });
     if (reason === "plan_shift")
-      return `Verbleibend diesen Monat: ${formatRemaining(planShiftRemaining)} (Plan Shift)`;
-    return `Verbleibend diesen Monat: ${formatRemaining(calendar7DaysRemaining)} (>7 Tage)`;
+      return t("paywall.remaining.planShift", { value: formatRemaining(planShiftRemaining) });
+    return t("paywall.remaining.calendar", { value: formatRemaining(calendar7DaysRemaining) });
   })();
+  const bullets = buildBullets(t);
 
   return (
     <div
@@ -91,17 +96,17 @@ export default function PaywallModal(props: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs text-white/60">TrainQ Pro</div>
-            <div className="text-lg font-semibold text-white">{reasonTitle(reason)}</div>
-            <div className="mt-1 text-sm text-white/70 leading-snug">{reasonSubtitle(reason)}</div>
+            <div className="text-xs text-white/60">{t("paywall.title")}</div>
+            <div className="text-lg font-semibold text-white">{reasonTitle(t, reason)}</div>
+            <div className="mt-1 text-sm text-white/70 leading-snug">{reasonSubtitle(t, reason)}</div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
             className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 hover:bg-white/10"
-            aria-label="Close paywall"
-            title="Schließen"
+            aria-label={t("common.close")}
+            title={t("common.close")}
           >
             ✕
           </button>
@@ -112,7 +117,7 @@ export default function PaywallModal(props: Props) {
         </div>
 
         <div className="mt-4 space-y-2">
-          {BULLETS.map((b) => (
+          {bullets.map((b) => (
             <div key={b.label} className="flex items-center gap-2 text-sm text-white/85">
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-200 text-[12px]">
                 ✓
@@ -131,11 +136,11 @@ export default function PaywallModal(props: Props) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-white">Jährlich</div>
-                <div className="text-[12px] text-white/65">79,99 € / Jahr · Best Value</div>
+                <div className="text-sm font-semibold text-white">{t("paywall.plan.yearly")}</div>
+                <div className="text-[12px] text-white/65">{t("paywall.plan.yearlyDetail")}</div>
               </div>
               <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-[11px] text-emerald-100">
-                Empfohlen
+                {t("paywall.plan.recommended")}
               </span>
             </div>
           </button>
@@ -147,8 +152,8 @@ export default function PaywallModal(props: Props) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-white">Monatlich</div>
-                <div className="text-[12px] text-white/65">9,99 € / Monat</div>
+                <div className="text-sm font-semibold text-white">{t("paywall.plan.monthly")}</div>
+                <div className="text-[12px] text-white/65">{t("paywall.plan.monthlyDetail")}</div>
               </div>
             </div>
           </button>
@@ -159,7 +164,7 @@ export default function PaywallModal(props: Props) {
               onClick={onRestore}
               className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-[12px] text-white/70 hover:bg-white/5"
             >
-              Käufe wiederherstellen
+              {t("paywall.restore")}
             </button>
           )}
         </div>

@@ -1,12 +1,14 @@
 // src/components/feedback/FeedbackBar.tsx
 import { useEffect, useState } from "react";
 import { FeedbackModal } from "./FeedbackModal";
+import { useI18n } from "../../i18n/useI18n";
 
 interface FeedbackBarProps {
   page: string; // z.B. "Dashboard", "Kalender", "Trainingsplan", "Profil"
 }
 
 export function FeedbackBar({ page }: FeedbackBarProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   // ✅ verhindert "Hintergrund scrollen" + reduziert iOS-typisches Rum-Scrollen/Overdrag
@@ -34,7 +36,7 @@ export function FeedbackBar({ page }: FeedbackBarProps) {
           onClick={() => setIsOpen(true)}
           className="text-white/55 hover:text-blue-400 underline underline-offset-2"
         >
-          Wir freuen uns über Feedback!
+          {t("feedback.cta")}
         </button>
       </div>
 

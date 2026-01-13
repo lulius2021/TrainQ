@@ -1,5 +1,6 @@
 // src/pages/onboarding/StepWrapper.tsx
 import React from "react";
+import { useI18n } from "../../i18n/useI18n";
 
 export type StepWrapperProps = {
   children: React.ReactNode;
@@ -34,14 +35,17 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   onNext,
   onBack,
   showBack = true,
-  nextLabel = "Weiter",
-  backLabel = "Zurück",
+  nextLabel,
+  backLabel,
   nextDisabled = false,
   hideHeader = false,
   hideProgress = false,
   progressLabel,
   progressValue,
 }) => {
+  const { t } = useI18n();
+  const resolvedNextLabel = nextLabel ?? t("common.next");
+  const resolvedBackLabel = backLabel ?? t("common.back");
   const safeTop = "env(safe-area-inset-top, 0px)";
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
@@ -88,7 +92,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
                 onClick={onBack}
                 className="h-10 w-10 rounded-full flex items-center justify-center hover:opacity-95"
                 style={surface}
-                aria-label="Zurück"
+                aria-label={resolvedBackLabel}
               >
                 <span style={{ color: "var(--text)" }}>{"<"}</span>
               </button>
@@ -159,7 +163,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
                 className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
                 style={ghostBtn}
               >
-                {backLabel}
+                {resolvedBackLabel}
               </button>
             )}
 
@@ -170,7 +174,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
               className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95 disabled:opacity-50"
               style={primaryBtn}
             >
-              {nextLabel}
+              {resolvedNextLabel}
             </button>
           </div>
 

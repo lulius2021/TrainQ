@@ -1,10 +1,25 @@
 // src/services/appleLocalAuth.ts
 import { Capacitor } from "@capacitor/core";
-import {
-  SignInWithApple,
-  type SignInWithAppleOptions,
-  type SignInWithAppleResponse,
-} from "@capacitor-community/apple-sign-in";
+
+type SignInWithAppleOptions = {
+  clientId: string;
+  redirectURI: string;
+  scopes: string;
+  state: string;
+  nonce: string;
+};
+
+type SignInWithAppleResponse = {
+  response?: {
+    user?: string;
+    email?: string;
+    givenName?: string;
+    familyName?: string;
+    identityToken?: string;
+    authorizationCode?: string;
+    state?: string;
+  };
+};
 
 export type AppleAuthPayload = {
   appleSub: string; // response.user
@@ -67,7 +82,11 @@ export async function signInWithApple(): Promise<AppleAuthPayload> {
   };
 
   try {
-    const result: SignInWithAppleResponse = await SignInWithApple.authorize(options);
+    const plugin = (window as any)?.Capacitor?.Plugins?.SignInWithApple;
+    if (!plugin?.authorize) {
+      throw new Error("Apple Login Plugin ist nicht verfügbar.");
+    }
+    const result: SignInWithAppleResponse = await plugin.authorize(options);
     const r: any = result?.response;
 
     const appleSub = String(r?.user ?? "").trim();

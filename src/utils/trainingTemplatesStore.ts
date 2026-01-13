@@ -1,0 +1,174 @@
+import type { TrainingType } from "../types/training";
+import { getScopedItem, setScopedItem } from "./scopedStorage";
+
+export type TemplateSet = {
+  reps?: number;
+  weight?: number;
+};
+
+export type TemplateExercise = {
+  name: string;
+  sets?: TemplateSet[];
+};
+
+export type TrainingTemplateLite = {
+  id: string;
+  title: string;
+  sportType: TrainingType;
+  createdAt: string;
+  updatedAt: string;
+  description?: string;
+  exercises?: TemplateExercise[];
+};
+
+const STORAGE_KEY = "trainq_training_templates_v1";
+const SEED_KEY = "trainq_training_templates_seeded_v1";
+
+function nowISO(): string {
+  return new Date().toISOString();
+}
+
+function newId(prefix = "tpl"): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c: any = typeof crypto !== "undefined" ? crypto : undefined;
+    if (c?.randomUUID) return `${prefix}_${c.randomUUID()}`;
+  } catch {
+    // ignore
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function safeParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeSportType(raw: unknown): TrainingType {
+  const v = String(raw ?? "").toLowerCase();
+  if (v === "laufen" || v === "run" || v === "running") return "laufen";
+  if (v === "radfahren" || v === "bike" || v === "cycling") return "radfahren";
+  if (v === "custom") return "custom";
+  return "gym";
+}
+
+function normalizeTemplate(input: any): TrainingTemplateLite | null {
+  if (!input || typeof input !== "object") return null;
+  const id = String(input.id || "").trim();
+  const title = String(input.title || input.name || "").trim();
+  if (!id || !title) return null;
+  return {
+    id,
+    title,
+    sportType: normalizeSportType(input.sportType),
+    createdAt: String(input.createdAt || nowISO()),
+    updatedAt: String(input.updatedAt || nowISO()),
+    description: typeof input.description === "string" ? input.description : undefined,
+    exercises: Array.isArray(input.exercises)
+      ? input.exercises.map((ex: any) => ({
+          name: String(ex?.name || "Übung"),
+          sets: Array.isArray(ex?.sets)
+            ? ex.sets.map((s: any) => ({
+                reps: typeof s?.reps === "number" ? s.reps : undefined,
+                weight: typeof s?.weight === "number" ? s.weight : undefined,
+              }))
+            : undefined,
+        }))
+      : undefined,
+  };
+}
+
+function sortByCreatedDesc(list: TrainingTemplateLite[]): TrainingTemplateLite[] {
+  return [...list].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+export function seedDefaultTemplatesOnce(): void {
+  const seeded = getScopedItem(SEED_KEY);
+  if (seeded === "1") return;
+
+  const defaults: TrainingTemplateLite[] = [
+    {
+      id: "starter_push",
+      title: "Push",
+      sportType: "gym",
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+      exercises: [
+        { name: "Bankdruecken", sets: [{ reps: 8, weight: 60 }, { reps: 8, weight: 60 }] },
+        { name: "Schulterdruecken", sets: [{ reps: 10, weight: 30 }] },
+        { name: "Trizepsdruecken", sets: [{ reps: 12, weight: 25 }] },
+      ],
+    },
+    {
+      id: "starter_fullbody",
+      title: "Full Body",
+      sportType: "gym",
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+      exercises: [
+        { name: "Kniebeuge", sets: [{ reps: 8, weight: 70 }, { reps: 8, weight: 70 }] },
+        { name: "Rudern", sets: [{ reps: 10, weight: 50 }] },
+      ],
+    },
+    {
+      id: "starter_easy_run",
+      title: "Easy Run",
+      sportType: "laufen",
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+      exercises: [{ name: "Lockerer Lauf", sets: [{ reps: 30, weight: 5 }] }],
+    },
+  ];
+
+  setScopedItem(STORAGE_KEY, JSON.stringify(defaults));
+  setScopedItem(SEED_KEY, "1");
+}
+
+export function getTemplates(): TrainingTemplateLite[] {
+  seedDefaultTemplatesOnce();
+  const raw = getScopedItem(STORAGE_KEY);
+  const parsed = safeParse<any[]>(raw, []);
+  const normalized = parsed.map(normalizeTemplate).filter(Boolean) as TrainingTemplateLite[];
+  return sortByCreatedDesc(normalized);
+}
+
+export function saveTemplate(input: Omit<TrainingTemplateLite, "id" | "createdAt" | "updatedAt">): TrainingTemplateLite {
+  const now = nowISO();
+  const next: TrainingTemplateLite = {
+    ...input,
+    id: newId("tpl"),
+    createdAt: now,
+    updatedAt: now,
+    title: String(input.title || "Training").trim(),
+    sportType: normalizeSportType(input.sportType),
+  };
+
+  const existing = getTemplates();
+  const list = [next, ...existing];
+  setScopedItem(STORAGE_KEY, JSON.stringify(list));
+  return next;
+}
+
+export function updateTemplate(next: TrainingTemplateLite): TrainingTemplateLite {
+  const existing = getTemplates();
+  const idx = existing.findIndex((t) => t.id === next.id);
+  const now = nowISO();
+  const normalized = {
+    ...next,
+    title: String(next.title || "Training").trim(),
+    sportType: normalizeSportType(next.sportType),
+    updatedAt: now,
+  };
+  const list = idx >= 0 ? [...existing.slice(0, idx), normalized, ...existing.slice(idx + 1)] : [normalized, ...existing];
+  setScopedItem(STORAGE_KEY, JSON.stringify(list));
+  return normalized;
+}
+
+export function deleteTemplate(id: string): void {
+  const list = getTemplates().filter((t) => t.id !== id);
+  setScopedItem(STORAGE_KEY, JSON.stringify(list));
+}

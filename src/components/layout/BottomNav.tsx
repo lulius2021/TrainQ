@@ -1,5 +1,7 @@
 // src/components/layout/BottomNav.tsx
+import type { ReactNode } from "react";
 import type { TabKey } from "../../App";
+import { useI18n } from "../../i18n/useI18n";
 
 import DashboardIcon from "../../assets/icons/Dashboard.png";
 import KalenderIcon from "../../assets/icons/Kalender.png";
@@ -16,20 +18,38 @@ type BottomNavProps = {
 };
 
 export function BottomNav({ activeTab, onChange }: BottomNavProps) {
-  const Item = (p: { keyTab: TabKey; label: string; icon: string }) => {
+  const { t } = useI18n();
+  const Item = (p: {
+    keyTab: TabKey;
+    label: string;
+    icon?: string;
+    renderIcon?: (active: boolean) => ReactNode;
+    isPrimary?: boolean;
+  }) => {
     const active = activeTab === p.keyTab;
 
     return (
       <button
         onClick={() => onChange(p.keyTab)}
-        className="flex flex-col items-center gap-0.5 px-2 py-1"
+        className="flex flex-col items-center gap-0.5 px-2 py-1 min-h-[44px]"
       >
-        <img
-          src={p.icon}
-          alt={p.label}
-          className="h-6 w-6"
-          style={{ filter: active ? ACTIVE_ICON_FILTER : INACTIVE_ICON_FILTER }}
-        />
+        {p.isPrimary ? (
+          <div
+            className="h-12 w-12 rounded-xl flex items-center justify-center"
+            style={{ background: "var(--primary)" }}
+          >
+            {p.renderIcon?.(active)}
+          </div>
+        ) : p.renderIcon ? (
+          p.renderIcon(active)
+        ) : (
+          <img
+            src={p.icon}
+            alt={p.label}
+            className="h-6 w-6"
+            style={{ filter: active ? ACTIVE_ICON_FILTER : INACTIVE_ICON_FILTER }}
+          />
+        )}
 
         <span
           className="text-[10px] font-medium"
@@ -43,7 +63,7 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
         <div
           className="mt-0.5 h-0.5 w-5 rounded-full transition"
           style={{
-            background: active ? "var(--primarySoft)" : "transparent",
+            background: p.isPrimary ? "transparent" : active ? "var(--primarySoft)" : "transparent",
           }}
         />
       </button>
@@ -64,10 +84,20 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
       }}
     >
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2">
-        <Item keyTab="dashboard" label="Dashboard" icon={DashboardIcon} />
-        <Item keyTab="calendar" label="Kalender" icon={KalenderIcon} />
-        <Item keyTab="plan" label="Plan" icon={TrainingsplanIcon} />
-        <Item keyTab="profile" label="Profil" icon={ProfilIcon} />
+        <Item keyTab="dashboard" label={t("nav.dashboard")} icon={DashboardIcon} />
+        <Item keyTab="calendar" label={t("nav.calendar")} icon={KalenderIcon} />
+        <Item
+          keyTab="today"
+          label={t("nav.play")}
+          isPrimary
+          renderIcon={() => (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M8 6.5V17.5L18 12L8 6.5Z" fill="#061226" />
+            </svg>
+          )}
+        />
+        <Item keyTab="plan" label={t("nav.plan")} icon={TrainingsplanIcon} />
+        <Item keyTab="profile" label={t("nav.profile")} icon={ProfilIcon} />
       </div>
     </nav>
   );

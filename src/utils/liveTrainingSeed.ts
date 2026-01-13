@@ -96,9 +96,9 @@ function safeRemove(key: string): void {
 
 function makeId(prefix = "id"): string {
   try {
-    // @ts-ignore
+    // @ts-expect-error runtime check for crypto.randomUUID
     if (typeof crypto !== "undefined" && crypto?.randomUUID) {
-      // @ts-ignore
+      // @ts-expect-error runtime check for crypto.randomUUID
       return `${prefix}_${crypto.randomUUID()}`;
     }
   } catch {

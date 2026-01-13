@@ -1,6 +1,7 @@
 // src/components/training/MinimizedLiveTrainingDock.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { LiveWorkout } from "../../types/training";
+import { useI18n } from "../../i18n/useI18n";
 import {
   getActiveLiveWorkout,
   persistActiveLiveWorkout,
@@ -52,6 +53,7 @@ export default function MinimizedLiveTrainingDock({
   navBarStackPx = 92,
   gapPx = 12,
 }: Props) {
+  const { t } = useI18n();
   const [active, setActive] = useState<LiveWorkout | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
@@ -125,7 +127,8 @@ export default function MinimizedLiveTrainingDock({
                 {formatHMMSS(elapsed)}
               </span>
               <span className="text-[11px] opacity-70">
-                {sport} · {exCount} {exCount === 1 ? "Übung" : "Übungen"}
+                {sport} {t("common.dot")}{" "}
+                {t(exCount === 1 ? "training.exercise.countOne" : "training.exercise.countOther", { count: exCount })}
               </span>
             </div>
 
@@ -146,9 +149,9 @@ export default function MinimizedLiveTrainingDock({
                 h-9 rounded-xl px-3 text-[12px] font-semibold
                 bg-brand-primary text-black hover:bg-brand-primary/90
               "
-              title="Live-Training fortsetzen"
+              title={t("live.resumeTitle")}
             >
-              Fortsetzen
+              {t("live.resume")}
             </button>
 
             <button
@@ -164,9 +167,9 @@ export default function MinimizedLiveTrainingDock({
                 border border-black/10 bg-black/5 text-slate-800 hover:bg-black/10
                 dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10
               "
-              title="Training abbrechen"
+              title={t("live.abortTitle")}
             >
-              Abbrechen
+              {t("common.cancel")}
             </button>
 
             <button
@@ -182,9 +185,9 @@ export default function MinimizedLiveTrainingDock({
                 border border-black/10 bg-black/5 text-slate-900 hover:bg-black/10
                 dark:border-white/15 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10
               "
-              title="Training beenden"
+              title={t("live.finishTitle")}
             >
-              Beenden
+              {t("common.finish")}
             </button>
           </div>
         </div>

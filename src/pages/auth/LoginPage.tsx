@@ -1,6 +1,7 @@
 // src/pages/auth/LoginPage.tsx
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
   onGoToRegister?: () => void;
@@ -14,6 +15,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
     login: (email: string, password: string) => Promise<AuthResult>;
     loginWithApple?: () => Promise<AuthResult>;
   };
+  const { t } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,9 +38,9 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
 
     try {
       const res = await auth.login(email, password);
-      if (!res.ok) setError(res.error ?? "Login fehlgeschlagen.");
+      if (!res.ok) setError(res.error ?? t("auth.login.error"));
     } catch (e: any) {
-      setError(e?.message ?? "Login fehlgeschlagen.");
+      setError(e?.message ?? t("auth.login.error"));
     } finally {
       setBusy(false);
     }
@@ -48,16 +50,16 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
     setError(null);
 
     if (typeof auth.loginWithApple !== "function") {
-      setError("Apple Login ist noch nicht angebunden.");
+      setError(t("auth.login.appleUnavailable"));
       return;
     }
 
     setBusy(true);
     try {
       const res = await auth.loginWithApple();
-      if (!res.ok) setError(res.error ?? "Apple Login fehlgeschlagen.");
+      if (!res.ok) setError(res.error ?? t("auth.login.appleError"));
     } catch (e: any) {
-      setError(e?.message ?? "Apple Login fehlgeschlagen.");
+      setError(e?.message ?? t("auth.login.appleError"));
     } finally {
       setBusy(false);
     }
@@ -67,7 +69,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
     <div className="min-h-screen w-full flex items-center justify-center px-4" style={{ background: "transparent" }}>
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/40 p-5 shadow-xl shadow-black/40">
         <div className="mb-4">
-          <div className="text-lg font-semibold text-white">Login</div>
+          <div className="text-lg font-semibold text-white">{t("auth.login.title")}</div>
         </div>
 
         {error && (
@@ -78,7 +80,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
 
         <form onSubmit={onSubmitEmail} className="space-y-3" autoComplete="off">
           <div className="space-y-1">
-            <label className="block text-xs text-white/60">E-Mail</label>
+            <label className="block text-xs text-white/60">{t("auth.email")}</label>
             <input
               name="trainq_email"
               value={email}
@@ -94,7 +96,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs text-white/60">Passwort</label>
+            <label className="block text-xs text-white/60">{t("auth.password")}</label>
 
             <div className="relative">
               <input
@@ -111,7 +113,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-white/70 hover:text-white hover:bg-white/5"
-                aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+                aria-label={showPassword ? t("auth.passwordHide") : t("auth.passwordShow")}
               >
                 {showPassword ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -150,7 +152,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               busy ? "bg-white/10 text-white/40" : "bg-brand-primary text-black hover:bg-brand-primary/90"
             }`}
           >
-            {busy ? "Anmelden..." : "Mit E-Mail anmelden"}
+            {busy ? t("auth.login.loading") : t("auth.login.email")}
           </button>
 
           <div className="flex items-center justify-between pt-1">
@@ -160,7 +162,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 onClick={onGoToRegister}
                 className="text-xs text-white/70 hover:text-white underline-offset-2 hover:underline"
               >
-                Account erstellen
+                {t("auth.login.register")}
               </button>
             ) : (
               <div />
@@ -172,7 +174,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 onClick={onGoToForgotPassword}
                 className="text-xs text-white/70 hover:text-white underline-offset-2 hover:underline"
               >
-                Passwort vergessen
+                {t("auth.login.forgot")}
               </button>
             ) : (
               <div />
@@ -189,7 +191,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               busy ? "bg-white/10 text-white/40" : "bg-white text-black hover:bg-white/90"
             }`}
           >
-            {busy ? "Anmelden..." : "Mit Apple anmelden"}
+            {busy ? t("auth.login.loading") : t("auth.login.apple")}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { LiveExercise, TrainingSet } from "../../types/training";
 import type { ExerciseHistoryEntry } from "../../types/training";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
   exercise: LiveExercise;
@@ -24,6 +25,7 @@ export default function ExerciseListItem({
   onSetChange,
   onToggleSet,
 }: Props) {
+  const { t } = useI18n();
   return (
     <div className="rounded-2xl bg-black/30 border border-white/10 p-4 space-y-3">
       {/* Header */}
@@ -33,13 +35,13 @@ export default function ExerciseListItem({
             value={exercise.name}
             onChange={(e) => onChange({ name: e.target.value })}
             className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm"
-            placeholder="Übungsname"
+            placeholder={t("training.exercise.placeholder")}
           />
 
           {/* History (grau) */}
           {history && (
             <div className="mt-1 text-[11px] text-white/40">
-              Letztes Mal:{" "}
+              {t("training.exercise.lastTime")}:{" "}
               {history.sets
                 .map(
                   (s) =>
@@ -54,13 +56,13 @@ export default function ExerciseListItem({
           onClick={onRemove}
           className="rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1 text-[11px] text-red-200"
         >
-          Entfernen
+          {t("common.remove")}
         </button>
       </div>
 
       {/* Rest */}
       <div className="flex items-center gap-3">
-        <span className="text-[11px] text-white/60">Pause</span>
+        <span className="text-[11px] text-white/60">{t("training.exercise.rest")}</span>
         <select
           value={exercise.restSeconds}
           onChange={(e) =>
@@ -70,7 +72,7 @@ export default function ExerciseListItem({
         >
           {[30, 45, 60, 90, 120, 180, 300].map((s) => (
             <option key={s} value={s}>
-              {s}s
+              {s} {t("training.units.secShort")}
             </option>
           ))}
         </select>
@@ -97,7 +99,7 @@ export default function ExerciseListItem({
                       : Number(e.target.value),
                 })
               }
-              placeholder="kg"
+              placeholder={t("training.units.kg")}
               className="w-16 rounded bg-black/40 border border-white/15 px-2 py-1 text-xs"
             />
 
@@ -111,7 +113,7 @@ export default function ExerciseListItem({
                       : Number(e.target.value),
                 })
               }
-              placeholder="reps"
+              placeholder={t("training.units.reps")}
               className="w-16 rounded bg-black/40 border border-white/15 px-2 py-1 text-xs"
             />
 
@@ -139,7 +141,7 @@ export default function ExerciseListItem({
           onClick={onAddSet}
           className="text-xs text-sky-300"
         >
-          + Satz hinzufügen
+          {t("training.exercise.addSet")}
         </button>
       </div>
     </div>

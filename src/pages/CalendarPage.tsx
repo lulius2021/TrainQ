@@ -1,5 +1,6 @@
 // src/pages/CalendarPage.tsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { useI18n } from "../i18n/useI18n";
 import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/training";
 import type { TrainingPlanTemplate, TrainingTemplate } from "../types/trainingTemplates";
 
@@ -216,6 +217,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   isPro = false,
 }) => {
   const { isPro: isProEntitlements, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining, canUseShift, consumeShift } = useEntitlements();
+  const { t } = useI18n();
   const effectiveIsPro = isProEntitlements || isPro;
   const requirePro = useProGuard();
 
@@ -682,7 +684,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     onUpdateEvents(res.nextEvents);
     if (!effectiveIsPro) consumeShift();
     setIsPlusMenuOpen(false);
-    alert("Plan um +1 Tag verschoben.");
+    alert(t("calendar.shift.success"));
   };
 
   // -------------------- Info Sheet --------------------
@@ -719,8 +721,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 type="button"
                 onClick={goPrev}
                 className="h-11 w-11 text-lg flex items-center justify-center rounded-full hover:opacity-95"
-                aria-label="Zurück"
-                title="Zurück"
+                aria-label={t("common.back")}
+                title={t("common.back")}
                 style={{ color: "var(--text)" }}
               >
                 ‹
@@ -734,8 +736,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 type="button"
                 onClick={goNext}
                 className="h-11 w-11 text-lg flex items-center justify-center rounded-full hover:opacity-95"
-                aria-label="Weiter"
-                title="Weiter"
+                aria-label={t("common.next")}
+                title={t("common.next")}
                 style={{ color: "var(--text)" }}
               >
                 ›
@@ -752,7 +754,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "day" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
-                Tag
+                {t("calendar.view.day")}
               </button>
               <button
                 type="button"
@@ -760,7 +762,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "week" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
-                Woche
+                {t("calendar.view.week")}
               </button>
               <button
                 type="button"
@@ -768,7 +770,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 className="px-5 py-2.5 rounded-full transition text-sm font-medium"
                 style={viewMode === "month" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
               >
-                Monat
+                {t("calendar.view.month")}
               </button>
             </div>
 
@@ -777,9 +779,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               onClick={goToday}
               className="shrink-0 rounded-full px-4 py-2.5 text-sm font-medium hover:opacity-95"
               style={surfaceBox}
-              title={viewMode === "day" ? "Heute" : "Heute (öffnet Tagesansicht)"}
+              title={viewMode === "day" ? t("calendar.today") : t("calendar.todayOpenDay")}
             >
-              <span style={muted}>Heute</span>
+              <span style={muted}>{t("calendar.today")}</span>
             </button>
           </div>
 
@@ -1070,7 +1072,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                                   border: "1px solid var(--border)",
                                   color: "var(--text)",
                                 }}
-                                title="Vorschau öffnen"
+                                title={t("calendar.previewOpen")}
                               >
                                 Vorschau
                               </button>
@@ -1151,7 +1153,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         onClick={handlePlanShift}
                         className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface2)]"
                       >
-                        Plan um +1 verschieben
+                        {t("calendar.shiftPlan")}
                       </button>
                     </>
                   )}
@@ -1494,7 +1496,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         onChange={(e) => setNewCategoryLabel(e.target.value)}
                         className="w-full rounded-xl border px-3 py-2.5 text-base"
                         style={inputStyle}
-                        placeholder="z.B. Familie, Uni, Termine, Arzt..."
+                        placeholder={t("calendar.eventCategoryPlaceholder")}
                       />
                       <div className="text-sm" style={muted}>
                         Beim Speichern wird die Kategorie dauerhaft gespeichert.
@@ -1531,7 +1533,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                   className="w-full min-h-[90px] rounded-xl border px-3 py-2.5 text-base"
                   style={inputStyle}
-                  placeholder="Notizen / Details"
+                  placeholder={t("calendar.notesPlaceholder")}
                 />
               </div>
 
@@ -1544,7 +1546,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   className="w-full rounded-xl border px-3 py-2.5 text-base"
                   style={inputStyle}
-                  placeholder="z.B. Ort / Reminder"
+                  placeholder={t("calendar.locationPlaceholder")}
                 />
               </div>
 

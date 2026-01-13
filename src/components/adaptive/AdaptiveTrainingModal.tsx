@@ -8,6 +8,7 @@
 // - CTA/Actions bleiben erreichbar trotz fixed Bottom-Navbar: extra Bottom-Padding im Body
 
 import React, { useMemo, useState, useEffect } from "react";
+import { useI18n } from "../../i18n/useI18n";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
 import { buildAdaptiveSuggestions } from "../../utils/adaptiveScoring";
@@ -27,30 +28,30 @@ function allowedWorkoutTypes(splitType: SplitType): WorkoutType[] {
   return splitType === "push_pull" ? ["Push", "Pull"] : ["Upper", "Lower"];
 }
 
-function reasonLabel(r: AdaptiveReason): string {
+function reasonLabel(r: AdaptiveReason, t: (key: string) => string): string {
   switch (r) {
     case "time_low":
-      return "Wenig Zeit";
+      return t("adaptive.reason.timeLow");
     case "time_high":
-      return "Viel Zeit";
+      return t("adaptive.reason.timeHigh");
     case "form_low":
-      return "Schlechte Tagesform";
+      return t("adaptive.reason.formLow");
     case "form_high":
-      return "Gute Tagesform";
+      return t("adaptive.reason.formHigh");
     case "stress_low":
-      return "Niedriger Stress";
+      return t("adaptive.reason.stressLow");
     case "stress_high":
-      return "Hoher Stress";
+      return t("adaptive.reason.stressHigh");
     case "effort_low":
-      return "Gestern leicht";
+      return t("adaptive.reason.effortLow");
     case "effort_high":
-      return "Gestern anstrengend";
+      return t("adaptive.reason.effortHigh");
     case "recovery_low":
-      return "Erholung niedrig";
+      return t("adaptive.reason.recoveryLow");
     case "recovery_good":
-      return "Erholung gut";
+      return t("adaptive.reason.recoveryGood");
     default:
-      return String(r);
+      return t("adaptive.reason.default");
   }
 }
 
@@ -85,10 +86,10 @@ function profileABC(profile: AdaptiveSuggestion["profile"]): "A" | "B" | "C" {
   return "C";
 }
 
-function profileLabel(profile: AdaptiveSuggestion["profile"]): string {
-  if (profile === "stabil") return "A · Stabil";
-  if (profile === "kompakt") return "B · Kompakt";
-  return "C · Fokus";
+function profileLabel(profile: AdaptiveSuggestion["profile"], t: (key: string) => string): string {
+  if (profile === "stabil") return t("adaptive.profile.stable");
+  if (profile === "kompakt") return t("adaptive.profile.compact");
+  return t("adaptive.profile.focus");
 }
 
 // ------------------------------
@@ -120,6 +121,7 @@ export interface AdaptiveTrainingModalProps {
 // ------------------------------
 
 export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps) {
+  const { t } = useI18n();
   const { open, onClose, plannedWorkoutType, splitType, onSelect, isPro, adaptiveLeftBC, bcFreeLimit = 5 } = props;
 
   const [step, setStep] = useState<"questions" | "suggestions">("questions");
@@ -291,10 +293,14 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   });
 
   const entitlementLine = (() => {
-    if (isPro) return "Pro: unbegrenzt (A/B/C).";
-    if (typeof adaptiveLeftBC === "number")
-      return `Free: A immer frei · B/C noch ${Math.max(0, adaptiveLeftBC)} übrig (Limit ${bcFreeLimit}×/Monat).`;
-    return `Free: A immer frei · B/C sind limitiert (${bcFreeLimit}×/Monat).`;
+    if (isPro) return t("adaptive.entitlement.pro");
+    if (typeof adaptiveLeftBC === "number") {
+      return t("adaptive.entitlement.freeRemaining", {
+        remaining: Math.max(0, adaptiveLeftBC),
+        limit: bcFreeLimit,
+      });
+    }
+    return t("adaptive.entitlement.freeLimited", { limit: bcFreeLimit });
   })();
 
   // ------------------------------
@@ -306,14 +312,14 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={header}>
           <div>
-            <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>Adaptives Training</div>
-            <h2 style={hTitle}>Heute: {plannedWorkoutType}</h2>
-            <p style={hSub}>Dein Plan bleibt gleich. Wir passen nur Umfang und Intensität an.</p>
+            <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>{t("adaptive.title")}</div>
+            <h2 style={hTitle}>{t("adaptive.today", { value: plannedWorkoutType })}</h2>
+            <p style={hSub}>{t("adaptive.subtitle")}</p>
             <p style={{ ...hSub, marginTop: 6 }}>{entitlementLine}</p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={pill}>{step === "questions" ? "Fragen" : "3 Vorschläge"}</div>
+            <div style={pill}>{step === "questions" ? t("adaptive.step.questions") : t("adaptive.step.suggestions")}</div>
             <button
               type="button"
               onClick={onClose}
@@ -327,8 +333,8 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                 cursor: "pointer",
                 fontWeight: 900,
               }}
-              aria-label="Schließen"
-              title="Schließen"
+              aria-label={t("common.close")}
+              title={t("common.close")}
             >
               ✕
             </button>
@@ -338,9 +344,9 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
         <div style={body}>
           {!plannedOk && (
             <div style={{ ...card, borderColor: "rgba(248,113,113,0.35)", marginBottom: 12 }}>
-              <div style={{ fontWeight: 900, color: "#fecaca" }}>Hinweis</div>
+              <div style={{ fontWeight: 900, color: "#fecaca" }}>{t("adaptive.notice")}</div>
               <div style={tiny}>
-                Der geplante Typ <strong>{plannedWorkoutType}</strong> passt nicht zu deinem Split. Bitte Split/Plan prüfen.
+                {t("adaptive.planMismatch", { value: plannedWorkoutType })}
               </div>
             </div>
           )}
@@ -348,79 +354,79 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
           {step === "questions" && (
             <div style={{ display: "grid", gap: 12 }}>
               <div style={card}>
-                <div style={sectionTitle}>1) Zeit heute</div>
+                <div style={sectionTitle}>{t("adaptive.q1")}</div>
                 <div style={grid2}>
                   <button type="button" style={optionBtn(answers.timeToday === "lt20")} onClick={() => setAnswers((p) => ({ ...p, timeToday: "lt20" }))}>
-                    &lt; 20 Min
+                    {t("adaptive.q1.lt20")}
                   </button>
                   <button type="button" style={optionBtn(answers.timeToday === "20to40")} onClick={() => setAnswers((p) => ({ ...p, timeToday: "20to40" }))}>
-                    20–40 Min
+                    {t("adaptive.q1.min20to40")}
                   </button>
                   <button type="button" style={optionBtn(answers.timeToday === "40to60")} onClick={() => setAnswers((p) => ({ ...p, timeToday: "40to60" }))}>
-                    40–60 Min
+                    {t("adaptive.q1.min40to60")}
                   </button>
                   <button type="button" style={optionBtn(answers.timeToday === "gt60")} onClick={() => setAnswers((p) => ({ ...p, timeToday: "gt60" }))}>
-                    60+ Min
+                    {t("adaptive.q1.gt60")}
                   </button>
                 </div>
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>2) Tagesform</div>
+                <div style={sectionTitle}>{t("adaptive.q2")}</div>
                 <div style={grid3}>
                   <button type="button" style={optionBtn(answers.dayForm === "low")} onClick={() => setAnswers((p) => ({ ...p, dayForm: "low" }))}>
-                    schlecht
+                    {t("adaptive.q2.low")}
                   </button>
                   <button type="button" style={optionBtn(answers.dayForm === "mid")} onClick={() => setAnswers((p) => ({ ...p, dayForm: "mid" }))}>
-                    okay
+                    {t("adaptive.q2.mid")}
                   </button>
                   <button type="button" style={optionBtn(answers.dayForm === "high")} onClick={() => setAnswers((p) => ({ ...p, dayForm: "high" }))}>
-                    top
+                    {t("adaptive.q2.high")}
                   </button>
                 </div>
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>3) Stress</div>
+                <div style={sectionTitle}>{t("adaptive.q3")}</div>
                 <div style={grid3}>
                   <button type="button" style={optionBtn(answers.stress === "low")} onClick={() => setAnswers((p) => ({ ...p, stress: "low" }))}>
-                    niedrig
+                    {t("adaptive.q3.low")}
                   </button>
                   <button type="button" style={optionBtn(answers.stress === "mid")} onClick={() => setAnswers((p) => ({ ...p, stress: "mid" }))}>
-                    mittel
+                    {t("adaptive.q3.mid")}
                   </button>
                   <button type="button" style={optionBtn(answers.stress === "high")} onClick={() => setAnswers((p) => ({ ...p, stress: "high" }))}>
-                    hoch
+                    {t("adaptive.q3.high")}
                   </button>
                 </div>
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>4) Anstrengung gestern</div>
+                <div style={sectionTitle}>{t("adaptive.q4")}</div>
                 <div style={grid3}>
                   <button type="button" style={optionBtn(answers.yesterdayEffort === "low")} onClick={() => setAnswers((p) => ({ ...p, yesterdayEffort: "low" }))}>
-                    leicht
+                    {t("adaptive.q4.low")}
                   </button>
                   <button type="button" style={optionBtn(answers.yesterdayEffort === "mid")} onClick={() => setAnswers((p) => ({ ...p, yesterdayEffort: "mid" }))}>
-                    hart
+                    {t("adaptive.q4.mid")}
                   </button>
                   <button type="button" style={optionBtn(answers.yesterdayEffort === "high")} onClick={() => setAnswers((p) => ({ ...p, yesterdayEffort: "high" }))}>
-                    sehr hart
+                    {t("adaptive.q4.high")}
                   </button>
                 </div>
               </div>
 
               <div style={actionsRow}>
                 <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
-                  Abbrechen
+                  {t("common.cancel")}
                 </button>
                 <button
                   style={{ ...btn, ...btnPrimary }}
                   onClick={() => setStep("suggestions")}
                   disabled={!plannedOk}
-                  title={!plannedOk ? "Plan/Split inkonsistent" : "Vorschläge anzeigen"}
+                  title={!plannedOk ? t("adaptive.planMismatchShort") : t("adaptive.showSuggestions")}
                 >
-                  Vorschläge anzeigen
+                  {t("adaptive.showSuggestions")}
                 </button>
               </div>
             </div>
@@ -429,8 +435,8 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
           {step === "suggestions" && (
             <div style={{ display: "grid", gap: 12 }}>
               <div style={card}>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>3 Vorschläge</div>
-                <div style={tiny}>Fokus bleibt {plannedWorkoutType}. Du wählst nur Dosis und Intensität.</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>{t("adaptive.suggestionsTitle")}</div>
+                <div style={tiny}>{t("adaptive.suggestionsSubtitle", { value: plannedWorkoutType })}</div>
               </div>
 
               {suggestions.map((s) => {
@@ -451,11 +457,13 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ ...badge, background: accent.badgeBg, color: accent.badgeText }}>{profileLabel(s.profile)}</span>
+                          <span style={{ ...badge, background: accent.badgeBg, color: accent.badgeText }}>
+                            {profileLabel(s.profile, t)}
+                          </span>
 
                           {abc === "A" && (
                             <span style={{ ...badge, background: "rgba(255,255,255,0.06)", color: "rgba(229,231,235,0.80)" }}>
-                              immer frei
+                              {t("adaptive.alwaysFree")}
                             </span>
                           )}
 
@@ -466,21 +474,24 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       </div>
 
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 950, fontSize: 16 }}>{s.estimatedMinutes ? `${s.estimatedMinutes} min` : "—"}</div>
-                        <div style={tiny}>geschätzt</div>
+                        <div style={{ fontWeight: 950, fontSize: 16 }}>
+                          {s.estimatedMinutes ? `${s.estimatedMinutes} ${t("common.min")}` : t("common.emptyDash")}
+                        </div>
+                        <div style={tiny}>{t("adaptive.estimated")}</div>
                       </div>
                     </div>
 
                     <div style={{ ...tiny, marginTop: 10 }}>
-                      <strong>Umfang:</strong> {s.exercisesCount} Übungen · {s.setsPerExercise} Sätze/Übung
+                      <strong>{t("adaptive.scope")}:</strong>{" "}
+                      {t("adaptive.scopeValue", { exercises: s.exercisesCount, sets: s.setsPerExercise })}
                     </div>
                     <div style={{ ...tiny, marginTop: 6 }}>
-                      <strong>Intensität:</strong> {s.intensityHint}
+                      <strong>{t("adaptive.intensity")}:</strong> {s.intensityHint}
                     </div>
 
                     {s.reasons?.length ? (
                       <div style={{ ...tiny, marginTop: 10 }}>
-                        <strong>Warum:</strong> {s.reasons.slice(0, 3).map(reasonLabel).join(" · ")}
+                        <strong>{t("adaptive.why")}:</strong> {s.reasons.slice(0, 3).map((r) => reasonLabel(r, t)).join(" · ")}
                       </div>
                     ) : null}
 
@@ -489,23 +500,23 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                         style={{ ...btn, ...btnPrimary, ...(blocked ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
                         disabled={blocked || !plannedOk}
                         onClick={() => onSelect(s, answers)}
-                        title={blocked ? "Heute nicht empfohlen" : "Auswählen"}
+                        title={blocked ? t("adaptive.disabledToday") : t("adaptive.select")}
                       >
-                        Auswählen
+                        {t("adaptive.select")}
                       </button>
                     </div>
 
-                    {blocked && <div style={{ ...tiny, marginTop: 8 }}>Dieser Vorschlag ist heute deaktiviert (Zeit/Erholung nicht optimal).</div>}
+                    {blocked && <div style={{ ...tiny, marginTop: 8 }}>{t("adaptive.disabledMessage")}</div>}
                   </div>
                 );
               })}
 
               <div style={actionsRow}>
                 <button style={{ ...btn, ...btnGhost }} onClick={() => setStep("questions")}>
-                  Zurück
+                  {t("common.back")}
                 </button>
                 <button style={{ ...btn, ...btnGhost }} onClick={onClose}>
-                  Schließen
+                  {t("common.close")}
                 </button>
               </div>
             </div>

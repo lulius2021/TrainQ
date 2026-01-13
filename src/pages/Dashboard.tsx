@@ -1,5 +1,6 @@
 // src/pages/Dashboard.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import type {
   UpcomingTraining,
   CalendarEvent,
@@ -24,6 +25,7 @@ import {
   readLiveSeedForEvent,
   readLiveSeedForKey,
   makeSeedKey,
+  writeLiveSeedForEventOrKey,
   writeGlobalLiveSeed,
   navigateToLiveTraining,
   type LiveTrainingSeed,
@@ -36,6 +38,7 @@ import { shiftPlanEvents } from "../utils/planShift";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
+import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 interface DashboardProps {
   upcoming: UpcomingTraining[]; // bleibt (App liefert es), wird hier aber nicht mehr angezeigt
@@ -43,6 +46,7 @@ interface DashboardProps {
   onCreateQuickTraining: (input: NewCalendarEvent) => void;
 
   onUpdateEvents?: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
+  onOpenWorkoutShare?: (workoutId: string, returnTo?: "dashboard" | "profile") => void;
 
   // ✅ bleibt optional als Legacy-Fallback (Demo), Source of Truth ist entitlements.ts
   isPro?: boolean;
@@ -288,6 +292,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isPro: isProProp = false,
   onOpenPaywall,
 }) => {
+  const { t, formatDate } = useI18n();
   const today = startOfDay(new Date());
   const todayISO = dateKey(today);
 
@@ -386,7 +391,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     endTime: "19:00",
     category: "alltag",
     description: "",
-    notes: "Erstellt vom Dashboard (+)",
+    notes: t("dashboard.quickNote"),
   });
 
   const [categoryCreateMode, setCategoryCreateMode] = useState<"select" | "create">("select");
@@ -446,7 +451,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     trainingType: "gym" as TrainingType,
     title: "",
     description: "",
-    notes: "Erstellt vom Dashboard (+)",
+    notes: t("dashboard.quickNote"),
   });
 
   const handleCreateTraining = (e: React.FormEvent) => {
@@ -569,25 +574,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setIsPreviewOpen(false);
     setPreviewEvent(null);
   };
-  const previewSeed = useMemo(() => (previewEvent ? resolveSeedForEvent(previewEvent) : null), [previewEvent]);
-
   const openPreviewForEvent = (event: CalendarEvent) => {
     setPreviewEvent(event);
     setIsPreviewOpen(true);
   };
 
-  const startFromPreview = () => {
-    if (!previewEvent) return;
+  const handlePreviewSave = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+    onUpdateEvents?.((prev) => prev.map((ev) => (ev.id === nextEvent.id ? { ...ev, ...nextEvent } : ev)));
+    writeLiveSeedForEventOrKey({ eventId: nextEvent.id, dateISO: nextEvent.date, title: nextEvent.title, seed });
+    setPreviewEvent(nextEvent);
+  };
 
-    const seed = previewSeed;
-    if (isGymTraining(previewEvent) && !seed) return;
-
-    const toWrite = seed ?? fallbackSeedForNonGymEvent(previewEvent);
-
-    writeGlobalLiveSeed(toWrite);
+  const handlePreviewStart = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+    writeGlobalLiveSeed(seed);
     closePreview();
-
-    navigateToLiveTraining(previewEvent.id);
+    navigateToLiveTraining(nextEvent.id);
   };
 
 
@@ -806,8 +807,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onClick={() => setIsPlusMenuOpen((v) => !v)}
                 className="h-12 rounded-2xl border text-[18px] font-semibold leading-none transition active:scale-[0.99]"
                 style={secondaryBtnStyle}
-                aria-label="Mehr"
-                title="Mehr"
+                aria-label={t("common.more")}
+                title={t("common.more")}
               >
                 +
               </button>
@@ -956,7 +957,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* Next 3 days */}
             <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[15px] font-semibold">Nächste 3 Tage</h2>
+                <h2 className="text-[15px] font-semibold">{t("dashboard.next3Days")}</h2>
                 <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                   Tippen = Vorschau
                 </div>
@@ -1039,7 +1040,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* Today */}
             <div className="tq-surface space-y-3 p-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-[15px] font-semibold">Heute</h2>
+                <h2 className="text-[15px] font-semibold">{t("dashboard.today")}</h2>
                 <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                   {todayEvents.length} Termine
                 </div>
@@ -1113,86 +1114,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           className="fixed inset-0 z-30 cursor-default"
           data-overlay-open="true"
           onClick={() => setIsPlusMenuOpen(false)}
-          aria-label="Close"
+          aria-label={t("common.close")}
           style={{ background: "transparent" }}
         />
       )}
 
-      {/* =========================================================
-          PREVIEW MODAL (minimal, verständlich)
-          ========================================================= */}
-      {isPreviewOpen && previewEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="tq-surface w-full max-w-md space-y-3 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12px]" style={{ color: "var(--muted)" }}>
-                  Vorschau
-                </div>
-                <div className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
-                  {normalizeTitle((previewEvent as any).title) || "Training"}
-                </div>
-                <div className="mt-1 text-[13px]" style={{ color: "var(--muted)" }}>
-                  {(previewEvent as any).date === todayISO ? "Heute" : formatDayLabelFromISO((previewEvent as any).date)}{" "}
-                  {(previewEvent as any).startTime ? `· ${(previewEvent as any).startTime}–${(previewEvent as any).endTime}` : ""}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPreviewOpen(false);
-                  setPreviewEvent(null);
-                }}
-                className="text-[12px]"
-                style={{ color: "var(--muted)" }}
-                aria-label="Schließen"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Seed status */}
-            {isGymTraining(previewEvent) && !previewSeed ? (
-              <div className="rounded-2xl px-3 py-3 text-[13px]" style={{ ...cardStyle, color: "var(--muted)" }}>
-                Für dieses Gym-Training fehlt noch der Plan (Seed).
-              </div>
-            ) : (
-              <div className="rounded-2xl px-3 py-3 text-[13px]" style={{ ...cardStyle, color: "var(--muted)" }}>
-                {previewSeed ? (() => {
-                  const c = seedCounts(previewSeed);
-                  if (c.exercises || c.sets) return `${c.exercises} Übungen · ${c.sets} Sätze`;
-                  return "Bereit zum Start";
-                })() : "Bereit zum Start"}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPreviewOpen(false);
-                  setPreviewEvent(null);
-                }}
-                className="rounded-2xl border px-4 py-2 text-[13px]"
-                style={{ background: "rgba(255,255,255,0.04)", borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                Zurück
-              </button>
-
-              <button
-                type="button"
-                onClick={startFromPreview}
-                disabled={isGymTraining(previewEvent) && !previewSeed}
-                className="rounded-2xl px-4 py-2 text-[13px] font-semibold disabled:opacity-60"
-                style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
-              >
-                Starten
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TrainingPreviewSheet
+        open={isPreviewOpen}
+        event={previewEvent}
+        onClose={closePreview}
+        onSave={handlePreviewSave}
+        onStart={handlePreviewStart}
+      />
 
       {/* =========================================================
           SHIFT DIALOG (unverändert, nur Typo leicht größer)
@@ -1205,7 +1138,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                   Plan
                 </div>
-                <div className="text-[15px] font-semibold">Tag +1 (Plan verschieben)</div>
+                <div className="text-[15px] font-semibold">{t("dashboard.shiftPlanTitle")}</div>
               </div>
               <button
                 type="button"
@@ -1234,7 +1167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {p.label}
                     </option>
                   ))}
-                  <option value="__ALL__">Alle Trainings (Fallback)</option>
+                  <option value="__ALL__">{t("dashboard.shiftPlanAllFallback")}</option>
                 </select>
               </div>
             ) : (
@@ -1277,7 +1210,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                   Termin
                 </div>
-                <div className="text-[15px] font-semibold">Termin anlegen</div>
+                <div className="text-[15px] font-semibold">{t("dashboard.createEventTitle")}</div>
               </div>
               <button
                 type="button"
@@ -1300,7 +1233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={(e) => setQuickEvent((prev) => ({ ...prev, title: e.target.value }))}
                   className="w-full rounded-2xl border px-3 py-2"
                   style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
-                  placeholder="z.B. Meeting"
+                  placeholder={t("dashboard.createEventTitlePlaceholder")}
                   autoFocus
                 />
               </div>
@@ -1348,7 +1281,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onChange={(e) => setNewCategoryLabel(e.target.value)}
                       className="w-full rounded-2xl border px-3 py-2 text-[13px]"
                       style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
-                      placeholder="z.B. Familie, Uni, Arzt..."
+                      placeholder={t("dashboard.createEventCategoryPlaceholder")}
                     />
                     <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                       Beim Speichern wird die Kategorie dauerhaft gespeichert.
@@ -1407,7 +1340,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={(e) => setQuickEvent((p) => ({ ...p, description: e.target.value }))}
                   className="min-h-[70px] w-full rounded-2xl border px-3 py-2"
                   style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
-                  placeholder="Notizen / Details"
+                  placeholder={t("dashboard.createEventNotesPlaceholder")}
                 />
               </div>
 
@@ -1444,7 +1377,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="text-[12px]" style={{ color: "var(--muted)" }}>
                   Training
                 </div>
-                <div className="text-[15px] font-semibold">Training anlegen</div>
+                <div className="text-[15px] font-semibold">{t("dashboard.createWorkoutTitle")}</div>
               </div>
               <button
                 type="button"
@@ -1528,7 +1461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={(e) => setNewTraining((p) => ({ ...p, title: e.target.value }))}
                   className="w-full rounded-2xl border px-3 py-2"
                   style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
-                  placeholder="z.B. Push / 30 min Lauf / Intervalle"
+                  placeholder={t("dashboard.createWorkoutTitlePlaceholder")}
                   autoFocus
                 />
               </div>
@@ -1542,7 +1475,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={(e) => setNewTraining((p) => ({ ...p, description: e.target.value }))}
                   className="min-h-[80px] w-full rounded-2xl border px-3 py-2"
                   style={{ background: "rgba(0,0,0,0.18)", borderColor: "var(--border)", color: "var(--text)" }}
-                  placeholder="z.B. Pace / Notizen"
+                  placeholder={t("dashboard.createWorkoutNotesPlaceholder")}
                 />
               </div>
 

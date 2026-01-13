@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 import { applyTheme, loadTheme } from "./utils/theme";
+import { I18nProvider } from "./i18n/I18nProvider";
 
 // Theme initial anwenden (light/dark/system)
 applyTheme(loadTheme());
@@ -63,6 +64,8 @@ setupGlobalNoZoom();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </React.StrictMode>
 );

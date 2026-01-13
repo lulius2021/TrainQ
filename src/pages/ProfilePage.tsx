@@ -19,6 +19,8 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { createWorkoutShare } from "../services/communityService";
 import { ensureCommunityProfile } from "../services/communityBackend";
 import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
+import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/shareProfile";
+import { useI18n } from "../i18n/useI18n";
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
 import SettingPage from "./SettingPage";
@@ -26,6 +28,7 @@ import SettingPage from "./SettingPage";
 interface ProfilePageProps {
   onClearCalendar?: () => void;
   onOpenPaywall?: () => void;
+  onOpenWorkoutShare?: (workoutId: string, returnTo?: "dashboard" | "profile") => void;
 }
 
 // -------------------- Helpers --------------------
@@ -119,9 +122,10 @@ function toNumberOrNull(raw: string): number | null {
 
 // -------------------- Page --------------------
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
   const { user, logout } = useAuth();
   const { isPro } = useEntitlements(user?.id);
+  const { t } = useI18n();
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -221,6 +225,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
   // -------- Edit modal state --------
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Editable onboarding fields (moved into profile edit)
@@ -388,6 +394,45 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     [user?.id, user?.displayName, user?.email, user?.supabaseId]
   );
 
+  const handleShareImage = useCallback(
+    (w: WorkoutHistoryEntry) => {
+      if (!w?.id) return;
+      if (typeof onOpenWorkoutShare === "function") {
+        onOpenWorkoutShare(w.id, "profile");
+        return;
+      }
+      window.dispatchEvent(
+        new CustomEvent("trainq:navigate", {
+          detail: { path: "/workout-share", workoutId: w.id, returnTo: "profile" },
+        })
+      );
+    },
+    [onOpenWorkoutShare]
+  );
+
+  const handleCopyUserId = useCallback(async () => {
+    const id = user?.id ?? "";
+    if (!id) return;
+    const ok = await copyText(id);
+    setCopyFeedback(ok ? "Kopiert" : "Kopieren fehlgeschlagen");
+    window.setTimeout(() => setCopyFeedback(null), 1600);
+  }, [user?.id]);
+
+  const handleShareProfile = useCallback(async () => {
+    const id = user?.id ?? "";
+    if (!id) return;
+    try {
+      const result = await shareProfile({ userId: id, displayName: profileName });
+      if (result === "copied") setShareFeedback("Link kopiert");
+      else if (result === "shared") setShareFeedback("Geteilt");
+      else setShareFeedback("Teilen fehlgeschlagen");
+    } catch {
+      setShareFeedback("Teilen fehlgeschlagen");
+    } finally {
+      window.setTimeout(() => setShareFeedback(null), 1800);
+    }
+  }, [user?.id, profileName]);
+
   const handleRestartOnboarding = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -446,20 +491,36 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 Profil
               </h1>
 
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
-                title="Einstellungen"
-                aria-label="Einstellungen"
-                style={surfaceSoft}
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
-                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
-                  <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
-                </div>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareProfile}
+                  className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
+                  title={t("profile.share")}
+                  aria-label={t("profile.share")}
+                  style={surfaceSoft}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+                    <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
+                  title={t("settings.title")}
+                  aria-label={t("settings.title")}
+                  style={surfaceSoft}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
+                    <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
+                    <span className="block h-[2px] w-4 rounded" style={{ background: "var(--muted)" }} />
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Profile card */}
@@ -491,7 +552,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                         onClick={openPaywall}
                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] hover:opacity-95"
                         style={badgeStyleFree}
-                        title="Auf Pro upgraden"
+                        title={t("profile.upgradePro")}
                       >
                         Free
                       </button>
@@ -523,10 +584,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <button type="button" onClick={openEdit} className="px-4 py-2 rounded-xl text-xs hover:opacity-95" style={surfaceSoft}>
-                  <span style={{ color: "var(--text)" }}>Profil bearbeiten</span>
+                  <span style={{ color: "var(--text)" }}>{t("profile.edit")}</span>
                 </button>
+                {user?.id && (
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px]" style={surfaceSoft}>
+                    <span style={muted}>{t("profile.trainqId")}</span>
+                    <span style={{ color: "var(--text)" }}>{shortenId(user.id)}</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyUserId}
+                      className="rounded-md px-2 py-0.5 text-[10px] hover:opacity-95"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                      title={t("profile.copyId")}
+                    >
+                      Kopieren
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
+
+            {(copyFeedback || shareFeedback) && (
+              <div className="rounded-xl px-3 py-2 text-[11px]" style={surfaceSoft}>
+                <span style={muted}>{copyFeedback || shareFeedback}</span>
+              </div>
+            )}
 
             {/* Upgrade card */}
             {!isPro && (
@@ -561,7 +643,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </div>
 
                 <button type="button" onClick={() => setStatsOpen(true)} className="rounded-xl px-4 py-2 text-xs hover:opacity-95" style={surfaceSoft}>
-                  <span style={{ color: "var(--text)" }}>Ansehen</span>
+                  <span style={{ color: "var(--text)" }}>{t("profile.view")}</span>
                 </button>
               </div>
             </div>
@@ -628,6 +710,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                           >
                             Im Feed teilen
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareImage(w)}
+                            className="rounded-full px-3 py-1 text-[10px] hover:opacity-95"
+                            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                            aria-label={t("profile.shareWorkout")}
+                            title={t("profile.shareWorkout")}
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+                                <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                              </svg>
+                              Export
+                            </span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -679,7 +777,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 />
 
                 <button type="button" onClick={onPickAvatar} className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95" style={surfaceSoft}>
-                  <span style={{ color: "var(--text)" }}>Profilbild auswählen</span>
+                  <span style={{ color: "var(--text)" }}>{t("profile.avatarSelect")}</span>
                 </button>
 
                 {avatarDataUrl && (
@@ -689,7 +787,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95"
                     style={surfaceSoft}
                   >
-                    <span style={{ color: "var(--text)" }}>Profilbild entfernen</span>
+                    <span style={{ color: "var(--text)" }}>{t("profile.avatarRemove")}</span>
                   </button>
                 )}
               </div>
@@ -707,7 +805,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onChange={(e) => setProfileName(e.target.value)}
                   className="w-full rounded-lg px-2 py-1.5 text-xs"
                   style={{ ...surfaceSoft, color: "var(--text)" }}
-                  placeholder="Dein Name"
+                  placeholder={t("profile.namePlaceholder")}
                 />
               </div>
 
@@ -720,7 +818,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onChange={(e) => setProfileBio(e.target.value)}
                   className="w-full rounded-lg px-2 py-1.5 text-xs min-h-[70px]"
                   style={{ ...surfaceSoft, color: "var(--text)" }}
-                  placeholder="Kurzbeschreibung deines Trainings, Ziele, Sportarten..."
+                  placeholder={t("profile.bioPlaceholder")}
                 />
               </div>
             </div>
@@ -809,7 +907,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onChange={(e) => setSportsCsv(e.target.value)}
                   className="w-full rounded-lg px-2 py-1.5 text-xs"
                   style={{ ...surfaceBox, color: "var(--text)" }}
-                  placeholder="Gym, Laufen, Radfahren"
+                  placeholder={t("profile.sportsPlaceholder")}
                 />
               </div>
 
@@ -822,14 +920,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onChange={(e) => setGoalsCsv(e.target.value)}
                   className="w-full rounded-lg px-2 py-1.5 text-xs"
                   style={{ ...surfaceBox, color: "var(--text)" }}
-                  placeholder="Muskelaufbau, Ausdauer, ..."
+                  placeholder={t("profile.goalsPlaceholder")}
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setIsEditProfileOpen(false)} className="px-3 py-1.5 rounded-xl text-[11px] hover:opacity-95" style={surfaceSoft}>
-                <span style={{ color: "var(--text)" }}>Abbrechen</span>
+                <span style={{ color: "var(--text)" }}>{t("common.cancel")}</span>
               </button>
               <button type="button" onClick={saveProfileEdits} className="px-3 py-1.5 rounded-xl text-[11px] font-medium hover:opacity-95" style={primaryBtn}>
                 Speichern
@@ -914,7 +1012,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </div>
 
                 <button type="button" onClick={handleLogout} className="mt-2 w-full rounded-xl px-3 py-2 text-[11px] hover:opacity-95" style={surfaceSoft}>
-                  <span style={{ color: "var(--text)" }}>Abmelden</span>
+                  <span style={{ color: "var(--text)" }}>{t("settings.account.logout")}</span>
                 </button>
               </div>
             </div>

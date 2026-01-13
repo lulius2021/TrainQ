@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
+
+type DragInfo = { offset: { y: number }; velocity: { y: number } };
 
 import type { CalendarEvent, LiveExercise, LiveSet, TrainingType } from "../../types/training";
 import type { LiveTrainingSeed } from "../../utils/liveTrainingSeed";
@@ -8,6 +10,7 @@ import { resolveLiveSeed } from "../../utils/liveTrainingSeed";
 import ExerciseEditor from "../training/ExerciseEditor";
 import ExerciseLibraryModal from "../training/ExerciseLibraryModal";
 import type { Exercise } from "../../data/exerciseLibrary";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
   open: boolean;
@@ -35,6 +38,15 @@ function MinusCircleIcon({ className = "h-4 w-4" }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
       <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PencilIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M4 20l4.5-1 9.5-9.5-3.5-3.5L5 15.5 4 20z" stroke="currentColor" strokeWidth="2" />
+      <path d="M14.5 6l3.5 3.5" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -156,6 +168,7 @@ function countSeed(seed: LiveTrainingSeed | null): { exercises: number; sets: nu
 }
 
 export default function TrainingPreviewSheet({ open, event, onClose, onSave, onStart }: Props) {
+  const { t } = useI18n();
   const dragControls = useDragControls();
   const [isEditing, setIsEditing] = useState(false);
   const [draftEvent, setDraftEvent] = useState<CalendarEvent | null>(null);
@@ -224,7 +237,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
     [draftExercises]
   );
 
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: DragInfo) => {
     if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) {
       handleClose();
     }
@@ -353,11 +366,12 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
   const canEdit = open && !!draftEvent && !!draftSeed;
   const isCardio = isCardioType(getTrainingType(draftEvent || ({} as CalendarEvent)));
   const hasTime = Boolean(draftEvent?.startTime);
+  const MotionDiv = motion.div as unknown as React.ComponentType<any>;
 
   return (
     <AnimatePresence>
       {open && draftEvent && draftSeed && (
-        <motion.div
+        <MotionDiv
           className="fixed inset-0 z-[80]"
           data-overlay-open="true"
           initial={{ opacity: 0 }}
@@ -367,7 +381,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
           <div className="absolute inset-0 bg-black/70" onClick={handleClose} />
 
           <div className="fixed left-0 right-0 flex justify-center px-4" style={{ bottom: 0 }}>
-            <motion.div
+            <MotionDiv
               className="w-full h-full max-w-md rounded-t-2xl shadow-lg shadow-black/30 flex flex-col"
               style={{
                 background: "var(--surface)",
@@ -386,9 +400,9 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
               dragListener={false}
               dragControls={dragControls}
               onDragEnd={handleDragEnd}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
-              <div className="pt-1 pb-2 px-4" onPointerDown={(e) => dragControls.start(e)}>
+              <div className="pt-1 pb-2 px-4" onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}>
                 <div className="flex justify-center">
                   <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border)" }} />
                 </div>
@@ -397,7 +411,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
               <div className="flex items-start justify-between gap-2 px-4">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm" style={{ color: "var(--muted)" }}>
-                    Trainings-Vorschau
+                    {t("calendar.preview.title")}
                   </div>
                   <input
                     type="text"
@@ -438,8 +452,8 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                             }
                             className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 hover:opacity-90"
                             style={{ color: "var(--muted)" }}
-                            aria-label="Zeit entfernen"
-                            title="Zeit entfernen"
+                            aria-label={t("calendar.preview.removeTime")}
+                            title={t("calendar.preview.removeTime")}
                           >
                             <MinusCircleIcon className="h-4 w-4" />
                           </button>
@@ -464,15 +478,15 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                         }
                         className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm hover:opacity-95"
                         style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
-                        aria-label="Zeit hinzufügen"
-                        title="Zeit hinzufügen"
+                        aria-label={t("calendar.preview.addTime")}
+                        title={t("calendar.preview.addTime")}
                       >
                         <ClockPlusIcon className="h-4 w-4" />
-                        <span>Zeit hinzufügen</span>
+                        <span>{t("calendar.preview.addTime")}</span>
                       </button>
                     ) : (
                       <div className="rounded px-2 py-1 text-sm" style={{ color: "var(--muted)" }}>
-                        Keine Zeit
+                        {t("calendar.preview.noTime")}
                       </div>
                     )}
                   </div>
@@ -483,9 +497,9 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                   onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                   className="h-9 w-9 rounded-full border flex items-center justify-center hover:opacity-95"
                   style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                  aria-label={isEditing ? "Bearbeitung speichern" : "Bearbeiten"}
+                  aria-label={isEditing ? t("calendar.preview.saveEdit") : t("calendar.preview.edit")}
                 >
-                  ✎
+                  <PencilIcon />
                 </button>
               </div>
 
@@ -493,16 +507,16 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                 <div className="rounded-xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
-                      Umfang
+                      {t("calendar.preview.scope")}
                     </div>
                     <div className="text-sm">
-                      {previewCounts.exercises} Üb. • {previewCounts.sets} Sätze
+                      {t("calendar.preview.scopeCounts", { exercises: previewCounts.exercises, sets: previewCounts.sets })}
                     </div>
                   </div>
 
                   {seedMissing && (
                     <div className="mt-2 text-sm" style={{ color: "rgba(245,158,11,0.95)" }}>
-                      Hinweis: Kein Plan-Seed gefunden. Du kannst hier einen neuen Plan erstellen.
+                      {t("calendar.preview.seedMissing")}
                     </div>
                   )}
                 </div>
@@ -510,7 +524,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                 <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
                   {draftExercises.length === 0 ? (
                     <div className="rounded-xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
-                      Noch keine {isCardio ? "Einheiten" : "Übungen"}.
+                      {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
@@ -539,7 +553,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                       className="mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold hover:opacity-95"
                       style={{ background: "var(--surface2)", borderColor: "var(--border)", color: "var(--text)" }}
                     >
-                      + {isCardio ? "Einheit" : "Übung"} hinzufügen
+                      {isCardio ? t("calendar.preview.addCardio") : t("calendar.preview.addExercise")}
                     </button>
                   )}
                 </div>
@@ -560,7 +574,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                     className="flex-1 px-4 py-2.5 rounded-2xl text-base font-semibold shadow hover:opacity-95"
                     style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
                   >
-                    Speichern
+                    {t("common.save")}
                   </button>
                 ) : (
                   <button
@@ -574,7 +588,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                         : { background: "rgba(148,163,184,0.25)", color: "var(--muted)" }
                     }
                   >
-                    Training starten
+                    {t("calendar.preview.startTraining")}
                   </button>
                 )}
 
@@ -584,17 +598,17 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                   className="px-4 py-2.5 rounded-2xl text-sm hover:opacity-95"
                   style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
                 >
-                  Schließen
+                  {t("common.close")}
                 </button>
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       )}
       <ExerciseLibraryModal
         open={open && libraryOpen}
         isCardioLibrary={isCardio}
-        title={isCardio ? "Cardio-Bibliothek" : "Übungsbibliothek"}
+        title={isCardio ? t("training.exerciseLibrary.cardioTitle") : t("training.exerciseLibrary.title")}
         onClose={() => setLibraryOpen(false)}
         existingExerciseIds={existingExerciseIds}
         onPick={(exercise: Exercise) => addExerciseFromLibrary(exercise, isCardio)}

@@ -67,13 +67,14 @@ export default function CommunityPage() {
   useEffect(() => {
     let active = true;
     setSuggestedLoading(true);
-    if (!user?.supabaseId) {
+    const supabaseId = user?.supabaseId;
+    if (!supabaseId) {
       setSuggested(fallbackSuggested);
       setSuggestedLoading(false);
       return;
     }
     (async () => {
-      const profiles = await getSuggestedProfiles(user.supabaseId);
+      const profiles = await getSuggestedProfiles(supabaseId);
       if (!active) return;
       setSuggested(profiles?.length ? profiles : fallbackSuggested);
       setSuggestedLoading(false);

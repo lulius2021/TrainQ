@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { isBillingSupported, restorePurchases, syncProToSession } from "../services/purchases";
+import { useI18n } from "../i18n/useI18n";
 
 import { loadTheme, setTheme as setThemeGlobal, type ThemeMode } from "../utils/theme";
 import { clearUserScopedData, getScopedItem, setScopedItem } from "../utils/scopedStorage";
@@ -18,6 +19,7 @@ import {
   type CommunityPrivacyLevel,
   type CommunityProfileRecord,
 } from "../services/communityBackend";
+import { debugEndLiveActivity, debugStartLiveActivity } from "../native/liveActivity";
 
 type SettingsSection =
   | "profile"
@@ -50,15 +52,11 @@ export default function SettingPage({
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
   const { user, logout } = useAuth();
+  const { t, lang, setLang } = useI18n();
   const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(user?.id);
 
   const [section, setSection] = useState<SettingsSection>("theme");
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
-  const [language, setLanguage] = useState<"de" | "en">(() => {
-    if (typeof window === "undefined") return "de";
-    const stored = getScopedItem("trainq_language");
-    return (stored === "en" ? "en" : "de") as "de" | "en";
-  });
   const [units, setUnits] = useState<"metric" | "imperial">(() => {
     if (typeof window === "undefined") return "metric";
     const stored = getScopedItem("trainq_units");
@@ -69,6 +67,7 @@ export default function SettingPage({
   const [theme, setThemeState] = useState<ThemeMode>(() => loadTheme("dark"));
   const [communityProfile, setCommunityProfile] = useState<CommunityProfileRecord | null>(null);
   const [communityLoading, setCommunityLoading] = useState(false);
+  const [liveActivityDebug, setLiveActivityDebug] = useState<string>("");
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -91,7 +90,7 @@ export default function SettingPage({
     try {
       const supported = await isBillingSupported();
       if (!supported) {
-        alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
+        alert(t("settings.alert.purchasesUnavailable"));
         return;
       }
 
@@ -99,29 +98,27 @@ export default function SettingPage({
       await syncProToSession({ id: user.id, email: user.email });
 
       if (!nextIsPro) {
-        alert("Kein aktives Abo gefunden.");
+        alert(t("settings.alert.noActiveSubscription"));
       }
     } catch (e: any) {
-      const msg = String(e?.message ?? "Wiederherstellung fehlgeschlagen.");
+      const msg = String(e?.message ?? t("settings.alert.restoreFailed"));
       alert(msg);
     }
-  }, [user]);
+  }, [t, user]);
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm("Willst du dich wirklich abmelden?");
+    const ok = window.confirm(t("settings.confirm.logout"));
     if (!ok) return;
     logout();
     onBack();
-  }, [logout, onBack]);
+  }, [logout, onBack, t]);
 
   // ✅ Onboarding erneut starten (Reset + Reload, damit Gate sauber greift)
   const handleRestartOnboarding = useCallback(() => {
     if (typeof window === "undefined") return;
 
-    const ok = window.confirm(
-      "Onboarding wirklich erneut starten?\n\nDeine Onboarding-Angaben werden zurückgesetzt."
-    );
+    const ok = window.confirm(t("settings.confirm.restartOnboarding"));
     if (!ok) return;
 
     resetOnboardingInStorage();
@@ -133,37 +130,40 @@ export default function SettingPage({
     window.location.reload();
   }, []);
 
-  const menuItems = useMemo(
+  type MenuItem = { key: string; label: string; kind: "section"; danger?: boolean };
+
+  const menuItems = useMemo<MenuItem[]>(
     () => [
-      { key: "profile", label: "Profil", kind: "section" as const },
-      { key: "account", label: "Konto", kind: "section" as const },
-      { key: "notifications", label: "Benachrichtigungen", kind: "section" as const },
-      { key: "units", label: "Einheiten", kind: "section" as const },
-      { key: "language", label: "Sprache", kind: "section" as const },
-      { key: "theme", label: "Theme", kind: "section" as const },
-      { key: "pro", label: "PRO / Abo", kind: "section" as const },
-      { key: "community", label: "Community / Datenschutz", kind: "section" as const },
-      { key: "data", label: "Datenverwaltung", kind: "section" as const },
-      { key: "legal", label: "Rechtliches", kind: "section" as const },
-      { key: "help", label: "Hilfe & Support", kind: "section" as const },
+      { key: "profile", label: t("settings.section.profile"), kind: "section" as const },
+      { key: "account", label: t("settings.section.account"), kind: "section" as const },
+      { key: "notifications", label: t("settings.section.notifications"), kind: "section" as const },
+      { key: "units", label: t("settings.section.units"), kind: "section" as const },
+      { key: "language", label: t("settings.section.language"), kind: "section" as const },
+      { key: "theme", label: t("settings.section.theme"), kind: "section" as const },
+      { key: "pro", label: t("settings.section.pro"), kind: "section" as const },
+      { key: "community", label: t("settings.section.community"), kind: "section" as const },
+      { key: "data", label: t("settings.section.data"), kind: "section" as const },
+      { key: "legal", label: t("settings.section.legal"), kind: "section" as const },
+      { key: "help", label: t("settings.section.help"), kind: "section" as const },
     ],
-    []
+    [t]
   );
 
   useEffect(() => {
     let active = true;
-    if (!user?.supabaseId) {
+    const supabaseId = user?.supabaseId;
+    if (!supabaseId) {
       setCommunityProfile(null);
       setCommunityLoading(false);
       return;
     }
     setCommunityLoading(true);
     (async () => {
-      const loaded = await loadCommunityProfile(user.supabaseId);
+      const loaded = await loadCommunityProfile(supabaseId);
       const ensured =
         loaded ||
         (await ensureCommunityProfile({
-          supabaseUserId: user.supabaseId,
+          supabaseUserId: supabaseId,
           displayName: user.displayName,
           email: user.email,
         }));
@@ -178,9 +178,7 @@ export default function SettingPage({
 
   const handleDeleteAccount = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm(
-      "Willst du dein Profil wirklich löschen?\n\nAlle deine Daten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
-    );
+    const ok = window.confirm(t("settings.confirm.deleteProfile"));
     if (!ok) return;
     
     if (typeof window !== "undefined") {
@@ -188,32 +186,32 @@ export default function SettingPage({
         if (user?.id) {
           clearUserScopedData(user.id);
         }
-        alert("Profil gelöscht. Die App wird neu geladen.");
+        alert(t("settings.alert.profileDeleted"));
         window.location.reload();
       } catch {
-        alert("Fehler beim Löschen des Profils.");
+        alert(t("settings.alert.profileDeleteError"));
       }
     }
-  }, []);
+  }, [t, user?.id]);
 
   const handleClearCalendar = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm("Willst du wirklich alle Kalendereinträge löschen? Diese Aktion kann nicht rückgängig gemacht werden.");
+    const ok = window.confirm(t("settings.confirm.clearCalendar"));
     if (!ok) return;
     
     clearCalendarWorkouts();
     if (onClearCalendar) onClearCalendar();
-    alert("Kalender wurde geleert.");
-  }, [onClearCalendar]);
+    alert(t("settings.alert.calendarCleared"));
+  }, [onClearCalendar, t]);
 
   const handleClearHistory = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm("Willst du wirklich die gesamte Trainingshistorie löschen? Diese Aktion kann nicht rückgängig gemacht werden.");
+    const ok = window.confirm(t("settings.confirm.clearHistory"));
     if (!ok) return;
     
     clearWorkoutHistory();
-    alert("Trainingshistorie wurde geleert.");
-  }, []);
+    alert(t("settings.alert.historyCleared"));
+  }, [t]);
 
   const onMenuClick = useCallback(
     (k: string, kind: "section" | "action") => {
@@ -239,10 +237,10 @@ export default function SettingPage({
 
   const ProfilePanel = () => (
     <>
-      <SectionHeader title="Profil" />
+      <SectionHeader title={t("settings.section.profile")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Verwalte dein Profil und deine Ziele.
+          {t("settings.profile.subtitle")}
         </div>
         {onOpenGoals && (
           <button
@@ -251,11 +249,11 @@ export default function SettingPage({
             className="w-full rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
             style={{ background: "var(--primary)", color: "#061226" }}
           >
-            Meine Ziele
+            {t("settings.profile.goals")}
           </button>
         )}
         <div className="text-[11px] pt-2" style={muted}>
-          Name: {user?.name || user?.email || "Nicht gesetzt"}
+          {t("settings.profile.name", { value: user?.displayName || user?.email || t("settings.value.unset") })}
         </div>
       </div>
     </>
@@ -263,10 +261,10 @@ export default function SettingPage({
 
   const AccountPanel = () => (
     <>
-      <SectionHeader title="Konto" />
+      <SectionHeader title={t("settings.section.account")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          E-Mail: {user?.email || "Nicht gesetzt"}
+          {t("settings.account.email", { value: user?.email || t("settings.value.unset") })}
         </div>
         <button
           type="button"
@@ -274,7 +272,7 @@ export default function SettingPage({
           className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
           style={surfaceBox}
         >
-          <span style={{ color: "var(--text)" }}>Abmelden</span>
+          <span style={{ color: "var(--text)" }}>{t("settings.account.logout")}</span>
         </button>
         <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
           <button
@@ -287,7 +285,7 @@ export default function SettingPage({
               color: "rgba(239,68,68,0.95)",
             }}
           >
-            Profil löschen
+            {t("settings.account.deleteProfile")}
           </button>
         </div>
       </div>
@@ -296,23 +294,27 @@ export default function SettingPage({
 
   const NotificationsPanel = () => (
     <>
-      <SectionHeader title="Benachrichtigungen" />
+      <SectionHeader title={t("settings.section.notifications")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Trainingserinnerungen und Benachrichtigungen verwalten.
+          {t("settings.notifications.subtitle")}
         </div>
         <div className="space-y-2">
           <label className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text)" }}>Trainingserinnerungen</span>
+            <span className="text-sm" style={{ color: "var(--text)" }}>
+              {t("settings.notifications.trainingReminders")}
+            </span>
             <input type="checkbox" defaultChecked className="rounded" />
           </label>
           <label className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text)" }}>Wöchentliche Zusammenfassung</span>
+            <span className="text-sm" style={{ color: "var(--text)" }}>
+              {t("settings.notifications.weeklySummary")}
+            </span>
             <input type="checkbox" defaultChecked className="rounded" />
           </label>
         </div>
         <div className="text-[10px] pt-2" style={muted}>
-          Hinweis: Push-Benachrichtigungen werden in einer zukünftigen Version verfügbar sein.
+          {t("settings.notifications.note")}
         </div>
       </div>
     </>
@@ -320,10 +322,10 @@ export default function SettingPage({
 
   const UnitsPanel = () => (
     <>
-      <SectionHeader title="Einheiten" />
+      <SectionHeader title={t("settings.section.units")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Wähle dein bevorzugtes Einheitensystem.
+          {t("settings.units.subtitle")}
         </div>
         <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
           <button
@@ -335,7 +337,7 @@ export default function SettingPage({
             className="px-4 py-1.5 rounded-full transition"
             style={units === "metric" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            Metrisch (kg, km)
+            {t("settings.units.metric")}
           </button>
           <button
             type="button"
@@ -346,11 +348,11 @@ export default function SettingPage({
             className="px-4 py-1.5 rounded-full transition"
             style={units === "imperial" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            Imperial (lbs, mi)
+            {t("settings.units.imperial")}
           </button>
         </div>
         <div className="text-[10px]" style={muted}>
-          Hinweis: Die Umstellung auf Imperial-Einheiten wird in einer zukünftigen Version vollständig unterstützt.
+          {t("settings.units.note")}
         </div>
       </div>
     </>
@@ -358,13 +360,13 @@ export default function SettingPage({
 
   const LegalPanel = () => (
     <>
-      <SectionHeader title="Rechtliches" />
+      <SectionHeader title={t("settings.section.legal")} />
 
       <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceSoft}>
         {[
-          ["privacy", "Datenschutz"],
-          ["imprint", "Impressum"],
-          ["terms", "AGB"],
+          ["privacy", t("settings.legal.tab.privacy")],
+          ["imprint", t("settings.legal.tab.imprint")],
+          ["terms", t("settings.legal.tab.terms")],
         ].map(([k, label]) => (
           <button
             key={k}
@@ -385,44 +387,44 @@ export default function SettingPage({
       <div className="rounded-xl p-3 space-y-3 text-[11px]" style={surfaceSoft}>
         {legalTab === "privacy" && (
           <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">Datenschutzerklärung</div>
+            <div className="font-semibold">{t("settings.legal.privacy.title")}</div>
             <div style={muted}>
               <p className="mb-2">
-                TrainQ respektiert deine Privatsphäre. Alle Daten werden lokal auf deinem Gerät gespeichert.
+                {t("settings.legal.privacy.p1")}
               </p>
               <p className="mb-2">
-                Wir erheben und speichern keine persönlichen Daten ohne deine ausdrückliche Zustimmung.
+                {t("settings.legal.privacy.p2")}
               </p>
               <p>
-                Für Fragen zum Datenschutz kontaktiere uns bitte über die Support-Funktion in den Einstellungen.
+                {t("settings.legal.privacy.p3")}
               </p>
             </div>
           </div>
         )}
         {legalTab === "imprint" && (
           <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">Impressum</div>
+            <div className="font-semibold">{t("settings.legal.imprint.title")}</div>
             <div style={muted}>
-              <p className="mb-2">TrainQ</p>
-              <p className="mb-2">Eine Trainings-App für deine Fitness-Ziele.</p>
+              <p className="mb-2">{t("settings.legal.imprint.p1")}</p>
+              <p className="mb-2">{t("settings.legal.imprint.p2")}</p>
               <p>
-                Für rechtliche Anfragen nutze bitte die Kontaktfunktion in den Einstellungen.
+                {t("settings.legal.imprint.p3")}
               </p>
             </div>
           </div>
         )}
         {legalTab === "terms" && (
           <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">Allgemeine Geschäftsbedingungen</div>
+            <div className="font-semibold">{t("settings.legal.terms.title")}</div>
             <div style={muted}>
               <p className="mb-2">
-                Durch die Nutzung von TrainQ akzeptierst du unsere Nutzungsbedingungen.
+                {t("settings.legal.terms.p1")}
               </p>
               <p className="mb-2">
-                Die App wird "wie besehen" bereitgestellt. Wir übernehmen keine Haftung für Schäden, die durch die Nutzung entstehen.
+                {t("settings.legal.terms.p2")}
               </p>
               <p>
-                Für Fragen zu den AGB kontaktiere uns bitte über die Support-Funktion.
+                {t("settings.legal.terms.p3")}
               </p>
             </div>
           </div>
@@ -433,37 +435,35 @@ export default function SettingPage({
 
   const LanguagePanel = () => (
     <>
-      <SectionHeader title="Sprache" />
+      <SectionHeader title={t("settings.section.language")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Wähle deine bevorzugte Sprache.
+          {t("settings.language.subtitle")}
         </div>
         <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
           <button
             type="button"
             onClick={() => {
-              setLanguage("de");
-              if (typeof window !== "undefined") setScopedItem("trainq_language", "de");
+              setLang("de");
             }}
             className="px-4 py-1.5 rounded-full transition"
-            style={language === "de" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
+            style={lang === "de" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            Deutsch
+            {t("language.de")}
           </button>
           <button
             type="button"
             onClick={() => {
-              setLanguage("en");
-              if (typeof window !== "undefined") setScopedItem("trainq_language", "en");
+              setLang("en");
             }}
             className="px-4 py-1.5 rounded-full transition"
-            style={language === "en" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
+            style={lang === "en" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            English
+            {t("language.en")}
           </button>
         </div>
         <div className="text-[10px]" style={muted}>
-          Hinweis: Die vollständige Übersetzung wird in einer zukünftigen Version verfügbar sein.
+          {t("settings.language.note")}
         </div>
       </div>
     </>
@@ -471,11 +471,11 @@ export default function SettingPage({
 
   const ThemePanel = () => (
     <>
-      <SectionHeader title="Theme" />
+      <SectionHeader title={t("settings.section.theme")} />
 
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Wähle Hell oder Dunkel (wird gespeichert).
+          {t("settings.theme.subtitle")}
         </div>
 
         <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
@@ -488,7 +488,7 @@ export default function SettingPage({
             className="px-4 py-1.5 rounded-full transition"
             style={theme === "light" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            Hell
+            {t("settings.theme.light")}
           </button>
 
           <button
@@ -500,13 +500,12 @@ export default function SettingPage({
             className="px-4 py-1.5 rounded-full transition"
             style={theme === "dark" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
           >
-            Dunkel
+            {t("settings.theme.dark")}
           </button>
         </div>
 
         <div className="text-[10px]" style={muted}>
-          Technisch: Theme wird global über <span style={{ color: "var(--text)" }}>html[data-theme]</span> und{" "}
-          <span style={{ color: "var(--text)" }}>html.dark</span> gesteuert.
+          {t("settings.theme.note")}
         </div>
       </div>
     </>
@@ -518,22 +517,22 @@ export default function SettingPage({
 
     return (
       <>
-        <SectionHeader title="Community / Datenschutz" />
+        <SectionHeader title={t("settings.section.community")} />
         <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
           <div className="text-[11px]" style={muted}>
-            Steuere, ob dein Profil im Community‑Bereich sichtbar ist.
+            {t("settings.community.subtitle")}
           </div>
 
           {!user?.supabaseId && (
             <div className="text-[11px]" style={muted}>
-              Community‑Profile sind nur nach Login mit E‑Mail aktiv.
+              {t("settings.community.emailOnly")}
             </div>
           )}
 
           {user?.supabaseId && (
             <>
               <label className="flex items-center justify-between text-[12px]" style={{ color: "var(--text)" }}>
-                <span>Community aktivieren</span>
+                <span>{t("settings.community.enable")}</span>
                 <input
                   type="checkbox"
                   checked={optIn}
@@ -551,7 +550,7 @@ export default function SettingPage({
 
               <div className="space-y-1">
                 <div className="text-[11px]" style={muted}>
-                  Sichtbarkeit
+                  {t("settings.community.visibility")}
                 </div>
                 <select
                   value={privacy}
@@ -568,15 +567,15 @@ export default function SettingPage({
                   className="w-full rounded-xl px-3 py-2 text-xs"
                   style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
                 >
-                  <option value="private">Privat</option>
-                  <option value="followers">Nur Follower</option>
-                  <option value="public">Öffentlich</option>
+                  <option value="private">{t("settings.community.visibility.private")}</option>
+                  <option value="followers">{t("settings.community.visibility.followers")}</option>
+                  <option value="public">{t("settings.community.visibility.public")}</option>
                 </select>
               </div>
 
               {communityLoading && (
                 <div className="text-[10px]" style={muted}>
-                  Lade Community‑Profil…
+                  {t("settings.community.loading")}
                 </div>
               )}
             </>
@@ -589,15 +588,15 @@ export default function SettingPage({
   const ProPanel = () => {
     return (
       <>
-        <SectionHeader title="PRO / Abo" />
+        <SectionHeader title={t("settings.section.pro")} />
         <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
           {isPro ? (
             <div className="space-y-2">
               <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                ✅ Pro aktiv
+                {t("settings.pro.active")}
               </div>
               <div className="text-[11px]" style={muted}>
-                Du hast Zugriff auf alle Pro-Features.
+                {t("settings.pro.activeSubtitle")}
               </div>
               <button
                 type="button"
@@ -607,7 +606,7 @@ export default function SettingPage({
                 className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
                 style={surfaceBox}
               >
-                <span style={{ color: "var(--text)" }}>Abo verwalten / kündigen</span>
+                <span style={{ color: "var(--text)" }}>{t("settings.pro.manageSubscription")}</span>
               </button>
               <button
                 type="button"
@@ -615,25 +614,40 @@ export default function SettingPage({
                 className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
                 style={surfaceBox}
               >
-                <span style={{ color: "var(--text)" }}>Käufe wiederherstellen</span>
+                <span style={{ color: "var(--text)" }}>{t("settings.pro.restorePurchases")}</span>
               </button>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                TrainQ Pro
+                {t("settings.pro.title")}
               </div>
               <div className="text-[11px] space-y-1" style={muted}>
-                <div>• Unbegrenztes adaptives Training (B/C)</div>
-                <div>• Unbegrenztes Plan verschieben</div>
-                <div>• Erweiterte Statistiken</div>
-                <div>• Frühzugang zu neuen Features</div>
+                <div>{t("settings.pro.feature.adaptive")}</div>
+                <div>{t("settings.pro.feature.planShift")}</div>
+                <div>{t("settings.pro.feature.stats")}</div>
+                <div>{t("settings.pro.feature.earlyAccess")}</div>
               </div>
               <div className="text-[11px] space-y-1 pt-2" style={muted}>
-                <div>Verbleibend diesen Monat:</div>
-                <div>• Adaptives Training (B/C): {Math.max(0, Math.floor(adaptiveBCRemaining || 0))} / 5</div>
-                <div>• Plan verschieben: {Math.max(0, Math.floor(planShiftRemaining || 0))} / 5</div>
-                <div>• Kalender &gt;7 Tage: {Math.max(0, Math.floor(calendar7DaysRemaining || 0))} / 3</div>
+                <div>{t("settings.pro.remaining.title")}</div>
+                <div>
+                  {t("settings.pro.remaining.adaptive", {
+                    used: Math.max(0, Math.floor(adaptiveBCRemaining || 0)),
+                  })}{" "}
+                  / 5
+                </div>
+                <div>
+                  {t("settings.pro.remaining.planShift", {
+                    used: Math.max(0, Math.floor(planShiftRemaining || 0)),
+                  })}{" "}
+                  / 5
+                </div>
+                <div>
+                  {t("settings.pro.remaining.calendar", {
+                    used: Math.max(0, Math.floor(calendar7DaysRemaining || 0)),
+                  })}{" "}
+                  / 3
+                </div>
               </div>
               <button
                 type="button"
@@ -641,7 +655,7 @@ export default function SettingPage({
                 className="w-full rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
                 style={{ background: "var(--primary)", color: "#061226" }}
               >
-                Pro kaufen
+                {t("settings.pro.buy")}
               </button>
               <button
                 type="button"
@@ -649,7 +663,7 @@ export default function SettingPage({
                 className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
                 style={surfaceBox}
               >
-                <span style={{ color: "var(--text)" }}>Käufe wiederherstellen</span>
+                <span style={{ color: "var(--text)" }}>{t("settings.pro.restorePurchases")}</span>
               </button>
             </div>
           )}
@@ -660,10 +674,10 @@ export default function SettingPage({
 
   const DataPanel = () => (
     <>
-      <SectionHeader title="Datenverwaltung" />
+      <SectionHeader title={t("settings.section.data")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Verwalte deine gespeicherten Daten.
+          {t("settings.data.subtitle")}
         </div>
         <button
           type="button"
@@ -671,7 +685,7 @@ export default function SettingPage({
           className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
           style={{ ...surfaceBox, color: "var(--text)" }}
         >
-          Kalender leeren
+          {t("settings.data.clearCalendar")}
         </button>
         <button
           type="button"
@@ -679,10 +693,10 @@ export default function SettingPage({
           className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
           style={{ ...surfaceBox, color: "var(--text)" }}
         >
-          Trainingshistorie leeren
+          {t("settings.data.clearHistory")}
         </button>
         <div className="text-[10px] pt-2" style={muted}>
-          Warnung: Diese Aktionen können nicht rückgängig gemacht werden.
+          {t("settings.data.warning")}
         </div>
       </div>
     </>
@@ -690,55 +704,87 @@ export default function SettingPage({
 
   const HelpPanel = () => (
     <>
-      <SectionHeader title="Hilfe & Support" />
+      <SectionHeader title={t("settings.section.help")} />
       <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
         <div className="text-[11px]" style={muted}>
-          Hilfe und Support für TrainQ.
+          {t("settings.help.subtitle")}
         </div>
         <div className="space-y-2">
           <button
             type="button"
             onClick={() => {
-              const faq = "Häufig gestellte Fragen:\n\n" +
-                "• Wie erstelle ich ein Training? → Gehe zum Kalender und klicke auf das Plus-Symbol.\n" +
-                "• Wie starte ich ein Live-Training? → Klicke auf ein Training im Kalender oder Dashboard.\n" +
-                "• Was ist adaptives Training? → Das System passt dein Training an deine aktuelle Situation an.\n" +
-                "• Wie funktioniert Pro? → Pro gibt dir unbegrenzten Zugriff auf alle Features.\n\n" +
-                "Für weitere Fragen kontaktiere uns über die Support-Funktion.";
+              const faq = t("settings.help.faqContent");
               alert(faq);
             }}
             className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
             style={{ ...surfaceBox, color: "var(--text)" }}
           >
-            Häufig gestellte Fragen (FAQ)
+            {t("settings.help.faq")}
           </button>
           <button
             type="button"
             onClick={() => {
-              window.open("mailto:support@trainq.app?subject=Support-Anfrage", "_blank");
+              const subject = encodeURIComponent(t("settings.help.contactSubject"));
+              window.open(`mailto:support@trainq.app?subject=${subject}`, "_blank");
             }}
             className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
             style={{ ...surfaceBox, color: "var(--text)" }}
           >
-            Kontaktiere uns
+            {t("settings.help.contact")}
           </button>
           <button
             type="button"
             onClick={() => {
               // In einer echten App würde dies zum App Store führen
-              alert("Bewertung: In der finalen Version führt dies zum App Store.");
+              alert(t("settings.help.rateNotice"));
             }}
             className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
             style={{ ...surfaceBox, color: "var(--text)" }}
           >
-            App bewerten
+            {t("settings.help.rate")}
           </button>
+          {import.meta.env.DEV && (
+            <div className="rounded-xl p-3 space-y-2" style={surfaceBox}>
+              <div className="text-[11px] font-semibold" style={{ color: "var(--text)" }}>
+                {t("settings.help.liveActivityDebug")}
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await debugStartLiveActivity();
+                  setLiveActivityDebug(res ? JSON.stringify(res) : t("settings.help.debugNoResponse"));
+                }}
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
+              >
+                {t("settings.help.liveActivityStart")}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await debugEndLiveActivity();
+                  setLiveActivityDebug(res ? JSON.stringify(res) : t("settings.help.debugNoResponse"));
+                }}
+                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
+                style={{ ...surfaceSoft, color: "var(--text)" }}
+              >
+                {t("settings.help.liveActivityEnd")}
+              </button>
+              {liveActivityDebug && (
+                <div className="text-[10px] break-all" style={{ color: "var(--muted)" }}>
+                  {liveActivityDebug}
+                </div>
+              )}
+            </div>
+          )}
           <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <div className="text-[11px] font-semibold mb-2" style={{ color: "var(--text)" }}>Über TrainQ</div>
+            <div className="text-[11px] font-semibold mb-2" style={{ color: "var(--text)" }}>
+              {t("settings.help.about")}
+            </div>
             <div className="text-[10px]" style={muted}>
-              TrainQ v1.0.0
+              {t("settings.help.version")}
               <br />
-              Eine moderne Trainings-App für deine Fitness-Ziele.
+              {t("settings.help.aboutText")}
             </div>
           </div>
         </div>
@@ -777,14 +823,14 @@ export default function SettingPage({
               type="button"
               onClick={onBack}
               className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
-              title="Zurück"
+              title={t("common.back")}
               style={surfaceSoft}
             >
               <span style={{ color: "var(--text)" }}>{"<"}</span>
             </button>
 
             <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>
-              Einstellungen
+              {t("settings.title")}
             </h1>
           </div>
 
@@ -795,7 +841,7 @@ export default function SettingPage({
               className="rounded-full px-4 py-2 text-xs font-semibold hover:opacity-95"
               style={{ background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" }}
             >
-              Pro kaufen
+              {t("settings.pro.buy")}
             </button>
           )}
         </div>
@@ -880,7 +926,7 @@ export default function SettingPage({
                 className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
                 style={surfaceSoft}
               >
-                <span style={{ color: "var(--text)" }}>Abmelden</span>
+                <span style={{ color: "var(--text)" }}>{t("settings.account.logout")}</span>
               </button>
             </div>
           </div>

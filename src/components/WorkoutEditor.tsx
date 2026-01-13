@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 
 type Sportart = "REST" | "GYM" | "LAUFEN" | "RADFAHREN" | "BOXEN";
 type SessionType = "INTERVALLE" | "LONGRUN" | "RECOVERY" | null;
@@ -32,6 +33,7 @@ interface WorkoutEditorProps {
 }
 
 export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
+  const { t } = useI18n();
   const [sportart, setSportart] = useState<Sportart>("GYM");
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [title, setTitle] = useState("");
@@ -167,11 +169,11 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
       onSubmit={handleSubmit}
       className="space-y-4 rounded-xl border border-gray-700 bg-gray-800/50 p-4 text-left"
     >
-      <h2 className="text-lg font-semibold mb-1">Workout erstellen</h2>
+      <h2 className="text-lg font-semibold mb-1">{t("workoutEditor.title")}</h2>
 
       {/* Sportart */}
       <div className="flex flex-col">
-        <label className="text-xs text-gray-400 mb-1">Sportart</label>
+        <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.sport")}</label>
         <select
           value={sportart}
           onChange={(e) => {
@@ -181,18 +183,18 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
           }}
           className="rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
         >
-          <option value="REST">REST</option>
-          <option value="GYM">GYM</option>
-          <option value="LAUFEN">LAUFEN</option>
-          <option value="RADFAHREN">RADFAHREN</option>
-          <option value="BOXEN">BOXEN</option>
+          <option value="REST">{t("training.sport.rest")}</option>
+          <option value="GYM">{t("training.sport.gym")}</option>
+          <option value="LAUFEN">{t("training.sport.run")}</option>
+          <option value="RADFAHREN">{t("training.sport.bike")}</option>
+          <option value="BOXEN">{t("training.sport.boxing")}</option>
         </select>
       </div>
 
       {/* Untertyp für Laufen / Rad */}
       {sessionOptions.length > 0 && (
         <div className="flex flex-col">
-          <label className="text-xs text-gray-400 mb-1">Typ</label>
+          <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.sessionType")}</label>
           <select
             value={sessionType || ""}
             onChange={(e) =>
@@ -202,20 +204,20 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             }
             className="rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
           >
-            <option value="">Bitte wählen…</option>
-            <option value="LONGRUN">Longrun</option>
-            <option value="INTERVALLE">Intervalle</option>
-            <option value="RECOVERY">Recovery</option>
+            <option value="">{t("workoutEditor.selectPlaceholder")}</option>
+            <option value="LONGRUN">{t("workoutEditor.longrun")}</option>
+            <option value="INTERVALLE">{t("workoutEditor.intervals")}</option>
+            <option value="RECOVERY">{t("workoutEditor.recovery")}</option>
           </select>
         </div>
       )}
 
       {/* Titel */}
       <div className="flex flex-col">
-        <label className="text-xs text-gray-400 mb-1">Titel (optional)</label>
+        <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.titleOptional")}</label>
         <input
           type="text"
-          placeholder="z.B. Brust & Rücken, 15km Longrun…"
+          placeholder={t("workoutEditor.titlePlaceholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
@@ -225,23 +227,15 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
       {/* Dynamische Felder für Laufen & Rad */}
       {(sportart === "LAUFEN" || sportart === "RADFAHREN") && (
         <div className="grid grid-cols-3 gap-3">
-          <Field
-            label="Dauer (min)"
-            value={duration}
-            onChange={setDuration}
-          />
-          <Field
-            label="Distanz (km)"
-            value={distance}
-            onChange={setDistance}
-          />
+          <Field label={t("workoutEditor.duration")} value={duration} onChange={setDuration} />
+          <Field label={t("workoutEditor.distance")} value={distance} onChange={setDistance} />
           <Field
             label={
               sessionType === "RECOVERY"
-                ? "Intensität (1–10)"
+                ? t("workoutEditor.intensity")
                 : sportart === "LAUFEN"
-                ? "Pace (min/km)"
-                : "Ø-Tempo / Watt"
+                ? t("workoutEditor.pace")
+                : t("workoutEditor.avgTempo")
             }
             value={paceOrIntensity}
             onChange={setPaceOrIntensity}
@@ -253,13 +247,13 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
       {sportart === "GYM" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold">Übungen</span>
+            <span className="text-sm font-semibold">{t("workoutEditor.exercises")}</span>
             <button
               type="button"
               onClick={addExercise}
               className="text-xs px-2 py-1 rounded-md border border-gray-600 hover:bg-gray-700"
             >
-              + Übung hinzufügen
+              {t("workoutEditor.addExercise")}
             </button>
           </div>
 
@@ -272,7 +266,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                 <div className="flex items-center justify-between gap-2">
                   <input
                     type="text"
-                    placeholder="z.B. Bankdrücken"
+                    placeholder={t("workoutEditor.exercisePlaceholder")}
                     value={ex.name}
                     onChange={(e) =>
                       updateExerciseName(ex.id, e.target.value)
@@ -284,7 +278,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                     onClick={() => removeExercise(ex.id)}
                     className="text-xs text-red-400 hover:text-red-300"
                   >
-                    Löschen
+                    {t("common.delete")}
                   </button>
                 </div>
 
@@ -296,7 +290,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                     >
                       <input
                         type="number"
-                        placeholder="Wdh."
+                        placeholder={t("workoutEditor.reps")}
                         value={s.reps}
                         onChange={(e) =>
                           updateSetField(
@@ -310,7 +304,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                       />
                       <input
                         type="number"
-                        placeholder="Gewicht (kg)"
+                        placeholder={t("workoutEditor.weightKg")}
                         value={s.weight}
                         onChange={(e) =>
                           updateSetField(
@@ -328,6 +322,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                           removeSetFromExercise(ex.id, s.id)
                         }
                         className="text-xs text-red-400 hover:text-red-300"
+                        aria-label={t("workoutEditor.removeSet")}
                       >
                         ✕
                       </button>
@@ -339,7 +334,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                     onClick={() => addSetToExercise(ex.id)}
                     className="text-xs px-2 py-1 rounded-md border border-gray-600 hover:bg-gray-700"
                   >
-                    + Satz hinzufügen
+                    {t("workoutEditor.addSet")}
                   </button>
                 </div>
               </div>
@@ -350,15 +345,13 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
 
       {/* Notizen */}
       <div className="flex flex-col">
-        <label className="text-xs text-gray-400 mb-1">
-          Notizen (optional)
-        </label>
+        <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.notesOptional")}</label>
         <textarea
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500 resize-none"
-          placeholder="z.B. locker, Technikfokus, RPE 7/10…"
+          placeholder={t("workoutEditor.notesPlaceholder")}
         />
       </div>
 
@@ -366,7 +359,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
         type="submit"
         className="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold hover:bg-blue-500 transition"
       >
-        Workout zum Tag hinzufügen
+        {t("workoutEditor.addToDay")}
       </button>
     </form>
   );

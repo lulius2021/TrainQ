@@ -1,5 +1,7 @@
 import React, { useEffect } from "react";
-import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
+
+type DragInfo = { offset: { y: number }; velocity: { y: number } };
 
 type BottomSheetProps = {
   open: boolean;
@@ -46,16 +48,18 @@ export function BottomSheet({
     };
   }, [open]);
 
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: DragInfo) => {
     if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) {
       onClose();
     }
   };
 
+  const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <MotionDiv
           className="fixed inset-0"
           style={{ zIndex }}
           initial={{ opacity: 0 }}
@@ -65,7 +69,7 @@ export function BottomSheet({
           <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
           <div className="fixed left-0 right-0 flex justify-center px-4" style={{ bottom: bottomOffset }}>
-            <motion.div
+            <MotionDiv
               className="w-full max-w-md rounded-t-2xl shadow-lg shadow-black/30 flex flex-col"
               style={{ ...sheetStyle, height, maxHeight }}
               initial={{ y: "100%" }}
@@ -78,11 +82,11 @@ export function BottomSheet({
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <div
                 className="pt-2 pb-1"
-                onPointerDown={(e) => dragControls.start(e)}
+                onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
               >
                 <div className="flex justify-center">
                   <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border)" }} />
@@ -97,9 +101,9 @@ export function BottomSheet({
                   {footer}
                 </div>
               )}
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       )}
     </AnimatePresence>
   );

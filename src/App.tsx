@@ -1,11 +1,13 @@
 // src/App.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "./i18n/useI18n";
 
 // Seiten (Haupt-App)
 import { Dashboard } from "./pages/Dashboard";
 import TrainingsplanPage from "./pages/TrainingsplanPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
+import StartTodayPage from "./pages/StartTodayPage";
 
 // Settings
 import SettingsPage from "./pages/SettingPage";
@@ -17,6 +19,8 @@ import TrainQCoreDebug from "./pages/TrainQCoreDebug";
 import LiveTrainingPage from "./pages/training/LiveTrainingPage";
 import CommunityPage from "./pages/CommunityPage";
 import CommunityInboxPage from "./pages/CommunityInboxPage";
+import WorkoutSharePage from "./pages/WorkoutSharePage";
+import PublicProfilePage from "./pages/PublicProfilePage";
 
 // Auth & Onboarding
 import LoginPage from "./pages/auth/LoginPage";
@@ -60,8 +64,16 @@ import { getActiveUserId } from "./utils/session";
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 /** Exportiert für andere Komponenten */
-export type TabKey = "dashboard" | "calendar" | "plan" | "profile";
-type AppRoute = "/" | "/live-training" | "/debug/trainq" | "/community" | "/community/inbox";
+export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";
+type AppRoute =
+  | "/"
+  | "/today"
+  | "/live-training"
+  | "/debug/trainq"
+  | "/community"
+  | "/community/inbox"
+  | "/workout-share"
+  | "/public-profile";
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
@@ -216,16 +228,20 @@ function getRouteFromLocation(): AppRoute {
 
   if (path === "/live-training") return "/live-training";
   if (path === "/debug/trainq") return "/debug/trainq";
+  if (path === "/today") return "/today";
   if (path === "/community/inbox") return "/community/inbox";
   if (path === "/community") return "/community";
+  if (path === "/workout-share") return "/workout-share";
+  if (path.startsWith("/u/")) return "/public-profile";
 
   return "/";
 }
 
-function pushRoute(path: AppRoute): void {
+function pushRoute(path: AppRoute, search?: string): void {
   if (typeof window === "undefined") return;
-  if (window.location.pathname === path) return;
-  window.history.pushState({}, "", path);
+  const next = search ? `${path}?${search}` : path;
+  if (window.location.pathname + window.location.search === next) return;
+  window.history.pushState({}, "", next);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -320,6 +336,7 @@ const LiveTrainingMiniBar: React.FC<{
   onMaximize: (eventId?: string) => void;
   onAbort: () => void;
 }> = ({ visible, onMaximize, onAbort }) => {
+  const { t } = useI18n();
   const [active, setActive] = useState(() => getActiveLiveWorkout());
 
   useEffect(() => {
@@ -346,7 +363,7 @@ const LiveTrainingMiniBar: React.FC<{
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 dark:text-white/60">Live-Training läuft</div>
+            <div className="text-[11px] text-slate-500 dark:text-white/60">{t("live.mini.running")}</div>
             <div className="flex items-baseline gap-2">
               <div className="text-base font-semibold tabular-nums text-slate-900 dark:text-white/90">
                 {formatElapsedFromISO(active.startedAt)}
@@ -361,7 +378,7 @@ const LiveTrainingMiniBar: React.FC<{
               onClick={() => onMaximize(active.calendarEventId)}
               className="rounded-2xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-black hover:bg-brand-primary/90"
             >
-              Maximieren
+              {t("live.mini.maximize")}
             </button>
 
             <button
@@ -373,7 +390,7 @@ const LiveTrainingMiniBar: React.FC<{
                 dark:border-white/15 dark:bg-black/30 dark:text-white/80 dark:hover:bg-white/5
               "
             >
-              Abbrechen
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -393,6 +410,14 @@ const MainAppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
   const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId(userId));
+  const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
+  const [shareReturnTo, setShareReturnTo] = useState<"dashboard" | "profile">("dashboard");
+  const [publicProfileId, setPublicProfileId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const path = window.location.pathname;
+    if (!path.startsWith("/u/")) return null;
+    return decodeURIComponent(path.replace("/u/", "").trim()) || null;
+  });
 
   const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
@@ -430,11 +455,23 @@ const MainAppShell: React.FC = () => {
 
       if (nextRoute === "/live-training") {
         setActiveLiveEventId(readActiveLiveEventId(userId));
+      } else if (nextRoute === "/today") {
+        setActiveTab("today");
+      } else if (nextRoute === "/workout-share") {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        const from = params.get("from");
+        if (id) setShareWorkoutId(id);
+        setShareReturnTo(from === "profile" ? "profile" : "dashboard");
+      } else if (nextRoute === "/public-profile") {
+        const path = window.location.pathname;
+        const id = path.startsWith("/u/") ? decodeURIComponent(path.replace("/u/", "")) : null;
+        setPublicProfileId(id || null);
       }
     };
 
     const onCustomNavigate = (ev: Event) => {
-      const e = ev as CustomEvent<{ path?: AppRoute; eventId?: string }>;
+      const e = ev as CustomEvent<{ path?: AppRoute; eventId?: string; workoutId?: string; returnTo?: "dashboard" | "profile" }>;
       const next = e?.detail?.path;
       if (!next) return;
 
@@ -443,6 +480,12 @@ const MainAppShell: React.FC = () => {
         const normalized = typeof nextEventId === "string" && nextEventId.trim() ? nextEventId.trim() : undefined;
         setActiveLiveEventId(normalized);
         writeActiveLiveEventId(normalized, userId);
+      } else if (next === "/today") {
+        setActiveTab("today");
+      } else if (next === "/workout-share") {
+        const workoutId = e?.detail?.workoutId;
+        if (typeof workoutId === "string" && workoutId.trim()) setShareWorkoutId(workoutId.trim());
+        setShareReturnTo(e?.detail?.returnTo === "profile" ? "profile" : "dashboard");
       } else {
         const active = getActiveLiveWorkout();
         if (!active || !active.isActive) {
@@ -464,6 +507,21 @@ const MainAppShell: React.FC = () => {
       window.removeEventListener("trainq:navigate", onCustomNavigate as EventListener);
     };
   }, [userId]);
+
+  const openWorkoutShare = useCallback(
+    (workoutId: string, returnTo: "dashboard" | "profile" = "dashboard") => {
+      const id = String(workoutId || "").trim();
+      if (!id) return;
+      setShareWorkoutId(id);
+      setShareReturnTo(returnTo);
+      setActiveLiveEventId(undefined);
+      writeActiveLiveEventId(undefined, userId);
+      const search = `id=${encodeURIComponent(id)}&from=${encodeURIComponent(returnTo)}`;
+      pushRoute("/workout-share", search);
+      setRoute("/workout-share");
+    },
+    [userId]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -510,7 +568,8 @@ const MainAppShell: React.FC = () => {
     return !!document.querySelector('[data-overlay-open="true"]');
   }, [paywallOpen]);
 
-  const tabOrder: TabKey[] = ["dashboard", "calendar", "plan", "profile"];
+  const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
+  const isTabRoute = route === "/" || route === "/today";
   const tabSwipeEnabled = route === "/" && profileScreen === "profile";
 
   useTabSwipeNavigation({
@@ -725,6 +784,7 @@ const MainAppShell: React.FC = () => {
           onExit={exitLiveTraining}
           onMinimize={minimizeLiveTraining}
           eventId={activeLiveEventId}
+          onShareWorkout={openWorkoutShare}
         />
       </div>
     );
@@ -752,7 +812,33 @@ const MainAppShell: React.FC = () => {
 
             {route === "/community/inbox" && <CommunityInboxPage />}
 
-            {route === "/" && activeTab === "dashboard" && (
+            {route === "/workout-share" && (
+              <WorkoutSharePage
+                workoutId={shareWorkoutId}
+                onDone={() => {
+                  if (shareReturnTo === "profile") {
+                    setActiveTab("profile");
+                    setProfileScreen("profile");
+                  } else {
+                    setActiveTab("dashboard");
+                  }
+                  pushRoute("/");
+                  setRoute("/");
+                }}
+              />
+            )}
+
+            {route === "/public-profile" && (
+              <PublicProfilePage
+                userId={publicProfileId}
+                onBack={() => {
+                  pushRoute("/");
+                  setRoute("/");
+                }}
+              />
+            )}
+
+            {isTabRoute && activeTab === "dashboard" && (
               <Dashboard
                 events={events}
                 upcoming={upcomingTrainings}
@@ -760,10 +846,11 @@ const MainAppShell: React.FC = () => {
                 onUpdateEvents={setEvents}
                 isPro={isPro}
                 onOpenPaywall={openPaywall}
+                onOpenWorkoutShare={openWorkoutShare}
               />
             )}
 
-            {route === "/" && activeTab === "calendar" && (
+            {isTabRoute && activeTab === "calendar" && (
               <CalendarPage
                 events={events}
                 onAddEvent={handleAddEvent}
@@ -773,11 +860,22 @@ const MainAppShell: React.FC = () => {
               />
             )}
 
-            {route === "/" && activeTab === "plan" && (
+            {isTabRoute && activeTab === "today" && (
+              <StartTodayPage
+                events={events}
+                onPlanTraining={() => {
+                  setActiveTab("calendar");
+                  pushRoute("/");
+                  setRoute("/");
+                }}
+              />
+            )}
+
+            {isTabRoute && activeTab === "plan" && (
               <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />
             )}
 
-            {route === "/" && activeTab === "profile" &&
+            {isTabRoute && activeTab === "profile" &&
               (profileScreen === "settings" ? (
                 <SettingsPage
                   onBack={() => setProfileScreen("profile")}
@@ -789,7 +887,7 @@ const MainAppShell: React.FC = () => {
                   }}
                 />
               ) : (
-                <ProfilePage onClearCalendar={handleClearCalendar} />
+                <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
               ))}
           </div>
         </div>
@@ -812,7 +910,10 @@ const MainAppShell: React.FC = () => {
         activeTab={activeTab}
         onChange={(next: TabKey) => {
           setActiveTab(next);
-          if (route !== "/") {
+          if (next === "today") {
+            pushRoute("/today");
+            setRoute("/today");
+          } else if (route !== "/") {
             pushRoute("/");
             setRoute("/");
           }

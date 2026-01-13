@@ -8,7 +8,7 @@
 // - Header (Zeit + Training beenden) etwas höher
 // - Footer (Minimieren/Abbrechen) etwas tiefer
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CalendarEvent,
   LiveExercise,
@@ -23,6 +23,7 @@ import ExerciseEditor from "../../components/training/ExerciseEditor";
 import RestTimerBar from "../../components/training/RestTimerBar";
 import ExerciseLibraryModal from "../../components/training/ExerciseLibraryModal";
 import type { Exercise } from "../../data/exerciseLibrary";
+import { EXERCISES } from "../../data/exerciseLibrary";
 
 import {
   readGlobalLiveSeed,
@@ -46,6 +47,8 @@ import {
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
+import { formatMmSs } from "../../utils/timeFormat";
+import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -54,6 +57,7 @@ type LiveTrainingPageProps = {
   eventId?: string;
   initialWorkout?: Partial<LiveWorkout>;
   onMinimize?: () => void;
+  onShareWorkout?: (workoutId: string) => void;
 };
 
 class LiveTrainingErrorBoundary extends React.Component<
@@ -87,7 +91,7 @@ class LiveTrainingErrorBoundary extends React.Component<
           <button
             type="button"
             onClick={this.props.onExit}
-            className="mt-3 rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-95"
+            className="mt-3 min-h-[40px] rounded-md px-4 py-2 text-sm font-semibold hover:opacity-95"
             style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
           >
             Zurück
@@ -192,6 +196,7 @@ export default function LiveTrainingPage({
   eventId,
   initialWorkout,
   onMinimize,
+  onShareWorkout,
 }: LiveTrainingPageProps) {
   const event = useMemo(
     () => (eventId ? events.find((e) => e.id === eventId) : undefined),
@@ -211,11 +216,15 @@ export default function LiveTrainingPage({
     setId: string;
     restSeconds: number;
   } | null>(null);
+  const [restRemainingSec, setRestRemainingSec] = useState<number | null>(null);
+  const restTimerRef = useRef<number | null>(null);
 
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const liveActivityLastUpdateRef = useRef(0);
 
   const [pendingScrollToExerciseId, setPendingScrollToExerciseId] = useState<string | null>(null);
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const mainRef = useRef<HTMLDivElement | null>(null);
 
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [focusedWeightField, setFocusedWeightField] = useState<{
@@ -377,6 +386,106 @@ export default function LiveTrainingPage({
     return exercises.reduce((acc, ex) => acc + (ex.sets ? ex.sets.length : 0), 0);
   }, [workout]);
 
+  const topMuscleGroups = useMemo(() => {
+    if (!workout) return [];
+    if (workout.sport === "Laufen" || workout.sport === "Radfahren") return [];
+
+    const byId = new Map(EXERCISES.map((ex) => [ex.id, ex]));
+    const counts = new Map<string, number>();
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+
+    exercises.forEach((ex) => {
+      if (!ex.exerciseId) return;
+      const meta = byId.get(ex.exerciseId);
+      if (!meta) return;
+      const weight = Math.max(1, ex.sets?.length ?? 0);
+      meta.primaryMuscles.forEach((m) => {
+        counts.set(m, (counts.get(m) ?? 0) + weight);
+      });
+    });
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([m]) => m);
+  }, [workout, workout?.exercises]);
+
+  const overlayData = useMemo(() => {
+    if (!workout) return null;
+
+    const t = formatTimeParts(elapsedSec);
+    const showHours = t.h > 0;
+    const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+
+    const overlayMode =
+      workout.sport === "Laufen" ? "run" : workout.sport === "Radfahren" ? "bike" : workout.sport === "Gym" ? "gym" : "other";
+
+    const firstPendingExerciseIndex = exercises.findIndex((ex) => (ex.sets || []).some((s) => !s.completed));
+    const activeExerciseIndex = firstPendingExerciseIndex >= 0 ? firstPendingExerciseIndex : Math.max(0, exercises.length - 1);
+    const activeExercise = exercises[activeExerciseIndex];
+    const activeSets = activeExercise?.sets || [];
+    const firstPendingSetIndex = activeSets.findIndex((s) => !s.completed);
+    const activeSetIndex = firstPendingSetIndex >= 0 ? firstPendingSetIndex : Math.max(0, activeSets.length - 1);
+    const activeSet = activeSetIndex >= 0 ? activeSets[activeSetIndex] : undefined;
+
+    const setReps = typeof activeSet?.reps === "number" ? activeSet.reps : undefined;
+    const setWeight = typeof activeSet?.weight === "number" ? activeSet.weight : undefined;
+    const setDetail =
+      setWeight != null && setReps != null
+        ? `${setWeight}kg x ${setReps}`
+        : setReps != null
+        ? `${setReps} Wdh`
+        : setWeight != null
+        ? `${setWeight}kg`
+        : "";
+
+    const cardioDistance = exercises.reduce((acc, ex) => {
+      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.weight === "number" ? sAcc + s.weight : sAcc), 0);
+    }, 0);
+    const cardioMinutes = exercises.reduce((acc, ex) => {
+      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.reps === "number" ? sAcc + s.reps : sAcc), 0);
+    }, 0);
+
+  const overlaySubtitle = isCardioWorkout
+    ? activeExercise
+      ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
+      : "Einheit 0/0"
+    : activeSet
+    ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
+    : activeExercise
+    ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+    : "Übung 0/0";
+
+    const overlayPrimaryText = isCardioWorkout
+      ? cardioDistance > 0
+        ? `${cardioDistance.toFixed(1)} km in ${elapsedText}`
+        : cardioMinutes > 0
+        ? `${elapsedText} • ${cardioMinutes} min`
+        : `${elapsedText}`
+      : restRemainingSec != null && restRemainingSec > 0
+      ? `Pause ${formatMmSs(restRemainingSec)}`
+      : activeSet
+      ? `Satz ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
+      : activeExercise
+      ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+      : "Workout läuft";
+
+    const overlayRightTopText = restRemainingSec != null && restRemainingSec > 0 ? `${restRemainingSec} Sek.` : undefined;
+
+    return {
+      elapsedText,
+      exercises,
+      overlayMode,
+      overlaySubtitle,
+      overlayPrimaryText,
+      overlayRightTopText,
+      cardioDistance,
+      activeExercise,
+      activeSet,
+    };
+  }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]);
+
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
   useEffect(() => {
     if (!workout) return;
@@ -396,6 +505,39 @@ export default function LiveTrainingPage({
       tickRef.current = null;
     };
   }, [workout?.id, workout?.startedAt]);
+
+  // ✅ Rest countdown for overlay
+  useEffect(() => {
+    if (restTimerRef.current) {
+      window.clearInterval(restTimerRef.current);
+      restTimerRef.current = null;
+    }
+
+    if (!activeRest) {
+      setRestRemainingSec(null);
+      return;
+    }
+
+    const startedAt = Date.now();
+    setRestRemainingSec(activeRest.restSeconds);
+
+    restTimerRef.current = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = Math.max(0, activeRest.restSeconds - elapsed);
+      setRestRemainingSec(remaining);
+      if (remaining <= 0 && restTimerRef.current) {
+        window.clearInterval(restTimerRef.current);
+        restTimerRef.current = null;
+      }
+    }, 1000);
+
+    return () => {
+      if (restTimerRef.current) {
+        window.clearInterval(restTimerRef.current);
+        restTimerRef.current = null;
+      }
+    };
+  }, [activeRest]);
 
   // ✅ Persist Active Workout bei jeder Änderung (nur solange aktiv)
   useEffect(() => {
@@ -603,6 +745,45 @@ export default function LiveTrainingPage({
     return map;
   }, [workout?.exercises]);
 
+  const buildLiveActivityPayload = useCallback((): LiveActivityPayload | null => {
+    if (!workout || !overlayData) return null;
+    const badge = workout.sport === "Laufen" ? "RUN" : workout.sport === "Radfahren" ? "BIKE" : workout.sport === "Gym" ? "GYM" : "WORKOUT";
+    const avatarLetter = (workout.title || "W").trim().slice(0, 1).toUpperCase();
+    const deepLink = `trainq://live?workoutId=${workout.id}`;
+    return {
+      workoutId: workout.id,
+      badge,
+      title: workout.title || workout.sport,
+      subtitle: overlayData.overlaySubtitle,
+      primaryLine: overlayData.overlayPrimaryText,
+      avatarLetter,
+      deepLink,
+      updatedAt: Date.now(),
+    };
+  }, [workout, overlayData]);
+
+  useEffect(() => {
+    if (!workout || !workout.isActive) return;
+
+    const now = Date.now();
+    if (now - liveActivityLastUpdateRef.current < 1500) return;
+    liveActivityLastUpdateRef.current = now;
+
+    const payload = buildLiveActivityPayload();
+    if (!payload) return;
+    setLiveTrainingState(payload);
+  }, [
+    workout?.isActive,
+    elapsedSec,
+    totalSets,
+    overlayData?.exercises.length,
+    overlayData?.cardioDistance,
+    overlayData?.overlayPrimaryText,
+    overlayData?.overlayRightTopText,
+    topMuscleGroups.join("|"),
+    buildLiveActivityPayload,
+  ]);
+
   // -------- Finish / Abort / Minimize --------
 
   const markCalendarEvent = (status: TrainingStatus, workoutId?: string) => {
@@ -616,7 +797,12 @@ export default function LiveTrainingPage({
     if (!workout) return;
     const completed = completeLiveWorkout(workout);
     markCalendarEvent("completed", completed.id);
-    onExit();
+    clearLiveTrainingState();
+    if (typeof onShareWorkout === "function") {
+      onShareWorkout(completed.id);
+    } else {
+      onExit();
+    }
   };
 
   const abortAndExit = () => {
@@ -625,6 +811,7 @@ export default function LiveTrainingPage({
       return;
     }
     abortLiveWorkout(workout);
+    clearLiveTrainingState();
     onExit();
   };
 
@@ -687,11 +874,9 @@ export default function LiveTrainingPage({
     );
   }
 
-  const t = formatTimeParts(elapsedSec);
-  const showHours = t.h > 0;
-  const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
+  const elapsedText = overlayData?.elapsedText ?? "0:00";
   const isCardioLibrary = isCardioWorkout;
-  const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+  const exercises = overlayData?.exercises ?? [];
 
   // ✅ STABIL: Reserve space für fixed Header + optional Restbar
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
@@ -702,6 +887,10 @@ export default function LiveTrainingPage({
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
   const mainPadBottom = `calc(max(env(safe-area-inset-bottom), 0px) + ${footerHeightPx}px)`;
+
+  const overlaySubtitle = overlayData?.overlaySubtitle ?? "";
+  const overlayPrimaryText = overlayData?.overlayPrimaryText ?? "";
+  const overlayRightTopText = overlayData?.overlayRightTopText;
 
   return (
     <LiveTrainingErrorBoundary onExit={onExit}>
@@ -742,6 +931,7 @@ export default function LiveTrainingPage({
 
       {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
       <main
+        ref={mainRef}
         className="flex-1 min-h-0 overflow-y-auto px-4"
         style={{
           paddingTop: mainPadTop,
@@ -770,7 +960,7 @@ export default function LiveTrainingPage({
             <div className="flex flex-col gap-3">
               {exercises.map((ex, exIdx) => (
                 <div
-                  key={ex.id}
+                  key={`${ex.id}-${exIdx}`}
                   ref={(node) => {
                     exerciseRefs.current[ex.id] = node;
                   }}

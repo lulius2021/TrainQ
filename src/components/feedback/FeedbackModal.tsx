@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FeedbackRating } from "../../types/feedback";
 import { sendFeedbackEmail } from "../../utils/sendFeedbackEmails";
+import { useI18n } from "../../i18n/useI18n";
 
 interface FeedbackModalProps {
   page: string;
@@ -9,6 +10,7 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
+  const { t } = useI18n();
   const [rating, setRating] = useState<FeedbackRating | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [note, setNote] = useState("");
@@ -43,12 +45,12 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
     setSuccessMessage(null);
 
     if (!rating) {
-      setErrorMessage("Bitte gib eine Bewertung mit Sternen ab.");
+      setErrorMessage(t("feedback.error.ratingRequired"));
       return;
     }
 
     if (!feedbackMessage.trim() && !note.trim()) {
-      setErrorMessage("Bitte schreibe kurz dein Feedback oder eine Notiz zum Problem.");
+      setErrorMessage(t("feedback.error.messageRequired"));
       return;
     }
 
@@ -65,7 +67,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
         createdAt: new Date().toISOString(),
       });
 
-      setSuccessMessage("Danke! Dein Feedback wurde erfolgreich gesendet.");
+      setSuccessMessage(t("feedback.success"));
       setFeedbackMessage("");
       setNote("");
       setName("");
@@ -77,7 +79,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
       }, 1200);
     } catch (err) {
       console.error(err);
-      setErrorMessage("Leider konnte dein Feedback nicht gesendet werden. Bitte versuche es später erneut.");
+      setErrorMessage(t("feedback.error.sendFailed"));
     } finally {
       setIsSending(false);
     }
@@ -93,7 +95,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           "text-2xl leading-none px-1 select-none transition-colors " +
           (active ? "text-blue-400" : "text-white/25 hover:text-white/45")
         }
-        aria-label={`${value} Sterne`}
+        aria-label={t("feedback.ratingStar", { value })}
       >
         ★
       </button>
@@ -105,9 +107,9 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
     <div className="w-full rounded-2xl bg-brand-card border border-white/10 p-5 sm:p-6 text-white">
       <div className="flex items-start justify-between gap-3 mb-4" data-overlay-drag-handle="true">
         <div className="min-w-0">
-          <div className="text-[11px] text-white/55">Feedback</div>
+          <div className="text-[11px] text-white/55">{t("feedback.title")}</div>
           <h2 className="text-base sm:text-lg font-semibold text-white/90 truncate">
-            Feedback zur Seite: {page}
+            {t("feedback.subtitle", { page })}
           </h2>
         </div>
 
@@ -115,8 +117,8 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           type="button"
           onClick={onClose}
           className="h-9 w-9 flex items-center justify-center rounded-full border border-white/15 bg-black/30 text-white/70 hover:bg-white/5"
-          aria-label="Schließen"
-          title="Schließen"
+          aria-label={t("common.close")}
+          title={t("common.close")}
         >
           ×
         </button>
@@ -125,7 +127,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Sterne */}
         <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-          <label className="block text-[12px] text-white/75 mb-2">Wie zufrieden bist du? (1–5 Sterne)</label>
+          <label className="block text-[12px] text-white/75 mb-2">{t("feedback.ratingLabel")}</label>
           <div className="flex items-center">
             {[1, 2, 3, 4, 5].map((v) => (
               <StarButton key={v} value={v as FeedbackRating} />
@@ -135,46 +137,46 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
 
         {/* Positives */}
         <div className="space-y-1">
-          <label className="block text-[12px] text-white/75">Positives oder Verbesserungsvorschläge</label>
+          <label className="block text-[12px] text-white/75">{t("feedback.positiveLabel")}</label>
           <textarea
             value={feedbackMessage}
             onChange={(e) => setFeedbackMessage(e.target.value)}
             className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
-            placeholder="Was gefällt dir? Was können wir besser machen?"
+            placeholder={t("feedback.positivePlaceholder")}
           />
         </div>
 
         {/* Problem */}
         <div className="space-y-1">
-          <label className="block text-[12px] text-white/75">Notiz zum Problem oder zur fehlenden Funktion</label>
+          <label className="block text-[12px] text-white/75">{t("feedback.problemLabel")}</label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
-            placeholder="Beschreibe hier kurz, was genau nicht funktioniert oder fehlt."
+            placeholder={t("feedback.problemPlaceholder")}
           />
         </div>
 
         {/* Name / Email */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="block text-[12px] text-white/75">Name (optional)</label>
+            <label className="block text-[12px] text-white/75">{t("feedback.nameLabel")}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
-              placeholder="Dein Name"
+              placeholder={t("feedback.namePlaceholder")}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="block text-[12px] text-white/75">E-Mail (optional)</label>
+            <label className="block text-[12px] text-white/75">{t("feedback.emailLabel")}</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
-              placeholder="Damit wir dich kontaktieren können"
+              placeholder={t("feedback.emailPlaceholder")}
               autoCapitalize="none"
               autoCorrect="off"
             />
@@ -200,7 +202,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
             onClick={onClose}
             className="px-4 py-2 rounded-xl border border-white/15 bg-black/30 text-sm text-white/80 hover:bg-white/5"
           >
-            Abbrechen
+            {t("common.cancel")}
           </button>
 
           <button
@@ -208,7 +210,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
             disabled={isSending}
             className="px-5 py-2 rounded-xl bg-brand-primary text-sm font-semibold text-black hover:bg-brand-primary/90 disabled:opacity-60"
           >
-            {isSending ? "Senden..." : "Feedback senden"}
+            {isSending ? t("feedback.sending") : t("feedback.send")}
           </button>
         </div>
       </form>
