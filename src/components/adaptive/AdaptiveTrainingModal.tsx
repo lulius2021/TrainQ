@@ -9,6 +9,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { useI18n } from "../../i18n/useI18n";
+import type { TranslationKey } from "../../i18n";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
 import { buildAdaptiveSuggestions } from "../../utils/adaptiveScoring";
@@ -28,7 +29,9 @@ function allowedWorkoutTypes(splitType: SplitType): WorkoutType[] {
   return splitType === "push_pull" ? ["Push", "Pull"] : ["Upper", "Lower"];
 }
 
-function reasonLabel(r: AdaptiveReason, t: (key: string) => string): string {
+type Translator = (key: TranslationKey, vars?: Record<string, string | number>) => string;
+
+function reasonLabel(r: AdaptiveReason, t: Translator): string {
   switch (r) {
     case "time_low":
       return t("adaptive.reason.timeLow");
@@ -86,7 +89,7 @@ function profileABC(profile: AdaptiveSuggestion["profile"]): "A" | "B" | "C" {
   return "C";
 }
 
-function profileLabel(profile: AdaptiveSuggestion["profile"], t: (key: string) => string): string {
+function profileLabel(profile: AdaptiveSuggestion["profile"], t: Translator): string {
   if (profile === "stabil") return t("adaptive.profile.stable");
   if (profile === "kompakt") return t("adaptive.profile.compact");
   return t("adaptive.profile.focus");

@@ -26,6 +26,7 @@ import { useAuth } from "../hooks/useAuth";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { useI18n } from "../i18n/useI18n";
+import type { TranslationKey } from "../i18n";
 import {
   buildTrainingTemplateSignature,
   deleteTrainingTemplate,
@@ -78,6 +79,14 @@ type RoutineBlock = TrainingTemplate & {
 
 type ActiveTab = "weekly" | "routine";
 type TrainingContainerKind = "weekly" | "routine";
+
+const SPORT_LABEL_KEY: Record<WeeklySportType, TranslationKey> = {
+  Gym: "plan.sport.gym",
+  Laufen: "plan.sport.running",
+  Radfahren: "plan.sport.cycling",
+  Custom: "plan.sport.custom",
+  Ruhetag: "plan.sport.rest",
+};
 
 interface TrainingsplanPageProps {
   onAddEvent?: (input: NewCalendarEvent) => void;
@@ -434,6 +443,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -826,6 +836,7 @@ type PreviewModalState =
     };
 
 const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => void }> = ({ state, onClose }) => {
+  const { t } = useI18n();
   const isOpen = !!state;
 
   if (!state) return null;
@@ -1750,7 +1761,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2.5 py-1 text-[10px] text-[var(--text)]">
-                          {isRest ? t("plan.restday") : t(`plan.sport.${String(day.sport).toLowerCase()}`)}
+                          {isRest ? t("plan.restday") : t(SPORT_LABEL_KEY[day.sport])}
                         </span>
                         {hasTime && (
                           <span className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2.5 py-1 text-[10px] text-[var(--text)]">
@@ -1913,7 +1924,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2.5 py-1 text-[10px] text-[var(--text)]">
-                          {isRest ? t("plan.restday") : t(`plan.sport.${String(block.sport).toLowerCase()}`)}
+                          {isRest ? t("plan.restday") : t(SPORT_LABEL_KEY[block.sport])}
                         </span>
                         {hasTime && (
                           <span className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2.5 py-1 text-[10px] text-[var(--text)]">

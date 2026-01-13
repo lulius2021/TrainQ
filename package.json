@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc -b",
-    "build": "vite build",
+    "typecheck": "npm exec -- tsc -b",
+    "build": "npm exec -- vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "validate:exercises": "node --experimental-strip-types src/data/exercises/validateExercises.ts",
-    "test": "node --experimental-strip-types src/data/exercises/validateExercises.ts --self-test",
+    "validate:exercises": "node --experimental-strip-types scripts/validateExercises.ts",
+    "test": "node --experimental-strip-types scripts/validateExercises.ts --self-test",
     "i18n:check": "node scripts/i18n-check.cjs"
   },
   "dependencies": {

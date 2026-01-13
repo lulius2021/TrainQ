@@ -16,7 +16,7 @@ export function getTranslation(lang: Lang, key: TranslationKey): string {
 }
 
 export function assertTranslationsMatch(): void {
-  if (process.env.NODE_ENV === "production") return;
+  if (import.meta.env.PROD) return;
   const enKeys = Object.keys(translationsEn);
   const deKeys = Object.keys(translationsDe);
   const missingInDe = enKeys.filter((k) => !(k in translationsDe));

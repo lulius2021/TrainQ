@@ -3,11 +3,11 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { translationsEn } from "../../i18n/translations.en.ts";
-import { translationsDe } from "../../i18n/translations.de.ts";
+import { translationsEn } from "../src/i18n/translations.en.ts";
+import { translationsDe } from "../src/i18n/translations.de.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataPath = path.join(__dirname, "core.exercises.v1.json");
+const dataPath = path.join(__dirname, "../src/data/exercises/core.exercises.v1.json");
 
 const allowedMuscles = new Set([
   "chest",
@@ -259,7 +259,7 @@ function runSelfTests() {
         failures.push(`normalizeToken failed (expected 'kabel rudern', got '${normalized}')`);
       }
 
-      const { addAliasOverride, getAliasOverrides } = await import("../../utils/exerciseAliasesStore.ts");
+      const { addAliasOverride, getAliasOverrides } = await import("../src/utils/exerciseAliasesStore.ts");
       addAliasOverride("ex_test", "en", "Cable Row");
       addAliasOverride("ex_test", "en", "Cable Row");
       const overrides = getAliasOverrides();
