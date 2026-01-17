@@ -24,6 +24,7 @@ import {
 } from "../../data/exerciseLibrary";
 import { addCustomExercise } from "../../utils/customExercisesStore";
 import { addAliasOverride } from "../../utils/exerciseAliasesStore";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
 type Props = {
   open: boolean;
@@ -182,6 +183,7 @@ export default function ExerciseLibraryModal({
   const [localAddedIds, setLocalAddedIds] = useState<Set<string>>(() => new Set(existingExerciseIds ?? []));
 
   const [showCreate, setShowCreate] = useState(false);
+  const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [createName, setCreateName] = useState("");
   const [createMuscle, setCreateMuscle] = useState<Muscle>("chest");
   const [createEquipment, setCreateEquipment] = useState<Equipment>("barbell");
@@ -286,8 +288,12 @@ export default function ExerciseLibraryModal({
 
     // Fokus auf Suche
     requestAnimationFrame(() => searchRef.current?.focus());
+  }, [open, isCardioLibrary]);
+
+  useEffect(() => {
+    if (!open) return;
     setLocalAddedIds(new Set(existingExerciseIds ?? []));
-  }, [open, isCardioLibrary, existingKey, existingExerciseIds]);
+  }, [open, existingExerciseIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -398,16 +404,24 @@ export default function ExerciseLibraryModal({
 
   const modal = (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 px-4"
+      className={`fixed inset-0 z-[10000] flex ${keyboardOpen ? "items-start" : "items-center"} justify-center bg-black/80 backdrop-blur-sm px-4`}
+      style={
+        keyboardOpen
+          ? {
+              paddingTop: "max(env(safe-area-inset-top), 12px)",
+              paddingBottom: `calc(${Math.max(0, keyboardHeight)}px + env(safe-area-inset-bottom))`,
+            }
+          : undefined
+      }
       data-overlay-open="true"
-      onMouseDown={(e) => {
+      onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
       aria-label={headerTitle}
     >
-      <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl text-xs shadow-xl" style={surfaceBox}>
+      <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl text-xs shadow-xl" style={{ ...surfaceBox, maxHeight: keyboardOpen ? `calc(100dvh - ${Math.max(120, keyboardHeight + 120)}px)` : "85vh" }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold" style={{ color: "var(--text)" }}>

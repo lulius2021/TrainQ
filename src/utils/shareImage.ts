@@ -15,7 +15,32 @@ function dataUrlToBase64(dataUrl: string): string {
   return dataUrl.split(",")[1] || "";
 }
 
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const imgs = Array.from(node.querySelectorAll("img")) as HTMLImageElement[];
+  await Promise.all(
+    imgs.map((img) => {
+      if (!img.src) return Promise.resolve();
+      const waitLoad = () =>
+        new Promise<void>((resolve) => {
+          const done = () => {
+            img.removeEventListener("load", done);
+            img.removeEventListener("error", done);
+            resolve();
+          };
+          img.addEventListener("load", done);
+          img.addEventListener("error", done);
+        });
+      const needsLoad = !img.complete || img.naturalWidth === 0;
+      const decodePromise = typeof img.decode === "function" ? img.decode().catch(() => undefined) : Promise.resolve();
+      return Promise.all([needsLoad ? waitLoad() : Promise.resolve(), decodePromise]).then(() => undefined);
+    })
+  );
+}
+
 export async function exportNodeToPng(node: HTMLElement, options: ExportOptions): Promise<string> {
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  if (document.fonts?.ready) await document.fonts.ready;
+  await waitForImages(node);
   return toPng(node, {
     cacheBust: true,
     width: options.width,

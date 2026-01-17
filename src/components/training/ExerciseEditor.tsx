@@ -87,7 +87,7 @@ function SwipeSetRow({ onDelete, children }: { onDelete: () => void; children: R
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
+    <div className="relative overflow-hidden rounded-xl" data-no-tab-swipe="true" data-no-back-swipe="true">
       {/* Delete layer */}
       <div className="absolute inset-0 flex items-center justify-end">
         <div
@@ -110,6 +110,7 @@ function SwipeSetRow({ onDelete, children }: { onDelete: () => void; children: R
           touchAction: "pan-y",
         }}
         onPointerDown={(e) => {
+          e.stopPropagation();
           draggingRef.current = true;
           pointerIdRef.current = e.pointerId;
           startXRef.current = e.clientX;

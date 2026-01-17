@@ -878,11 +878,29 @@ export default function LiveTrainingPage({
   const isCardioLibrary = isCardioWorkout;
   const exercises = overlayData?.exercises ?? [];
 
-  // ✅ STABIL: Reserve space für fixed Header + optional Restbar
-  // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
-  const mainPadTop = activeRest
-    ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
-    : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
+  const topBarRef = useRef<HTMLDivElement | null>(null);
+  const [topBarHeight, setTopBarHeight] = useState(0);
+
+  useEffect(() => {
+    const node = topBarRef.current;
+    if (!node || typeof window === "undefined") return;
+    const update = () => setTopBarHeight(node.getBoundingClientRect().height);
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      const id = window.setInterval(update, 300);
+      return () => window.clearInterval(id);
+    }
+    const ro = new ResizeObserver(update);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  const mainPadTop =
+    topBarHeight > 0
+      ? `${topBarHeight + 12}px`
+      : activeRest
+        ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
+        : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
@@ -896,7 +914,7 @@ export default function LiveTrainingPage({
     <LiveTrainingErrorBoundary onExit={onExit}>
       <div className="relative flex h-screen w-screen flex-col overflow-hidden text-slate-100">
       {/* ✅ FIXED HEADER */}
-      <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
+      <div ref={topBarRef} className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
         <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-2.5 shadow-lg shadow-black/30">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="text-center sm:text-left">
