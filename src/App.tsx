@@ -49,6 +49,7 @@ import { NavBar } from "./components/NavBar";
 
 // Typen
 import type { CalendarEvent, NewCalendarEvent, UpcomingTraining } from "./types/training";
+import type { DeloadPlan, DeloadRule } from "./types/deload";
 
 // Live Workout API (für Mini-Bar)
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "./utils/trainingHistory";
@@ -60,11 +61,25 @@ import { resolveLiveSeed, writeLiveSeedForEventOrKey, type LiveTrainingSeed } fr
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 import { getScopedItem, removeScopedItem, setScopedItem } from "./utils/scopedStorage";
 import { getActiveUserId } from "./utils/session";
+import { applyDeloadToEvent } from "./utils/deload/apply";
+import {
+  clearDeloadDismissedUntil,
+  clearDeloadPlan,
+  readDeloadDismissedUntil,
+  readDeloadPlan,
+  readLastDeloadIntervalWeeks,
+  readLastDeloadStartISO,
+  writeDeloadDismissedUntil,
+  writeDeloadPlan,
+  writeLastDeloadIntervalWeeks,
+  writeLastDeloadStartISO,
+} from "./utils/deload/storage";
+import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks } from "./utils/deload/schedule";
 
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 /** Exportiert für andere Komponenten */
-export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";
+export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "community" | "profile";
 type AppRoute =
   | "/"
   | "/today"
@@ -77,6 +92,7 @@ type AppRoute =
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
+const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
 
 const BOTTOM_NAV_PADDING = "calc(var(--bottom-nav-h) + var(--safe-bottom))";
@@ -308,6 +324,10 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function isISOInRange(dateISO: string, startISO: string, endISO: string): boolean {
+  return dateISO >= startISO && dateISO <= endISO;
+}
+
 function formatElapsedFromISO(startedAt?: string): string {
   if (!startedAt) return "0:00";
   const a = new Date(startedAt).getTime();
@@ -356,19 +376,18 @@ const LiveTrainingMiniBar: React.FC<{
     <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: MINI_BAR_BOTTOM }}>
       <div
         className="
-          mx-auto max-w-5xl rounded-2xl border px-4 py-3 backdrop-blur shadow-lg
-          bg-white/85 border-black/10 text-slate-900 shadow-black/10
-          dark:bg-brand-card/90 dark:border-white/10 dark:text-slate-100 dark:shadow-black/40
+          mx-auto max-w-5xl rounded-3xl border border-white/10 bg-white/5 p-3
+          backdrop-blur-xl shadow-lg shadow-black/40
         "
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 dark:text-white/60">{t("live.mini.running")}</div>
+            <div className="text-[11px] text-gray-400">{t("live.mini.running")}</div>
             <div className="flex items-baseline gap-2">
-              <div className="text-base font-semibold tabular-nums text-slate-900 dark:text-white/90">
+              <div className="text-base font-semibold tabular-nums text-white">
                 {formatElapsedFromISO(active.startedAt)}
               </div>
-              <div className="text-[11px] truncate text-slate-600 dark:text-white/55">{active.title}</div>
+              <div className="truncate text-[11px] text-gray-400">{active.title}</div>
             </div>
           </div>
 
@@ -376,7 +395,7 @@ const LiveTrainingMiniBar: React.FC<{
             <button
               type="button"
               onClick={() => onMaximize(active.calendarEventId)}
-              className="rounded-2xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-black hover:bg-brand-primary/90"
+              className="rounded-full bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary/90"
             >
               {t("live.mini.maximize")}
             </button>
@@ -385,9 +404,8 @@ const LiveTrainingMiniBar: React.FC<{
               type="button"
               onClick={onAbort}
               className="
-                rounded-2xl border px-4 py-2.5 text-sm
-                border-black/10 bg-black/5 text-slate-700 hover:bg-black/10
-                dark:border-white/15 dark:bg-black/30 dark:text-white/80 dark:hover:bg-white/5
+                rounded-full border border-white/10 bg-white/10 px-4 py-2.5 
+                text-sm text-white/80 hover:bg-white/20
               "
             >
               {t("common.cancel")}
@@ -437,6 +455,16 @@ const MainAppShell: React.FC = () => {
     });
   });
 
+  const [planStartISO, setPlanStartISO] = useState<string | null>(() => getScopedItem(STORAGE_KEY_PLAN_START_ISO, userId));
+  const [deloadPlan, setDeloadPlan] = useState<DeloadPlan | null>(() => readDeloadPlan(userId));
+  const [deloadDismissedUntilISO, setDeloadDismissedUntilISO] = useState<string | null>(() =>
+    readDeloadDismissedUntil(userId)
+  );
+  const [lastDeloadStartISO, setLastDeloadStartISO] = useState<string | null>(() => readLastDeloadStartISO(userId));
+  const [lastDeloadIntervalWeeks, setLastDeloadIntervalWeeks] = useState<number | null>(() =>
+    readLastDeloadIntervalWeeks(userId)
+  );
+
   useEffect(() => {
     writeEventsToStorage(events, userId);
   }, [events, userId]);
@@ -444,7 +472,23 @@ const MainAppShell: React.FC = () => {
   useEffect(() => {
     setEvents(readEventsFromStorage(userId));
     setActiveLiveEventId(readActiveLiveEventId(userId));
+    setPlanStartISO(getScopedItem(STORAGE_KEY_PLAN_START_ISO, userId));
+    setDeloadPlan(readDeloadPlan(userId));
+    setDeloadDismissedUntilISO(readDeloadDismissedUntil(userId));
+    setLastDeloadStartISO(readLastDeloadStartISO(userId));
+    setLastDeloadIntervalWeeks(readLastDeloadIntervalWeeks(userId));
   }, [userId]);
+
+  useEffect(() => {
+    if (!deloadPlan) return;
+    const today = todayISO();
+    if (today <= deloadPlan.endISO) return;
+    writeLastDeloadStartISO(userId, deloadPlan.startISO);
+    setLastDeloadStartISO(deloadPlan.startISO);
+    clearDeloadPlan(userId);
+    setDeloadPlan(null);
+    setEvents((prev) => prev.map((ev) => (ev.deload ? { ...ev, deload: undefined } : ev)));
+  }, [deloadPlan, userId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -568,7 +612,7 @@ const MainAppShell: React.FC = () => {
     return !!document.querySelector('[data-overlay-open="true"]');
   }, [paywallOpen]);
 
-  const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
+  const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "community", "profile"];
   const isTabRoute = route === "/" || route === "/today";
   const tabSwipeEnabled = route === "/" && profileScreen === "profile";
 
@@ -622,12 +666,21 @@ const MainAppShell: React.FC = () => {
   const createEventFromInput = useCallback(
     (data: NewCalendarEvent): CalendarEvent => {
       const created: CalendarEvent = { ...data, id: ensureId(), userId: userId ?? getActiveUserId() ?? undefined } as any;
-      const newEvent = ensureTrainingMeta(created);
+      let newEvent = ensureTrainingMeta(created);
       // ✅ Seed wird NACH Event-Erstellung mit eventId geschrieben
       maybeAutoSeedTraining(newEvent);
+      if (
+        deloadPlan &&
+        newEvent.type === "training" &&
+        isISOInRange(newEvent.date, deloadPlan.startISO, deloadPlan.endISO)
+      ) {
+        newEvent = applyDeloadToEvent(newEvent, deloadPlan.rules);
+      } else if (newEvent.deload) {
+        newEvent = { ...newEvent, deload: undefined };
+      }
       return newEvent;
     },
-    [maybeAutoSeedTraining]
+    [maybeAutoSeedTraining, deloadPlan]
   );
 
   const handleCreateQuickTraining = useCallback(
@@ -645,6 +698,85 @@ const MainAppShell: React.FC = () => {
     },
     [createEventFromInput]
   );
+
+  const handlePlanDeload = useCallback(
+    (startISO: string, endISO: string, rules: DeloadRule, previousPlan?: DeloadPlan | null) => {
+      const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidFallback("deload");
+      const avgSessions = computeAvgSessionsPerWeek(events, 6);
+      const intervalWeeks =
+        previousPlan?.baselineIntervalWeeks ??
+        lastDeloadIntervalWeeks ??
+        mapSessionsToIntervalWeeks(avgSessions);
+      const plan: DeloadPlan = {
+        id,
+        startISO,
+        endISO,
+        createdAtISO: todayISO(),
+        rules,
+        baselineIntervalWeeks: intervalWeeks,
+      };
+      writeDeloadPlan(userId, plan);
+      setDeloadPlan(plan);
+      writeLastDeloadStartISO(userId, startISO);
+      setLastDeloadStartISO(startISO);
+      writeLastDeloadIntervalWeeks(userId, intervalWeeks);
+      setLastDeloadIntervalWeeks(intervalWeeks);
+      clearDeloadDismissedUntil(userId);
+      setDeloadDismissedUntilISO(null);
+
+      setEvents((prev) =>
+        prev.map((ev) => {
+          if (ev.type !== "training") return ev.deload ? { ...ev, deload: undefined } : ev;
+          if (previousPlan && isISOInRange(ev.date, previousPlan.startISO, previousPlan.endISO)) {
+            if (!isISOInRange(ev.date, startISO, endISO)) return { ...ev, deload: undefined };
+          }
+          if (isISOInRange(ev.date, startISO, endISO)) return applyDeloadToEvent(ev, rules);
+          return ev.deload ? { ...ev, deload: undefined } : ev;
+        })
+      );
+    },
+    [userId, events, lastDeloadIntervalWeeks]
+  );
+
+  const handleDiscardDeload = useCallback(
+    (plan: DeloadPlan) => {
+      clearDeloadPlan(userId);
+      setDeloadPlan(null);
+      setEvents((prev) =>
+        prev.map((ev) => {
+          if (!isISOInRange(ev.date, plan.startISO, plan.endISO)) return ev;
+          return ev.deload ? { ...ev, deload: undefined } : ev;
+        })
+      );
+    },
+    [userId]
+  );
+
+  const handleDismissDeload = useCallback(
+    (dismissedUntilISO: string) => {
+      writeDeloadDismissedUntil(userId, dismissedUntilISO);
+      setDeloadDismissedUntilISO(dismissedUntilISO);
+    },
+    [userId]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onAddEvent = (ev: Event) => {
+      const e = ev as CustomEvent<NewCalendarEvent>;
+      if (e?.detail) {
+        handleAddEvent(e.detail);
+      }
+    };
+
+    window.addEventListener("trainq:add_calendar_event", onAddEvent as EventListener);
+
+    return () => {
+      window.removeEventListener("trainq:add_calendar_event", onAddEvent as EventListener);
+    };
+  }, [handleAddEvent]);
 
   const handleDeleteEvent = useCallback((id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
@@ -809,7 +941,6 @@ const MainAppShell: React.FC = () => {
         <div className="flex-1 overflow-y-auto overflow-x-hidden" data-app-scroll="true" style={{ paddingBottom: BOTTOM_NAV_PADDING }}>
           <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
             {route === "/community" && <CommunityPage />}
-
             {route === "/community/inbox" && <CommunityInboxPage />}
 
             {route === "/workout-share" && (
@@ -847,6 +978,14 @@ const MainAppShell: React.FC = () => {
                 isPro={isPro}
                 onOpenPaywall={openPaywall}
                 onOpenWorkoutShare={openWorkoutShare}
+                deloadPlan={deloadPlan}
+                deloadDismissedUntilISO={deloadDismissedUntilISO}
+                planStartISO={planStartISO}
+                lastDeloadStartISO={lastDeloadStartISO}
+                lastDeloadIntervalWeeks={lastDeloadIntervalWeeks}
+                onPlanDeload={handlePlanDeload}
+                onDiscardDeload={handleDiscardDeload}
+                onDismissDeload={handleDismissDeload}
               />
             )}
 
@@ -857,6 +996,7 @@ const MainAppShell: React.FC = () => {
                 onDeleteEvent={handleDeleteEvent}
                 onUpdateEvents={setEvents}
                 isPro={isPro}
+                deloadPlan={deloadPlan}
               />
             )}
 
@@ -887,7 +1027,11 @@ const MainAppShell: React.FC = () => {
                   }}
                 />
               ) : (
-                <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
+                <ProfilePage
+                  onClearCalendar={handleClearCalendar}
+                  onOpenWorkoutShare={openWorkoutShare}
+                  onOpenSettings={() => setProfileScreen("settings")}
+                />
               ))}
           </div>
         </div>
