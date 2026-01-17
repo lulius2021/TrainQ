@@ -38,6 +38,7 @@ import { shiftPlanEvents } from "../utils/planShift";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
+import { loadWorkoutHistory, onWorkoutHistoryUpdated, type WorkoutHistoryEntry } from "../utils/workoutHistory";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 interface DashboardProps {
