@@ -8,14 +8,11 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          bg: "#050816",
+          bg: "#061226",
           card: "#0b1020",
           primary: "#2563eb",
           accent: "#22c55e"
         }
-      },
-      borderRadius: {
-        xl2: "1.25rem"
       }
     }
   },

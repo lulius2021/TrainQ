@@ -11793,7 +11793,7 @@
     "id": "ex_kettlebell_clean_kettlebell",
     "name": {
       "en": "Kettlebell Kettlebell Clean",
-      "de": "Kettlebell Kettlebell Clean"
+      "de": "Kettlebell Clean"
     },
     "aliases": {
       "en": [
@@ -11827,7 +11827,7 @@
     "id": "ex_kettlebell_snatch_kettlebell",
     "name": {
       "en": "Kettlebell Kettlebell Snatch",
-      "de": "Kettlebell Kettlebell Snatch"
+      "de": "Kettlebell Snatch"
     },
     "aliases": {
       "en": [
@@ -11861,7 +11861,7 @@
     "id": "ex_dumbbell_clean_dumbbell",
     "name": {
       "en": "Dumbbell Dumbbell Clean",
-      "de": "Kurzhantel Kurzhantel Clean"
+      "de": "Kurzhantel Clean"
     },
     "aliases": {
       "en": [
@@ -11895,7 +11895,7 @@
     "id": "ex_dumbbell_snatch_dumbbell",
     "name": {
       "en": "Dumbbell Dumbbell Snatch",
-      "de": "Kurzhantel Kurzhantel Snatch"
+      "de": "Kurzhantel Snatch"
     },
     "aliases": {
       "en": [

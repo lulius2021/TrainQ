@@ -878,29 +878,11 @@ export default function LiveTrainingPage({
   const isCardioLibrary = isCardioWorkout;
   const exercises = overlayData?.exercises ?? [];
 
-  const topBarRef = useRef<HTMLDivElement | null>(null);
-  const [topBarHeight, setTopBarHeight] = useState(0);
-
-  useEffect(() => {
-    const node = topBarRef.current;
-    if (!node || typeof window === "undefined") return;
-    const update = () => setTopBarHeight(node.getBoundingClientRect().height);
-    update();
-    if (typeof ResizeObserver === "undefined") {
-      const id = window.setInterval(update, 300);
-      return () => window.clearInterval(id);
-    }
-    const ro = new ResizeObserver(update);
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, []);
-
-  const mainPadTop =
-    topBarHeight > 0
-      ? `${topBarHeight + 12}px`
-      : activeRest
-        ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
-        : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
+  // ✅ STABIL: Reserve space für fixed Header + optional Restbar
+  // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
+  const mainPadTop = activeRest
+    ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
+    : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
@@ -912,198 +894,97 @@ export default function LiveTrainingPage({
 
   return (
     <LiveTrainingErrorBoundary onExit={onExit}>
-      <div className="relative flex h-screen w-screen flex-col overflow-hidden text-slate-100">
-      {/* ✅ FIXED HEADER */}
-      <div ref={topBarRef} className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-2.5 shadow-lg shadow-black/30">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div className="text-center sm:text-left">
-              <div className="tabular-nums text-3xl sm:text-4xl font-semibold text-white/90 leading-none">
-                {elapsedText}
-              </div>
-            </div>
-
-            <div className="flex justify-stretch sm:justify-end">
-              <button
-                type="button"
-                onClick={finishTraining}
-                className="h-11 w-full sm:w-auto min-w-[180px] px-6 rounded-2xl bg-brand-primary text-black text-[13px] font-semibold hover:bg-brand-primary/90 whitespace-nowrap"
-              >
-                Training beenden
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {activeRest && (
-          <div className="px-1 pt-3">
-            <RestTimerBar
-              key={`${activeRest.exerciseId}_${activeRest.setId}`}
-              seconds={activeRest.restSeconds}
-              running={true}
-              onDone={() => setActiveRest(null)}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
-      <main
-        ref={mainRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4"
-        style={{
-          paddingTop: mainPadTop,
-          paddingBottom: mainPadBottom,
-          overscrollBehavior: "contain",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        <div className="py-4">
-          {exercises.length === 0 ? (
-            <>
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-                Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten{" "}
-                {isCardioWorkout ? "eine Einheit" : "eine Übung"} hinzu.
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setLibraryOpen(true)}
-                className="mt-3 w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-4 text-sm font-semibold text-white/90 hover:bg-white/5"
-              >
-                + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
-              </button>
-            </>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {exercises.map((ex, exIdx) => (
-                <div
-                  key={`${ex.id}-${exIdx}`}
-                  ref={(node) => {
-                    exerciseRefs.current[ex.id] = node;
-                  }}
-                >
-                  <ExerciseEditor
-                    exercise={ex}
-                    history={historyByExerciseLocalId.get(ex.id) ?? null}
-                    isCardio={isCardioWorkout}
-                    onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
-                    onRemove={() => removeExercise(ex.id)}
-                    onAddSet={() => addSet(ex.id)}
-                    onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
-                    onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
-                    onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
-                    onWeightFocus={(setId: string, currentWeight?: unknown) => {
-                      if (isCardioWorkout) return;
-                      setFocusedWeightField({
-                        exerciseId: ex.id,
-                        setId,
-                        currentWeight: toNumberOrUndefined(currentWeight),
-                      });
-                    }}
-                    onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
-                    onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
-                  />
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#061226] text-white">
+        {/* ✅ FIXED HEADER */}
+        <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
+          <div className="mx-auto max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-lg">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="text-center sm:text-left">
+                <div className="tabular-nums text-5xl font-bold text-white leading-none tracking-tight">
+                  {elapsedText}
                 </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => setLibraryOpen(true)}
-                className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-4 text-sm font-semibold text-white/90 hover:bg-white/5"
-              >
-                + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
-              </button>
+              </div>
+              <div className="flex justify-stretch sm:justify-end">
+                <button
+                  type="button"
+                  onClick={finishTraining}
+                  className="h-12 w-full sm:w-auto min-w-[180px] px-6 rounded-xl bg-[#2563EB] text-white text-base font-semibold hover:bg-sky-500 shadow-[0_0_20px_theme(colors.sky.500/50%)] whitespace-nowrap"
+                >
+                  Training beenden
+                </button>
+              </div>
+            </div>
+          </div>
+          {activeRest && (
+            <div className="px-1 pt-3">
+              <RestTimerBar key={`${activeRest.exerciseId}_${activeRest.setId}`} seconds={activeRest.restSeconds} running={true} onDone={() => setActiveRest(null)} />
             </div>
           )}
         </div>
-      </main>
 
-      {/* ✅ FIXED FOOTER */}
-      <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),0px)] pt-0">
-        <div className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-brand-card/90 backdrop-blur px-3 py-3 shadow-lg shadow-black/30">
-          {/* ✅ Volumen/Zeit-Anzeige */}
-          <div className="mb-2 flex items-center justify-center gap-4 text-xs text-white/70">
-            {!isCardioWorkout && (
+        {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
+        <main
+          ref={mainRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4"
+          style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="py-4">
+            {exercises.length === 0 ? (
               <>
-                <span>Volumen: {totalVolume.toFixed(1)} kg</span>
-                <span>•</span>
+                <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
+                  Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
+                </div>
+                <button type="button" onClick={() => setLibraryOpen(true)} className="mt-4 w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
+                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                </button>
               </>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {exercises.map((ex, exIdx) => (
+                  <div key={`${ex.id}-${exIdx}`} ref={(node) => { exerciseRefs.current[ex.id] = node; }}>
+                    <ExerciseEditor
+                      exercise={ex}
+                      history={historyByExerciseLocalId.get(ex.id) ?? null}
+                      isCardio={isCardioWorkout}
+                      onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
+                      onRemove={() => removeExercise(ex.id)}
+                      onAddSet={() => addSet(ex.id)}
+                      onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
+                      onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
+                      onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
+                      onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
+                      onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
+                      onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
+                    />
+                  </div>
+                ))}
+                <button type="button" onClick={() => setLibraryOpen(true)} className="w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
+                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                </button>
+              </div>
             )}
-            <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
-            <span>•</span>
-            <span>Zeit: {elapsedText}</span>
           </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={minimize}
-              className="flex-1 h-11 rounded-2xl border border-white/12 bg-black/25 px-4 text-[13px] font-semibold text-white/90 hover:bg-white/5 whitespace-nowrap"
-            >
-              Minimieren
-            </button>
+        </main>
 
-            <button
-              type="button"
-              onClick={abortAndExit}
-              className="flex-1 h-11 rounded-2xl border border-white/12 bg-black/25 px-4 text-[13px] text-white/80 hover:bg-white/5 whitespace-nowrap"
-              title="Training abbrechen"
-            >
-              Abbrechen
-            </button>
+        {/* ✅ FIXED FOOTER */}
+        <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3">
+          <div className="mx-auto w-full max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-3 py-3 shadow-lg">
+            <div className="mb-2 flex items-center justify-center gap-4 text-sm text-gray-300">
+              {!isCardioWorkout && ( <> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
+              <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
+              <span>•</span>
+              <span>Zeit: {elapsedText}</span>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={minimize} className="flex-1 h-12 rounded-xl border border-white/10 bg-white/10 px-4 text-base font-semibold text-white hover:bg-white/20 whitespace-nowrap">
+                Minimieren
+              </button>
+              <button type="button" onClick={abortAndExit} className="flex-1 h-12 rounded-xl border border-white/10 bg-white/10 px-4 text-base text-gray-300 hover:bg-white/20 whitespace-nowrap" title="Training abbrechen">
+                Abbrechen
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Übungsbibliothek Modal */}
-      <ExerciseLibraryModal
-        open={libraryOpen}
-        isCardioLibrary={isCardioLibrary}
-        title={isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}
-        onClose={() => setLibraryOpen(false)}
-        existingExerciseIds={exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[]}
-        onPick={(exercise: Exercise) => addExerciseDirect({ exerciseId: exercise.id, name: exercise.name })}
-        onPickCustom={() => addExerciseDirect({ name: isCardioLibrary ? "Neue Einheit" : "Neue Übung" })}
-      />
-
-      {/* Platten Button */}
-      <KeyboardAccessoryBar
-        visible={showPlatesButton}
-        keyboardHeight={keyboardHeight}
-        offsetPx={3}
-        rightButton={
-          <button
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onClick={openPlates}
-            style={{
-              height: 40,
-              minWidth: 170,
-              padding: "0 16px",
-              borderRadius: 10,
-              background: "rgba(72,140,255,0.95)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              color: "white",
-              fontWeight: 800,
-              fontSize: 13,
-              letterSpacing: "0.2px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.22)",
-            }}
-          >
-            Platten
-          </button>
-        }
-      />
-
-      {/* Platten Sheet */}
-      <PlateCalculatorSheet
-        open={plateSheetOpen}
-        onClose={() => setPlateSheetOpen(false)}
-        initialTotalKg={focusedWeightField?.currentWeight ?? 0}
-        onApply={(totalKg: number) => applyPlatesWeight(totalKg)}
-      />
       </div>
     </LiveTrainingErrorBoundary>
   );

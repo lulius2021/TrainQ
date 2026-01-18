@@ -75,21 +75,15 @@ html.dark {
   --font-base: 17px; /* ✅ größer als Default */
   --line-base: 1.45;
 
-  --bg-gradient: linear-gradient(
-    135deg,
-    #000000 0%,
-    #020617 35%,
-    #0b1f3a 65%,
-    #0f2a4d 100%
-  );
-  --bg: #000000;
+  --bg-gradient: #061226;
+  --bg: #061226;
 
   --surface: rgba(10, 14, 24, 0.88);
   --surface2: rgba(13, 18, 30, 0.92);
   --border: rgba(255, 255, 255, 0.07);
 
-  --text: #edeff6;
-  --muted: rgba(237, 239, 246, 0.6);
+  --text: #ffffff;
+  --muted: #9ca3af; /* gray-400 */
 
   --primary: #2563eb;
   --primarySoft: #3b82f6;

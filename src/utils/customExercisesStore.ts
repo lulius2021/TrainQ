@@ -1,6 +1,18 @@
 // src/utils/customExercisesStore.ts
 
-import type { Exercise, ExerciseAliases, ExerciseName, ExerciseType, Metric, Movement, Muscle, Equipment, ExerciseVariants } from "../data/exerciseLibrary";
+import type {
+  Exercise,
+  ExerciseAliases,
+  ExerciseName,
+  ExerciseType,
+  Metric,
+  Movement,
+  Muscle,
+  Equipment,
+  ExerciseVariants,
+  ExerciseImage,
+  ExerciseMuscles,
+} from "../data/exerciseLibrary";
 
 const STORAGE_KEY = "trainq_custom_exercises_v1";
 
@@ -15,6 +27,10 @@ type StoredCustomExercise = {
   type: ExerciseType;
   metrics: Metric[];
   variants?: ExerciseVariants;
+  image?: ExerciseImage;
+  imageSrc?: string;
+  cues?: string[];
+  muscles?: ExerciseMuscles;
 };
 
 export type CustomExerciseInput = {
@@ -27,6 +43,10 @@ export type CustomExerciseInput = {
   type: ExerciseType;
   metrics: Metric[];
   variants?: ExerciseVariants;
+  image?: ExerciseImage;
+  imageSrc?: string;
+  cues?: string[];
+  muscles?: ExerciseMuscles;
 };
 
 export type CustomExercisePatch = Partial<Omit<StoredCustomExercise, "id">> & {
@@ -67,6 +87,10 @@ function toExercise(stored: StoredCustomExercise): Exercise {
     type: stored.type,
     metrics: stored.metrics,
     variants: stored.variants,
+    image: stored.image,
+    imageSrc: stored.imageSrc,
+    cues: stored.cues,
+    muscles: stored.muscles,
     source: "custom",
   };
 }
@@ -94,6 +118,10 @@ export function addCustomExercise(input: CustomExerciseInput): Exercise {
     type: input.type,
     metrics: input.metrics,
     variants: input.variants,
+    image: input.image,
+    imageSrc: input.imageSrc,
+    cues: input.cues,
+    muscles: input.muscles,
   };
 
   const all = loadAll();
@@ -119,6 +147,10 @@ export function updateCustomExercise(id: string, patch: CustomExercisePatch): Ex
     type: patch.type ?? current.type,
     metrics: patch.metrics ?? current.metrics,
     variants: patch.variants ?? current.variants,
+    image: patch.image ?? current.image,
+    imageSrc: patch.imageSrc ?? current.imageSrc,
+    cues: patch.cues ?? current.cues,
+    muscles: patch.muscles ?? current.muscles,
   };
   all[idx] = next;
   saveAll(all);

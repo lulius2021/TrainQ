@@ -87,7 +87,6 @@ function PlateVisual({
   barLabelKg: number;
 }) {
   const widthFor = (kg: number) => {
-    // iOS-ish: 1.25 klein, 25 groß
     const minW = 58;
     const maxW = 132;
     const t = Math.max(0, Math.min(1, (kg - 1.25) / (25 - 1.25)));
@@ -96,112 +95,64 @@ function PlateVisual({
 
   return (
     <div className="relative mx-auto mt-2 flex h-[120px] w-full items-center justify-center">
-      {/* Bar (hinter den Plates) */}
-      <div className="relative h-6 w-[72%] rounded-md bg-black/25 dark:bg-white/20">
-        <div className="absolute left-0 top-0 h-full w-4 rounded-l-md bg-black/30 dark:bg-white/25" />
-        <div className="absolute right-0 top-0 h-full w-4 rounded-r-md bg-black/30 dark:bg-white/25" />
-
-        {/* Label am Bar-Schaft (wie “0” im Screenshot) */}
+      <div className="relative h-6 w-[72%] rounded-md bg-white/10">
+        <div className="absolute left-0 top-0 h-full w-4 rounded-l-md bg-white/10" />
+        <div className="absolute right-0 top-0 h-full w-4 rounded-r-md bg-white/10" />
         <div className="absolute left-[44%] top-1/2 -translate-y-1/2">
-          <span className="text-[18px] font-semibold tabular-nums text-white/70 dark:text-white/70">
-            {fmtKg(barLabelKg)}
-          </span>
+          <span className="text-xl font-semibold tabular-nums text-white/70">{fmtKg(barLabelKg)}</span>
         </div>
       </div>
-
-      {/* Plates rechts (eine Seite) */}
       <div className="absolute right-[12%] top-1/2 -translate-y-1/2 flex items-center">
-        {plates.map((kg, idx) => {
-          const w = widthFor(kg);
-          return (
-            <div
-              key={`${kg}_${idx}`}
-              style={{
-                width: w,
-                height: 86,
-                marginLeft: -Math.round(w * 0.55),
-                borderRadius: 14,
-                background: "rgba(72,140,255,0.95)",
-                boxShadow: "0 14px 32px rgba(0,0,0,0.32)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                transition: "width 180ms ease, margin 180ms ease",
-              }}
-              className="relative flex items-center justify-center"
-              title={`${fmtKg(kg)} kg`}
-            >
-              <div
-                className="absolute inset-0 rounded-[14px]"
-                style={{
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.12))",
-                }}
-              />
-              <span className="relative text-white font-semibold text-[26px] tabular-nums">
-                {fmtKg(kg)}
-              </span>
-            </div>
-          );
-        })}
+        {plates.map((kg, idx) => (
+          <div
+            key={`${kg}_${idx}`}
+            style={{ width: widthFor(kg), height: 86, marginLeft: -Math.round(widthFor(kg) * 0.55), transition: "width 180ms ease, margin 180ms ease" }}
+            className="relative flex items-center justify-center rounded-[14px] border border-white/10 bg-brand-primary"
+            title={`${fmtKg(kg)} kg`}
+          >
+            <div className="absolute inset-0 rounded-[14px] bg-gradient-to-b from-white/20 to-transparent" />
+            <span className="relative text-white font-semibold text-3xl tabular-nums">{fmtKg(kg)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ---------------- Component ---------------- */
-
 export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onApply }: Props) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
-
   const [manageOpen, setManageOpen] = useState(false);
   const [barType, setBarType] = useState<BarType>(() => safeReadJSON(LS_BAR_KEY, "standard"));
   const [available, setAvailable] = useState<number[]>(() => {
     const stored = safeReadJSON<number[]>(LS_AVAILABLE_KEY, [...DEFAULT_PLATES]);
-    const cleaned = stored
-      .filter((x) => typeof x === "number" && Number.isFinite(x))
-      .filter((x) => (DEFAULT_PLATES as readonly number[]).includes(x));
+    const cleaned = stored.filter((x) => typeof x === "number" && Number.isFinite(x) && (DEFAULT_PLATES as readonly number[]).includes(x));
     return cleaned.length ? cleaned : [...DEFAULT_PLATES];
   });
-
-  const [targetKg, setTargetKg] = useState<number>(() =>
-    Number.isFinite(initialTotalKg) ? Math.max(0, initialTotalKg) : 0
-  );
+  const [targetKg, setTargetKg] = useState<number>(() => Number.isFinite(initialTotalKg) ? Math.max(0, initialTotalKg) : 0);
   const [sidePlates, setSidePlates] = useState<number[]>([]);
 
   useEffect(() => safeWriteJSON(LS_AVAILABLE_KEY, available), [available]);
   useEffect(() => safeWriteJSON(LS_BAR_KEY, barType), [barType]);
 
-  // Open sync
   useEffect(() => {
     if (!open) return;
-
     const init = Number.isFinite(initialTotalKg) ? Math.max(0, initialTotalKg) : 0;
     setTargetKg(init);
     setManageOpen(false);
-
     const bw = barWeight(barType);
     const perSide = (Math.max(0, init - bw)) / 2;
     setSidePlates(greedyBuildSide(perSide, available));
-  }, [open, initialTotalKg]); // bewusst “stabil” wie vorher
+  }, [open, initialTotalKg, barType, available]);
 
-  // Lock scroll + ESC
   useEffect(() => {
     if (!open) return;
-
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
   }, [open, onClose]);
 
-
-  // Rebuild on changes
   useEffect(() => {
     if (!open) return;
     const bw = barWeight(barType);
@@ -215,8 +166,7 @@ export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onAppl
 
   const togglePlateAvailable = (kg: number) => {
     setAvailable((prev) => {
-      const has = prev.includes(kg);
-      const next = has ? prev.filter((x) => x !== kg) : [...prev, kg].sort((a, b) => b - a);
+      const next = prev.includes(kg) ? prev.filter((x) => x !== kg) : [...prev, kg].sort((a, b) => b - a);
       return next.length ? next : prev;
     });
   };
@@ -224,162 +174,50 @@ export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onAppl
   if (!open) return null;
 
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-[10000]"
-      data-overlay-open="true"
-      style={{ background: "rgba(0,0,0,0.55)" }}
-      onMouseDown={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-      onTouchStart={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-    >
+    <div ref={overlayRef} className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}>
       <div className="absolute left-0 right-0 bottom-0">
-        {/* Sheet */}
-        <div
-          className={cx(
-            "mx-auto max-w-2xl rounded-t-[28px] border shadow-[0_-22px_70px_rgba(0,0,0,0.55)]",
-            // iOS dark like screenshot
-            "bg-[#1c1c1e] border-white/10",
-            // light theme support via dark:
-            "dark:bg-[#1c1c1e] dark:border-white/10",
-            "bg-white border-black/10 dark:bg-[#1c1c1e] dark:border-white/10"
-          )}
-        >
-          {/* Handle */}
-          <div className="flex justify-center pt-3">
-            <div className="h-[5px] w-11 rounded-full bg-black/10 dark:bg-white/15" />
-          </div>
-
-          {/* Title + Target */}
+        <div className="mx-auto max-w-2xl rounded-t-3xl border-t border-x border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
+          <div className="flex justify-center pt-3"><div className="h-1.5 w-12 rounded-full bg-white/20" /></div>
           <div className="px-5 pt-4 pb-3 text-center">
-            <div className="text-[28px] leading-none font-semibold text-black/85 dark:text-white/90">
-              Plattenrechner
-            </div>
-            <div className="mt-2 text-[22px] font-semibold text-black/35 dark:text-white/35">
-              Zielgewicht: {fmtKg(targetKg)}kg
-            </div>
+            <div className="text-2xl leading-none font-bold text-white">Plattenrechner</div>
+            <div className="mt-2 text-xl font-semibold text-gray-400">Ziel: {fmtKg(targetKg)}kg</div>
           </div>
-
-          {/* Divider */}
-          <div className="h-px bg-black/10 dark:bg-white/10" />
-
-          {/* Visual */}
-          <div className="px-6 py-4">
-            {/* im Screenshot steht am Bar “0”; hier zeigen wir die Stange als Zahl.
-               Wenn du exakt “0” willst: barLabelKg={0} setzen. */}
-            <PlateVisual plates={sidePlates} barLabelKg={bw} />
-          </div>
-
-          {/* Section: Verfügbare Fitnessgeräte */}
+          <div className="h-px bg-white/10" />
+          <div className="px-6 py-4"><PlateVisual plates={sidePlates} barLabelKg={bw} /></div>
           <div className="px-6 pb-5">
             <div className="flex items-center justify-between">
-              <div className="text-[20px] font-semibold text-black/35 dark:text-white/35">
-                Verfügbare Fitnessgeräte
-              </div>
-              <button
-                type="button"
-                onClick={() => setManageOpen((v) => !v)}
-                className="text-[22px] font-semibold"
-                style={{ color: "rgba(72,140,255,0.95)" }}
-              >
-                {manageOpen ? "Fertig" : "Verwalten"}
-              </button>
+              <div className="text-xl font-bold text-white">Verfügbare Scheiben</div>
+              <button type="button" onClick={() => setManageOpen((v) => !v)} className="text-lg font-semibold text-brand-primary">{manageOpen ? "Fertig" : "Verwalten"}</button>
             </div>
-
-            {/* Gewicht row */}
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-[26px] font-semibold text-black/85 dark:text-white/90">
-                Gewicht (kg)
-              </div>
-            </div>
-
             <div className="mt-4 flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {DEFAULT_PLATES.map((kg) => {
                 const active = available.includes(kg);
                 return (
-                  <button
-                    key={kg}
-                    type="button"
-                    disabled={!manageOpen}
-                    onClick={() => togglePlateAvailable(kg)}
-                    className={cx(
-                      "h-[64px] w-[64px] rounded-full flex items-center justify-center text-[24px] font-semibold tabular-nums",
-                      "transition",
-                      active
-                        ? "bg-[rgba(72,140,255,0.95)] text-white"
-                        : "bg-black/20 text-white/80 dark:bg-white/12 dark:text-white/80",
-                      !manageOpen && "cursor-default"
-                    )}
-                    title={manageOpen ? "Tippen zum Aktivieren/Deaktivieren" : "Zum Ändern: Verwalten"}
-                  >
-                    {fmtKg(kg)}
-                  </button>
+                  <button key={kg} type="button" disabled={!manageOpen} onClick={() => togglePlateAvailable(kg)} className={`h-16 w-16 rounded-full flex items-center justify-center text-2xl font-bold tabular-nums transition-all ${active ? "bg-brand-primary text-white shadow-[0_0_10px_rgba(37,99,235,0.7)]" : "bg-white/5 text-gray-400"} ${!manageOpen && "cursor-default"}`} title={manageOpen ? "Tippen zum Aktivieren/Deaktivieren" : "Zum Ändern: Verwalten"}>{fmtKg(kg)}</button>
                 );
               })}
             </div>
-
-            {/* Divider */}
-            <div className="mt-6 h-px bg-black/10 dark:bg-white/10" />
-
-            {/* Hantel */}
-            <div className="mt-6 text-[26px] font-semibold text-black/85 dark:text-white/90">
-              Hantel (kg)
+            <div className="mt-6 h-px bg-white/10" />
+            <div className="mt-6 text-xl font-bold text-white">Hantel</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setBarType("standard")} className={`h-16 rounded-2xl text-xl font-semibold transition-colors ${barType === "standard" ? "bg-white/10 text-white" : "bg-white/5 text-gray-400"}`}>Standard (20kg)</button>
+              <button type="button" onClick={() => setBarType("short")} className={`h-16 rounded-2xl text-xl font-semibold transition-colors ${barType === "short" ? "bg-white/10 text-white" : "bg-white/5 text-gray-400"}`}>Kurz (15kg)</button>
             </div>
-
-            <div className="mt-4 flex gap-4">
-              <button
-                type="button"
-                onClick={() => setBarType("standard")}
-                className={cx(
-                  "h-14 flex-1 rounded-full text-[22px] font-semibold",
-                  barType === "standard"
-                    ? "bg-white/12 text-white dark:bg-white/12 dark:text-white"
-                    : "bg-black/18 text-white/80 dark:bg-white/10 dark:text-white/80"
-                )}
-              >
-                Standard (20kg)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setBarType("short")}
-                className={cx(
-                  "h-14 flex-1 rounded-full text-[22px] font-semibold",
-                  barType === "short"
-                    ? "bg-white/12 text-white dark:bg-white/12 dark:text-white"
-                    : "bg-black/18 text-white/80 dark:bg-white/10 dark:text-white/80"
-                )}
-              >
-                Kurz (15kg)
-              </button>
-            </div>
-
-            {/* Optional: “anwenden” ohne extra UI — wir wenden live an,
-                damit es sich wie ein Tool anfühlt. */}
-            <div className="mt-1 hidden" />
           </div>
         </div>
       </div>
-
-      {/* ✅ Live-Apply: sobald Sheet offen ist und sich computedTotal ändert, updaten wir das Feld */}
       <LiveApplyEffect value={computedTotal} onApply={onApply} />
     </div>
   );
 }
 
-/** ruft onApply ohne UI-Noise auf (damit der Rechner “wie iOS” wirkt) */
 function LiveApplyEffect({ value, onApply }: { value: number; onApply: (n: number) => void }) {
   const lastRef = useRef<number | null>(null);
-
   useEffect(() => {
-    if (!Number.isFinite(value)) return;
-    if (lastRef.current === value) return;
-    lastRef.current = value;
-    onApply(value);
+    if (Number.isFinite(value) && lastRef.current !== value) {
+      lastRef.current = value;
+      onApply(value);
+    }
   }, [value, onApply]);
-
   return null;
 }

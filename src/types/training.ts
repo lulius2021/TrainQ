@@ -137,6 +137,11 @@ export interface CalendarEvent {
    * Wird vom Dashboard gespeichert und von LiveTrainingPage genutzt.
    */
   adaptiveSuggestion?: AdaptiveSuggestion;
+
+  /**
+   * Deload Markierung (UI/Modifier, kein Status)
+   */
+  deload?: boolean;
 }
 
 /**
@@ -198,6 +203,13 @@ export type NewTrainingPlan = Omit<TrainingPlan, "id" | "createdAt" | "updatedAt
 // ---------------------------------------------
 
 export type SetType = "normal" | "warmup" | "failure" | "1D";
+export type SetTag = "W" | "F" | "D";
+
+export type DropEntry = {
+  id: string;
+  weight: number | null;
+  reps: number | null;
+};
 
 export interface LiveSet {
   id: string;
@@ -207,6 +219,8 @@ export interface LiveSet {
   completed: boolean;
   completedAt?: string;
   setType?: SetType; // ✅ Satztyp: Warmup (W), Failure (F), 1D, normal
+  tag?: SetTag | null;
+  drops?: DropEntry[];
 }
 
 export interface LiveExercise {

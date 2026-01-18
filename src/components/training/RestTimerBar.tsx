@@ -109,7 +109,6 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     onDoneRef.current = onDone;
   }, [onDone]);
 
-  // Reset wenn total sich ändert
   useEffect(() => {
     setLeft(total);
   }, [total]);
@@ -129,40 +128,27 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     }
   }, []);
 
-  // Tick: genau 1 Interval
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     clearTick();
-
-    if (!running) return;
-    if (left <= 0) return;
-
+    if (!running || left <= 0) return;
     tickIdRef.current = window.setInterval(() => {
       setLeft((v) => {
         if (v <= 1) {
-          // ✅ stoppt Interval genau beim Ende
           clearTick();
           return 0;
         }
         return v - 1;
       });
     }, 1000);
-
     return () => clearTick();
   }, [running, total, left, clearTick]);
 
-  // Done: genau 1x
   useEffect(() => {
-    if (!running) return;
-    if (left !== 0) return;
-    if (doneCalledRef.current) return;
-
+    if (!running || left !== 0 || doneCalledRef.current) return;
     doneCalledRef.current = true;
-
     if (!skippedRef.current) playBoxingBellDouble();
     skippedRef.current = false;
-
     onDoneRef.current?.();
   }, [running, left]);
 
@@ -173,44 +159,29 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
 
   const adjustLeft = useCallback(async (delta: number) => {
     await ensureAudioUnlocked();
-    setLeft((v) => Math.max(0, Math.min(v + delta, 300))); // hard cap 5min
-    doneCalledRef.current = false; // falls user wieder hochzieht nach 0
+    setLeft((v) => Math.max(0, Math.min(v + delta, 300)));
+    doneCalledRef.current = false;
   }, []);
 
-  // Hold (+/-) repeat
   const holdIntervalRef = useRef<number | null>(null);
-
   const stopHold = useCallback(() => {
-    if (typeof window === "undefined") return;
     if (holdIntervalRef.current) window.clearInterval(holdIntervalRef.current);
     holdIntervalRef.current = null;
   }, []);
 
-  const startHold = useCallback(
-    (delta: number, pointerId?: number, el?: HTMLElement | null) => {
-      void ensureAudioUnlocked();
+  const startHold = useCallback((delta: number, pointerId?: number, el?: HTMLElement | null) => {
+    void ensureAudioUnlocked();
+    void adjustLeft(delta);
+    stopHold();
+    try {
+      if (el && pointerId != null) (el as any).setPointerCapture?.(pointerId);
+    } catch {}
+    holdIntervalRef.current = window.setInterval(() => {
       void adjustLeft(delta);
+    }, 120);
+  }, [adjustLeft, stopHold]);
 
-      stopHold();
-
-      if (typeof window === "undefined") return;
-
-      try {
-        if (el && pointerId != null) (el as any).setPointerCapture?.(pointerId);
-      } catch {
-        // ignore
-      }
-
-      holdIntervalRef.current = window.setInterval(() => {
-        void adjustLeft(delta);
-      }, 120);
-    },
-    [adjustLeft, stopHold]
-  );
-
-  useEffect(() => {
-    return () => stopHold();
-  }, [stopHold]);
+  useEffect(() => () => stopHold(), [stopHold]);
 
   const skipRest = useCallback(async () => {
     await ensureAudioUnlocked();
@@ -220,44 +191,52 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
   }, []);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 p-3" onPointerDown={() => void ensureAudioUnlocked()}>
-      <div className="mb-2 text-center">
-        <span className="text-[11px] font-mono text-white/80">{formatHMMSS(left)}</span>
-      </div>
-
-      <div className="flex items-center gap-3">
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 shadow-lg" onPointerDown={() => void ensureAudioUnlocked()}>
+      <div className="flex items-center gap-4">
         <button
           type="button"
-          onClick={() => void adjustLeft(-10)}
           onPointerDown={(e) => startHold(-10, e.pointerId, e.currentTarget)}
           onPointerUp={stopHold}
           onPointerCancel={stopHold}
           onPointerLeave={stopHold}
-          className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-white/80 hover:bg-white/5"
+          className="shrink-0 rounded-full h-11 w-11 border border-white/10 bg-white/5 text-sm text-white hover:bg-white/10 touch-manipulation"
         >
-          - 10
+          -10
         </button>
 
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-brand-primary" style={{ width: `${progressPct}%` }} />
+        <div className="flex-1 text-center">
+          <div className="text-sm text-gray-400">Pause</div>
+          <div className="text-3xl font-bold text-white tabular-nums" style={{ textShadow: "0 0 10px rgba(255,255,255,0.2)" }}>
+            {formatHMMSS(left)}
+          </div>
         </div>
 
         <button
           type="button"
-          onClick={() => void adjustLeft(+10)}
           onPointerDown={(e) => startHold(+10, e.pointerId, e.currentTarget)}
           onPointerUp={stopHold}
           onPointerCancel={stopHold}
           onPointerLeave={stopHold}
-          className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-white/80 hover:bg-white/5"
+          className="shrink-0 rounded-full h-11 w-11 border border-white/10 bg-white/5 text-sm text-white hover:bg-white/10 touch-manipulation"
         >
-          + 10
+          +10
         </button>
+      </div>
 
+      <div className="mt-3 space-y-2">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-brand-primary transition-all duration-300"
+            style={{ 
+              width: `${progressPct}%`,
+              boxShadow: '0 0 10px 0px rgba(37, 99, 235, 0.7)'
+            }} 
+          />
+        </div>
         <button
           type="button"
           onClick={() => void skipRest()}
-          className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] font-semibold text-white/90 hover:bg-white/5"
+          className="w-full rounded-xl py-2 text-sm font-semibold text-gray-300 hover:bg-white/5"
           title={t("training.rest.skipTitle")}
         >
           {t("training.rest.skip")}

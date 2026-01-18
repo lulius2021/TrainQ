@@ -82,7 +82,7 @@ const majorMuscles = new Set([
   "core",
 ]);
 
-function normalizeToken(value) {
+function normalizeToken(value: unknown): string {
   return String(value || "")
     .toLowerCase()
     .normalize("NFD")
@@ -106,7 +106,7 @@ function loadOverrides() {
   }
 }
 
-function assert(condition, message, errors) {
+function assert(condition: boolean, message: string, errors: string[]) {
   if (!condition) errors.push(message);
 }
 

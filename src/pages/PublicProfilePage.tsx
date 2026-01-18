@@ -45,62 +45,55 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
     return list.length;
   }, []);
 
-  const surface: React.CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)" };
-  const surfaceSoft: React.CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
-  const muted: React.CSSProperties = { color: "var(--muted)" };
-
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6 space-y-5">
+    <div className="w-full max-w-4xl mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-xl px-4 py-2 text-xs font-semibold hover:opacity-95"
-          style={surfaceSoft}
+          className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10"
         >
           Zurück
         </button>
-        <div className="text-xs" style={muted}>
+        <div className="text-sm text-gray-400">
           Öffentliches Profil
         </div>
       </div>
 
       {!user && (
-        <div className="rounded-2xl p-4 text-sm" style={surfaceSoft}>
-          <div style={muted}>Profil nicht gefunden (MVP: nur lokal gespeicherte Nutzer).</div>
+        <div className="rounded-3xl p-6 bg-white/5 border border-white/10 backdrop-blur-xl text-gray-400">
+          Profil nicht gefunden (MVP: nur lokal gespeicherte Nutzer).
         </div>
       )}
 
       {user && (
-        <div className="tq-surface p-4 flex items-center gap-4" style={surface}>
-          <div className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center" style={surfaceSoft}>
+        <div className="rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl p-6 flex items-center gap-6">
+          <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-brand-primary/50 to-white/10 border-2 border-white/20">
             {user.avatarDataUrl ? (
               <img src={user.avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-lg font-semibold" style={{ color: "var(--text)" }}>
+              <div className="text-4xl font-bold text-white">
                 {initials}
               </div>
             )}
           </div>
 
           <div className="min-w-0">
-            <div className="text-base font-semibold" style={{ color: "var(--text)" }}>
+            <div className="text-2xl font-bold text-white">
               {user.displayName ?? "TrainQ Nutzer"}
             </div>
-            <div className="text-xs" style={muted}>
+            <div className="text-sm text-gray-400">
               TrainQ ID: {shortenId(user.id)}
             </div>
-            <div className="mt-2 text-[11px]" style={muted}>
+            <div className="mt-2 text-sm text-gray-400 tabular-nums">
               Workouts (lokal): {localHistoryCount}
             </div>
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl p-4 text-xs" style={surfaceSoft}>
-        <div style={muted}>
-          Hinweis: Öffentliche Profile sind im MVP nur für lokal gespeicherte Nutzer sichtbar. Backend‑Sync folgt später.
-        </div>
+      <div className="rounded-3xl p-4 text-sm bg-white/5 border border-white/10 backdrop-blur-xl text-gray-500">
+        Hinweis: Öffentliche Profile sind im MVP nur für lokal gespeicherte Nutzer sichtbar. Backend‑Sync folgt später.
       </div>
     </div>
   );

@@ -86,6 +86,15 @@ export interface ExerciseAliases {
   de: string[];
 }
 
+export type ExerciseImage =
+  | { kind: "asset"; src: string }
+  | { kind: "user"; refId: string; mime: string; updatedAt: string };
+
+export type ExerciseMuscles = {
+  primary: Muscle[];
+  secondary?: Muscle[];
+};
+
 export interface CoreExercise {
   id: string;
   name: ExerciseName;
@@ -97,6 +106,10 @@ export interface CoreExercise {
   type: ExerciseType;
   metrics: Metric[];
   variants?: ExerciseVariants;
+  image?: ExerciseImage;
+  imageSrc?: string;
+  cues?: string[];
+  muscles?: ExerciseMuscles;
 }
 
 export interface Exercise {
@@ -113,6 +126,10 @@ export interface Exercise {
   metrics: Metric[];
   variants?: ExerciseVariants;
   difficulty?: Difficulty;
+  image?: ExerciseImage;
+  imageSrc?: string;
+  cues?: string[];
+  muscles?: ExerciseMuscles;
   source?: "core" | "custom";
   searchIndex?: string;
 }
@@ -294,6 +311,10 @@ function toExercise(core: CoreExercise, overrides?: ExerciseAliases, lang: "de" 
     type: core.type,
     metrics: core.metrics || [],
     variants: core.variants,
+    image: core.image,
+    imageSrc: core.imageSrc,
+    cues: core.cues,
+    muscles: core.muscles,
     source: "core",
   };
   exercise.difficulty = deriveDifficulty(exercise);
