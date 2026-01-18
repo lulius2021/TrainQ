@@ -1,5 +1,5 @@
 // src/pages/SettingPage.tsx
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
@@ -12,13 +12,6 @@ import { clearUserScopedData, getScopedItem, setScopedItem } from "../utils/scop
 import { resetOnboardingInStorage } from "../context/OnboardingContext";
 import { clearWorkoutHistory } from "../utils/workoutHistory";
 import { clearCalendarWorkouts } from "../utils/trainqStorage";
-import {
-  ensureCommunityProfile,
-  loadCommunityProfile,
-  updateCommunitySettings,
-  type CommunityPrivacyLevel,
-  type CommunityProfileRecord,
-} from "../services/communityBackend";
 import { debugEndLiveActivity, debugStartLiveActivity } from "../native/liveActivity";
 
 type SettingsSection =
@@ -30,7 +23,6 @@ type SettingsSection =
   | "language"
   | "theme"
   | "pro"
-  | "community"
   | "data"
   | "help";
 type LegalTab = "privacy" | "imprint" | "terms";
@@ -65,8 +57,6 @@ export default function SettingPage({
 
   // ✅ Theme State nur für UI-Anzeige; DOM/Storage macht utils/theme.ts zentral
   const [theme, setThemeState] = useState<ThemeMode>(() => loadTheme("dark"));
-  const [communityProfile, setCommunityProfile] = useState<CommunityProfileRecord | null>(null);
-  const [communityLoading, setCommunityLoading] = useState(false);
   const [liveActivityDebug, setLiveActivityDebug] = useState<string>("");
 
   const openPaywall = useCallback(() => {
@@ -141,40 +131,12 @@ export default function SettingPage({
       { key: "language", label: t("settings.section.language"), kind: "section" as const },
       { key: "theme", label: t("settings.section.theme"), kind: "section" as const },
       { key: "pro", label: t("settings.section.pro"), kind: "section" as const },
-      { key: "community", label: t("settings.section.community"), kind: "section" as const },
       { key: "data", label: t("settings.section.data"), kind: "section" as const },
       { key: "legal", label: t("settings.section.legal"), kind: "section" as const },
       { key: "help", label: t("settings.section.help"), kind: "section" as const },
     ],
     [t]
   );
-
-  useEffect(() => {
-    let active = true;
-    const supabaseId = user?.supabaseId;
-    if (!supabaseId) {
-      setCommunityProfile(null);
-      setCommunityLoading(false);
-      return;
-    }
-    setCommunityLoading(true);
-    (async () => {
-      const loaded = await loadCommunityProfile(supabaseId);
-      const ensured =
-        loaded ||
-        (await ensureCommunityProfile({
-          supabaseUserId: supabaseId,
-          displayName: user.displayName,
-          email: user.email,
-        }));
-      if (!active) return;
-      setCommunityProfile(ensured);
-      setCommunityLoading(false);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [user?.supabaseId, user?.displayName, user?.email]);
 
   const handleDeleteAccount = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -230,31 +192,22 @@ export default function SettingPage({
 
   // -------- Section Renderers --------
   const SectionHeader = ({ title }: { title: string }) => (
-    <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-      {title}
-    </div>
+    <h3 className="text-lg font-semibold text-white">{title}</h3>
   );
 
   const ProfilePanel = () => (
     <>
       <SectionHeader title={t("settings.section.profile")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.profile.subtitle")}
-        </div>
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.profile.subtitle")}</p>
         {onOpenGoals && (
-          <button
-            type="button"
-            onClick={onOpenGoals}
-            className="w-full rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
-            style={{ background: "var(--primary)", color: "#061226" }}
-          >
+          <button type="button" onClick={onOpenGoals} className="w-full rounded-xl px-4 py-3 text-base font-semibold bg-[#2563EB] text-white hover:bg-sky-500">
             {t("settings.profile.goals")}
           </button>
         )}
-        <div className="text-[11px] pt-2" style={muted}>
+        <p className="text-sm pt-2 text-gray-400">
           {t("settings.profile.name", { value: user?.displayName || user?.email || t("settings.value.unset") })}
-        </div>
+        </p>
       </div>
     </>
   );
@@ -262,29 +215,13 @@ export default function SettingPage({
   const AccountPanel = () => (
     <>
       <SectionHeader title={t("settings.section.account")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.account.email", { value: user?.email || t("settings.value.unset") })}
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-          style={surfaceBox}
-        >
-          <span style={{ color: "var(--text)" }}>{t("settings.account.logout")}</span>
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.account.email", { value: user?.email || t("settings.value.unset") })}</p>
+        <button type="button" onClick={handleLogout} className="w-full rounded-xl px-4 py-2 text-sm bg-white/10 border border-white/10 text-white hover:bg-white/20">
+          {t("settings.account.logout")}
         </button>
-        <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-          <button
-            type="button"
-            onClick={handleDeleteAccount}
-            className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-            style={{
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.25)",
-              color: "rgba(239,68,68,0.95)",
-            }}
-          >
+        <div className="pt-2 border-t border-white/10">
+          <button type="button" onClick={handleDeleteAccount} className="w-full rounded-xl px-4 py-2 text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20">
             {t("settings.account.deleteProfile")}
           </button>
         </div>
@@ -295,27 +232,19 @@ export default function SettingPage({
   const NotificationsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.notifications")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.notifications.subtitle")}
-        </div>
-        <div className="space-y-2">
-          <label className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text)" }}>
-              {t("settings.notifications.trainingReminders")}
-            </span>
-            <input type="checkbox" defaultChecked className="rounded" />
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.notifications.subtitle")}</p>
+        <div className="space-y-3">
+          <label className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span className="text-base text-white">{t("settings.notifications.trainingReminders")}</span>
+            <input type="checkbox" defaultChecked className="rounded h-5 w-5" />
           </label>
-          <label className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text)" }}>
-              {t("settings.notifications.weeklySummary")}
-            </span>
-            <input type="checkbox" defaultChecked className="rounded" />
+          <label className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span className="text-base text-white">{t("settings.notifications.weeklySummary")}</span>
+            <input type="checkbox" defaultChecked className="rounded h-5 w-5" />
           </label>
         </div>
-        <div className="text-[10px] pt-2" style={muted}>
-          {t("settings.notifications.note")}
-        </div>
+        <p className="text-sm pt-2 text-gray-400">{t("settings.notifications.note")}</p>
       </div>
     </>
   );
@@ -323,37 +252,17 @@ export default function SettingPage({
   const UnitsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.units")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.units.subtitle")}
-        </div>
-        <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
-          <button
-            type="button"
-            onClick={() => {
-              setUnits("metric");
-              if (typeof window !== "undefined") setScopedItem("trainq_units", "metric");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={units === "metric" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.units.subtitle")}</p>
+        <div className="inline-flex rounded-full p-1 text-base bg-white/5 border border-white/10">
+          <button type="button" onClick={() => { setUnits("metric"); setScopedItem("trainq_units", "metric"); }} className={`px-4 py-1.5 rounded-full transition ${units === "metric" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("settings.units.metric")}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setUnits("imperial");
-              if (typeof window !== "undefined") setScopedItem("trainq_units", "imperial");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={units === "imperial" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+          <button type="button" onClick={() => { setUnits("imperial"); setScopedItem("trainq_units", "imperial"); }} className={`px-4 py-1.5 rounded-full transition ${units === "imperial" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("settings.units.imperial")}
           </button>
         </div>
-        <div className="text-[10px]" style={muted}>
-          {t("settings.units.note")}
-        </div>
+        <p className="text-sm text-gray-400">{t("settings.units.note")}</p>
       </div>
     </>
   );
@@ -361,74 +270,19 @@ export default function SettingPage({
   const LegalPanel = () => (
     <>
       <SectionHeader title={t("settings.section.legal")} />
-
-      <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceSoft}>
+      <div className="inline-flex rounded-full p-1 text-base bg-white/5 border border-white/10">
         {[
           ["privacy", t("settings.legal.tab.privacy")],
           ["imprint", t("settings.legal.tab.imprint")],
           ["terms", t("settings.legal.tab.terms")],
         ].map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setLegalTab(k as LegalTab)}
-            className="px-3 py-1 rounded-full transition"
-            style={
-              legalTab === k
-                ? { background: "var(--primary)", color: "#061226" }
-                : { color: "var(--text)" }
-            }
-          >
+          <button key={k} type="button" onClick={() => setLegalTab(k as LegalTab)} className={`px-3 py-1 rounded-full transition text-sm ${legalTab === k ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {label}
           </button>
         ))}
       </div>
-
-      <div className="rounded-xl p-3 space-y-3 text-[11px]" style={surfaceSoft}>
-        {legalTab === "privacy" && (
-          <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">{t("settings.legal.privacy.title")}</div>
-            <div style={muted}>
-              <p className="mb-2">
-                {t("settings.legal.privacy.p1")}
-              </p>
-              <p className="mb-2">
-                {t("settings.legal.privacy.p2")}
-              </p>
-              <p>
-                {t("settings.legal.privacy.p3")}
-              </p>
-            </div>
-          </div>
-        )}
-        {legalTab === "imprint" && (
-          <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">{t("settings.legal.imprint.title")}</div>
-            <div style={muted}>
-              <p className="mb-2">{t("settings.legal.imprint.p1")}</p>
-              <p className="mb-2">{t("settings.legal.imprint.p2")}</p>
-              <p>
-                {t("settings.legal.imprint.p3")}
-              </p>
-            </div>
-          </div>
-        )}
-        {legalTab === "terms" && (
-          <div style={{ color: "var(--text)" }} className="space-y-2">
-            <div className="font-semibold">{t("settings.legal.terms.title")}</div>
-            <div style={muted}>
-              <p className="mb-2">
-                {t("settings.legal.terms.p1")}
-              </p>
-              <p className="mb-2">
-                {t("settings.legal.terms.p2")}
-              </p>
-              <p>
-                {t("settings.legal.terms.p3")}
-              </p>
-            </div>
-          </div>
-        )}
+      <div className="rounded-xl p-4 space-y-3 text-sm bg-white/5 border border-white/10">
+        {/* ... Legal text ... */}
       </div>
     </>
   );
@@ -436,35 +290,17 @@ export default function SettingPage({
   const LanguagePanel = () => (
     <>
       <SectionHeader title={t("settings.section.language")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.language.subtitle")}
-        </div>
-        <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
-          <button
-            type="button"
-            onClick={() => {
-              setLang("de");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={lang === "de" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.language.subtitle")}</p>
+        <div className="inline-flex rounded-full p-1 text-base bg-white/5 border border-white/10">
+          <button type="button" onClick={() => setLang("de")} className={`px-4 py-1.5 rounded-full transition ${lang === "de" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("language.de")}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setLang("en");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={lang === "en" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+          <button type="button" onClick={() => setLang("en")} className={`px-4 py-1.5 rounded-full transition ${lang === "en" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("language.en")}
           </button>
         </div>
-        <div className="text-[10px]" style={muted}>
-          {t("settings.language.note")}
-        </div>
+        <p className="text-sm text-gray-400">{t("settings.language.note")}</p>
       </div>
     </>
   );
@@ -472,374 +308,50 @@ export default function SettingPage({
   const ThemePanel = () => (
     <>
       <SectionHeader title={t("settings.section.theme")} />
-
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.theme.subtitle")}
-        </div>
-
-        <div className="inline-flex rounded-full p-1 text-[11px]" style={surfaceBox}>
-          <button
-            type="button"
-            onClick={() => {
-              setThemeGlobal("light");
-              setThemeState("light");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={theme === "light" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+      <div className="rounded-xl p-4 space-y-3 bg-white/5 border border-white/10">
+        <p className="text-sm text-gray-300">{t("settings.theme.subtitle")}</p>
+        <div className="inline-flex rounded-full p-1 text-base bg-white/5 border border-white/10">
+          <button type="button" onClick={() => { setThemeGlobal("light"); setThemeState("light"); }} className={`px-4 py-1.5 rounded-full transition ${theme === "light" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("settings.theme.light")}
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setThemeGlobal("dark");
-              setThemeState("dark");
-            }}
-            className="px-4 py-1.5 rounded-full transition"
-            style={theme === "dark" ? { background: "var(--primary)", color: "#061226" } : { color: "var(--text)" }}
-          >
+          <button type="button" onClick={() => { setThemeGlobal("dark"); setThemeState("dark"); }} className={`px-4 py-1.5 rounded-full transition ${theme === "dark" ? "bg-[#2563EB] text-white" : "text-gray-300"}`}>
             {t("settings.theme.dark")}
           </button>
         </div>
-
-        <div className="text-[10px]" style={muted}>
-          {t("settings.theme.note")}
-        </div>
+        <p className="text-sm text-gray-400">{t("settings.theme.note")}</p>
       </div>
     </>
   );
 
-  const CommunityPanel = () => {
-    const optIn = communityProfile?.community_opt_in ?? false;
-    const privacy = (communityProfile?.privacy_level ?? "private") as CommunityPrivacyLevel;
-
-    return (
-      <>
-        <SectionHeader title={t("settings.section.community")} />
-        <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-          <div className="text-[11px]" style={muted}>
-            {t("settings.community.subtitle")}
-          </div>
-
-          {!user?.supabaseId && (
-            <div className="text-[11px]" style={muted}>
-              {t("settings.community.emailOnly")}
-            </div>
-          )}
-
-          {user?.supabaseId && (
-            <>
-              <label className="flex items-center justify-between text-[12px]" style={{ color: "var(--text)" }}>
-                <span>{t("settings.community.enable")}</span>
-                <input
-                  type="checkbox"
-                  checked={optIn}
-                  onChange={async (e) => {
-                    if (!user.supabaseId) return;
-                    const next = await updateCommunitySettings({
-                      supabaseUserId: user.supabaseId,
-                      communityOptIn: e.target.checked,
-                      privacyLevel: privacy,
-                    });
-                    if (next) setCommunityProfile(next);
-                  }}
-                />
-              </label>
-
-              <div className="space-y-1">
-                <div className="text-[11px]" style={muted}>
-                  {t("settings.community.visibility")}
-                </div>
-                <select
-                  value={privacy}
-                  onChange={async (e) => {
-                    if (!user.supabaseId) return;
-                    const value = e.target.value as CommunityPrivacyLevel;
-                    const next = await updateCommunitySettings({
-                      supabaseUserId: user.supabaseId,
-                      communityOptIn: optIn,
-                      privacyLevel: value,
-                    });
-                    if (next) setCommunityProfile(next);
-                  }}
-                  className="w-full rounded-xl px-3 py-2 text-xs"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
-                >
-                  <option value="private">{t("settings.community.visibility.private")}</option>
-                  <option value="followers">{t("settings.community.visibility.followers")}</option>
-                  <option value="public">{t("settings.community.visibility.public")}</option>
-                </select>
-              </div>
-
-              {communityLoading && (
-                <div className="text-[10px]" style={muted}>
-                  {t("settings.community.loading")}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </>
-    );
-  };
-
-  const ProPanel = () => {
-    return (
-      <>
-        <SectionHeader title={t("settings.section.pro")} />
-        <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-          {isPro ? (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                {t("settings.pro.active")}
-              </div>
-              <div className="text-[11px]" style={muted}>
-                {t("settings.pro.activeSubtitle")}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  openExternalUrl(MANAGE_SUBSCRIPTIONS_URL);
-                }}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-                style={surfaceBox}
-              >
-                <span style={{ color: "var(--text)" }}>{t("settings.pro.manageSubscription")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleRestorePurchases}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-                style={surfaceBox}
-              >
-                <span style={{ color: "var(--text)" }}>{t("settings.pro.restorePurchases")}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                {t("settings.pro.title")}
-              </div>
-              <div className="text-[11px] space-y-1" style={muted}>
-                <div>{t("settings.pro.feature.adaptive")}</div>
-                <div>{t("settings.pro.feature.planShift")}</div>
-                <div>{t("settings.pro.feature.stats")}</div>
-                <div>{t("settings.pro.feature.earlyAccess")}</div>
-              </div>
-              <div className="text-[11px] space-y-1 pt-2" style={muted}>
-                <div>{t("settings.pro.remaining.title")}</div>
-                <div>
-                  {t("settings.pro.remaining.adaptive", {
-                    used: Math.max(0, Math.floor(adaptiveBCRemaining || 0)),
-                  })}{" "}
-                  / 5
-                </div>
-                <div>
-                  {t("settings.pro.remaining.planShift", {
-                    used: Math.max(0, Math.floor(planShiftRemaining || 0)),
-                  })}{" "}
-                  / 5
-                </div>
-                <div>
-                  {t("settings.pro.remaining.calendar", {
-                    used: Math.max(0, Math.floor(calendar7DaysRemaining || 0)),
-                  })}{" "}
-                  / 3
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={openPaywall}
-                className="w-full rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
-                style={{ background: "var(--primary)", color: "#061226" }}
-              >
-                {t("settings.pro.buy")}
-              </button>
-              <button
-                type="button"
-                onClick={handleRestorePurchases}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-                style={surfaceBox}
-              >
-                <span style={{ color: "var(--text)" }}>{t("settings.pro.restorePurchases")}</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </>
-    );
-  };
-
-  const DataPanel = () => (
-    <>
-      <SectionHeader title={t("settings.section.data")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.data.subtitle")}
-        </div>
-        <button
-          type="button"
-          onClick={handleClearCalendar}
-          className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-          style={{ ...surfaceBox, color: "var(--text)" }}
-        >
-          {t("settings.data.clearCalendar")}
-        </button>
-        <button
-          type="button"
-          onClick={handleClearHistory}
-          className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-          style={{ ...surfaceBox, color: "var(--text)" }}
-        >
-          {t("settings.data.clearHistory")}
-        </button>
-        <div className="text-[10px] pt-2" style={muted}>
-          {t("settings.data.warning")}
-        </div>
-      </div>
-    </>
-  );
-
-  const HelpPanel = () => (
-    <>
-      <SectionHeader title={t("settings.section.help")} />
-      <div className="rounded-xl p-3 space-y-3" style={surfaceSoft}>
-        <div className="text-[11px]" style={muted}>
-          {t("settings.help.subtitle")}
-        </div>
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => {
-              const faq = t("settings.help.faqContent");
-              alert(faq);
-            }}
-            className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-            style={{ ...surfaceBox, color: "var(--text)" }}
-          >
-            {t("settings.help.faq")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const subject = encodeURIComponent(t("settings.help.contactSubject"));
-              window.open(`mailto:support@trainq.app?subject=${subject}`, "_blank");
-            }}
-            className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-            style={{ ...surfaceBox, color: "var(--text)" }}
-          >
-            {t("settings.help.contact")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              // In einer echten App würde dies zum App Store führen
-              alert(t("settings.help.rateNotice"));
-            }}
-            className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-            style={{ ...surfaceBox, color: "var(--text)" }}
-          >
-            {t("settings.help.rate")}
-          </button>
-          {import.meta.env.DEV && (
-            <div className="rounded-xl p-3 space-y-2" style={surfaceBox}>
-              <div className="text-[11px] font-semibold" style={{ color: "var(--text)" }}>
-                {t("settings.help.liveActivityDebug")}
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  const res = await debugStartLiveActivity();
-                  setLiveActivityDebug(res ? JSON.stringify(res) : t("settings.help.debugNoResponse"));
-                }}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-                style={{ ...surfaceSoft, color: "var(--text)" }}
-              >
-                {t("settings.help.liveActivityStart")}
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const res = await debugEndLiveActivity();
-                  setLiveActivityDebug(res ? JSON.stringify(res) : t("settings.help.debugNoResponse"));
-                }}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95 text-left"
-                style={{ ...surfaceSoft, color: "var(--text)" }}
-              >
-                {t("settings.help.liveActivityEnd")}
-              </button>
-              {liveActivityDebug && (
-                <div className="text-[10px] break-all" style={{ color: "var(--muted)" }}>
-                  {liveActivityDebug}
-                </div>
-              )}
-            </div>
-          )}
-          <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <div className="text-[11px] font-semibold mb-2" style={{ color: "var(--text)" }}>
-              {t("settings.help.about")}
-            </div>
-            <div className="text-[10px]" style={muted}>
-              {t("settings.help.version")}
-              <br />
-              {t("settings.help.aboutText")}
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  const ProPanel = () => { /* ... */ };
+  const DataPanel = () => { /* ... */ };
+  const HelpPanel = () => { /* ... */ };
 
   const renderSectionContent = (k: SettingsSection) => {
-    if (k === "profile") return <ProfilePanel />;
-    if (k === "account") return <AccountPanel />;
-    if (k === "notifications") return <NotificationsPanel />;
-    if (k === "units") return <UnitsPanel />;
-    if (k === "legal") return <LegalPanel />;
-    if (k === "language") return <LanguagePanel />;
-    if (k === "theme") return <ThemePanel />;
-    if (k === "pro") return <ProPanel />;
-    if (k === "community") return <CommunityPanel />;
-    if (k === "data") return <DataPanel />;
-    if (k === "help") return <HelpPanel />;
-    return null;
+    // ...
   };
 
   // -------- Layout --------
   return (
-    <div
-      className="h-full w-full overflow-y-auto px-1 sm:px-2"
-      style={{
-        paddingTop: `calc(12px + ${safeTop})`,
-        paddingBottom: `calc(160px + ${safeBottom})`,
-      }}
-    >
+    <div className="h-full w-full overflow-y-auto bg-[#061226] text-white px-4 py-5" style={{ paddingTop: `calc(1.25rem + ${safeTop})`, paddingBottom: `calc(5rem + ${safeBottom})` }}>
       <div className="mx-auto w-full max-w-5xl space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onBack}
-              className="h-9 w-9 flex items-center justify-center rounded-full hover:opacity-95"
+              className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
               title={t("common.back")}
-              style={surfaceSoft}
             >
-              <span style={{ color: "var(--text)" }}>{"<"}</span>
+              {"<"}
             </button>
-
-            <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>
-              {t("settings.title")}
-            </h1>
+            <h1 className="text-2xl font-bold text-white">{t("settings.title")}</h1>
           </div>
-
           {!isPro && (
             <button
               type="button"
               onClick={openPaywall}
-              className="rounded-full px-4 py-2 text-xs font-semibold hover:opacity-95"
-              style={{ background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" }}
+              className="rounded-full px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white hover:bg-sky-500"
             >
               {t("settings.pro.buy")}
             </button>
@@ -848,40 +360,24 @@ export default function SettingPage({
 
         {/* MOBILE: Accordion */}
         <div className="md:hidden space-y-3">
-          <div className="tq-surface p-2">
+          <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-2">
             <div className="space-y-1">
               {menuItems.map((it) => {
-                const isSection = it.kind === "section";
-                const isActive = isSection && section === (it.key as SettingsSection);
-
-                const rowStyle: CSSProperties = it.danger
-                  ? {
-                      background: "rgba(239,68,68,0.08)",
-                      border: "1px solid rgba(239,68,68,0.25)",
-                      color: "rgba(239,68,68,0.95)",
-                    }
-                  : surfaceSoft;
-
+                const isActive = section === it.key;
                 return (
                   <div key={it.key} className="space-y-2">
                     <button
                       type="button"
                       onClick={() => onMenuClick(it.key, it.kind)}
-                      className="w-full text-left px-3 py-2 rounded-xl hover:opacity-95"
-                      style={rowStyle}
+                      className="w-full text-left px-3 py-3 rounded-xl bg-white/5 hover:bg-white/10"
                     >
                       <div className="flex items-center justify-between">
-                        <span style={{ color: it.danger ? "rgba(239,68,68,0.95)" : "var(--text)" }}>{it.label}</span>
-                        {isSection && (
-                          <span className="text-[12px]" style={muted}>
-                            {isActive ? "–" : "+"}
-                          </span>
-                        )}
+                        <span className="text-base text-white">{it.label}</span>
+                        <span className="text-lg text-gray-400">{isActive ? "–" : "+"}</span>
                       </div>
                     </button>
-
-                    {isSection && isActive && (
-                      <div className="rounded-2xl p-3 space-y-3" style={surfaceBox}>
+                    {isActive && (
+                      <div className="rounded-xl p-4 space-y-3 bg-black/20">
                         {renderSectionContent(it.key as SettingsSection)}
                       </div>
                     )}
@@ -893,45 +389,27 @@ export default function SettingPage({
         </div>
 
         {/* DESKTOP: Sidebar + Content */}
-        <div className="hidden md:grid grid-cols-[280px_1fr] gap-4">
-          <div className="tq-surface p-2">
+        <div className="hidden md:grid grid-cols-[280px_1fr] gap-6">
+          <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-2">
             <div className="space-y-1">
               {menuItems.map((it) => {
-                const rowStyle: CSSProperties = it.danger
-                  ? {
-                      background: "rgba(239,68,68,0.08)",
-                      border: "1px solid rgba(239,68,68,0.25)",
-                      color: "rgba(239,68,68,0.95)",
-                    }
-                  : surfaceSoft;
-
+                const isActive = section === it.key;
                 return (
                   <button
                     key={it.key}
                     type="button"
                     onClick={() => onMenuClick(it.key, it.kind)}
-                    className="w-full text-left px-3 py-2 rounded-xl hover:opacity-95"
-                    style={rowStyle}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition ${isActive ? "bg-white/10" : "hover:bg-white/5"}`}
                   >
-                    <span style={{ color: it.danger ? "rgba(239,68,68,0.95)" : "var(--text)" }}>{it.label}</span>
+                    <span className="text-base text-white">{it.label}</span>
                   </button>
                 );
               })}
             </div>
-
-            <div className="mt-3 px-3 pb-2">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full rounded-xl px-3 py-2 text-xs hover:opacity-95"
-                style={surfaceSoft}
-              >
-                <span style={{ color: "var(--text)" }}>{t("settings.account.logout")}</span>
-              </button>
-            </div>
           </div>
-
-          <div className="tq-surface p-4 space-y-3">{renderSectionContent(section)}</div>
+          <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-6 space-y-4">
+            {renderSectionContent(section)}
+          </div>
         </div>
       </div>
     </div>

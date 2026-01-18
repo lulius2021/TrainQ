@@ -4,7 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
-import { ensureCommunityProfile } from "../services/communityBackend";
+import { getSupabaseClient } from "../lib/supabaseClient";
 import { signInSupabase, signOutSupabase, signUpSupabase } from "../services/supabaseAuth";
 
 export type AuthProvider = "email" | "apple";
@@ -230,48 +230,65 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     mountedRef.current = true;
 
-    if (import.meta.env.DEV) {
-      seedDefaultTestAccountsIfMissing();
-    }
-
-    // SocialLogin init (native iOS)
-    if (isNativeIOS()) {
-      SocialLogin.initialize({ apple: {} }).catch(() => {
-        // MVP: ignore
-      });
-    }
-
-    const sessionUserId = readSessionUserId();
-    if (sessionUserId) {
-      const users = readStoredUsers();
-      const found = users.find((u) => u.id === sessionUserId) ?? null;
-      setUser(found ? sanitizeUser(found) : null);
-      if (!found) {
-        writeSessionUserId(null);
-        clearActiveSession();
-      } else {
-        setActiveSession({ userId: found.id, isPro: found.isPro === true, email: found.email });
-        migrateUserStorage(found.id);
+    const initAuth = async () => {
+      if (import.meta.env.DEV) {
+        seedDefaultTestAccountsIfMissing();
       }
-    } else {
-      setUser(null);
-      clearActiveSession();
-    }
+
+      // SocialLogin init (native iOS)
+      if (isNativeIOS()) {
+        SocialLogin.initialize({ apple: {} }).catch(() => {
+          // MVP: ignore
+        });
+      }
+
+      // Get Supabase session
+      const client = getSupabaseClient();
+      const supaSession = client ? (await client.auth.getSession()).data.session : null;
+
+      const sessionUserId = readSessionUserId();
+      if (sessionUserId) {
+        const users = readStoredUsers();
+        const foundUserIndex = users.findIndex((u) => u.id === sessionUserId);
+
+        if (foundUserIndex !== -1) {
+          let userToSet = users[foundUserIndex];
+
+          // If we have a supabase session but no id on the user, update it
+          if (supaSession?.user && !userToSet.supabaseId) {
+            const updatedUser = { ...userToSet, supabaseId: supaSession.user.id };
+            const nextUsers = [...users];
+            nextUsers[foundUserIndex] = updatedUser;
+            writeStoredUsers(nextUsers);
+            userToSet = updatedUser;
+          }
+
+          setUser(sanitizeUser(userToSet));
+          setActiveSession({ userId: userToSet.id, isPro: userToSet.isPro === true, email: userToSet.email });
+          migrateUserStorage(userToSet.id);
+        } else {
+          // Local session is invalid
+          writeSessionUserId(null);
+          clearActiveSession();
+          setUser(null);
+          // If local session is invalid, supabase session should be too
+          if (supaSession && client) {
+            await client.auth.signOut();
+          }
+        }
+      } else {
+        setUser(null);
+        clearActiveSession();
+      }
+    };
+
+    initAuth();
 
     return () => {
       mountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!user?.supabaseId) return;
-    ensureCommunityProfile({
-      supabaseUserId: user.supabaseId,
-      displayName: user.displayName,
-      email: user.email,
-    });
-  }, [user?.supabaseId, user?.displayName, user?.email]);
 
   // -------------------- Email/Password --------------------
 

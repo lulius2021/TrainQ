@@ -17,8 +17,6 @@ import TrainQCoreDebug from "./pages/TrainQCoreDebug";
 
 // Live-Training
 import LiveTrainingPage from "./pages/training/LiveTrainingPage";
-import CommunityPage from "./pages/CommunityPage";
-import CommunityInboxPage from "./pages/CommunityInboxPage";
 import WorkoutSharePage from "./pages/WorkoutSharePage";
 import PublicProfilePage from "./pages/PublicProfilePage";
 
@@ -55,7 +53,8 @@ import type { DeloadPlan, DeloadRule } from "./types/deload";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "./utils/trainingHistory";
 
 // AUTO-SEED FIX
-import { resolveLiveSeed, writeLiveSeedForEventOrKey, type LiveTrainingSeed } from "./utils/liveTrainingSeed";
+import { resolveLiveSeed, writeLiveSeedForEventOrKey } from "./utils/liveTrainingSeed";
+import type { LiveTrainingSeed } from "./utils/liveTrainingSeed";
 
 // TestFlight Seed (10 Pro + 3 Free)
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
@@ -79,14 +78,12 @@ import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks } from "./utils/d
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 /** Exportiert für andere Komponenten */
-export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "community" | "profile";
+export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";
 type AppRoute =
   | "/"
   | "/today"
   | "/live-training"
   | "/debug/trainq"
-  | "/community"
-  | "/community/inbox"
   | "/workout-share"
   | "/public-profile";
 
@@ -245,8 +242,6 @@ function getRouteFromLocation(): AppRoute {
   if (path === "/live-training") return "/live-training";
   if (path === "/debug/trainq") return "/debug/trainq";
   if (path === "/today") return "/today";
-  if (path === "/community/inbox") return "/community/inbox";
-  if (path === "/community") return "/community";
   if (path === "/workout-share") return "/workout-share";
   if (path.startsWith("/u/")) return "/public-profile";
 
@@ -376,7 +371,7 @@ const LiveTrainingMiniBar: React.FC<{
     <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: MINI_BAR_BOTTOM }}>
       <div
         className="
-          mx-auto max-w-5xl rounded-3xl border border-white/10 bg-white/5 p-3
+          mx-auto max-w-5xl rounded-[32px] border border-white/10 bg-white/5 p-3
           backdrop-blur-xl shadow-lg shadow-black/40
         "
       >
@@ -384,7 +379,7 @@ const LiveTrainingMiniBar: React.FC<{
           <div className="min-w-0">
             <div className="text-[11px] text-gray-400">{t("live.mini.running")}</div>
             <div className="flex items-baseline gap-2">
-              <div className="text-base font-semibold tabular-nums text-white">
+              <div className="text-base font-bold tabular-nums text-white">
                 {formatElapsedFromISO(active.startedAt)}
               </div>
               <div className="truncate text-[11px] text-gray-400">{active.title}</div>
@@ -395,7 +390,7 @@ const LiveTrainingMiniBar: React.FC<{
             <button
               type="button"
               onClick={() => onMaximize(active.calendarEventId)}
-              className="rounded-full bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary/90"
+              className="rounded-2xl bg-[#2563EB] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-transform hover:scale-105"
             >
               {t("live.mini.maximize")}
             </button>
@@ -404,8 +399,8 @@ const LiveTrainingMiniBar: React.FC<{
               type="button"
               onClick={onAbort}
               className="
-                rounded-full border border-white/10 bg-white/10 px-4 py-2.5 
-                text-sm text-white/80 hover:bg-white/20
+                rounded-2xl border border-white/10 bg-white/10 px-4 py-2.5 
+                text-sm text-white/80 transition-colors hover:bg-white/20
               "
             >
               {t("common.cancel")}
@@ -612,7 +607,7 @@ const MainAppShell: React.FC = () => {
     return !!document.querySelector('[data-overlay-open="true"]');
   }, [paywallOpen]);
 
-  const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "community", "profile"];
+  const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "profile"];
   const isTabRoute = route === "/" || route === "/today";
   const tabSwipeEnabled = route === "/" && profileScreen === "profile";
 
@@ -908,8 +903,7 @@ const MainAppShell: React.FC = () => {
   // ---------- Routing ----------
   if (route === "/live-training") {
     return (
-      // ✅ FIX: h-full statt h-[100dvh]
-      <div className="w-full h-full overflow-hidden" style={{ background: "transparent", color: "var(--text)" }}>
+      <div className="w-full h-full overflow-hidden">
         <LiveTrainingPage
           events={events}
           onUpdateEvents={setEvents}
@@ -924,8 +918,7 @@ const MainAppShell: React.FC = () => {
 
   if (route === "/debug/trainq") {
     return (
-      // ✅ FIX: h-full statt h-[100dvh]
-      <div className="w-full h-full overflow-auto" style={{ background: "transparent", color: "var(--text)" }}>
+      <div className="w-full h-full overflow-auto">
         <TrainQCoreDebug />
       </div>
     );
@@ -933,15 +926,12 @@ const MainAppShell: React.FC = () => {
 
   // ---------- Normal App Layout: genau 1 Scroll-Container ----------
   return (
-    // ✅ FIX: h-full statt h-[100dvh]
-    <div className="relative w-full h-full overflow-hidden" style={{ background: "transparent", color: "var(--text)" }}>
+    <div className="relative w-full h-full overflow-hidden">
       <LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />
 
       <div className="h-full w-full overflow-hidden flex flex-col">
         <div className="flex-1 overflow-y-auto overflow-x-hidden" data-app-scroll="true" style={{ paddingBottom: BOTTOM_NAV_PADDING }}>
-          <div className="mx-auto w-full max-w-5xl px-2 sm:px-4">
-            {route === "/community" && <CommunityPage />}
-            {route === "/community/inbox" && <CommunityInboxPage />}
+          <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
 
             {route === "/workout-share" && (
               <WorkoutSharePage
@@ -1126,11 +1116,13 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <AuthContextProvider>
-      <OnboardingProvider>
-        <AuthGate />
-      </OnboardingProvider>
-    </AuthContextProvider>
+    <div className="h-screen w-screen overflow-hidden bg-[#061226] font-sans text-gray-400">
+        <AuthContextProvider>
+          <OnboardingProvider>
+            <AuthGate />
+          </OnboardingProvider>
+        </AuthContextProvider>
+    </div>
   );
 };
 
