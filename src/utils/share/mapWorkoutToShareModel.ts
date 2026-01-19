@@ -46,6 +46,7 @@ export type WorkoutShareModel = {
     muscles: string[];
     volume?: number;
   };
+  adaptiveScore?: number;
 };
 
 type Locale = "de" | "en";
@@ -220,13 +221,13 @@ export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Local
   const spotlightEx = pickSpotlightExercise(exercises);
   const spotlight = spotlightEx
     ? {
-        name: spotlightEx.name,
-        imageSrc: spotlightEx.imageSrc,
-        bestSet: spotlightEx.bestSet,
-        tags: spotlightEx.tags ?? [],
-        muscles: spotlightEx.muscles ?? [],
-        volume: spotlightEx.volume,
-      }
+      name: spotlightEx.name,
+      imageSrc: spotlightEx.imageSrc,
+      bestSet: spotlightEx.bestSet,
+      tags: spotlightEx.tags ?? [],
+      muscles: spotlightEx.muscles ?? [],
+      volume: spotlightEx.volume,
+    }
     : undefined;
 
   return {
@@ -246,5 +247,6 @@ export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Local
     highlights,
     prsCount: highlights?.prsCount,
     spotlight,
+    adaptiveScore: (entry as any).adaptiveScore,
   };
 }

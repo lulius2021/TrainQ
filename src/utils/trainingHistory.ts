@@ -72,8 +72,8 @@ function normalizeRestSeconds(input: unknown): number | undefined {
     typeof input === "number"
       ? input
       : typeof input === "string"
-      ? Number(input.trim())
-      : Number(String(input).trim());
+        ? Number(input.trim())
+        : Number(String(input).trim());
 
   if (!Number.isFinite(n)) return undefined;
 
@@ -386,6 +386,8 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
     exercises: whExercises,
     distanceKm,
     paceSecPerKm,
+    // Simple Score: 1 pt per minute, 5 pts per exercise, max 100
+    adaptiveScore: Math.min(100, Math.round((durationSeconds / 60) + (whExercises.length * 5))),
   });
 
   updateExerciseHistoryFromWorkout(workout, endedAt);

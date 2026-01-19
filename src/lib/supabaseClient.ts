@@ -3,35 +3,52 @@ import { authStorageAdapter } from "./authStorageAdapter";
 
 let cachedClient: SupabaseClient | null = null;
 
-function readEnv(key: string): string | null {
-  try {
-    const value = (import.meta as any)?.env?.[key];
-    return typeof value === "string" && value.trim() ? value : null;
-  } catch {
-    return null;
-  }
-}
+// Helper only for "existence" check, but we use direct access for values below to ensure Vite replacement.
+const getEnvVar = (key: string) => {
+  // @ts-ignore
+  return import.meta.env[key];
+};
 
 export function hasSupabaseEnv(): boolean {
-  return !!(readEnv("VITE_SUPABASE_URL") && readEnv("VITE_SUPABASE_ANON_KEY"));
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    console.error("DEBUG: Supabase Env Missing", { url: !!url, key: !!key });
+  } else if (url.includes("replace-me") || key.includes("replace-me")) {
+    console.error("CRITICAL: Supabase Env contains placeholders. Please update .env file with real values.");
+  } else {
+    console.log("DEBUG: Supabase Env Found", { url });
+  }
+  return !!(url && key && !url.includes("replace-me"));
 }
 
 export function getSupabaseClient(): SupabaseClient | null {
-  const url = readEnv("VITE_SUPABASE_URL");
-  const anonKey = readEnv("VITE_SUPABASE_ANON_KEY");
-  if (!url || !anonKey) return null;
+  // Use DIRECT access so Vite can statically replace these at build time.
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.warn(" [Supabase] Warning: Environment variables missing.");
+    return null;
+  }
 
   if (!cachedClient) {
-    cachedClient = createClient(url, anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: authStorageAdapter,
-      },
-    });
+    try {
+      console.log(" [Supabase] Initializing client...", { url });
+      cachedClient = createClient(url, anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: authStorageAdapter,
+        },
+      });
+      console.log(" [Supabase] Client initialized successfully.");
+    } catch (err) {
+      console.error(" [Supabase] Client creation failed:", err);
+      return null;
+    }
   }
 
   return cachedClient;
 }
-

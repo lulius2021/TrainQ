@@ -731,157 +731,157 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <>
-      <div className="min-h-screen w-full bg-[#061226] text-white">
-      <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 pt-6 pb-8 px-4">
-        {/* =========================================================
+      <div className="min-h-screen w-full text-[var(--text)]">
+        <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 pt-6 pb-8 px-4">
+          {/* =========================================================
             1) TOP CARD: 1 klare Hauptaktion + kompakter Status
             ========================================================= */}
-        <div className="relative bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-gray-300">Dashboard</p>
-              <h1 className="text-xl font-semibold leading-tight text-white">
-                {primaryTraining ? "Dein nächstes Training" : "Kein Training geplant"}
-              </h1>
-              <p className="mt-1 text-sm text-gray-300">
-                {primaryTraining ? (
-                  <>
-                    {normalizeTitle((primaryTraining as any).title) || "Training"}{" "}
-                    <span className="opacity-70">
-                      · {primaryTraining.date === todayISO ? "heute" : formatDayLabelFromISO(primaryTraining.date)}
-                      {String(primaryTraining.startTime || "").trim() ? ` · ${primaryTraining.startTime}` : ""}
-                    </span>
-                  </>
-                ) : (
-                  "Erstelle ein Training über +"
-                )}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
-                Woche: {progressLabel(doneThisWeek.minutes, weeklyGoalMinutes)}
-              </span>
-            </div>
-          </div>
-
-          {/* Primary action row */}
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={openAdaptiveForToday}
-              className="h-12 rounded-xl border border-white/10 bg-white/10 text-base font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
-              disabled={!todayTrainingEvents[0]}
-              title={!todayTrainingEvents[0] ? "Heute kein Training im Kalender" : "Adaptiv für heute"}
-            >
-              Adaptiv
-            </button>
-            <button
-              type="button"
-              onClick={startPrimaryTraining}
-              className="h-12 rounded-xl border border-transparent bg-[#2563EB] text-base font-semibold text-white shadow-[0_0_20px_theme(colors.sky.500/50%)] transition hover:bg-sky-500 disabled:opacity-50"
-              disabled={!primaryTraining}
-              title={!primaryTraining ? "Kein Training geplant" : "Training starten"}
-            >
-              Start
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPlusMenuOpen((v) => !v)}
-              className="h-12 rounded-xl border border-white/10 bg-white/10 text-2xl font-semibold leading-none text-white transition hover:bg-white/20"
-              aria-label={t("common.more")}
-              title={t("common.more")}
-            >
-              +
-            </button>
-          </div>
-
-          {/* Weekly progress */}
-          <div className="mt-4 rounded-xl bg-white/5 border border-white/10 p-3">
-            <div className="flex items-center justify-between gap-3">
+          <div className="relative bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md rounded-[24px] p-4">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm text-gray-300">Wochenziel</p>
-                <p className="text-base font-semibold text-white">
-                  {doneThisWeek.sessions}/{weeklyGoalSessions} Trainings · {doneThisWeek.minutes}/{weeklyGoalMinutes} min
-                </p>
-                <p className="mt-1 text-sm text-gray-400">
-                  Geplant: {plannedThisWeek.sessions} · {plannedThisWeek.minutes} min
+                <p className="text-sm text-[var(--muted)]">Dashboard</p>
+                <h1 className="text-xl font-semibold leading-tight text-[var(--text)]">
+                  {primaryTraining ? "Dein nächstes Training" : "Kein Training geplant"}
+                </h1>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {primaryTraining ? (
+                    <>
+                      {normalizeTitle((primaryTraining as any).title) || "Training"}{" "}
+                      <span className="opacity-70">
+                        · {primaryTraining.date === todayISO ? "heute" : formatDayLabelFromISO(primaryTraining.date)}
+                        {String(primaryTraining.startTime || "").trim() ? ` · ${primaryTraining.startTime}` : ""}
+                      </span>
+                    </>
+                  ) : (
+                    "Erstelle ein Training über +"
+                  )}
                 </p>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm text-gray-300">Ziel</p>
-                <p className="text-base font-semibold text-white">{Math.round(weeklyGoalMinutes / 60)}h</p>
+              <div className="shrink-0">
+                <span className="rounded-full px-3 py-1 text-sm bg-[var(--surface2)] border border-[var(--border)] text-[var(--muted)]">
+                  {t("dashboard.week")}: {progressLabel(doneThisWeek.minutes, weeklyGoalMinutes)}
+                </span>
               </div>
             </div>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10 border border-white/10">
-              <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.round(weekProgress * 100)}%` }} />
+
+            {/* Primary action row */}
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={openAdaptiveForToday}
+                className="h-12 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-base font-semibold text-[var(--text)] transition hover:opacity-80 disabled:opacity-50"
+                disabled={!todayTrainingEvents[0]}
+                title={!todayTrainingEvents[0] ? t("dashboard.noTrainingToday") : t("dashboard.adaptiveToday")}
+              >
+                {t("dashboard.action.adaptive")}
+              </button>
+              <button
+                type="button"
+                onClick={startPrimaryTraining}
+                className="h-12 rounded-xl border border-transparent bg-blue-600 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:bg-blue-500 disabled:opacity-50"
+                disabled={!primaryTraining}
+                title={!primaryTraining ? t("dashboard.noTrainingPlanned") : t("dashboard.startTraining")}
+              >
+                Start
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPlusMenuOpen((v) => !v)}
+                className="h-12 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-2xl font-semibold leading-none text-[var(--text)] transition hover:opacity-80"
+                aria-label={t("common.more")}
+                title={t("common.more")}
+              >
+                +
+              </button>
             </div>
-            {!effectiveIsPro && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
-                  Adaptiv B/C: {FREE_LIMITS.adaptiveBCPerMonth - Math.max(0, adaptiveLeft)}/{FREE_LIMITS.adaptiveBCPerMonth}
-                </span>
-                <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
-                  Plan Shift: {FREE_LIMITS.planShiftPerMonth - Math.max(0, planShiftLeft)}/{FREE_LIMITS.planShiftPerMonth}
-                </span>
+
+            {/* Weekly progress */}
+            <div className="mt-4 rounded-xl bg-[var(--surface2)] border border-[var(--border)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-300">Wochenziel</p>
+                  <p className="text-base font-semibold text-white">
+                    {doneThisWeek.sessions}/{weeklyGoalSessions} Trainings · {doneThisWeek.minutes}/{weeklyGoalMinutes} min
+                  </p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Geplant: {plannedThisWeek.sessions} · {plannedThisWeek.minutes} min
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm text-gray-300">Ziel</p>
+                  <p className="text-base font-semibold text-white">{Math.round(weeklyGoalMinutes / 60)}h</p>
+                </div>
+              </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10 border border-white/10">
+                <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.round(weekProgress * 100)}%` }} />
+              </div>
+              {!effectiveIsPro && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
+                    Adaptiv B/C: {FREE_LIMITS.adaptiveBCPerMonth - Math.max(0, adaptiveLeft)}/{FREE_LIMITS.adaptiveBCPerMonth}
+                  </span>
+                  <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
+                    Plan Shift: {FREE_LIMITS.planShiftPerMonth - Math.max(0, planShiftLeft)}/{FREE_LIMITS.planShiftPerMonth}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Plus menu */}
+            {isPlusMenuOpen && (
+              <div
+                className="absolute right-4 top-[88px] z-40 w-60 overflow-hidden rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md shadow-xl text-white"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    setQuickEvent((p) => ({ ...p, date: todayISO, category: "alltag", description: "" }));
+                    setCategoryCreateMode("select");
+                    setNewCategoryLabel("");
+                    setIsQuickEventModalOpen(true);
+                  }}
+                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                >
+                  Termin anlegen
+                </button>
+
+                <div className="h-px bg-white/10" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    setNewTraining((p) => ({
+                      ...p,
+                      date: todayISO,
+                      trainingType: "gym",
+                      startTime: "18:00",
+                      endTime: "19:00",
+                      description: "",
+                    }));
+                    setIsTrainingModalOpen(true);
+                  }}
+                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                >
+                  Training anlegen
+                </button>
+
+                <div className="h-px bg-white/10" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    openShiftDialog();
+                  }}
+                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                >
+                  Plan verschieben (Tag +1)
+                </button>
               </div>
             )}
           </div>
-
-          {/* Plus menu */}
-          {isPlusMenuOpen && (
-            <div
-              className="absolute right-4 top-[88px] z-40 w-60 overflow-hidden rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md shadow-xl text-white"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlusMenuOpen(false);
-                  setQuickEvent((p) => ({ ...p, date: todayISO, category: "alltag", description: "" }));
-                  setCategoryCreateMode("select");
-                  setNewCategoryLabel("");
-                  setIsQuickEventModalOpen(true);
-                }}
-                className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
-              >
-                Termin anlegen
-              </button>
-
-              <div className="h-px bg-white/10" />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlusMenuOpen(false);
-                  setNewTraining((p) => ({
-                    ...p,
-                    date: todayISO,
-                    trainingType: "gym",
-                    startTime: "18:00",
-                    endTime: "19:00",
-                    description: "",
-                  }));
-                  setIsTrainingModalOpen(true);
-                }}
-                className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
-              >
-                Training anlegen
-              </button>
-
-              <div className="h-px bg-white/10" />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlusMenuOpen(false);
-                  openShiftDialog();
-                }}
-                className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
-              >
-                Plan verschieben (Tag +1)
-              </button>
-            </div>
-          )}
-        </div>
 
           {/* =========================================================
               2) Zwei klare Bereiche: “Nächste 3 Tage” & “Heute”

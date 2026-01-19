@@ -61,6 +61,11 @@ export type WorkoutHistoryEntry = {
    * Cardio/Custom: 0 (bewusst, sonst irreführend)
    */
   totalVolume: number;
+
+  /**
+   * Berechneter Score (0-100) für Adaptive Progress Anzeigt.
+   */
+  adaptiveScore?: number;
 };
 
 const STORAGE_KEY = "trainq_workout_history_v1";
@@ -336,6 +341,7 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
     distanceKm,
     paceSecPerKm,
     totalVolume,
+    adaptiveScore: Number.isFinite(raw.adaptiveScore) ? raw.adaptiveScore : undefined,
   };
 }
 
@@ -419,6 +425,7 @@ export function addWorkoutEntry(
       paceSecPerKm: clampPaceSecPerKm((entry as any).paceSecPerKm),
       totalVolume: 0,
       calendarEventId: entry.calendarEventId,
+      adaptiveScore: (entry as any).adaptiveScore,
     } as WorkoutHistoryEntry);
 
   // ✅ Finaler Guard: falls Cardio und noch keine distance/duration da sind, aus Sets ableiten

@@ -49,6 +49,8 @@ export function getDefaultOnboardingData(): OnboardingData {
       age: null,
       height: null,
       weight: null,
+      fitnessLevel: 3,
+      persona: undefined,
     },
     goals: {
       selectedGoals: [],
@@ -61,6 +63,7 @@ export function getDefaultOnboardingData(): OnboardingData {
       hoursPerWeek: null,
       sessionsPerWeek: null,
       locations: [],
+      timeBudget: undefined,
     },
     obstacles: {
       reasons: [],
@@ -99,10 +102,12 @@ function normalizeOnboardingData(input: Partial<OnboardingData>): OnboardingData
   // numeric guards
   if (typeof merged.personal.stressLevel !== "number") merged.personal.stressLevel = base.personal.stressLevel;
   if (typeof merged.personal.sleepHours !== "number") merged.personal.sleepHours = base.personal.sleepHours;
+  if (typeof merged.personal.fitnessLevel !== "number") merged.personal.fitnessLevel = base.personal.fitnessLevel;
 
   // string guards (defensive)
   if (typeof merged.profile.username !== "string") merged.profile.username = base.profile.username;
   if (typeof (merged.profile as any).bio !== "string") (merged.profile as any).bio = (base.profile as any).bio;
+  if (merged.training.timeBudget && typeof merged.training.timeBudget !== "string") merged.training.timeBudget = undefined;
 
   return merged;
 }
@@ -140,10 +145,15 @@ export function resetOnboardingInStorage(): void {
 
 // -------------------- Context --------------------
 
+// Helper type for deep partial updates
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 type OnboardingContextValue = {
   data: OnboardingData;
   setData: React.Dispatch<React.SetStateAction<OnboardingData>>;
-  updateData: (patch: Partial<OnboardingData>) => void;
+  updateData: (patch: DeepPartial<OnboardingData>) => void;
   reset: () => void;
 
   // ✅ klarer Completion-Pfad (wird von Step5Profile/OnboardingPage genutzt)
@@ -192,16 +202,16 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, []);
 
-  const updateData = (patch: Partial<OnboardingData>) => {
+  const updateData = (patch: DeepPartial<OnboardingData>) => {
     setData((prev) =>
       normalizeOnboardingData({
         ...prev,
         ...patch,
-        personal: { ...(prev.personal ?? {}), ...(patch.personal ?? {}) },
-        goals: { ...(prev.goals ?? {}), ...(patch.goals ?? {}) },
-        training: { ...(prev.training ?? {}), ...(patch.training ?? {}) },
-        obstacles: { ...(prev.obstacles ?? {}), ...(patch.obstacles ?? {}) },
-        profile: { ...(prev.profile ?? {}), ...(patch.profile ?? {}) },
+        personal: { ...(prev.personal ?? {}), ...(patch.personal ?? {}) } as any,
+        goals: { ...(prev.goals ?? {}), ...(patch.goals ?? {}) } as any,
+        training: { ...(prev.training ?? {}), ...(patch.training ?? {}) } as any,
+        obstacles: { ...(prev.obstacles ?? {}), ...(patch.obstacles ?? {}) } as any,
+        profile: { ...(prev.profile ?? {}), ...(patch.profile ?? {}) } as any,
       })
     );
   };

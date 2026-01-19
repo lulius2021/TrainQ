@@ -456,7 +456,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""));
   }, [workoutTemplates, isCardioLibrary]);
 
-  const headingPrefix = kind === "routine" ? "Training für Block" : "Training für Tag";
+  const headingPrefix = kind === "routine" ? t("plan.editor.titleBlock") : t("plan.editor.titleDay");
 
   const handleAddExerciseFromLibrary = (exercise: Exercise) => {
     const cardioMin = isCardioLibrary ? parseMinutesFromTitle(exercise.name) : undefined;
@@ -483,7 +483,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const handleAddCustomExercise = () => {
     const newBlockExercise: BlockExercise = {
       id: nextBlockExerciseId(),
-      name: isCardioLibrary ? "Neue Einheit" : "Neue Übung",
+      name: isCardioLibrary ? t("plan.editor.newUnit") : t("plan.editor.newExercise"),
       sets: [
         {
           id: nextExerciseSetId(),
@@ -615,7 +615,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               {headingPrefix}: {draft.label}
             </div>
             <div className="text-[11px] text-[var(--muted)]">
-              {isCardioLibrary ? "Lege Cardio-Einheiten und Intervalle an." : "Lege Kraftübungen und Sätze an."}
+              {isCardioLibrary ? t("plan.editor.subtitleCardio") : t("plan.editor.subtitleStrength")}
             </div>
           </div>
 
@@ -635,7 +635,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
                 title={t("plan.templateSaveHint")}
               >
-                Vorlage speichern
+                {t("plan.editor.saveTemplate")}
               </button>
             </div>
 
@@ -644,14 +644,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               onClick={onClose}
               className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-1.5 text-[11px] text-[var(--text)] hover:opacity-95"
             >
-              Abbrechen
+              {t("common.cancel")}
             </button>
             <button
               type="button"
               onClick={handleSaveClick}
               className="rounded-xl bg-sky-500 px-4 py-1.5 text-[11px] font-medium text-white hover:bg-sky-600"
             >
-              Speichern
+              {t("common.save")}
             </button>
           </div>
         </div>
@@ -659,7 +659,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
           <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? "Einheiten im Block" : "Übungen im Block"}</span>
+              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? t("plan.editor.unitsBlock") : t("plan.editor.exercisesBlock")}</span>
 
               <div className="flex items-center gap-2">
                 <button
@@ -670,14 +670,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   }}
                   className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
                 >
-                  {isCardioLibrary ? "Cardio öffnen" : "Übungsbibliothek"}
+                  {isCardioLibrary ? t("plan.editor.openCardio") : t("plan.editor.openLibrary")}
                 </button>
                 <button
                   type="button"
                   onClick={handleAddCustomExercise}
                   className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
                 >
-                  + {isCardioLibrary ? "Eigene Einheit" : "Eigene Übung"}
+                  + {isCardioLibrary ? t("plan.editor.addCustomUnit") : t("plan.editor.addCustomExercise")}
                 </button>
               </div>
             </div>
@@ -690,7 +690,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
                 title={t("plan.templateLoadHint")}
               >
-                <option value="">{compatibleWorkoutTemplates.length ? "Vorlage laden…" : "Keine Trainingsvorlagen"}</option>
+                <option value="">{compatibleWorkoutTemplates.length ? t("plan.editor.loadTemplate") : t("plan.editor.noTemplates")}</option>
                 {compatibleWorkoutTemplates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -699,14 +699,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               </select>
 
               <span className="text-[10px] text-[var(--muted)]">
-                {draft.exercises.length} {isCardioLibrary ? "Einheit" : "Übung"}
+                {draft.exercises.length} {isCardioLibrary ? t("plan.editor.unit") : t("plan.editor.exercise")}
                 {draft.exercises.length === 1 ? "" : "en"}
               </span>
             </div>
 
             {draft.exercises.length === 0 ? (
               <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-[11px] text-[var(--muted)]">
-                Noch nichts angelegt.
+                {t("plan.editor.empty")}
               </div>
             ) : (
               <div className="flex-1 space-y-2 overflow-y-auto pr-1">
@@ -724,19 +724,19 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                         onClick={() => handleRemoveBlockExercise(ex.id)}
                         className="shrink-0 rounded-lg border border-red-500/60 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-200 hover:bg-red-500/20"
                       >
-                        Entfernen
+                        {t("common.remove")}
                       </button>
                     </div>
 
                     <div className="space-y-1 rounded-lg border border-sky-900/60 bg-sky-900/25 p-2">
                       <div className="mb-1 flex items-center justify-between text-[10px] text-[var(--text)]">
-                        <span>{isCardioLibrary ? "Intervalle / Abschnitte" : "Sätze"}</span>
+                        <span>{isCardioLibrary ? t("plan.editor.intervalsSections") : t("plan.editor.sets")}</span>
                         <button
                           type="button"
                           onClick={() => handleAddSet(ex.id)}
                           className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--text)] hover:opacity-95"
                         >
-                          + {isCardioLibrary ? "Intervall" : "Satz"}
+                          + {isCardioLibrary ? t("plan.editor.addInterval") : t("plan.editor.addSet")}
                         </button>
                       </div>
 
@@ -744,7 +744,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                         {ex.sets.map((set, index) => (
                           <div key={set.id} className="grid grid-cols-[auto,1fr,1fr,1.5fr,auto] items-center gap-2 text-[10px]">
                             <span className="text-[var(--text)]">
-                              {isCardioLibrary ? "Abschnitt" : "Satz"} {index + 1}
+                              {isCardioLibrary ? t("plan.editor.section") : t("plan.editor.set")} {index + 1}
                             </span>
 
                             <input

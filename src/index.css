@@ -75,20 +75,27 @@ html.dark {
   --font-base: 17px; /* ✅ größer als Default */
   --line-base: 1.45;
 
-  --bg-gradient: #061226;
-  --bg: #061226;
+  /* Prompt: Deep Dark Background (#0F172A) */
+  --bg-gradient: #0F172A;
+  --bg: #0F172A;
 
-  --surface: rgba(10, 14, 24, 0.88);
-  --surface2: rgba(13, 18, 30, 0.92);
-  --border: rgba(255, 255, 255, 0.07);
+  /* Surfaces - Slightly lighter than bg */
+  --surface: #1E293B; /* Slate-800 based on Tailwind colors often paired with 0F172A */
+  --surface2: #334155;
+  --border: rgba(255, 255, 255, 0.1);
 
   --text: #ffffff;
-  --muted: #9ca3af; /* gray-400 */
+  --muted: #94A3B8; /* Slate-400 */
 
-  --primary: #2563eb;
-  --primarySoft: #3b82f6;
+  /* Prompt: Electric Blue Accents (#3B82F6) */
+  --primary: #3B82F6;
+  --primarySoft: #60A5FA;
 
   --shadow: none;
+
+  /* Safe Area / Rounded config */
+  --r: 24px;   /* rounded-2xl/3xl approx */
+  --r2: 32px;
 }
 
 /* =========================

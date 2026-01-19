@@ -128,26 +128,28 @@ export async function renderWorkoutStoryPng(opts: RenderOpts): Promise<Blob> {
   const cap = typeof window !== "undefined" ? (window as any).Capacitor : null;
   const platform = typeof cap?.getPlatform === "function" ? cap.getPlatform() : "web";
   const isIOS = platform === "ios";
+  const def = STORY_TEMPLATES.find((tpl) => tpl.id === opts.templateId) ?? STORY_TEMPLATES[0];
+  const isSticker = opts.mode === "sticker";
+  const W = 1080;
+  const H = isSticker ? 1080 : 1920;
+
   const container = document.createElement("div");
   container.style.position = "fixed";
   container.style.left = "-10000px";
   container.style.top = "0";
-  container.style.width = "1080px";
-  container.style.height = "1920px";
+  container.style.width = `${W}px`;
+  container.style.height = `${H}px`;
   container.style.pointerEvents = "none";
   container.style.zIndex = "-1";
   document.body.appendChild(container);
-
-  const def = STORY_TEMPLATES.find((tpl) => tpl.id === opts.templateId) ?? STORY_TEMPLATES[0];
-  const isSticker = opts.mode === "sticker";
   const root = createRoot(container);
   root.render(
     isSticker ? (
       <div
         data-story-export-root="true"
         style={{
-          width: 1080,
-          height: 1920,
+          width: W,
+          height: H,
           position: "relative",
           background: "transparent",
           color: "#0f172a",
@@ -194,13 +196,13 @@ export async function renderWorkoutStoryPng(opts: RenderOpts): Promise<Blob> {
 
     const dataUrl = await toPng(node, {
       cacheBust: true,
-      width: 1080,
-      height: 1920,
+      width: W,
+      height: H,
       pixelRatio: isIOS ? 1.5 : 2,
       backgroundColor: isSticker ? "transparent" : undefined,
       style: {
-        width: "1080px",
-        height: "1920px",
+        width: `${W}px`,
+        height: `${H}px`,
         transform: "scale(1)",
         transformOrigin: "top left",
         ...(isSticker ? { backgroundColor: "transparent" } : {}),

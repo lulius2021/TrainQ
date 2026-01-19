@@ -62,9 +62,33 @@ function setupGlobalNoZoom() {
 }
 
 setupGlobalNoZoom();
+import { hasSupabaseEnv } from "./lib/supabaseClient";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+if (!hasSupabaseEnv()) {
+  const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+  root.render(
+    <div style={{
+      height: "100vh",
+      width: "100vw",
+      backgroundColor: "#111",
+      color: "red",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      padding: "20px",
+      textAlign: "center"
+    }}>
+      <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>CRITICAL ERROR</h1>
+      <p style={{ color: "white" }}>Missing Supabase Environment Variables.</p>
+      <p style={{ color: "#888", fontSize: "12px", marginTop: "10px" }}>Please check .env file and rebuild.</p>
+      <p style={{ color: "#666", fontSize: "10px", marginTop: "20px" }}>VITE_SUPABASE_URL not found.</p>
+    </div>
+  );
+} else {
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}

@@ -1,28 +1,21 @@
-import { translationsDe } from "./translations.de";
-import { translationsEn } from "./translations.en";
+import de from "./locales/de.json";
+import en from "./locales/en.json";
 
 export type Lang = "de" | "en";
-export type TranslationKey = keyof typeof translationsEn;
+export type TranslationKey = keyof typeof en;
 
-export const dictionaries: Record<Lang, Record<TranslationKey, string>> = {
-  de: translationsDe,
-  en: translationsEn,
-};
 
 export const defaultLang: Lang = "de";
 
-export function getTranslation(lang: Lang, key: TranslationKey): string {
-  return dictionaries[lang][key];
-}
 
 export function assertTranslationsMatch(): void {
   if (process.env.NODE_ENV === "production") return;
-  const enKeys = Object.keys(translationsEn);
-  const deKeys = Object.keys(translationsDe);
-  const missingInDe = enKeys.filter((k) => !(k in translationsDe));
-  const missingInEn = deKeys.filter((k) => !(k in translationsEn));
+  const enKeys = Object.keys(en);
+  const deKeys = Object.keys(de);
+  const missingInDe = enKeys.filter((k) => !(k in de));
+  const missingInEn = deKeys.filter((k) => !(k in en));
   if (missingInDe.length || missingInEn.length) {
-     
+
     console.warn("[i18n] Missing translation keys", { missingInDe, missingInEn });
   }
 }

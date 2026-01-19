@@ -134,13 +134,15 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmail((e) => e.trim())} // Auto-trim on blur
               className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-base text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] focus:ring-offset-[#061226]"
               placeholder="name@email.com"
+              type="email"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
               inputMode="email"
-              autoComplete="username"
+              autoComplete="email"
             />
           </div>
 

@@ -6,6 +6,7 @@ import type { PersonalData } from "../../../types/onboarding";
 
 interface Step1PersonalProps {
   onNext: () => void;
+  onBack: () => void;
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -35,7 +36,7 @@ function sanitizePersonal(input?: Partial<PersonalData> | null): PersonalData {
   return { stressLevel, sleepHours, age, height, weight };
 }
 
-export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
+export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) => {
   const { data, updateData } = useOnboarding();
 
   const initial = useMemo(() => sanitizePersonal(data?.personal), [data?.personal]);
@@ -103,7 +104,8 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext }) => {
     <StepWrapper
       hideHeader
       hideProgress
-      showBack={false}
+      showBack={true}
+      onBack={onBack}
       onNext={handleNext}
       nextLabel="Weiter"
     >

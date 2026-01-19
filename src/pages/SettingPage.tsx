@@ -140,7 +140,7 @@ export default function SettingPage({
       { key: "profile", label: t("settings.section.profile"), kind: "section" },
       { key: "account", label: t("settings.section.account"), kind: "section" },
       { key: "notifications", label: t("settings.section.notifications"), kind: "section" },
-      { key: "integrations", label: "Integrations", kind: "section" }, // New
+      { key: "integrations", label: t("settings.section.integrations"), kind: "section" }, // New
       { key: "units", label: t("settings.section.units"), kind: "section" },
       { key: "language", label: t("settings.section.language"), kind: "section" },
       { key: "theme", label: t("settings.section.theme"), kind: "section" },
@@ -214,7 +214,7 @@ export default function SettingPage({
 
   const handleGarminDisconnect = async () => {
     // Call disconnect API
-    const ok = window.confirm(t("settings.confirm.disconnectGarmin") || "Disconnect Garmin?");
+    const ok = window.confirm(t("settings.confirm.disconnectGarmin"));
     if (ok) {
       try {
         const { getSupabaseClient } = await import("../lib/supabaseClient");
@@ -232,11 +232,11 @@ export default function SettingPage({
         if (res.ok) {
           setGarminConnected(false);
         } else {
-          alert("Failed to disconnect");
+          alert(t("settings.alert.disconnectFailed"));
         }
       } catch (e) {
         console.error(e);
-        alert("Error disconnecting");
+        alert(t("settings.alert.disconnectError"));
       }
     }
   };
@@ -309,25 +309,25 @@ export default function SettingPage({
 
   const IntegrationsPanel = () => (
     <>
-      <SectionHeader title="Integrations" />
+      <SectionHeader title={t("settings.section.integrations")} />
       <div className={cardClass}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Garmin Icon Placeholder */}
             <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold text-xs">G</div>
-            <span className="font-medium">Garmin Connect</span>
+            <span className="font-medium">{t("settings.integrations.garmin")}</span>
           </div>
           <span className={`text-xs px-2 py-1 rounded-full ${garminConnected ? "bg-green-500/20 text-green-500" : "bg-gray-500/20 text-gray-500"}`}>
-            {garminConnected ? "Connected" : "Not connected"}
+            {garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
           </span>
         </div>
 
         {garminConnected ? (
-          <button onClick={handleGarminDisconnect} className={btnClass}>Disconnect</button>
+          <button onClick={handleGarminDisconnect} className={btnClass}>{t("settings.integrations.disconnect")}</button>
         ) : (
-          <button onClick={handleGarminConnect} className={btnClass}>Connect Garmin</button>
+          <button onClick={handleGarminConnect} className={btnClass}>{t("settings.integrations.connect")}</button>
         )}
-        <p className="text-xs opacity-50">Sync your workouts automatically.</p>
+        <p className="text-xs opacity-50">{t("settings.integrations.syncNote")}</p>
       </div>
     </>
   )

@@ -1,16 +1,16 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
-import { translationsDe } from "./i18n/translations.de";
-import { translationsEn } from "./i18n/translations.en";
+import de from "./i18n/locales/de.json";
+import en from "./i18n/locales/en.json";
 
 // Define the shape of our resources
 const resources = {
     de: {
-        translation: translationsDe,
+        translation: de,
     },
     en: {
-        translation: translationsEn,
+        translation: en,
     },
 };
 

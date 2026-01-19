@@ -15,7 +15,7 @@ export default function StoryExportCanvas({ children, exportSafe = false }: Prop
         position: "relative",
         overflow: "hidden",
         background: exportSafe
-          ? "#05060a"
+          ? "#0F172A"
           : "linear-gradient(160deg, #0B1220 0%, #070B14 55%, #05060A 100%)",
         color: "#F8FAFC",
         fontFamily: '"SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',

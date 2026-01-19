@@ -15,12 +15,18 @@ export type TrainingLocation =
   | "no_gym"
   | "no_equipment";
 
+export type Persona = "athlete" | "manager" | "beginner";
+
 export interface PersonalData {
   stressLevel: number; // 1–10
   sleepHours: number; // 0–12
   age: number | null;
   height: number | null; // in cm
   weight: number | null; // in kg
+
+  // Prompt Fields
+  persona?: Persona;
+  fitnessLevel?: number; // 1-5
 }
 
 export interface GoalsData {
@@ -35,6 +41,9 @@ export interface TrainingSetupData {
   hoursPerWeek: number | null;
   sessionsPerWeek: number | null;
   locations: TrainingLocation[];
+
+  // Prompt Field
+  timeBudget?: string; // "15min", "30min", "45min", "60min+"
 }
 
 export interface ObstaclesData {
