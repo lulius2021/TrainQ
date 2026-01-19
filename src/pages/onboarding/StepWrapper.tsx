@@ -1,6 +1,8 @@
 // src/pages/onboarding/StepWrapper.tsx
 import React from "react";
 import { useI18n } from "../../i18n/useI18n";
+import { AppButton } from "../../components/ui/AppButton";
+import { AppCard } from "../../components/ui/AppCard";
 
 export type StepWrapperProps = {
   children: React.ReactNode;
@@ -46,56 +48,30 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   const { t } = useI18n();
   const resolvedNextLabel = nextLabel ?? t("common.next");
   const resolvedBackLabel = backLabel ?? t("common.back");
-  const safeTop = "env(safe-area-inset-top, 0px)";
-  const safeBottom = "env(safe-area-inset-bottom, 0px)";
-
-  // Styling basiert auf deinen Theme-Variablen
-  const surface: React.CSSProperties = {
-    background: "var(--surface2)",
-    border: "1px solid var(--border)",
-  };
-
-  const surfaceInner: React.CSSProperties = {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-  };
-
-  const primaryBtn: React.CSSProperties = {
-    background: "var(--primary)",
-    color: "#061226",
-    border: "1px solid var(--border)",
-  };
-
-  const ghostBtn: React.CSSProperties = {
-    background: "transparent",
-    color: "var(--text)",
-    border: "1px solid var(--border)",
-  };
 
   return (
     <div
-      className="h-full w-full"
+      className="h-full w-full flex flex-col"
       style={{
-        // ✅ kein eigener harter Hintergrund -> nutzt den App-Hintergrund
-        background: "transparent",
-        paddingTop: `calc(12px + ${safeTop})`,
-        paddingBottom: `calc(120px + ${safeBottom})`,
+        background: "var(--bg)",
+        // Padding top handled by content spacing mostly, but safe area needed
+        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+        paddingBottom: "120px", // space for fixed footer
       }}
     >
-      <div className="mx-auto w-full max-w-xl px-4">
-        {/* Top */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between">
+      <div className="mx-auto w-full max-w-xl px-4 flex-1 flex flex-col">
+        {/* Top Navigation */}
+        <div className="mb-6 shrink-0">
+          <div className="flex items-center justify-between h-12">
             {showBack ? (
-              <button
-                type="button"
+              <AppButton
                 onClick={onBack}
-                className="h-10 w-10 rounded-full flex items-center justify-center hover:opacity-95"
-                style={surface}
+                variant="secondary"
+                className="h-10 w-10 !p-0 rounded-full flex items-center justify-center"
                 aria-label={resolvedBackLabel}
               >
-                <span style={{ color: "var(--text)" }}>{"<"}</span>
-              </button>
+                <span>{"<"}</span>
+              </AppButton>
             ) : (
               <div />
             )}
@@ -104,19 +80,18 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
 
           {/* Progress (optional) */}
           {!hideProgress && (progressLabel || typeof progressValue === "number") && (
-            <div className="mt-3">
+            <div className="mt-4">
               {progressLabel && (
-                <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+                <div className="text-xs font-medium text-[var(--muted)] mb-2">
                   {progressLabel}
                 </div>
               )}
               {typeof progressValue === "number" && (
-                <div className="mt-2 h-2 w-full rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-1.5 w-full rounded-full bg-[var(--surface2)] overflow-hidden">
                   <div
-                    className="h-2 rounded-full"
+                    className="h-full rounded-full bg-[var(--primary)] transition-all duration-300 ease-out"
                     style={{
                       width: `${Math.round(Math.min(1, Math.max(0, progressValue)) * 100)}%`,
-                      background: "var(--primary)",
                     }}
                   />
                 </div>
@@ -126,60 +101,52 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
 
           {/* Header (optional) */}
           {!hideHeader && (title || subtitle) && (
-            <div className="mt-5 space-y-1">
+            <div className="mt-6 space-y-2">
               {title && (
-                <div className="text-xl font-semibold" style={{ color: "var(--text)" }}>
+                <h1 className="text-2xl font-bold text-[var(--text)] tracking-tight">
                   {title}
-                </div>
+                </h1>
               )}
               {subtitle && (
-                <div className="text-sm" style={{ color: "var(--muted)" }}>
+                <p className="text-base text-[var(--muted)] leading-relaxed">
                   {subtitle}
-                </div>
+                </p>
               )}
             </div>
           )}
         </div>
 
         {/* Content */}
-        <div className="space-y-3">{children}</div>
+        <div className="space-y-4 pb-4">
+          {children}
+        </div>
       </div>
 
-      {/* Footer Buttons (besser formatiert) */}
-      <div
-        className="fixed left-0 right-0 bottom-0"
-        style={{
-          paddingBottom: `calc(12px + ${safeBottom})`,
-          // leichter Fade nach unten – sieht wertiger aus, aber übernimmt App-Background
-          background: "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))",
-        }}
-      >
-        <div className="mx-auto w-full max-w-xl px-4">
-          <div className="rounded-2xl p-3 flex gap-2" style={surface}>
-            {showBack && (
-              <button
-                type="button"
-                onClick={onBack}
-                className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95"
-                style={ghostBtn}
+      {/* Fixed Footer */}
+      <div className="fixed inset-x-0 bottom-0 z-50 p-4 pb-[max(env(safe-area-inset-bottom),20px)]">
+        <div className="mx-auto w-full max-w-xl">
+          <AppCard variant="glass" noPadding className="p-3">
+            <div className="flex gap-3">
+              {showBack && (
+                <AppButton
+                  onClick={onBack}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  {resolvedBackLabel}
+                </AppButton>
+              )}
+              <AppButton
+                onClick={onNext}
+                disabled={nextDisabled}
+                variant="primary"
+                className="flex-1"
+                fullWidth
               >
-                {resolvedBackLabel}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={nextDisabled}
-              className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-95 disabled:opacity-50"
-              style={primaryBtn}
-            >
-              {resolvedNextLabel}
-            </button>
-          </div>
-
-          {/* optional: kleiner Spacer, falls du innen noch was brauchst */}
-          <div className="h-1" style={surfaceInner} />
+                {resolvedNextLabel}
+              </AppButton>
+            </div>
+          </AppCard>
         </div>
       </div>
     </div>

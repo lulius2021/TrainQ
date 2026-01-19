@@ -30,12 +30,12 @@ function reasonTitle(t: (key: any, vars?: any) => string, reason: PaywallReason)
 
 function reasonSubtitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
   if (reason === "adaptive_limit") {
-    return t("paywall.reason.adaptiveSub", { limit: FREE_LIMITS.adaptiveBCPerMonth });
+    return t("paywall.reason.adaptiveSub"); // Hardcoded limit in json
   }
   if (reason === "plan_shift") {
-    return t("paywall.reason.planShiftSub", { limit: FREE_LIMITS.planShiftPerMonth });
+    return t("paywall.reason.planShiftSub");
   }
-  return t("paywall.reason.calendarSub", { limit: FREE_LIMITS.calendar7DaysPerMonth });
+  return t("paywall.reason.calendarSub");
 }
 
 function buildBullets(t: (key: any) => string): Array<{ label: string; ok: boolean }> {
@@ -74,10 +74,10 @@ export default function PaywallModal(props: Props) {
     if (isPro) return t("paywall.remaining.proActive");
 
     if (reason === "adaptive_limit")
-      return t("paywall.remaining.adaptive", { value: formatRemaining(adaptiveBCRemaining) });
+      return `${t("paywall.remaining.adaptive")}: ${formatRemaining(adaptiveBCRemaining)}`;
     if (reason === "plan_shift")
-      return t("paywall.remaining.planShift", { value: formatRemaining(planShiftRemaining) });
-    return t("paywall.remaining.calendar", { value: formatRemaining(calendar7DaysRemaining) });
+      return `${t("paywall.remaining.planShift")}: ${formatRemaining(planShiftRemaining)}`;
+    return `${t("paywall.remaining.calendar")}: ${formatRemaining(calendar7DaysRemaining)}`;
   })();
   const bullets = buildBullets(t);
 

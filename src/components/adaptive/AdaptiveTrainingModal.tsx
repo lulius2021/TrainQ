@@ -1,6 +1,7 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useI18n } from "../../i18n/useI18n";
+import AdaptivePlanCard from "./AdaptivePlanCard";
 import type { TranslationKey } from "../../i18n/index";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
@@ -47,29 +48,63 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
   if (!open) return null;
 
-  const entitlementLine = isPro ? t("adaptive.entitlement.pro") : (typeof adaptiveLeftBC === 'number' ? t("adaptive.entitlement.freeRemaining", { remaining: Math.max(0, adaptiveLeftBC), limit: bcFreeLimit }) : t("adaptive.entitlement.freeLimited", { limit: bcFreeLimit }));
+  const typeName = (type: string) => {
+    const map: Record<string, string> = {
+      push: "Push (Drücken)",
+      pull: "Pull (Ziehen)",
+      legs: "Beine (Unterkörper)",
+      upper: "Oberkörper",
+      lower: "Unterkörper"
+    };
+    return map[type.toLowerCase()] || type;
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[90vh] rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <header className="flex items-start justify-between gap-4 p-5 border-b border-white/10">
-          <div>
-            <p className="text-sm font-semibold text-gray-300">{t("adaptive.title")}</p>
-            <h2 className="text-2xl font-bold text-white mt-1">{t("adaptive.today", { value: plannedWorkoutType })}</h2>
-            <p className="text-sm text-gray-400 mt-2">{t("adaptive.subtitle")}</p>
-            <p className="text-sm text-gray-400 mt-1">{entitlementLine}</p>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 overflow-hidden"
+      onClick={onClose}
+      style={{ touchAction: 'none' }}
+    >
+      <div
+        className="w-full max-w-2xl h-[90vh] rounded-[24px] border-[1.5px] border-white/10 bg-white/5 shadow-2xl flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxHeight: 'calc(100vh - 2rem)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        }}
+      >
+        <header className="flex-shrink-0 flex items-center justify-between gap-4 p-5 border-b-[1.5px] border-white/10 bg-white/5" style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-white" style={{ letterSpacing: '-0.4px' }}>{t("adaptive.title")}</h2>
+            <span className="rounded-full px-3 py-1.5 text-xs font-bold bg-white/10 text-white uppercase" style={{ letterSpacing: '0.5px' }}>
+              {step === "questions" ? t("adaptive.step.questions") : t("adaptive.step.suggestions")}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full px-3 py-1 text-sm font-semibold bg-white/10 text-white">{step === "questions" ? t("adaptive.step.questions") : t("adaptive.step.suggestions")}</span>
-            <button type="button" onClick={onClose} className="h-10 w-10 flex items-center justify-center rounded-full text-2xl text-gray-400 hover:bg-white/10 hover:text-white">✕</button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 w-10 flex items-center justify-center rounded-full text-2xl text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          >
+            ✕
+          </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div
+          className="flex-1 overflow-y-auto p-5 space-y-4 overscroll-contain pb-32"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.2) transparent',
+          }}
+        >
           {!plannedOk && (
-            <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-4">
-              <h3 className="font-bold text-red-300">{t("adaptive.notice")}</h3>
-              <p className="text-sm text-red-300/80">{t("adaptive.planMismatch", { value: plannedWorkoutType })}</p>
+            <div className="rounded-xl border-[1.5px] border-red-500/50 bg-red-500/10 p-4">
+              <h3 className="font-bold text-red-300">Plan passt nicht</h3>
+              <p className="text-sm text-red-300/80">
+                Dieser adaptive Plan ist für <strong>{typeName(plannedWorkoutType)}</strong> gedacht.
+              </p>
             </div>
           )}
 
@@ -81,7 +116,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                 { id: "q3", title: t("adaptive.q3"), key: "stress", options: [["low", t("adaptive.q3.low")], ["mid", t("adaptive.q3.mid")], ["high", t("adaptive.q3.high")]] },
                 { id: "q4", title: t("adaptive.q4"), key: "yesterdayEffort", options: [["low", t("adaptive.q4.low")], ["mid", t("adaptive.q4.mid")], ["high", t("adaptive.q4.high")]] },
               ].map(q => (
-                <div key={q.id} className="rounded-xl p-4 bg-white/5 border border-white/10">
+                <div key={q.id} className="rounded-xl p-4 bg-white/5 border-[1.5px] border-white/10">
                   <h3 className="text-base font-semibold mb-3">{q.title}</h3>
                   <div className={`grid gap-3 grid-cols-2 ${q.options.length > 2 ? 'sm:grid-cols-' + q.options.length : ''}`}>
                     {q.options.map(([value, label]) => (
@@ -91,7 +126,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                 </div>
               ))}
               <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-3 rounded-xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20" onClick={onClose}>{t("common.cancel")}</button>
+                <button className="flex-1 py-3 rounded-xl bg-white/10 border-[1.5px] border-white/10 text-base font-semibold hover:bg-white/20" onClick={onClose}>{t("common.cancel")}</button>
                 <button className="flex-1 py-3 rounded-xl bg-[#2563EB] text-base font-semibold hover:bg-sky-500 disabled:opacity-50" onClick={() => setStep("suggestions")} disabled={!plannedOk} title={!plannedOk ? t("adaptive.planMismatchShort") : t("adaptive.showSuggestions")}>
                   {t("adaptive.showSuggestions")}
                 </button>
@@ -101,22 +136,28 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
           {step === "suggestions" && (
             <div className="space-y-4">
-              <div className="rounded-xl p-4 bg-white/5 border border-white/10">
+              <div className="rounded-xl p-4 bg-white/5 border-[1.5px] border-white/10">
                 <h3 className="font-bold text-lg">{t("adaptive.suggestionsTitle")}</h3>
-                <p className="text-sm text-gray-300">{t("adaptive.suggestionsSubtitle", { value: plannedWorkoutType })}</p>
+                <p className="text-sm text-gray-300">
+                  Vorschläge für <strong>{typeName(plannedWorkoutType)}</strong> basierend auf deinen Antworten.
+                </p>
               </div>
               {suggestions.map(s => {
                 const accent = profileAccent(s.profile);
                 return (
-                  <div key={s.profile} className="rounded-xl p-4" style={{ borderColor: accent.border, background: accent.bg }}>
-                    {/* ... Suggestion card content ... */}
-                    <button className="w-full mt-4 py-3 rounded-xl text-base font-semibold text-white hover:opacity-90" style={{ background: accent.badgeBg.replace('0.18', '0.3') }} onClick={() => onSelect(s, answers)}>{t("adaptive.select")}</button>
-                  </div>
+                  <AdaptivePlanCard
+                    key={s.profile}
+                    suggestion={s}
+                    accent={accent}
+                    onSelect={() => onSelect(s, answers)}
+                    disabled={!plannedOk}
+                    isPro={isPro}
+                  />
                 )
               })}
               <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-3 rounded-xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20" onClick={() => setStep("questions")}>{t("common.back")}</button>
-                <button className="flex-1 py-3 rounded-xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20" onClick={onClose}>{t("common.close")}</button>
+                <button className="flex-1 py-3 rounded-xl bg-white/10 border-[1.5px] border-white/10 text-base font-semibold hover:bg-white/20" onClick={() => setStep("questions")}>{t("common.back")}</button>
+                <button className="flex-1 py-3 rounded-xl bg-white/10 border-[1.5px] border-white/10 text-base font-semibold hover:bg-white/20" onClick={onClose}>{t("common.close")}</button>
               </div>
             </div>
           )}

@@ -1,5 +1,7 @@
 // src/pages/Dashboard.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import { AppCard } from "../components/ui/AppCard";
+import { AppButton } from "../components/ui/AppButton";
 import { useI18n } from "../i18n/useI18n";
 import type {
   UpcomingTraining,
@@ -16,6 +18,7 @@ import type { OnboardingData } from "../types/onboarding";
 // ✅ Adaptives Training
 import AdaptiveTrainingModal from "../components/adaptive/AdaptiveTrainingModal";
 import type { AdaptiveAnswers, AdaptiveSuggestion } from "../types/adaptive";
+import { calculateAdaptiveWorkout } from "../features/adaptive/engine";
 
 // ✅ Helper: Adaptiv sauber ins CalendarEvent schreiben (Plural!)
 import { applyAdaptiveToCalendarEvent } from "../utils/adaptiveCalendarEvents";
@@ -592,10 +595,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
 
-  const startPrimaryTraining = () => {
-    if (!primaryTraining) return;
-    openPreviewForEvent(primaryTraining);
-  };
+
 
   // -------------------- Adaptives Training --------------------
 
@@ -609,7 +609,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setAdaptiveOpen(true);
   };
 
-  const applyAdaptiveSelection = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
+  const applyAdaptiveSelection = async (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
     if (!adaptiveTargetEvent) return;
     if (!onUpdateEvents) return;
 
@@ -624,6 +624,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     if (suggestion.estimatedMinutes <= 0) return;
 
+    // 1. Adaptive Engine: Workout berechnen
+    // "Push_A" als Standard-Template oder basierend auf Kontext
+    // In Zukunft: mapping von adaptiveTargetEvent.trainingType / title auf TemplateID
+    const templateId = inferWorkoutTypeFromTitle(adaptiveTargetEvent.title) === 'Pull' ? 'Pull_A' : 'Push_A';
+
+    // Import muss oben hinzugefügt werden! Ich nutze hier den vollen Pfad für Klarheit im Replace, 
+    // aber sauberer ist der Import oben. Da ich im Replace-Block bin, füge ich Logik hier ein.
+    // (Annahme: Import von calculateAdaptiveWorkout ist vorhanden - siehe separaten Replace-Block oder Import-Update)
+    const result = await calculateAdaptiveWorkout({ templateId });
+
+    // 2. Seed erstellen
+    const seed: LiveTrainingSeed = {
+      title: `Adaptive ${suggestion.title}`,
+      sport: "Gym",
+      isCardio: false,
+      exercises: result.exercises.map(ex => ({
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        sets: ex.sets.map(s => ({
+          reps: s.reps,
+          weight: s.weight,
+          notes: s.notes
+        }))
+      }))
+    };
+
+    // 3. Seed speichern (damit "Start" Button direkt das richtige Workout lädt)
+    writeLiveSeedForEventOrKey({
+      eventId: adaptiveTargetEvent.id,
+      dateISO: adaptiveTargetEvent.date,
+      title: adaptiveTargetEvent.title,
+      seed
+    });
+
+    // 4. Update Event
     const adaptiveProfileABC = mapSuggestionProfileToABC(suggestion.profile);
     const reasons = (suggestion.reasons ?? []).slice(0, 3).map((r) => String(r));
     const newEnd = addMinutesToHHMM((adaptiveTargetEvent as any).startTime, suggestion.estimatedMinutes);
@@ -636,7 +671,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           adaptiveProfile: adaptiveProfileABC,
           adaptiveReasons: reasons,
           estimatedMinutes: suggestion.estimatedMinutes,
-          note: `Adaptiv: ${suggestion.title}`,
+          note: `Adaptiv: ${suggestion.title} (${result.reason})`,
           endTime: newEnd,
         }) as CalendarEvent;
 
@@ -731,106 +766,107 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <>
-      <div className="min-h-screen w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 pt-6 pb-8 px-4">
+      <div className="min-h-[100dvh] w-full text-[var(--text)] bg-[var(--bg)]">
+        {/* Global Spacing & Layout */}
+        <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[var(--nav-height)]">
+
+          {/* Collapsing Large Title */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-[var(--text)]">Dashboard</h1>
+          </div>
+
           {/* =========================================================
             1) TOP CARD: 1 klare Hauptaktion + kompakter Status
             ========================================================= */}
-          <div className="relative bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md rounded-[24px] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm text-[var(--muted)]">Dashboard</p>
-                <h1 className="text-xl font-semibold leading-tight text-[var(--text)]">
-                  {primaryTraining ? "Dein nächstes Training" : "Kein Training geplant"}
-                </h1>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  {primaryTraining ? (
-                    <>
-                      {normalizeTitle((primaryTraining as any).title) || "Training"}{" "}
-                      <span className="opacity-70">
-                        · {primaryTraining.date === todayISO ? "heute" : formatDayLabelFromISO(primaryTraining.date)}
-                        {String(primaryTraining.startTime || "").trim() ? ` · ${primaryTraining.startTime}` : ""}
-                      </span>
-                    </>
-                  ) : (
-                    "Erstelle ein Training über +"
-                  )}
-                </p>
+          <AppCard variant="glass" className="relative p-0 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--muted)]">Dashboard</p>
+                  <h1 className="text-xl font-semibold leading-tight text-[var(--text)]">
+                    {primaryTraining ? "Dein nächstes Training" : "Kein Training geplant"}
+                  </h1>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {primaryTraining ? (
+                      <>
+                        {normalizeTitle((primaryTraining as any).title) || "Training"}{" "}
+                        <span className="opacity-70">
+                          · {primaryTraining.date === todayISO ? "heute" : formatDayLabelFromISO(primaryTraining.date)}
+                          {String(primaryTraining.startTime || "").trim() ? ` · ${primaryTraining.startTime}` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      "Erstelle ein Training über +"
+                    )}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <span className="rounded-full px-3 py-1 text-sm bg-[var(--surface2)] border border-[var(--border)] text-[var(--muted)]">
+                    {t("dashboard.week")}: {progressLabel(doneThisWeek.minutes, weeklyGoalMinutes)}
+                  </span>
+                </div>
               </div>
-              <div className="shrink-0">
-                <span className="rounded-full px-3 py-1 text-sm bg-[var(--surface2)] border border-[var(--border)] text-[var(--muted)]">
-                  {t("dashboard.week")}: {progressLabel(doneThisWeek.minutes, weeklyGoalMinutes)}
-                </span>
-              </div>
-            </div>
 
-            {/* Primary action row */}
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={openAdaptiveForToday}
-                className="h-12 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-base font-semibold text-[var(--text)] transition hover:opacity-80 disabled:opacity-50"
-                disabled={!todayTrainingEvents[0]}
-                title={!todayTrainingEvents[0] ? t("dashboard.noTrainingToday") : t("dashboard.adaptiveToday")}
-              >
-                {t("dashboard.action.adaptive")}
-              </button>
-              <button
-                type="button"
-                onClick={startPrimaryTraining}
-                className="h-12 rounded-xl border border-transparent bg-blue-600 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:bg-blue-500 disabled:opacity-50"
-                disabled={!primaryTraining}
-                title={!primaryTraining ? t("dashboard.noTrainingPlanned") : t("dashboard.startTraining")}
-              >
-                Start
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPlusMenuOpen((v) => !v)}
-                className="h-12 rounded-xl border border-[var(--border)] bg-[var(--surface2)] text-2xl font-semibold leading-none text-[var(--text)] transition hover:opacity-80"
-                aria-label={t("common.more")}
-                title={t("common.more")}
-              >
-                +
-              </button>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="mt-6 flex items-center gap-3">
+                  <AppButton
+                    onClick={openAdaptiveForToday}
+                    variant="secondary"
+                    fullWidth
+                    disabled={!todayTrainingEvents[0]}
+                    title={!todayTrainingEvents[0] ? t("dashboard.noTrainingToday") : t("dashboard.adaptiveToday")}
+                  >
+                    {t("dashboard.action.adaptive")}
+                  </AppButton>
+
+                  <AppButton
+                    onClick={() => setIsPlusMenuOpen((v) => !v)}
+                    variant="secondary"
+                    className="!px-0 w-12 shrink-0 text-2xl"
+                    aria-label={t("common.more")}
+                  >
+                    +
+                  </AppButton>
+                </div>
+              </div>
             </div>
 
             {/* Weekly progress */}
-            <div className="mt-4 rounded-xl bg-[var(--surface2)] border border-[var(--border)] p-3">
+            <AppCard variant="glass" className="mt-3 mx-4 mb-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm text-gray-300">Wochenziel</p>
-                  <p className="text-base font-semibold text-white">
+                  <p className="text-sm text-[var(--muted)]">Wochenziel</p>
+                  <p className="text-base font-semibold text-[var(--text)]">
                     {doneThisWeek.sessions}/{weeklyGoalSessions} Trainings · {doneThisWeek.minutes}/{weeklyGoalMinutes} min
                   </p>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <p className="mt-1 text-sm text-[var(--muted)]">
                     Geplant: {plannedThisWeek.sessions} · {plannedThisWeek.minutes} min
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm text-gray-300">Ziel</p>
-                  <p className="text-base font-semibold text-white">{Math.round(weeklyGoalMinutes / 60)}h</p>
+                  <p className="text-sm text-[var(--muted)]">Ziel</p>
+                  <p className="text-base font-semibold text-[var(--text)]">{Math.round(weeklyGoalMinutes / 60)}h</p>
                 </div>
               </div>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10 border border-white/10">
-                <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.round(weekProgress * 100)}%` }} />
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--bg)] border border-[var(--border)]">
+                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${Math.round(weekProgress * 100)}%` }} />
               </div>
               {!effectiveIsPro && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
+                  <span className="rounded-full px-3 py-1 text-sm bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]">
                     Adaptiv B/C: {FREE_LIMITS.adaptiveBCPerMonth - Math.max(0, adaptiveLeft)}/{FREE_LIMITS.adaptiveBCPerMonth}
                   </span>
-                  <span className="rounded-full px-3 py-1 text-sm bg-white/10 border border-white/10 text-gray-300">
+                  <span className="rounded-full px-3 py-1 text-sm bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]">
                     Plan Shift: {FREE_LIMITS.planShiftPerMonth - Math.max(0, planShiftLeft)}/{FREE_LIMITS.planShiftPerMonth}
                   </span>
                 </div>
               )}
-            </div>
+            </AppCard>
 
             {/* Plus menu */}
             {isPlusMenuOpen && (
               <div
-                className="absolute right-4 top-[88px] z-40 w-60 overflow-hidden rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md shadow-xl text-white"
+                className="absolute right-4 top-[88px] z-40 w-60 overflow-hidden rounded-2xl border-[1.5px] border-white/10 bg-white/5 backdrop-blur-xl shadow-xl text-[var(--text)]"
               >
                 <button
                   type="button"
@@ -841,12 +877,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     setNewCategoryLabel("");
                     setIsQuickEventModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                  className="w-full px-4 py-3 text-left text-base hover:bg-[var(--surface2)] transition-colors"
                 >
                   Termin anlegen
                 </button>
 
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-[var(--border)]" />
 
                 <button
                   type="button"
@@ -862,12 +898,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     }));
                     setIsTrainingModalOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                  className="w-full px-4 py-3 text-left text-base hover:bg-[var(--surface2)] transition-colors"
                 >
                   Training anlegen
                 </button>
 
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-[var(--border)]" />
 
                 <button
                   type="button"
@@ -875,93 +911,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     setIsPlusMenuOpen(false);
                     openShiftDialog();
                   }}
-                  className="w-full px-4 py-3 text-left text-base hover:bg-white/10"
+                  className="w-full px-4 py-3 text-left text-base hover:bg-[var(--surface2)] transition-colors"
                 >
                   Plan verschieben (Tag +1)
                 </button>
               </div>
             )}
-          </div>
+          </AppCard>
 
           {/* =========================================================
-              2) Zwei klare Bereiche: “Nächste 3 Tage” & “Heute”
+              2) "Nächste 3 Tage" - nun prominent (Full Width)
               ========================================================= */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Next 3 days */}
-            <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] space-y-3 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-lg font-semibold">Nächste 3 Tage</h2>
-                <p className="text-sm text-gray-400">Tippen = Vorschau</p>
-              </div>
+          {/* Next 3 days */}
+          <AppCard variant="glass" className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Nächste 3 Tage</h2>
+              <p className="text-sm text-[var(--muted)]">Tippen = Vorschau</p>
+            </div>
 
-              <div className="space-y-3">
-                {next3DaysKeys.map((k) => {
-                  const ev = plannedEventsNext3Days.get(k) ?? null;
-                  const tt = ev ? normalizeTrainingType((ev as any).trainingType) : null;
+            <div className="space-y-3">
+              {next3DaysKeys.map((k) => {
+                const ev = plannedEventsNext3Days.get(k) ?? null;
+                const tt = ev ? normalizeTrainingType((ev as any).trainingType) : null;
 
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => ev && openPreviewForEvent(ev)}
-                      disabled={!ev}
-                      className="w-full rounded-xl p-3 text-left transition bg-white/5 border border-transparent disabled:opacity-60 enabled:hover:bg-white/10"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm text-gray-300">{formatDayLabelFromISO(k)}</p>
-                          <p className="mt-0.5 text-base font-semibold text-white">
-                            {ev ? normalizeTitle(ev.title) : "Kein Training geplant"}
-                          </p>
-                        </div>
-                        {ev && <span className="shrink-0 rounded-full px-2.5 py-1 text-sm bg-white/10 text-gray-300">{tt ? tt.toUpperCase() : "TRAINING"}</span>}
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => ev && openPreviewForEvent(ev)}
+                    disabled={!ev}
+                    className="w-full rounded-2xl p-3 text-left transition bg-[var(--surface2)] border-[1.5px] border-transparent disabled:opacity-60 enabled:hover:bg-[var(--surface)] enabled:hover:border-white/10"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-[var(--muted)]">{formatDayLabelFromISO(k)}</p>
+                        <p className="mt-0.5 text-base font-semibold text-[var(--text)]">
+                          {ev ? normalizeTitle(ev.title) : "Kein Training geplant"}
+                        </p>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      {ev && <span className="shrink-0 rounded-full px-2.5 py-1 text-sm bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)]">{tt ? tt.toUpperCase() : "TRAINING"}</span>}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-
-            {/* Today */}
-            <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] space-y-3 p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{t("dashboard.today")}</h2>
-                <p className="text-sm text-gray-400">{todayEvents.length} Termine</p>
-              </div>
-
-              {todayEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {todayEvents.map((event) => {
-                    const isTraining = isTrainingEvent(event);
-                    const time = `${(event as any).startTime ?? ""}–${(event as any).endTime ?? ""}`.trim();
-                    const title = normalizeTitle((event as any).title) || (isTraining ? "Training" : "Termin");
-
-                    return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => isTraining && openPreviewForEvent(event)}
-                        className="w-full rounded-xl p-3 text-left transition bg-white/5 border border-transparent enabled:hover:bg-white/10"
-                        title={isTraining ? "Training-Vorschau öffnen" : undefined}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm text-gray-300">
-                              {isTraining ? "Training" : categoryLabelByKey.get((event as any).category) ?? "Termin"}
-                            </p>
-                            <p className="mt-0.5 text-base font-semibold text-white">{title}</p>
-                          </div>
-                          {time && <p className="shrink-0 whitespace-nowrap text-sm text-gray-400">{time}</p>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="rounded-xl p-3 text-base text-gray-400 bg-white/5 border-white/10">Keine Termine heute.</div>
-              )}
-            </div>
-          </div>
+          </AppCard>
         </div>
       </div>
 
@@ -990,39 +984,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ========================================================= */}
       {shiftOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+          <AppCard variant="glass" className="w-full max-w-md space-y-4 p-5 shadow-2xl">
             <div>
-              <p className="text-sm text-gray-300">Plan</p>
-              <h2 className="text-lg font-semibold">{t("dashboard.shiftPlanTitle")}</h2>
+              <p className="text-sm text-[var(--muted)]">Plan</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{t("dashboard.shiftPlanTitle")}</h2>
             </div>
 
             {shiftCandidates.length >= 2 ? (
               <div className="space-y-2 text-base">
-                <p className="text-sm text-gray-300">Mehrere Pläne erkannt. Welchen Plan verschieben?</p>
+                <p className="text-sm text-[var(--muted)]">Mehrere Pläne erkannt. Welchen Plan verschieben?</p>
                 <select
                   value={shiftSelectedPlanId}
                   onChange={(e) => setShiftSelectedPlanId(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-base text-white"
+                  className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2.5 text-base text-[var(--text)]"
                 >
                   {shiftCandidates.map((p) => (<option key={p.id} value={p.id}>{p.label}</option>))}
                   <option value="__ALL__">{t("dashboard.shiftPlanAllFallback")}</option>
                 </select>
               </div>
             ) : (
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-[var(--muted)]">
                 Es wurde {shiftCandidates.length === 1 ? "ein Plan" : "kein templateId-Plan"} erkannt. Wir verschieben alle Trainings ab heute.
               </p>
             )}
 
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setShiftOpen(false)} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-base font-medium text-white hover:bg-white/20">
+              <AppButton variant="secondary" onClick={() => setShiftOpen(false)}>
                 Abbrechen
-              </button>
-              <button type="button" onClick={doShift} className="rounded-xl bg-[#2563EB] px-4 py-2 text-base font-semibold text-white hover:bg-sky-500">
+              </AppButton>
+              <AppButton onClick={doShift}>
                 Verschieben
-              </button>
+              </AppButton>
             </div>
-          </div>
+          </AppCard>
         </div>
       )}
 
@@ -1031,23 +1025,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ========================================================= */}
       {isQuickEventModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+          <AppCard variant="glass" className="w-full max-w-md space-y-4 p-5 shadow-2xl">
             <div>
-              <p className="text-sm text-gray-300">Termin</p>
-              <h2 className="text-lg font-semibold">{t("dashboard.createEventTitle")}</h2>
+              <p className="text-sm text-[var(--muted)]">Termin</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{t("dashboard.createEventTitle")}</h2>
             </div>
             <form onSubmit={handleQuickEventSubmit} className="space-y-4 text-base">
               {/* ... form content with glass inputs ... */}
+              {/* NOTE: We aren't changing the inputs inside here in this pass, but cleaning up the container */}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setIsQuickEventModalOpen(false)} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-base font-medium text-white hover:bg-white/20">
+                <AppButton variant="secondary" onClick={() => setIsQuickEventModalOpen(false)}>
                   Abbrechen
-                </button>
-                <button type="submit" className="rounded-xl bg-[#2563EB] px-4 py-2 text-base font-semibold text-white hover:bg-sky-500">
+                </AppButton>
+                <AppButton type="submit">
                   Speichern
-                </button>
+                </AppButton>
               </div>
             </form>
-          </div>
+          </AppCard>
         </div>
       )}
 
@@ -1056,23 +1051,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ========================================================= */}
       {isTrainingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+          <AppCard variant="glass" className="w-full max-w-md space-y-4 p-5 shadow-2xl">
             <div>
-              <p className="text-sm text-gray-300">Training</p>
-              <h2 className="text-lg font-semibold">{t("dashboard.createWorkoutTitle")}</h2>
+              <p className="text-sm text-[var(--muted)]">Training</p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{t("dashboard.createWorkoutTitle")}</h2>
             </div>
             <form onSubmit={handleCreateTraining} className="space-y-4 text-base">
-              {/* ... form content with glass inputs ... */}
+              {/* ... form content ... */}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setIsTrainingModalOpen(false)} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-base font-medium text-white hover:bg-white/20">
+                <AppButton variant="secondary" onClick={() => setIsTrainingModalOpen(false)}>
                   Abbrechen
-                </button>
-                <button type="submit" className="rounded-xl bg-[#2563EB] px-4 py-2 text-base font-semibold text-white hover:bg-sky-500">
+                </AppButton>
+                <AppButton type="submit">
                   Speichern
-                </button>
+                </AppButton>
               </div>
             </form>
-          </div>
+          </AppCard>
         </div>
       )}
 

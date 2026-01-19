@@ -196,12 +196,30 @@ function estimateDurationMinutes(exercises: BlockExercise[], isCardio: boolean):
 
   if (isCardio) {
     let total = 0;
-    for (const ex of exercises) for (const s of ex.sets) total += typeof s.reps === "number" ? s.reps : 10;
+    for (const ex of exercises) {
+      if (!ex.sets || !ex.sets.length) {
+        total += 10;
+        continue;
+      }
+      for (const s of ex.sets) {
+        // Cardio: reps = Minuten, weight = Distanz (km)
+        if (typeof s.reps === "number" && s.reps > 0) {
+          total += s.reps;
+        } else if (typeof s.weight === "number" && s.weight > 0) {
+          // Fallback: 6 min / km (konservative Pace)
+          total += s.weight * 6;
+        } else {
+          // Fallback ohne Werte
+          total += 10;
+        }
+      }
+    }
     return Math.max(5, Math.round(total));
   }
 
+  // Gym: 2.5 min pro Satz (Ausführung + Pause + Wechsel) + 5 min Warmup/Setup pauschal
   const sets = exercises.reduce((acc, ex) => acc + (ex.sets?.length || 0), 0);
-  return Math.max(10, Math.round(sets * 2));
+  return Math.max(10, Math.round(sets * 2.5 + 5));
 }
 
 function startLiveTrainingWithSeed(seed: { title: string; sport: TrainingSportType; isCardio: boolean; exercises: BlockExercise[] }) {
@@ -591,14 +609,28 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     const tpl = compatibleWorkoutTemplates.find((t) => t.id === id);
     if (!tpl) return;
 
-    // ✅ Laden ersetzt den Draft-Content (bewusst)
-    setDraft((prev) => ({
-      ...prev,
-      exercises: Array.isArray(tpl.exercises) ? tpl.exercises : [],
+    // ✅ Laden: Deep Copy + neue IDs generieren, damit keine Referenzen geteilt werden
+    const freshExercises: BlockExercise[] = (tpl.exercises || []).map((ex) => ({
+      id: nextBlockExerciseId(),
+      exerciseId: ex.exerciseId,
+      name: ex.name,
+      sets: (ex.sets || []).map((s) => ({
+        id: nextExerciseSetId(),
+        reps: s.reps,
+        weight: s.weight,
+        notes: s.notes,
+      })),
     }));
 
-    // optional: Name übernehmen
-    setTemplateName(tpl.name || templateName);
+    setDraft((prev) => ({
+      ...prev,
+      exercises: freshExercises,
+    }));
+
+    // Name übernehmen wenn Draft noch "leer"/"Training" heißt
+    if (!templateName || templateName === "Training") {
+      setTemplateName(tpl.name || templateName);
+    }
   };
 
   const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
@@ -608,8 +640,8 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-      <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-xs shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+      <div className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 text-xs shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-[var(--text)]">
               {headingPrefix}: {draft.label}
@@ -1600,7 +1632,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   // -------------------- Render --------------------
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-[#061226] text-white px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full text-[var(--text)] px-4 pb-[var(--nav-height)] pt-[calc(env(safe-area-inset-top)+20px)] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-4">
         {/* Tabs */}
         <div className="flex gap-2 rounded-full bg-white/5 p-1 text-base">
@@ -1619,7 +1651,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         </div>
 
         {/* ✅ Startdatum + Dauer kompakt, Hinweis klein, Vorlagen als Row */}
-        <section className="rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-md p-4 text-base">
+        <section className="rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-base backdrop-blur-xl">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm text-gray-300">{t("plan.startDate")}</label>
@@ -1743,7 +1775,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const hasTime = !!day.startTime?.trim();
 
                 return (
-                  <div key={day.id} className="rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-md p-4 space-y-4">
+                  <div key={day.id} className="rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 space-y-4 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-lg font-semibold text-white">
                         {t("plan.dayLabel", { day: day.id })}
@@ -1903,7 +1935,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const hasTime = !!block.startTime?.trim();
 
                 return (
-                  <div key={block.id} className="rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-md p-4 space-y-4">
+                  <div key={block.id} className="rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 space-y-4 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-lg font-semibold text-white">
                         {t("plan.dayLabel", { day: index + 1 })}
@@ -2076,7 +2108,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Weekly Vorschau Modal */}
       {weeklyPreviewOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-xs shadow-2xl backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.previewWeekTitle")}</h3>
               <button
@@ -2117,7 +2149,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Routine Vorschau Modal */}
       {routinePreviewOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-xs shadow-2xl backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.previewRoutineTitle")}</h3>
               <button
@@ -2153,7 +2185,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Reine Trainings Vorlagen Modal (Management) */}
       {workoutTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-sm shadow-2xl backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.workoutsTitle")}</h3>
               <button
@@ -2205,7 +2237,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Trainingspläne Vorlagen Modal (Weekly) */}
       {weeklyTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-sm shadow-2xl backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.weeklyTitle")}</h3>
               <button
@@ -2249,7 +2281,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Trainingspläne Vorlagen Modal (Routine) */}
       {routineTemplatesOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-xl">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-sm shadow-2xl backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.routineTitle")}</h3>
               <button
@@ -2294,7 +2326,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {/* Save Dialogs (Plan) */}
       {weeklySaveDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-xl">
+          <div className="w-full max-w-md rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-sm shadow-2xl backdrop-blur-xl">
             <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.applyWeeklyTitle")}</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">{t("plan.applyTemplateOptional")}</p>
             <div className="mt-3 space-y-2">
@@ -2328,7 +2360,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       {routineSaveDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-xl">
+          <div className="w-full max-w-md rounded-[24px] border-[1.5px] border-white/10 bg-white/5 p-4 text-sm shadow-2xl backdrop-blur-xl">
             <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.applyRoutineTitle")}</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">{t("plan.applyTemplateOptional")}</p>
             <div className="mt-3 space-y-2">

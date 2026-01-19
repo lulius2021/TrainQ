@@ -69,45 +69,55 @@ export default function ExerciseEditor({
         {sets.map((set: LiveSet, idx: number) => {
           const last = lastSets[idx] as any;
           return (
-            <div key={set.id} className="grid grid-cols-[auto,1fr,1fr] gap-3 items-center">
-              <button
-                type="button"
-                onClick={() => onToggleSet(set.id)}
-                className={`h-14 w-14 rounded-2xl border-2 transition-colors flex items-center justify-center ${set.completed ? 'bg-[#2563EB] border-transparent' : 'border-[var(--border)] hover:opacity-80'}`}
-                aria-label={set.completed ? t("training.exercise.setMarkOpen") : t("training.exercise.setMarkDone")}
-              >
-                {set.completed ? (
-                  <svg viewBox="0 0 24 24" className="h-8 w-8 text-white"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                ) : (
-                  <span className="text-xl font-bold text-[var(--muted)]">{idx + 1}</span>
-                )}
-              </button>
+            <div key={set.id} className="flex flex-col gap-2">
+              <div className="grid grid-cols-[auto,1fr,1fr] gap-3 items-center">
+                <button
+                  type="button"
+                  onClick={() => onToggleSet(set.id)}
+                  className={`h-14 w-14 rounded-2xl border-2 transition-colors flex items-center justify-center ${set.completed ? 'bg-[#2563EB] border-transparent' : 'border-[var(--border)] hover:opacity-80'}`}
+                  aria-label={set.completed ? t("training.exercise.setMarkOpen") : t("training.exercise.setMarkDone")}
+                >
+                  {set.completed ? (
+                    <svg viewBox="0 0 24 24" className="h-8 w-8 text-white"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  ) : (
+                    <span className="text-xl font-bold text-[var(--muted)]">{idx + 1}</span>
+                  )}
+                </button>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-[var(--muted)]">{repsUnit}</label>
-                <input
-                  type="number"
-                  value={typeof set.reps === "number" ? set.reps : ""}
-                  placeholder={fmtPlaceholderNumber(last?.reps)}
-                  onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
-                  className="h-14 w-full rounded-2xl px-4 bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] text-center text-xl font-bold tabular-nums"
-                  inputMode="numeric"
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-[var(--muted)]">{repsUnit}</label>
+                  <input
+                    type="number"
+                    value={typeof set.reps === "number" ? set.reps : ""}
+                    placeholder={fmtPlaceholderNumber(last?.reps)}
+                    onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
+                    className="h-14 w-full rounded-2xl px-4 bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] text-center text-xl font-bold tabular-nums"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-[var(--muted)]">{weightUnit}</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step={isCardio ? 0.1 : 0.5}
+                    value={typeof set.weight === "number" ? set.weight : ""}
+                    placeholder={fmtPlaceholderNumber(last?.weight)}
+                    onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
+                    onFocus={() => onWeightFocus?.(set.id, set.weight)}
+                    onBlur={() => onWeightBlur?.()}
+                    className="h-14 w-full rounded-2xl px-4 bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] text-center text-xl font-bold tabular-nums"
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-[var(--muted)]">{weightUnit}</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step={isCardio ? 0.1 : 0.5}
-                  value={typeof set.weight === "number" ? set.weight : ""}
-                  placeholder={fmtPlaceholderNumber(last?.weight)}
-                  onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
-                  onFocus={() => onWeightFocus?.(set.id, set.weight)}
-                  onBlur={() => onWeightBlur?.()}
-                  className="h-14 w-full rounded-2xl px-4 bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] text-center text-xl font-bold tabular-nums"
-                />
-              </div>
+              {/* ✅ Why-Label / Note */}
+              {set.notes && (
+                <div className="ml-[68px] flex items-center gap-2">
+                  <span className="text-xs font-medium text-blue-400 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">
+                    {set.notes}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

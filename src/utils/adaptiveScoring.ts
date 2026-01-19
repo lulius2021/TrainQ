@@ -11,16 +11,40 @@ import type {
   AdaptiveSuggestion,
 } from "../types/adaptive";
 
+// Apple HIG Color Palette
+// Plan A (stabil): Apple Blue #007AFF - rgb(0, 122, 255)
+// Plan B (kompakt): Apple Red #FF3B30 - rgb(255, 59, 48)
+// Plan C (fokus): Apple Green #34C759 - rgb(52, 199, 89)
+
 export function profileAccent(profile: string) {
   switch (profile) {
     case "stabil":
-      return { bg: "rgba(37, 99, 235, 0.1)", border: "rgba(37, 99, 235, 0.3)", badgeBg: "rgba(37, 99, 235, 0.2)" };
+      // Apple Blue #007AFF
+      return {
+        bg: "rgba(0, 122, 255, 0.08)",
+        border: "rgba(0, 122, 255, 0.4)",
+        badgeBg: "rgba(0, 122, 255, 0.15)"
+      };
     case "kompakt":
-      return { bg: "rgba(245, 158, 11, 0.1)", border: "rgba(245, 158, 11, 0.3)", badgeBg: "rgba(245, 158, 11, 0.2)" };
+      // Apple Red #FF3B30
+      return {
+        bg: "rgba(255, 59, 48, 0.08)",
+        border: "rgba(255, 59, 48, 0.4)",
+        badgeBg: "rgba(255, 59, 48, 0.15)"
+      };
     case "fokus":
-      return { bg: "rgba(168, 85, 247, 0.1)", border: "rgba(168, 85, 247, 0.3)", badgeBg: "rgba(168, 85, 247, 0.2)" };
+      // Apple Green #34C759
+      return {
+        bg: "rgba(52, 199, 89, 0.08)",
+        border: "rgba(52, 199, 89, 0.4)",
+        badgeBg: "rgba(52, 199, 89, 0.15)"
+      };
     default:
-      return { bg: "rgba(255, 255, 255, 0.05)", border: "rgba(255, 255, 255, 0.1)", badgeBg: "rgba(255, 255, 255, 0.1)" };
+      return {
+        bg: "rgba(255, 255, 255, 0.05)",
+        border: "rgba(255, 255, 255, 0.1)",
+        badgeBg: "rgba(255, 255, 255, 0.1)"
+      };
   }
 }
 

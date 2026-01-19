@@ -9,6 +9,8 @@
 // - Footer (Minimieren/Abbrechen) etwas tiefer
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppCard } from "../../components/ui/AppCard";
+import { AppButton } from "../../components/ui/AppButton";
 import type {
   CalendarEvent,
   LiveExercise,
@@ -49,6 +51,7 @@ import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessor
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
 import { formatMmSs } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -79,24 +82,21 @@ class LiveTrainingErrorBoundary extends React.Component<
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
-      <div className="flex h-screen w-screen items-center justify-center px-4" style={{ color: "var(--text)" }}>
-        <div
-          className="w-full max-w-md rounded-2xl p-4 text-center"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        >
+      <div className="flex h-screen w-screen items-center justify-center px-4 bg-[var(--bg)] text-[var(--text)]">
+        <AppCard className="w-full max-w-md text-center">
           <div className="text-sm font-semibold">Live-Training ist abgestürzt.</div>
-          <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+          <div className="mt-2 text-xs text-[var(--muted)]">
             {this.state.errorMessage || "Bitte erneut versuchen."}
           </div>
-          <button
-            type="button"
+          <AppButton
             onClick={this.props.onExit}
-            className="mt-3 min-h-[40px] rounded-md px-4 py-2 text-sm font-semibold hover:opacity-95"
-            style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+            className="mt-3"
+            fullWidth
+            variant="secondary"
           >
             Zurück
-          </button>
-        </div>
+          </AppButton>
+        </AppCard>
       </div>
     );
   }
@@ -118,8 +118,8 @@ function normalizeRestSeconds(input: unknown): number | undefined {
     typeof input === "number"
       ? input
       : typeof input === "string"
-      ? Number(input.trim())
-      : Number(String(input).trim());
+        ? Number(input.trim())
+        : Number(String(input).trim());
 
   if (!Number.isFinite(n)) return undefined;
 
@@ -435,10 +435,10 @@ export default function LiveTrainingPage({
       setWeight != null && setReps != null
         ? `${setWeight}kg x ${setReps}`
         : setReps != null
-        ? `${setReps} Wdh`
-        : setWeight != null
-        ? `${setWeight}kg`
-        : "";
+          ? `${setReps} Wdh`
+          : setWeight != null
+            ? `${setWeight}kg`
+            : "";
 
     const cardioDistance = exercises.reduce((acc, ex) => {
       return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.weight === "number" ? sAcc + s.weight : sAcc), 0);
@@ -447,29 +447,29 @@ export default function LiveTrainingPage({
       return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.reps === "number" ? sAcc + s.reps : sAcc), 0);
     }, 0);
 
-  const overlaySubtitle = isCardioWorkout
-    ? activeExercise
-      ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
-      : "Einheit 0/0"
-    : activeSet
-    ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
-    : activeExercise
-    ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
-    : "Übung 0/0";
+    const overlaySubtitle = isCardioWorkout
+      ? activeExercise
+        ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
+        : "Einheit 0/0"
+      : activeSet
+        ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
+        : activeExercise
+          ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+          : "Übung 0/0";
 
     const overlayPrimaryText = isCardioWorkout
       ? cardioDistance > 0
         ? `${cardioDistance.toFixed(1)} km in ${elapsedText}`
         : cardioMinutes > 0
-        ? `${elapsedText} • ${cardioMinutes} min`
-        : `${elapsedText}`
+          ? `${elapsedText} • ${cardioMinutes} min`
+          : `${elapsedText}`
       : restRemainingSec != null && restRemainingSec > 0
-      ? `Pause ${formatMmSs(restRemainingSec)}`
-      : activeSet
-      ? `Satz ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
-      : activeExercise
-      ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
-      : "Workout läuft";
+        ? `Pause ${formatMmSs(restRemainingSec)}`
+        : activeSet
+          ? `Satz ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
+          : activeExercise
+            ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+            : "Workout läuft";
 
     const overlayRightTopText = restRemainingSec != null && restRemainingSec > 0 ? `${restRemainingSec} Sek.` : undefined;
 
@@ -651,18 +651,18 @@ export default function LiveTrainingPage({
         exercises: prevExercises.map((e) =>
           e.id === exerciseId
             ? {
-                ...e,
-                sets: [
-                  ...(Array.isArray(e.sets) ? e.sets : []),
-                  {
-                    id: newSetId,
-                    completed: false,
-                    reps: cardio ? 10 : undefined,
-                    weight: undefined,
-                    notes: "",
-                  } as any,
-                ],
-              }
+              ...e,
+              sets: [
+                ...(Array.isArray(e.sets) ? e.sets : []),
+                {
+                  id: newSetId,
+                  completed: false,
+                  reps: cardio ? 10 : undefined,
+                  weight: undefined,
+                  notes: "",
+                } as any,
+              ],
+            }
             : e
         ),
       };
@@ -718,12 +718,16 @@ export default function LiveTrainingPage({
         const nextSets = sets.map((s) => {
           if (s.id !== setId) return s;
 
+
           const nextCompleted = !s.completed;
           const rest = normalizeRestSeconds((e as any).restSeconds);
 
-          if (nextCompleted && typeof rest === "number") {
-            setActiveRest({ exerciseId, setId, restSeconds: rest });
-          } else if (!nextCompleted) {
+          if (nextCompleted) {
+            Haptics.impact({ style: ImpactStyle.Light }).catch(() => { });
+            if (typeof rest === "number") {
+              setActiveRest({ exerciseId, setId, restSeconds: rest });
+            }
+          } else {
             setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
           }
 
@@ -848,28 +852,25 @@ export default function LiveTrainingPage({
 
   if (!workout) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center px-4" style={{ color: "var(--text)" }}>
-        <div
-          className="w-full max-w-md rounded-2xl p-4 text-center"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        >
+      <div className="flex h-screen w-screen items-center justify-center px-4 bg-[var(--bg)] text-[var(--text)]">
+        <AppCard className="w-full max-w-md text-center">
           <div className="text-sm font-semibold">Lade Live-Training…</div>
           {initDone && (
             <>
-              <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+              <div className="mt-2 text-xs text-[var(--muted)]">
                 {initError || "Kein Live-Workout gefunden."}
               </div>
-              <button
-                type="button"
+              <AppButton
                 onClick={onExit}
-                className="mt-3 rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-95"
-                style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+                className="mt-3"
+                variant="secondary"
+                fullWidth
               >
                 Zurück
-              </button>
+              </AppButton>
             </>
           )}
-        </div>
+        </AppCard>
       </div>
     );
   }
@@ -894,27 +895,27 @@ export default function LiveTrainingPage({
 
   return (
     <LiveTrainingErrorBoundary onExit={onExit}>
-      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#061226] text-white">
-        {/* ✅ FIXED HEADER */}
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
+        {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
         <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
-          <div className="mx-auto max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-lg">
+          <AppCard variant="glass" noPadding className="mx-auto max-w-5xl px-4 py-3 shadow-lg">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
               <div className="text-center sm:text-left">
-                <div className="tabular-nums text-5xl font-bold text-white leading-none tracking-tight">
+                <div className="tabular-nums text-5xl font-bold leading-none tracking-tight">
                   {elapsedText}
                 </div>
               </div>
               <div className="flex justify-stretch sm:justify-end">
-                <button
-                  type="button"
+                <AppButton
                   onClick={finishTraining}
-                  className="h-12 w-full sm:w-auto min-w-[180px] px-6 rounded-xl bg-[#2563EB] text-white text-base font-semibold hover:bg-sky-500 shadow-[0_0_20px_theme(colors.sky.500/50%)] whitespace-nowrap"
+                  variant="primary"
+                  className="h-12 w-full sm:w-auto min-w-[180px] shadow-[0_0_20px_theme(colors.sky.500/50%)]"
                 >
                   Training beenden
-                </button>
+                </AppButton>
               </div>
             </div>
-          </div>
+          </AppCard>
           {activeRest && (
             <div className="px-1 pt-3">
               <RestTimerBar key={`${activeRest.exerciseId}_${activeRest.setId}`} seconds={activeRest.restSeconds} running={true} onDone={() => setActiveRest(null)} />
@@ -928,16 +929,16 @@ export default function LiveTrainingPage({
           className="flex-1 min-h-0 overflow-y-auto px-4"
           style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
         >
-          <div className="py-4">
+          <div className="py-4 max-w-5xl mx-auto w-full">
             {exercises.length === 0 ? (
-              <>
-                <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
+              <AppCard variant="soft" className="p-5 text-center">
+                <div className="text-base text-[var(--muted)] mb-4">
                   Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
                 </div>
-                <button type="button" onClick={() => setLibraryOpen(true)} className="mt-4 w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
+                <AppButton onClick={() => setLibraryOpen(true)} className="w-full" variant="secondary">
                   + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
-                </button>
-              </>
+                </AppButton>
+              </AppCard>
             ) : (
               <div className="flex flex-col gap-4">
                 {exercises.map((ex, exIdx) => (
@@ -958,9 +959,10 @@ export default function LiveTrainingPage({
                     />
                   </div>
                 ))}
-                <button type="button" onClick={() => setLibraryOpen(true)} className="w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
+
+                <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]">
                   + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
-                </button>
+                </AppButton>
               </div>
             )}
           </div>
@@ -968,23 +970,64 @@ export default function LiveTrainingPage({
 
         {/* ✅ FIXED FOOTER */}
         <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3">
-          <div className="mx-auto w-full max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-3 py-3 shadow-lg">
-            <div className="mb-2 flex items-center justify-center gap-4 text-sm text-gray-300">
-              {!isCardioWorkout && ( <> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
+          <AppCard variant="glass" noPadding className="mx-auto w-full max-w-5xl px-3 py-3 shadow-lg">
+            <div className="mb-2 flex items-center justify-center gap-4 text-sm text-[var(--muted)]">
+              {!isCardioWorkout && (<> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
               <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
               <span>•</span>
               <span>Zeit: {elapsedText}</span>
             </div>
             <div className="flex gap-3">
-              <button type="button" onClick={minimize} className="flex-1 h-12 rounded-xl border border-white/10 bg-white/10 px-4 text-base font-semibold text-white hover:bg-white/20 whitespace-nowrap">
+              <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12">
                 Minimieren
-              </button>
-              <button type="button" onClick={abortAndExit} className="flex-1 h-12 rounded-xl border border-white/10 bg-white/10 px-4 text-base text-gray-300 hover:bg-white/20 whitespace-nowrap" title="Training abbrechen">
+              </AppButton>
+              <AppButton onClick={abortAndExit} variant="ghost" className="flex-1 h-12 text-red-400 hover:bg-red-500/10 hover:text-red-500" title="Training abbrechen">
                 Abbrechen
-              </button>
+              </AppButton>
             </div>
-          </div>
+          </AppCard>
         </div>
+
+        <ExerciseLibraryModal
+          open={libraryOpen}
+          onClose={() => setLibraryOpen(false)}
+          isCardioLibrary={isCardioWorkout}
+          onPick={(ex) => {
+            addExerciseDirect({ exerciseId: ex.id, name: ex.name });
+            setLibraryOpen(false);
+          }}
+          existingExerciseIds={exercises.map(e => e.exerciseId).filter(Boolean) as string[]}
+        />
+
+        <PlateCalculatorSheet
+          open={plateSheetOpen}
+          onClose={() => setPlateSheetOpen(false)}
+          onApply={applyPlatesWeight}
+        />
+
+        <KeyboardAccessoryBar
+          visible={keyboardOpen && !plateSheetOpen}
+          keyboardHeight={keyboardHeight}
+          rightButton={
+            platesEnabled ? (
+              <button
+                type="button"
+                onClick={openPlates}
+                className="rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+              >
+                Scheiben
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => (document.activeElement as HTMLElement)?.blur()}
+                className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur shadow-lg border border-white/10"
+              >
+                Fertig
+              </button>
+            )
+          }
+        />
       </div>
     </LiveTrainingErrorBoundary>
   );

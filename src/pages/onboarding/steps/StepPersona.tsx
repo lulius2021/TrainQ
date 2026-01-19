@@ -34,16 +34,16 @@ export const StepPersona: React.FC<Props> = ({ onNext }) => {
                         key={p.id}
                         onClick={() => handleSelect(p.id)}
                         className={`
-              relative w-full p-6 rounded-[28px] text-left transition-all duration-300 border
+              relative w-full p-6 rounded-2xl text-left transition-all duration-300 border
               flex flex-col gap-3 group active:scale-98
               ${isSelected
-                                ? 'bg-[var(--surface)] border-[var(--primary)] shadow-[0_8px_30px_rgba(59,130,246,0.15)]'
-                                : 'bg-[var(--surface)] border-transparent opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}
+                                ? 'bg-[var(--surface)] border-[var(--primary)] shadow-[0_8px_30px_rgba(59,130,246,0.15)] ring-1 ring-[var(--primary)]'
+                                : 'bg-[var(--surface)] border-white/5 opacity-80 hover:opacity-100 hover:border-white/10'}
             `}
                     >
                         <span className="text-4xl mb-1 block transform transition-transform group-hover:scale-110">{p.icon}</span>
                         <div>
-                            <div className={`text-xl font-bold mb-1 ${isSelected ? 'text-white' : 'text-gray-200'}`}>{p.label}</div>
+                            <div className={`text-xl font-bold mb-1 ${isSelected ? 'text-[var(--primary)]' : 'text-[var(--text)]'}`}>{p.label}</div>
                             <div className="text-base text-[var(--muted)] leading-snug">{p.desc}</div>
                         </div>
                     </button>

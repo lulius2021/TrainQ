@@ -99,8 +99,8 @@ const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
 const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
 
-const BOTTOM_NAV_PADDING = "calc(var(--bottom-nav-h) + var(--safe-bottom))";
-const MINI_BAR_BOTTOM = "calc(var(--bottom-nav-h) + var(--bottom-nav-gap) + var(--safe-bottom))";
+const BOTTOM_NAV_PADDING = "var(--nav-height)";
+const MINI_BAR_BOTTOM = "calc(var(--nav-height) + var(--bottom-nav-gap))";
 
 // -------------------- Helpers --------------------
 
@@ -1092,6 +1092,32 @@ const AuthGate: React.FC = () => {
     );
   }
 
+  // ✅ Route Guard: Onboarding Redirects
+  // We strictly render <Onboarding /> or <MainAppShell />.
+  // The URL update is cosmetic but should be safe.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const path = window.location.pathname;
+
+      if (user.onboardingCompleted) {
+        // User completed onboarding -> Ensure logic is root or deep link
+        // If on /onboarding, move to / silently
+        if (path === "/onboarding") {
+          window.history.replaceState(null, "", "/");
+        }
+      } else {
+        // User NOT completed onboarding -> logic ensures <Onboarding /> is rendered.
+        // If path is not /onboarding, update it
+        if (path !== "/onboarding") {
+          window.history.replaceState(null, "", "/onboarding");
+        }
+      }
+    } catch (e) {
+      console.warn("AuthGate: Redirect logic failed", e);
+    }
+  }, [user?.onboardingCompleted]); // Only run when status changes
+
   // ✅ Check Supabase Profile Status
   // If user is logged in but onboarding not completed, show Onboarding
   if (user.onboardingCompleted === false) {
@@ -1100,6 +1126,62 @@ const AuthGate: React.FC = () => {
 
   return <MainAppShell />;
 };
+
+// -------------------- Global Error Boundary --------------------
+
+class GlobalErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  state = { hasError: false, error: undefined };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  handleReload = () => {
+    window.location.reload();
+  };
+
+  handleResetStorage = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen w-screen flex-col items-center justify-center bg-black px-6 text-center text-white">
+          <h2 className="mb-2 text-xl font-bold">Ups, etwas ist schiefgelaufen.</h2>
+          <p className="mb-6 text-sm text-gray-400 max-w-xs">
+            {(this.state.error as any)?.message || "Ein unerwarteter Fehler ist aufgetreten."}
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={this.handleReload}
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform"
+            >
+              App neu laden
+            </button>
+            <button
+              onClick={this.handleResetStorage}
+              className="w-full rounded-xl bg-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform"
+            >
+              Daten zurücksetzen (Logout)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // -------------------- Root --------------------
 
@@ -1116,11 +1198,13 @@ export const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#061226] font-sans text-gray-400">
-      <AuthContextProvider>
-        <OnboardingProvider>
-          <AuthGate />
-        </OnboardingProvider>
-      </AuthContextProvider>
+      <GlobalErrorBoundary>
+        <AuthContextProvider>
+          <OnboardingProvider>
+            <AuthGate />
+          </OnboardingProvider>
+        </AuthContextProvider>
+      </GlobalErrorBoundary>
     </div>
   );
 };

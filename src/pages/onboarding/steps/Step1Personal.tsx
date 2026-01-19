@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StepWrapper } from "../StepWrapper"; // ✅ WICHTIG: nutzt src/pages/onboarding/StepWrapper.tsx
 import { useOnboarding } from "../../../context/OnboardingContext";
+import { AppCard } from "../../../components/ui/AppCard";
 import type { PersonalData } from "../../../types/onboarding";
 
 interface Step1PersonalProps {
@@ -71,34 +72,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
     onNext();
   };
 
-  const card: React.CSSProperties = {
-    background: "var(--surface2)",
-    border: "1px solid var(--border)",
-  };
-
-  const label: React.CSSProperties = { color: "var(--text)" };
-  const muted: React.CSSProperties = { color: "var(--muted)" };
-
-  const pill = (text: string) => (
-    <span
-      className="px-2 py-1 rounded-full text-[11px] font-semibold"
-      style={{
-        background: "rgba(255,255,255,0.08)",
-        color: "var(--text)",
-        border: "1px solid var(--border)",
-      }}
-    >
-      {text}
-    </span>
-  );
-
-  const inputStyle =
-    "w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0";
-  const inputInline: React.CSSProperties = {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    color: "var(--text)",
-  };
+  /* Removed inline styles in favor of Tailwind classes */
 
   return (
     <StepWrapper
@@ -110,15 +84,15 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
       nextLabel="Weiter"
     >
       {/* Stress */}
-      <div className="rounded-2xl p-4 space-y-3" style={card}>
+      <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold" style={label}>
-            Stress
-          </div>
-          {pill(`${local.stressLevel}/10`)}
+          <div className="text-sm font-semibold text-[var(--text)]">Stress</div>
+          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]">
+            {local.stressLevel}/10
+          </span>
         </div>
 
-        <div className="text-[11px]" style={muted}>
+        <div className="text-[11px] text-[var(--muted)]">
           1 = entspannt, 10 = sehr gestresst
         </div>
 
@@ -134,20 +108,20 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               stressLevel: clamp(Number(e.target.value), 1, 10),
             }))
           }
-          className="w-full"
+          className="w-full accent-[var(--primary)]"
         />
-      </div>
+      </AppCard>
 
       {/* Schlaf */}
-      <div className="rounded-2xl p-4 space-y-3" style={card}>
+      <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold" style={label}>
-            Schlaf
-          </div>
-          {pill(`${local.sleepHours} h`)}
+          <div className="text-sm font-semibold text-[var(--text)]">Schlaf</div>
+          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]">
+            {local.sleepHours} h
+          </span>
         </div>
 
-        <div className="text-[11px]" style={muted}>
+        <div className="text-[11px] text-[var(--muted)]">
           Durchschnitt pro Nacht
         </div>
 
@@ -163,26 +137,22 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               sleepHours: clamp(Number(e.target.value), 0, 12),
             }))
           }
-          className="w-full"
+          className="w-full accent-[var(--primary)]"
         />
-      </div>
+      </AppCard>
 
       {/* Körperdaten (optional) */}
-      <div className="rounded-2xl p-4 space-y-3" style={card}>
+      <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold" style={label}>
+          <div className="text-sm font-semibold text-[var(--text)]">
             Körperdaten (optional)
           </div>
-          <div className="text-[11px]" style={muted}>
-            später änderbar
-          </div>
+          <div className="text-[11px] text-[var(--muted)]">später änderbar</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
-            <div className="text-[11px]" style={muted}>
-              Alter
-            </div>
+            <div className="text-[11px] text-[var(--muted)]">Alter</div>
             <input
               type="number"
               inputMode="numeric"
@@ -192,15 +162,12 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="Jahre"
               value={local.age ?? ""}
               onChange={(e) => handleChangeNumber("age", e.target.value)}
-              className={inputStyle}
-              style={inputInline}
+              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px]" style={muted}>
-              Größe
-            </div>
+            <div className="text-[11px] text-[var(--muted)]">Größe</div>
             <input
               type="number"
               inputMode="numeric"
@@ -210,15 +177,12 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="cm"
               value={local.height ?? ""}
               onChange={(e) => handleChangeNumber("height", e.target.value)}
-              className={inputStyle}
-              style={inputInline}
+              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px]" style={muted}>
-              Gewicht
-            </div>
+            <div className="text-[11px] text-[var(--muted)]">Gewicht</div>
             <input
               type="number"
               inputMode="numeric"
@@ -228,12 +192,11 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="kg"
               value={local.weight ?? ""}
               onChange={(e) => handleChangeNumber("weight", e.target.value)}
-              className={inputStyle}
-              style={inputInline}
+              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
         </div>
-      </div>
+      </AppCard>
     </StepWrapper>
   );
 };

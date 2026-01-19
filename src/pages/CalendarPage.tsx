@@ -12,6 +12,8 @@ import { loadTrainingPlanTemplates } from "../services/trainingPlanTemplatesServ
 import { getTrainingTemplateById, loadTrainingTemplates } from "../services/trainingTemplatesService";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
+import { AppCard } from "../components/ui/AppCard";
+import { AppButton } from "../components/ui/AppButton";
 
 // ✅ Plan-Seed -> LiveTraining (Preview + Start)
 import {
@@ -712,77 +714,79 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   return (
     <>
-      <div className="w-full min-h-screen bg-[#061226] text-white">
-      <div className="mx-auto w-full max-w-5xl px-3 sm:px-4 pt-4 pb-24 space-y-4">
-        {/* Header / Pager */}
-        <div className="flex items-center">
-          <div className="w-full inline-flex items-center rounded-full p-1 bg-white/5 border border-white/10">
-            <button
-              type="button"
-              onClick={goPrev}
-              className="h-11 w-11 text-xl flex items-center justify-center rounded-full text-gray-300 hover:bg-white/10"
-              aria-label={t("common.back")}
-              title={t("common.back")}
-            >
-              ‹
-            </button>
-            <span className="flex-1 text-center text-base font-semibold whitespace-nowrap text-white">
-              {viewMode === "month" ? monthLabel : viewMode === "week" ? weekLabel : dayLabelFull}
-            </span>
-            <button
-              type="button"
-              onClick={goNext}
-              className="h-11 w-11 text-xl flex items-center justify-center rounded-full text-gray-300 hover:bg-white/10"
-              aria-label={t("common.next")}
-              title={t("common.next")}
-            >
-              ›
-            </button>
-          </div>
-        </div>
 
-        {/* View switch + Today */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-full p-1 text-base bg-white/5 border border-white/10">
-            <button
-              type="button"
-              onClick={() => setViewMode("day")}
-              className={`px-5 py-2.5 rounded-full transition text-sm font-medium ${viewMode === "day" ? "bg-[#2563EB] text-white" : "text-gray-300 hover:bg-white/10"}`}
-            >
-              {t("calendar.view.day")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("week")}
-              className={`px-5 py-2.5 rounded-full transition text-sm font-medium ${viewMode === "week" ? "bg-[#2563EB] text-white" : "text-gray-300 hover:bg-white/10"}`}
-            >
-              {t("calendar.view.week")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("month")}
-              className={`px-5 py-2.5 rounded-full transition text-sm font-medium ${viewMode === "month" ? "bg-[#2563EB] text-white" : "text-gray-300 hover:bg-white/10"}`}
-            >
-              {t("calendar.view.month")}
-            </button>
+      <div className="w-full text-[var(--text)]">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[var(--nav-height)] space-y-4">
+          {/* Header / Pager */}
+          <div className="flex items-center">
+            <div className="w-full inline-flex items-center rounded-2xl p-1 bg-[var(--surface)] border border-white/5">
+              <AppButton
+                onClick={goPrev}
+                variant="ghost"
+                className="h-10 w-10 !p-0 rounded-xl"
+              >
+                ‹
+              </AppButton>
+              <span className="flex-1 text-center text-base font-semibold whitespace-nowrap text-[var(--text)]">
+                {viewMode === "month" ? monthLabel : viewMode === "week" ? weekLabel : dayLabelFull}
+              </span>
+              <AppButton
+                onClick={goNext}
+                variant="ghost"
+                className="h-10 w-10 !p-0 rounded-xl"
+              >
+                ›
+              </AppButton>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={goToday}
-            className="shrink-0 rounded-full px-4 py-2.5 text-sm font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
-            title={viewMode === "day" ? t("calendar.today") : t("calendar.todayOpenDay")}
+
+          {/* View switch + Today */}
+          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+            <div className="inline-flex rounded-2xl p-1 text-base bg-[var(--surface)] border border-white/5">
+              <AppButton
+                onClick={() => setViewMode("day")}
+                variant={viewMode === "day" ? "primary" : "ghost"}
+                size="sm"
+                className={viewMode === "day" ? "" : "text-[var(--muted)]"}
+              >
+                {t("calendar.view.day")}
+              </AppButton>
+              <AppButton
+                onClick={() => setViewMode("week")}
+                variant={viewMode === "week" ? "primary" : "ghost"}
+                size="sm"
+                className={viewMode === "week" ? "" : "text-[var(--muted)]"}
+              >
+                {t("calendar.view.week")}
+              </AppButton>
+              <AppButton
+                onClick={() => setViewMode("month")}
+                variant={viewMode === "month" ? "primary" : "ghost"}
+                size="sm"
+                className={viewMode === "month" ? "" : "text-[var(--muted)]"}
+              >
+                {t("calendar.view.month")}
+              </AppButton>
+            </div>
+            <AppButton
+              onClick={goToday}
+              variant="secondary"
+              size="sm"
+              className="shrink-0"
+              title={viewMode === "day" ? t("calendar.today") : t("calendar.todayOpenDay")}
+            >
+              {t("calendar.today")}
+            </AppButton>
+          </div>
+          <AppCard
+            variant="glass"
+            className="relative min-h-[460px]"
+            style={{ touchAction: "pan-y" }}
+            onPointerDown={handleSwipePointerDown}
+            onPointerMove={handleSwipePointerMove}
+            onPointerUp={handleSwipePointerEnd}
+            onPointerCancel={handleSwipePointerEnd}
           >
-            {t("calendar.today")}
-          </button>
-        </div>
-        <div
-          className="relative rounded-[24px] p-4 bg-white/5 border border-white/10 backdrop-blur-md min-h-[460px]"
-          style={{ touchAction: "pan-y" }}
-          onPointerDown={handleSwipePointerDown}
-          onPointerMove={handleSwipePointerMove}
-          onPointerUp={handleSwipePointerEnd}
-          onPointerCancel={handleSwipePointerEnd}
-        >
             {/* Monatsansicht */}
             {viewMode === "month" && (
               <div className="space-y-2">
@@ -815,9 +819,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         </div>
                         <div className="mt-1 space-y-1.5 overflow-hidden">
                           {dayEvents.slice(0, 3).map((ev) => {
-                             const isDone = isCompletedTraining(ev);
-                             const isTraining = isTrainingEvent(ev);
-                             const dotClass = isDone ? "bg-green-500" : isTraining ? "bg-sky-500" : "bg-gray-500";
+                            const isDone = isCompletedTraining(ev);
+                            const isTraining = isTrainingEvent(ev);
+                            const dotClass = isDone ? "bg-green-500" : isTraining ? "bg-sky-500" : "bg-gray-500";
                             return (
                               <div key={ev.id} className={`h-1.5 w-full rounded-full ${dotClass}`} title={normalizeTitle(ev.title)} />
                             );
@@ -877,11 +881,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             {viewMode === "day" && (
               <div className="flex flex-col h-full">
                 {(previousView === "month" || previousView === "week") && (
-                    <div className="text-right mb-2">
-                        <button type="button" onClick={handleBackFromDay} className="text-sm text-gray-300 underline-offset-2 hover:underline">
-                        Zurück zur {previousView === "month" ? "Monatsansicht" : "Wochenansicht"}
-                        </button>
-                    </div>
+                  <div className="text-right mb-2">
+                    <button type="button" onClick={handleBackFromDay} className="text-sm text-gray-300 underline-offset-2 hover:underline">
+                      Zurück zur {previousView === "month" ? "Monatsansicht" : "Wochenansicht"}
+                    </button>
+                  </div>
                 )}
                 <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-3 flex-1">
                   {eventsForSelectedDay.length === 0 ? (
@@ -910,32 +914,32 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             {/* FAB mit Plus-Menü */}
             <div className="absolute bottom-4 right-4 flex flex-col items-end gap-3">
               {isPlusMenuOpen && (
-                <div className="rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md shadow-xl overflow-hidden mb-2 text-white">
-                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("appointment"); }} className="w-full px-4 py-3 text-left text-base hover:bg-white/10">
+                <AppCard variant="glass" noPadding className="mb-2 overflow-hidden min-w-[180px]">
+                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
                     Termin anlegen
                   </button>
                   <div className="h-px bg-white/10" />
-                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("training"); }} className="w-full px-4 py-3 text-left text-base hover:bg-white/10">
+                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("training"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
                     Training anlegen
                   </button>
-                  {onUpdateEvents && ( <>
-                      <div className="h-px bg-white/10" />
-                      <button type="button" onClick={handlePlanShift} className="w-full px-4 py-3 text-left text-base hover:bg-white/10">
-                        {t("calendar.shiftPlan")}
-                      </button>
+                  {onUpdateEvents && (<>
+                    <div className="h-px bg-white/10" />
+                    <button type="button" onClick={handlePlanShift} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
+                      {t("calendar.shiftPlan")}
+                    </button>
                   </>)}
-                </div>
+                </AppCard>
               )}
-              <button
-                type="button"
+              <AppButton
                 onClick={() => setIsPlusMenuOpen((prev) => !prev)}
-                className="flex h-14 w-14 items-center justify-center rounded-full text-3xl shadow-xl shadow-black/30 transition-transform hover:scale-105"
-                style={{ background: isPlusMenuOpen ? "rgba(37,99,235,0.85)" : "#2563EB", color: "white", transform: isPlusMenuOpen ? "rotate(45deg)" : "rotate(0deg)"}}
+                variant="primary"
+                className={`h-14 w-14 rounded-full !p-0 text-3xl shadow-xl transition-transform ${isPlusMenuOpen ? "rotate-45" : ""}`}
+                style={{ transform: isPlusMenuOpen ? "rotate(45deg)" : "rotate(0deg)" }}
               >
                 +
-              </button>
+              </AppButton>
             </div>
-          </div>
+          </AppCard>
         </div>
       </div>
 
@@ -949,42 +953,44 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
       {/* ✅ Training-Info Bottomsheet */}
       {infoSheetOpen && infoSheetEvent && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70" data-overlay-open="true" onClick={closeInfoSheet}>
-          <div className="w-full max-w-2xl rounded-t-[24px] p-5 space-y-4 max-h-[85vh] overflow-y-auto bg-white/5 border-t border-white/10 backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-center mb-2"><div className="w-12 h-1.5 rounded-full bg-white/20" /></div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-white">{normalizeTitle(infoSheetEvent.title)}</h2>
-                <p className="text-base mt-1 text-gray-300">
-                  {infoSheetEvent.date}
-                  {infoSheetEvent.startTime ? ` • ${infoSheetEvent.startTime}` : ""}
-                  {infoSheetEvent.endTime ? ` – ${infoSheetEvent.endTime}` : ""}
-                </p>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" data-overlay-open="true" onClick={closeInfoSheet}>
+          <div className="w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <AppCard variant="glass" className="rounded-t-[24px] rounded-b-none p-5 space-y-4 max-h-[85vh] overflow-y-auto border-b-0">
+              <div className="flex justify-center mb-2"><div className="w-12 h-1.5 rounded-full bg-white/20" /></div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-[var(--text)]">{normalizeTitle(infoSheetEvent.title)}</h2>
+                  <p className="text-base mt-1 text-[var(--muted)]">
+                    {infoSheetEvent.date}
+                    {infoSheetEvent.startTime ? ` • ${infoSheetEvent.startTime}` : ""}
+                    {infoSheetEvent.endTime ? ` – ${infoSheetEvent.endTime}` : ""}
+                  </p>
+                </div>
+                <AppButton onClick={closeInfoSheet} variant="ghost" size="sm" className="!p-2 aspect-square rounded-full">✕</AppButton>
               </div>
-              <button type="button" onClick={closeInfoSheet} className="text-2xl text-gray-400 hover:text-white shrink-0">✕</button>
-            </div>
+            </AppCard>
           </div>
         </div>
       )}
 
       {/* Modal: Termin / Training erstellen */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4" data-overlay-open="true">
-          <div className="w-full max-w-md rounded-[24px] text-base flex flex-col max-h-[85vh] overflow-hidden bg-white/5 border border-white/10 backdrop-blur-md">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" data-overlay-open="true">
+          <AppCard variant="glass" className="w-full max-w-md max-h-[85vh] flex flex-col p-0">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h2 className="text-lg font-semibold text-white">{createMode === "training" ? "Training anlegen" : "Termin anlegen"}</h2>
-              <button type="button" onClick={closeCreateModal} className="text-xl text-gray-400 hover:text-white">✕</button>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{createMode === "training" ? "Training anlegen" : "Termin anlegen"}</h2>
+              <AppButton onClick={closeCreateModal} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 scale-[1.01]"> {/* slightly reset scale context if needed */}
               <form onSubmit={handleCreateEvent} className="space-y-4">
                 {/* ... form fields with glass styling ... */}
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={closeCreateModal} className="px-4 py-2 rounded-xl border border-white/10 bg-white/10 text-base font-medium text-white hover:bg-white/20">Abbrechen</button>
-                  <button type="submit" className="px-4 py-2 rounded-xl text-base font-semibold bg-[#2563EB] text-white hover:bg-sky-500">Speichern</button>
+                  <AppButton type="button" onClick={closeCreateModal} variant="secondary">Abbrechen</AppButton>
+                  <AppButton type="submit" variant="primary">Speichern</AppButton>
                 </div>
               </form>
             </div>
-          </div>
+          </AppCard>
         </div>
       )}
     </>

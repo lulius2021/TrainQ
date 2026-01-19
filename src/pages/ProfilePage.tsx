@@ -22,6 +22,8 @@ import { useI18n } from "../i18n/useI18n";
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
 import SettingPage from "./SettingPage";
+import { AppCard } from "../components/ui/AppCard";
+import { AppButton } from "../components/ui/AppButton";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -465,44 +467,44 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
   return (
     <>
-      <div className="h-full w-full overflow-y-auto bg-[#061226] text-white px-1 py-5 sm:px-2">
-        <div className="mx-auto w-full max-w-5xl space-y-6">
+      <div className="w-full text-[var(--text)]">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[var(--nav-height)] space-y-6">
           <section className="mt-2 space-y-4">
-            <div className="flex items-center justify-between px-4">
-              <h1 className="text-2xl font-bold text-white">Profil</h1>
+            <div className="flex items-center justify-between px-1">
+              <h1 className="text-2xl font-bold text-[var(--text)]">Profil</h1>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <AppButton
                   onClick={handleShareProfile}
-                  className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-white/10"
+                  variant="ghost"
+                  className="rounded-full !p-0 w-10 h-10"
                   title={t("profile.share")}
                   aria-label={t("profile.share")}
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-gray-300">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-[var(--muted)]">
                     <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
-                </button>
-                <button
-                  type="button"
+                </AppButton>
+                <AppButton
                   onClick={() => setSettingsOpen(true)}
-                  className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-white/10"
+                  variant="ghost"
+                  className="rounded-full !p-0 w-10 h-10"
                   title={t("settings.title")}
                   aria-label={t("settings.title")}
                 >
-                  <div className="flex flex-col gap-1.5">
-                    <span className="block h-0.5 w-5 rounded bg-gray-300" />
-                    <span className="block h-0.5 w-5 rounded bg-gray-300" />
-                    <span className="block h-0.5 w-5 rounded bg-gray-300" />
+                  <div className="flex flex-col gap-1.5 px-2">
+                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
+                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
+                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
                   </div>
-                </button>
+                </AppButton>
               </div>
             </div>
 
             {/* Profile card */}
-            <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <AppCard variant="glass" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-sky-500 to-sky-700">
+                <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60">
                   {avatarDataUrl ? (
                     <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
                   ) : (
@@ -511,76 +513,76 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </div>
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-semibold truncate text-white">{profileName}</h2>
+                    <h2 className="text-xl font-semibold truncate text-[var(--text)]">{profileName}</h2>
                     {isPro ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400">Pro</span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-500">Pro</span>
                     ) : (
-                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-400 hover:opacity-90" title={t("profile.upgradePro")}>
+                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title={t("profile.upgradePro")}>
                         Free
                       </button>
                     )}
                   </div>
-                  <p className="text-base max-w-xs text-gray-300">{profileBio}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 pt-1">
-                    {user?.email && <span className="truncate">Account: <span className="text-white">{user.email}</span></span>}
-                    <span>Trainings: <span className="text-white">{weekTotalSessions}</span></span>
-                    <span>Zeit: <span className="text-white">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
+                  <p className="text-base max-w-xs text-[var(--muted)]">{profileBio}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)] pt-1">
+                    {user?.email && <span className="truncate">Account: <span className="text-[var(--text)]">{user.email}</span></span>}
+                    <span>Trainings: <span className="text-[var(--text)]">{weekTotalSessions}</span></span>
+                    <span>Zeit: <span className="text-[var(--text)]">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
                   </div>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center self-end sm:self-center">
-                <button type="button" onClick={openEdit} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 border border-white/10 text-white hover:bg-white/20">
+                <AppButton onClick={openEdit} variant="secondary" size="sm">
                   {t("profile.edit")}
-                </button>
+                </AppButton>
               </div>
-            </div>
+            </AppCard>
 
             {(copyFeedback || shareFeedback) && (
-              <div className="rounded-xl px-4 py-2 text-sm text-center bg-white/10 border border-white/10">
-                <span className="text-gray-300">{copyFeedback || shareFeedback}</span>
-              </div>
+              <AppCard variant="soft" className="px-4 py-2 text-sm text-center">
+                <span className="text-[var(--muted)]">{copyFeedback || shareFeedback}</span>
+              </AppCard>
             )}
-			
+
             {/* Upgrade card */}
             {!isPro && (
-              <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-4">
+              <AppCard variant="glass">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-white">Auf PRO upgraden</h3>
-                    <p className="mt-1 text-sm text-gray-300">Schalte alle Funktionen frei und entferne Limits.</p>
+                    <h3 className="text-base font-semibold text-[var(--text)]">Auf PRO upgraden</h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">Schalte alle Funktionen frei und entferne Limits.</p>
                   </div>
-                  <button type="button" onClick={openPaywall} className="rounded-xl px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white hover:bg-sky-500">
+                  <AppButton onClick={openPaywall} variant="primary" size="sm">
                     Upgrade
-                  </button>
+                  </AppButton>
                 </div>
-              </div>
+              </AppCard>
             )}
 
             {/* Statistics card */}
-            <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-4">
+            <AppCard variant="glass">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-white">Statistiken</h3>
-                  <p className="mt-1 text-sm text-gray-300">Monatliche Häufigkeit und Wochen-Minuten.</p>
+                  <h3 className="text-base font-semibold text-[var(--text)]">Statistiken</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Monatliche Häufigkeit und Wochen-Minuten.</p>
                 </div>
-                <button type="button" onClick={() => setStatsOpen(true)} className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/10 border border-white/10 text-white hover:bg-white/20">
+                <AppButton onClick={() => setStatsOpen(true)} variant="secondary" size="sm">
                   {t("profile.view")}
-                </button>
+                </AppButton>
               </div>
-            </div>
+            </AppCard>
 
             {/* Workout history list */}
-            <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[24px] p-4 space-y-3">
+            <AppCard variant="glass" className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-white">Gemachte Trainings</h2>
-                <span className="text-sm text-gray-400">
+                <h2 className="text-base font-semibold text-[var(--text)]">Gemachte Trainings</h2>
+                <span className="text-sm text-[var(--muted)]">
                   {workouts.length} Beitrag{workouts.length === 1 ? "" : "e"}
                 </span>
               </div>
 
               {workouts.length === 0 && (
-                <div className="rounded-xl p-3 text-sm bg-white/5 border border-white/10 text-gray-400">
-                    Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
+                <div className="rounded-xl p-3 text-sm bg-[var(--surface)] border-[1.5px] border-white/10 text-[var(--muted)]">
+                  Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
                 </div>
               )}
 
@@ -592,92 +594,126 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
                     const mins = durationMinutes(w);
                     return (
-                      <div key={w.id} className="rounded-xl p-3 bg-white/5 border border-white/10">
-                        <p className="text-sm text-gray-400">{date} • {mins} min</p>
-                        <h4 className="mt-1 text-base font-semibold truncate text-white">{w.title ?? "Training"}</h4>
-                        <p className="mt-1 text-sm text-gray-300">{exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}</p>
+                      <div key={w.id} className="rounded-xl p-3 bg-[var(--surface)] border-[1.5px] border-white/10">
+                        <p className="text-sm text-[var(--muted)]">{date} • {mins} min</p>
+                        <h4 className="mt-1 text-base font-semibold truncate text-[var(--text)]">{w.title ?? "Training"}</h4>
+                        <p className="mt-1 text-sm text-[var(--muted)]">{exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}</p>
                         <div className="mt-3 flex items-center gap-2">
-                          <button type="button" onClick={() => handleShareImage(w)} className="rounded-full px-3 py-1.5 text-sm font-medium bg-white/10 border border-white/10 text-white hover:bg-white/20" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
-                            <span className="inline-flex items-center gap-1.5">
+                          <AppButton onClick={() => handleShareImage(w)} variant="ghost" size="sm" className="rounded-full !px-3 !py-1.5 h-auto text-xs border border-white/10 bg-white/5 hover:bg-white/10" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
+                            <span className="inline-flex items-center gap-1.5 text-[var(--text)]">
                               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                               Export
                             </span>
-                          </button>
+                          </AppButton>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
-            </div>
+            </AppCard>
           </section>
         </div>
       </div>
 
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
-          <div className="w-full max-w-md p-5 space-y-4 rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-md text-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
+          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Profil bearbeiten</h2>
-              <button type="button" onClick={() => setIsEditProfileOpen(false)} className="text-xl text-gray-400 hover:text-white">✕</button>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Profil bearbeiten</h2>
+              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-sky-500 to-sky-700">
-                {avatarDataUrl ? ( <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" /> ) : ( <span className="text-2xl font-semibold text-white">{safeInitials(profileName)}</span> )}
+              <div className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60">
+                {avatarDataUrl ? (<img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />) : (<span className="text-2xl font-semibold text-white">{safeInitials(profileName)}</span>)}
               </div>
               <div className="flex flex-col gap-2">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
-                <button type="button" onClick={onPickAvatar} className="px-4 py-2 rounded-xl text-sm bg-white/10 border border-white/10 text-white hover:bg-white/20">
+                <AppButton onClick={onPickAvatar} variant="secondary" size="sm">
                   {t("profile.avatarSelect")}
-                </button>
+                </AppButton>
                 {avatarDataUrl && (
-                  <button type="button" onClick={() => setAvatarDataUrl("")} className="px-4 py-2 rounded-xl text-sm bg-white/10 border border-white/10 text-white hover:bg-white/20">
+                  <AppButton onClick={() => setAvatarDataUrl("")} variant="secondary" size="sm">
                     {t("profile.avatarRemove")}
-                  </button>
+                  </AppButton>
                 )}
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="block text-sm text-gray-300">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white" placeholder={t("profile.namePlaceholder")} />
+                <label className="block text-sm text-[var(--muted)]">Name</label>
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-white/10 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.namePlaceholder")} />
               </div>
               <div className="space-y-1">
-                <label className="block text-sm text-gray-300">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white min-h-[80px]" placeholder={t("profile.bioPlaceholder")} />
+                <label className="block text-sm text-[var(--muted)]">Beschreibung</label>
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-white/10 px-3 py-2.5 text-base text-[var(--text)] min-h-[80px] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.bioPlaceholder")} />
               </div>
             </div>
 
-            <div className="rounded-xl p-3 space-y-3 bg-white/5 border border-white/10">
-              <h3 className="text-base font-semibold text-white">Deine Daten</h3>
-              {/* ... other form fields ... */}
-            </div>
+            <AppCard variant="soft" className="space-y-4 p-4">
+              <h3 className="text-base font-semibold text-[var(--text)]">Deine Daten</h3>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Alter</label>
+                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Größe (cm)</label>
+                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Gewicht (kg)</label>
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Stunden/Woche</label>
+                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="h" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Einheiten/Woche</label>
+                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="#" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-[var(--muted)]">Sportarten (CSV)</label>
+                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Laufen, Gym..." />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-[var(--muted)]">Ziele (CSV)</label>
+                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Marathon, Kraft..." />
+              </div>
+            </AppCard>
 
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setIsEditProfileOpen(false)} className="px-4 py-2 rounded-xl text-base font-medium bg-white/10 border border-white/10 text-white hover:bg-white/20">
+              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="secondary">
                 {t("common.cancel")}
-              </button>
-              <button type="button" onClick={saveProfileEdits} className="px-4 py-2 rounded-xl text-base font-semibold bg-[#2563EB] text-white hover:bg-sky-500">
+              </AppButton>
+              <AppButton onClick={saveProfileEdits} variant="primary">
                 Speichern
-              </button>
+              </AppButton>
             </div>
-          </div>
+          </AppCard>
         </div>
       )}
 
       {/* MODAL: Statistiken */}
       {statsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setStatsOpen(false); }}>
-          <div className="w-full max-w-5xl p-5 space-y-4 rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setStatsOpen(false); }}>
+          <AppCard variant="glass" className="w-full max-w-5xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Statistiken</h2>
-              <button type="button" onClick={() => setStatsOpen(false)} className="text-xl text-gray-400 hover:text-white">✕</button>
+              <h2 className="text-lg font-semibold text-[var(--text)]">Statistiken</h2>
+              <AppButton onClick={() => setStatsOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
             </div>
             <ProfileStatsDashboard workouts={workouts} weeklyGoalMinutes={WEEKLY_GOAL_MINUTES} />
-          </div>
+          </AppCard>
         </div>
       )}
 
@@ -685,37 +721,41 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       {settingsOpen && (
         <div className="fixed inset-0 z-50">
           {/* backdrop */}
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSettingsOpen(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSettingsOpen(false)} />
 
           {/* panel */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white/5 border-l border-white/10 backdrop-blur-2xl">
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--surface)] border-l border-white/10 shadow-2xl">
             <div className="h-full flex flex-col">
               <div className="flex-1 overflow-y-auto">
                 <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar} onOpenPaywall={openPaywall} />
               </div>
-              
+
               {/* Quick actions footer */}
-              <div className="p-4 border-t border-white/10">
+              <div className="p-4 border-t border-white/10 bg-[var(--surface)]">
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
+                  <AppButton
                     onClick={handleClearHistory}
-                    className="rounded-xl px-3 py-2 text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20"
+                    variant="danger"
+                    size="sm"
                   >
                     Verlauf löschen
-                  </button>
-                  <button
-                    type="button"
+                  </AppButton>
+                  <AppButton
                     onClick={handleRestartOnboarding}
-                    className="rounded-xl px-3 py-2 text-sm font-medium bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/20"
+                    variant="secondary"
+                    size="sm"
                   >
                     Onboarding reset
-                  </button>
+                  </AppButton>
                 </div>
 
-                <button type="button" onClick={handleLogout} className="mt-3 w-full rounded-xl px-3 py-2 text-sm font-medium bg-white/10 border border-white/10 text-white hover:bg-white/20">
+                <AppButton
+                  onClick={handleLogout}
+                  variant="ghost"
+                  className="mt-3 w-full"
+                >
                   {t("settings.account.logout")}
-                </button>
+                </AppButton>
               </div>
             </div>
           </div>

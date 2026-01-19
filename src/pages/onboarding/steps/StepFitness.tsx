@@ -41,7 +41,7 @@ export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
                 </div>
 
                 <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-300" key={current}>
-                    <div className="text-3xl font-bold text-white mb-3">
+                    <div className="text-3xl font-bold text-[var(--text)] mb-3">
                         {current === 1 && "Einsteiger"}
                         {current === 2 && "Gelegenheits-Sportler"}
                         {current === 3 && "Aktiv"}

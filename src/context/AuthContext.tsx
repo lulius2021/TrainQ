@@ -6,6 +6,7 @@ import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { signOutSupabase } from "../services/supabaseAuth";
+import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple";
@@ -32,7 +33,9 @@ export type AuthContextValue = {
   loginWithApple: () => Promise<AuthResult>;
   logout: () => void;
   setUserPro: (isPro: boolean) => void;
-  completeOnboardingLocal: () => void;
+  completeOnboardingLocal: () => void; // @deprecated
+  completeOnboarding: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
   loading: boolean;
 };
 
@@ -60,21 +63,48 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!session?.user) {
       setUser(null);
       clearActiveSession();
+      clearOnboardingCache(); // ✅ Clear cache on logout
       return;
     }
 
     const u = session.user;
     const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro";
 
+    // ✅ Get onboarding status with fallback to cache
+    // Fix: Validates DB vs Cache to prevent loops
     let onboardingCompleted = false;
     const client = getSupabaseClient();
+    const cachedStatus = getOnboardingStatus(u.id);
+
     if (client) {
       try {
         const { data } = await client.from('profiles').select('onboarding_completed').eq('id', u.id).single();
-        if (data) onboardingCompleted = data.onboarding_completed;
+        if (data) {
+          // If DB is true, trust it
+          if (data.onboarding_completed) {
+            onboardingCompleted = true;
+            cacheOnboardingCompleted(u.id);
+          } else {
+            // DB is false. Check cache for optimistic completion
+            if (cachedStatus.completed) {
+              console.warn("[AuthContext] Optimistic onboarding override: Cache=true, DB=false");
+              onboardingCompleted = true;
+            } else {
+              onboardingCompleted = false;
+            }
+          }
+        } else {
+          // No profile found? Use cache
+          onboardingCompleted = cachedStatus.completed;
+        }
       } catch (e) {
-        // ignore
+        // Fallback to cache if DB fails
+        onboardingCompleted = cachedStatus.completed;
+        console.warn("[AuthContext] Using cached onboarding status (DB Error):", cachedStatus.source);
       }
+    } else {
+      // No client - use cache
+      onboardingCompleted = cachedStatus.completed;
     }
 
     // Map Supabase User to our AuthUser
@@ -90,7 +120,14 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       onboardingCompleted,
     };
 
-    setUser(authUser);
+    // ✅ Prevent unnecessary re-renders (Fix for Error #310)
+    setUser((prev) => {
+      if (prev && JSON.stringify(prev) === JSON.stringify(authUser)) {
+        return prev;
+      }
+      return authUser;
+    });
+
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
   }, []);
@@ -100,23 +137,66 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     mountedRef.current = true;
     const client = getSupabaseClient();
 
-    // Check initial session
-    // Check initial session
+    // Safety Timeout: Force loading to false after 2.5s to prevent blackscreen
+    const SAFETY_TIMEOUT_MS = 2500;
+    const items = [
+      new Promise<void>((resolve) => {
+        // Normal Supabase Init
+        if (!client) {
+          console.warn("Supabase client missing in AuthContext");
+          resolve();
+          return;
+        }
+        client.auth.getSession()
+          .then(async ({ data }) => {
+            if (mountedRef.current && data.session) {
+              await syncSessionToUser(data.session);
+            }
+          })
+          .catch((err) => {
+            console.error("Auth init session error:", err);
+          })
+          .finally(() => resolve());
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, SAFETY_TIMEOUT_MS))
+    ];
+
+    // Race: Whichever finishes first (or rather, we wait for Init but timeout if too long? 
+    // Actually we want to wait for Init, but IF it hangs, proceed.
+    // So we use a race logic manually or just a separate timeout effect.
+    // Simpler approach:
+
+    let isInitDone = false;
+
     if (client) {
       client.auth.getSession().then(async ({ data }) => {
         if (mountedRef.current) {
           await syncSessionToUser(data.session);
-          setLoading(false);
+          if (!isInitDone) {
+            isInitDone = true;
+            setLoading(false);
+          }
         }
       }).catch((err) => {
         console.error("Auth init session error:", err);
-        if (mountedRef.current) setLoading(false);
+        if (mountedRef.current && !isInitDone) {
+          isInitDone = true;
+          setLoading(false);
+        }
       });
     } else {
-      // Missing env vars or client init failed
-      console.warn("Supabase client missing in AuthContext");
       setLoading(false);
+      isInitDone = true;
     }
+
+    // Force release after timeout
+    const timer = setTimeout(() => {
+      if (mountedRef.current && !isInitDone) {
+        console.warn("[AuthContext] Initialization timed out. Forcing app start.");
+        isInitDone = true;
+        setLoading(false);
+      }
+    }, SAFETY_TIMEOUT_MS);
 
     // Listen for changes
     const { data: listener } = client?.auth.onAuthStateChange((_event, session) => {
@@ -132,6 +212,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(timer);
       listener?.subscription.unsubscribe();
     };
   }, [syncSessionToUser]);
@@ -281,9 +362,46 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [getSafeClient]);
 
-  const completeOnboardingLocal = useCallback(() => {
-    setUser((prev) => (prev ? { ...prev, onboardingCompleted: true } : null));
-  }, []);
+  const completeOnboarding = useCallback(async (): Promise<void> => {
+    // 1. Optimistic Update (Local State & Cache)
+    setUser((prev) => {
+      if (!prev) return null;
+      // Write to localStorage immediately
+      cacheOnboardingCompleted(prev.id);
+      return { ...prev, onboardingCompleted: true };
+    });
+
+    // 2. Persist to Database (Async)
+    const client = getSafeClient();
+    if (client && user?.id) {
+      try {
+        await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
+      } catch (e) {
+        console.error("Failed to persist onboarding status to DB", e);
+        // Note: We keep the local state as true to not block the user
+      }
+    }
+  }, [user?.id, getSafeClient]);
+
+  const resetOnboarding = useCallback(async (): Promise<void> => {
+    if (!user) return;
+
+    // 1. Clear Local Cache
+    clearOnboardingCache();
+
+    // 2. Update Local State
+    setUser((prev) => prev ? { ...prev, onboardingCompleted: false } : null);
+
+    // 3. Update Database
+    const client = getSafeClient();
+    if (client) {
+      try {
+        await client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id);
+      } catch (e) {
+        console.error("Failed to reset onboarding in DB", e);
+      }
+    }
+  }, [user, getSafeClient]);
 
   const value = useMemo(() => ({
     user,
@@ -293,9 +411,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     loginWithApple,
     logout,
     setUserPro,
-    completeOnboardingLocal,
+    completeOnboardingLocal: completeOnboarding, // Deprecated name kept for compatibility if needed, but implementation updated
+    completeOnboarding,
+    resetOnboarding, // New method
     loading
-  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboardingLocal, loading]);
+  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

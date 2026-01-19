@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StepWrapper } from "../StepWrapper"; // ✅ gleicher Wrapper wie Step1–4
 import { useOnboarding } from "../../../context/OnboardingContext";
+import { AppCard } from "../../../components/ui/AppCard";
 import type { ProfileData } from "../../../types/onboarding";
 
 interface Step5ProfileProps {
@@ -66,40 +67,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
     onFinish();
   };
 
-  const card: React.CSSProperties = {
-    background: "var(--surface2)",
-    border: "1px solid var(--border)",
-  };
-
-  const text: React.CSSProperties = { color: "var(--text)" };
-  const muted: React.CSSProperties = { color: "var(--muted)" };
-
-  const inputStyle =
-    "w-full rounded-2xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0";
-  const inputInline: React.CSSProperties = {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    color: "var(--text)",
-  };
-
-  const toggleStyle = (on: boolean): React.CSSProperties => ({
-    width: 44,
-    height: 26,
-    borderRadius: 999,
-    padding: 2,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: on ? "flex-end" : "flex-start",
-    background: on ? "var(--primary)" : "rgba(255,255,255,0.10)",
-    border: "1px solid var(--border)",
-  });
-
-  const knobStyle: React.CSSProperties = {
-    width: 20,
-    height: 20,
-    borderRadius: 999,
-    background: "#fff",
-  };
+  /* Removed inline styles in favor of Tailwind classes */
 
   return (
     <StepWrapper
@@ -113,21 +81,16 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
       nextDisabled={isNextDisabled}
     >
       {/* Minimal Profil */}
-      <div className="rounded-2xl p-4 space-y-3" style={card}>
+      <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center gap-3">
           <div
-            className="h-12 w-12 rounded-full flex items-center justify-center text-[12px] font-semibold"
-            style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-            }}
+            className="h-12 w-12 rounded-full flex items-center justify-center text-[12px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]"
           >
             {initialsOf(usernameTrim || "TrainQ")}
           </div>
 
           <div className="flex-1 space-y-1">
-            <div className="text-[11px]" style={muted}>
+            <div className="text-[11px] text-[var(--muted)]">
               Benutzername
             </div>
             <input
@@ -135,22 +98,21 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
               placeholder="@deinname"
               value={profile.username}
               onChange={(e) => setProfileSafe((prev) => ({ ...prev, username: e.target.value }))}
-              className={inputStyle}
-              style={inputInline}
+              className="w-full rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
               autoCapitalize="none"
               autoCorrect="off"
             />
           </div>
         </div>
-      </div>
+      </AppCard>
 
       {/* Optional: Privat */}
-      <div className="rounded-2xl p-4 flex items-center justify-between" style={card}>
+      <AppCard variant="soft" className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <div className="text-sm font-semibold" style={text}>
+          <div className="text-sm font-semibold text-[var(--text)]">
             Öffentlich
           </div>
-          <div className="text-[11px]" style={muted}>
+          <div className="text-[11px] text-[var(--muted)]">
             Profil sichtbar
           </div>
         </div>
@@ -159,38 +121,33 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
           type="button"
           onClick={() => setProfileSafe((prev) => ({ ...prev, isPublic: !prev.isPublic }))}
           aria-label="Profil öffentlich"
-          style={toggleStyle(profile.isPublic)}
+          className={`w-[44px] h-[26px] rounded-full p-0.5 flex items-center border border-[var(--border)] transition-colors duration-200 ${profile.isPublic ? "bg-[var(--primary)] justify-end" : "bg-white/10 justify-start"}`}
         >
-          <div style={knobStyle} />
+          <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
         </button>
-      </div>
+      </AppCard>
 
       {/* Optional: Mini-Vorschau (kurz, kein Textblock) */}
-      <div className="rounded-2xl p-4" style={card}>
-        <div className="text-[11px] mb-2" style={muted}>
+      <AppCard variant="soft">
+        <div className="text-[11px] mb-2 text-[var(--muted)]">
           Vorschau
         </div>
         <div className="flex items-center gap-2">
           <div
-            className="h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-semibold"
-            style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-            }}
+            className="h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]"
           >
             {initialsOf(usernameTrim || "TrainQ")}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold truncate" style={text}>
+            <div className="text-sm font-semibold truncate text-[var(--text)]">
               {usernameTrim || "Dein Name"}
             </div>
-            <div className="text-[11px] truncate" style={muted}>
+            <div className="text-[11px] truncate text-[var(--muted)]">
               {profile.isPublic ? "öffentlich" : "privat"}
             </div>
           </div>
         </div>
-      </div>
+      </AppCard>
     </StepWrapper>
   );
 };

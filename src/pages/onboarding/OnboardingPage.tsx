@@ -70,7 +70,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
   }
 
   return (
-    <div className="h-full w-full bg-[var(--bg)] text-white overflow-hidden absolute inset-0 z-50">
+    <div className="h-full w-full bg-[var(--bg)] text-[var(--text)] overflow-hidden absolute inset-0 z-50">
       {/* Background Gradient Layer for subtle depth */}
       <div className="absolute inset-0 bg-gradient-radial from-blue-900/10 to-transparent pointer-events-none" />
 

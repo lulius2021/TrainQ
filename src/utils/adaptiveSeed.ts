@@ -144,25 +144,53 @@ export function buildSeedFromCalendarEvent(event: CalendarEvent): LiveTrainingSe
   };
 }
 
+import { readOnboardingDataFromStorage } from "../context/OnboardingContext";
+import { getAdaptiveTemplate } from "../data/adaptiveTemplates";
+
 /**
  * Wird in LiveTrainingPage importiert.
  * ✅ Patcht Seed:
  * - Titel (Adaptiv-Suffix)
  * - Meta
  * - Übungen/Sätze skaliert nach Profil (kompakt/fokus)
+ * - NEU: Falls Seed leer (z.B. reines CalendarEvent), wird ein passendes Template injectet
  */
 export function applyAdaptiveToSeed(seed: LiveTrainingSeed, suggestion: AdaptiveSuggestion, answers?: AdaptiveAnswers): LiveTrainingSeedWithAdaptiveMeta {
   const safeSeed: LiveTrainingSeed =
     seed ?? ({ title: "Training", sport: "Gym", isCardio: false, exercises: [] } as LiveTrainingSeed);
 
+  // 1. Titel anpassen
   const baseTitle = safeSeed.title?.trim() ? safeSeed.title.trim() : "Training";
   const suffix = suggestion.title ? ` (Adaptiv: ${suggestion.title})` : " (Adaptiv)";
   const nextTitle = baseTitle.includes("(Adaptiv") ? baseTitle : `${baseTitle}${suffix}`;
 
-  const factor = factorFromProfile(suggestion.profile);
+  // 2. Persona laden (für Fallback-Templates)
+  // Wir lesen direkt aus Storage, da diese Utility oft ohne React-Context läuft.
+  const onboarding = readOnboardingDataFromStorage();
+  const persona = onboarding.personal.persona || "beginner";
 
+  // 3. Fallback: Keine Übungen? Template injecten!
+  let currentExercises = safeSeed.exercises || [];
+  if (currentExercises.length === 0 && normalizeSport(safeSeed.sport) === "Gym") {
+    // Hole Template basierend auf Titel (z.B. "Push")
+    const template = getAdaptiveTemplate(baseTitle, persona);
+
+    // Mappe Template -> Seed
+    currentExercises = template.map((t) => ({
+      name: t.name,
+      sets: t.defaultSets.map((s, i) => ({
+        id: i + 1,
+        reps: s.reps,
+        weight: s.weight,
+        notes: "",
+      })),
+    }));
+  }
+
+  // 4. Skalieren (Volume/Intensität anpassen)
+  const factor = factorFromProfile(suggestion.profile);
   const sport = normalizeSport(safeSeed.sport);
-  const nextExercises = scaleExercisesAndSets(safeSeed.exercises || [], factor, sport);
+  const nextExercises = scaleExercisesAndSets(currentExercises, factor, sport);
 
   const meta: LiveTrainingSeedWithAdaptiveMeta = {
     ...safeSeed,

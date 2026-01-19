@@ -1,5 +1,7 @@
 import React from "react";
 import { StepWrapper } from "../StepWrapper";
+import { AppCard } from "../../../components/ui/AppCard";
+import { AppButton } from "../../../components/ui/AppButton";
 
 interface StepWelcomeProps {
     onNext: () => void;
@@ -7,12 +9,6 @@ interface StepWelcomeProps {
 }
 
 export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
-    const card: React.CSSProperties = {
-        background: "var(--surface2)",
-        border: "1px solid var(--border)",
-    };
-
-    const muted: React.CSSProperties = { color: "var(--muted)" };
 
     return (
         <StepWrapper
@@ -23,26 +19,27 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
             showBack={false}
             hideProgress
         >
-            <div className="rounded-2xl p-5 space-y-4" style={card}>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+            <AppCard variant="soft" className="space-y-4 p-5">
+                <p className="text-sm leading-relaxed text-[var(--text)]">
                     TrainQ hilft dir, dein Training basierend auf deinen Zielen und deiner Erholung zu optimieren.
                 </p>
 
-                <div className="text-xs space-y-2" style={muted}>
+                <div className="text-xs space-y-2 text-[var(--muted)]">
                     <p>
                         Wir stellen dir ein paar kurze Fragen, um die App für dich einzurichten.
                         Das dauert weniger als eine Minute.
                     </p>
                 </div>
-            </div>
+            </AppCard>
 
             <div className="flex justify-center mt-4">
-                <button
+                <AppButton
                     onClick={onSkip}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    variant="ghost"
+                    className="text-xs text-[var(--muted)] hover:text-[var(--text)]"
                 >
                     Überspringen & Standardwerte nutzen
-                </button>
+                </AppButton>
             </div>
         </StepWrapper>
     );

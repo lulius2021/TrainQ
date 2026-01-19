@@ -1,6 +1,8 @@
 // src/pages/SettingPage.tsx
 import { useCallback, useMemo, useState, useEffect } from "react";
 import type { CSSProperties } from "react";
+import { AppCard } from "../components/ui/AppCard";
+import { AppButton } from "../components/ui/AppButton";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
@@ -12,6 +14,7 @@ import { clearUserScopedData, getScopedItem, setScopedItem } from "../utils/scop
 import { resetOnboardingInStorage } from "../context/OnboardingContext";
 import { clearWorkoutHistory } from "../utils/workoutHistory";
 import { clearCalendarWorkouts } from "../utils/trainqStorage";
+
 
 // ✅ NEW: Import icons or use text if no icon lib
 // import { ... } from "lucide-react"; 
@@ -47,7 +50,7 @@ export default function SettingPage({
   const safeTop = "env(safe-area-inset-top, 0px)";
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
-  const { user, logout } = useAuth();
+  const { user, logout, resetOnboarding } = useAuth();
   const { t, lang, setLang } = useI18n();
   const { isPro } = useEntitlements(user?.id);
 
@@ -189,6 +192,20 @@ export default function SettingPage({
     alert(t("settings.alert.historyCleared"));
   }, [t]);
 
+  const handleResetOnboarding = useCallback(async () => {
+    if (typeof window === "undefined" || !user?.id) return;
+    const ok = window.confirm(t("settings.confirm.resetOnboarding"));
+    if (!ok) return;
+
+    try {
+      await resetOnboarding();
+      // AuthGate will reactively show Onboarding component
+    } catch (error) {
+      console.error("[Settings] Reset onboarding failed:", error);
+      alert(t("settings.alert.resetOnboardingFailed"));
+    }
+  }, [t, user?.id, resetOnboarding]);
+
   const onMenuClick = useCallback((k: string) => {
     setSection((prev) => (prev === (k as SettingsSection) ? prev : (k as SettingsSection)));
   }, []);
@@ -244,109 +261,108 @@ export default function SettingPage({
 
   // -------- Renderers --------
 
-  const SectionHeader = ({ title }: { title: string }) => (
-    <h3 className="text-lg font-semibold text-[var(--text)]">{title}</h3>
-  );
+  // -------- Renderers --------
 
-  // Helper classes for consistent styling
-  const cardClass = "rounded-xl p-4 space-y-3 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)]";
-  const btnClass = "w-full rounded-xl px-4 py-2 text-sm bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] hover:brightness-110 active:scale-[0.98] transition-all";
-  const btnPrimaryClass = "rounded-full px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white hover:bg-sky-500 transition-colors";
+  const SectionHeader = ({ title }: { title: string }) => (
+    <h3 className="text-xl font-bold tracking-tight text-[var(--text)] mb-3 px-1">{title}</h3>
+  );
 
   const ProfilePanel = () => (
     <>
       <SectionHeader title={t("settings.section.profile")} />
-      <div className={cardClass}>
-        <p className="text-sm opacity-70">{t("settings.profile.subtitle")}</p>
+      <AppCard variant="glass">
+        <p className="text-sm opacity-70 mb-3">{t("settings.profile.subtitle")}</p>
         {onOpenGoals && (
-          <button type="button" onClick={onOpenGoals} className={btnPrimaryClass + " w-full rounded-xl py-3"}>
+          <AppButton onClick={onOpenGoals} fullWidth className="mb-3">
             {t("settings.profile.goals")}
-          </button>
+          </AppButton>
         )}
         <p className="text-sm pt-2 opacity-60">
-          {t("settings.profile.name", { value: user?.displayName || user?.email || t("settings.value.unset") })}
+          {t("settings.profile.name")}: <span className="text-[var(--text)] opacity-100 font-medium">{user?.displayName || user?.email || t("settings.value.unset")}</span>
         </p>
-      </div>
+      </AppCard>
     </>
   );
 
   const AccountPanel = () => (
     <>
       <SectionHeader title={t("settings.section.account")} />
-      <div className={cardClass}>
-        <p className="text-sm opacity-70">{t("settings.account.email", { value: user?.email || t("settings.value.unset") })}</p>
-        <button type="button" onClick={handleLogout} className={btnClass}>
+      <AppCard variant="glass" className="space-y-3">
+        <p className="text-sm opacity-70">
+          {t("settings.account.email")}: <span className="text-[var(--text)] opacity-100 font-medium">{user?.email || t("settings.value.unset")}</span>
+        </p>
+        <AppButton onClick={handleLogout} variant="secondary" fullWidth>
           {t("settings.account.logout")}
-        </button>
+        </AppButton>
         <div className="pt-2 border-t border-[var(--border)]">
-          <button type="button" onClick={handleDeleteAccount} className="w-full rounded-xl px-4 py-2 text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20">
+          <AppButton onClick={handleDeleteAccount} variant="danger" fullWidth className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20">
             {t("settings.account.deleteProfile")}
-          </button>
+          </AppButton>
         </div>
-      </div>
+      </AppCard>
     </>
   );
 
   const NotificationsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.notifications")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-3">
         <p className="text-sm opacity-70">{t("settings.notifications.subtitle")}</p>
         <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 rounded-lg bg-[var(--surface2)] cursor-pointer">
-            <span className="text-base">{t("settings.notifications.trainingReminders")}</span>
-            <input type="checkbox" checked={notifTraining} onChange={toggleNotifTraining} className="rounded h-5 w-5 accent-blue-600" />
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface2)] cursor-pointer transition active:scale-[0.98]">
+            <span className="text-base font-medium">{t("settings.notifications.trainingReminders")}</span>
+            <input type="checkbox" checked={notifTraining} onChange={toggleNotifTraining} className="rounded h-5 w-5 accent-[var(--primary)]" />
           </label>
-          <label className="flex items-center justify-between p-3 rounded-lg bg-[var(--surface2)] cursor-pointer">
-            <span className="text-base">{t("settings.notifications.weeklySummary")}</span>
-            <input type="checkbox" checked={notifWeekly} onChange={toggleNotifWeekly} className="rounded h-5 w-5 accent-blue-600" />
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface2)] cursor-pointer transition active:scale-[0.98]">
+            <span className="text-base font-medium">{t("settings.notifications.weeklySummary")}</span>
+            <input type="checkbox" checked={notifWeekly} onChange={toggleNotifWeekly} className="rounded h-5 w-5 accent-[var(--primary)]" />
           </label>
         </div>
         <p className="text-sm pt-2 opacity-60">{t("settings.notifications.note")}</p>
-      </div>
+      </AppCard>
     </>
   );
 
   const IntegrationsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.integrations")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Garmin Icon Placeholder */}
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold text-xs">G</div>
-            <span className="font-medium">{t("settings.integrations.garmin")}</span>
+            <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xs ring-1 ring-white/10">G</div>
+            <span className="font-semibold text-lg">{t("settings.integrations.garmin")}</span>
           </div>
-          <span className={`text-xs px-2 py-1 rounded-full ${garminConnected ? "bg-green-500/20 text-green-500" : "bg-gray-500/20 text-gray-500"}`}>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${garminConnected ? "bg-green-500/20 text-green-500" : "bg-[var(--surface2)] text-[var(--muted)]"}`}>
             {garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
           </span>
         </div>
 
         {garminConnected ? (
-          <button onClick={handleGarminDisconnect} className={btnClass}>{t("settings.integrations.disconnect")}</button>
+          <AppButton onClick={handleGarminDisconnect} variant="secondary" fullWidth>{t("settings.integrations.disconnect")}</AppButton>
         ) : (
-          <button onClick={handleGarminConnect} className={btnClass}>{t("settings.integrations.connect")}</button>
+          <AppButton onClick={handleGarminConnect} variant="primary" fullWidth>{t("settings.integrations.connect")}</AppButton>
         )}
-        <p className="text-xs opacity-50">{t("settings.integrations.syncNote")}</p>
-      </div>
+        <p className="text-xs opacity-50 px-1">{t("settings.integrations.syncNote")}</p>
+      </AppCard>
     </>
-  )
+  );
 
   const UnitsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.units")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-3">
         <p className="text-sm opacity-70">{t("settings.units.subtitle")}</p>
-        <div className="inline-flex rounded-full p-1 text-base bg-[var(--surface2)] border border-[var(--border)]">
-          <button type="button" onClick={() => { setUnits("metric"); setScopedItem("trainq_units", "metric"); }} className={`px-4 py-1.5 rounded-full transition ${units === "metric" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => { setUnits("metric"); setScopedItem("trainq_units", "metric"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "metric" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("settings.units.metric")}
           </button>
-          <button type="button" onClick={() => { setUnits("imperial"); setScopedItem("trainq_units", "imperial"); }} className={`px-4 py-1.5 rounded-full transition ${units === "imperial" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+          <button type="button" onClick={() => { setUnits("imperial"); setScopedItem("trainq_units", "imperial"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "imperial" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("settings.units.imperial")}
           </button>
         </div>
         <p className="text-sm opacity-60">{t("settings.units.note")}</p>
-      </div>
+      </AppCard>
     </>
   );
 
@@ -354,100 +370,101 @@ export default function SettingPage({
     <>
       <SectionHeader title={t("settings.section.legal")} />
 
-      <div className={cardClass}>
-        {/* Quick Links to dedicated pages */}
-        <button onClick={() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); }} className={btnClass + " text-left justify-between flex items-center"}>
+      <AppCard variant="glass" className="space-y-2">
+        <AppButton onClick={() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
           <span>{t("settings.legal.tab.privacy")}</span>
           <span className="opacity-50">→</span>
-        </button>
-        <button onClick={() => { window.history.pushState({}, "", "/impressum"); window.dispatchEvent(new PopStateEvent("popstate")); }} className={btnClass + " text-left justify-between flex items-center"}>
+        </AppButton>
+        <AppButton onClick={() => { window.history.pushState({}, "", "/impressum"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
           <span>{t("settings.legal.tab.imprint")}</span>
           <span className="opacity-50">→</span>
-        </button>
-        <button onClick={() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); }} className={btnClass + " text-left justify-between flex items-center"}>
+        </AppButton>
+        <AppButton onClick={() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
           <span>{t("settings.legal.tab.terms")}</span>
           <span className="opacity-50">→</span>
-        </button>
-      </div>
+        </AppButton>
+      </AppCard>
     </>
   );
 
   const LanguagePanel = () => (
     <>
       <SectionHeader title={t("settings.section.language")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-3">
         <p className="text-sm opacity-70">{t("settings.language.subtitle")}</p>
-        <div className="inline-flex rounded-full p-1 text-base bg-[var(--surface2)] border border-[var(--border)]">
-          <button type="button" onClick={() => setLang("de")} className={`px-4 py-1.5 rounded-full transition ${lang === "de" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => setLang("de")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "de" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("language.de")}
           </button>
-          <button type="button" onClick={() => setLang("en")} className={`px-4 py-1.5 rounded-full transition ${lang === "en" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+          <button type="button" onClick={() => setLang("en")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "en" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("language.en")}
           </button>
         </div>
-      </div>
+      </AppCard>
     </>
   );
 
   const ThemePanel = () => (
     <>
       <SectionHeader title={t("settings.section.theme")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-3">
         <p className="text-sm opacity-70">{t("settings.theme.subtitle")}</p>
-        <div className="inline-flex rounded-full p-1 text-base bg-[var(--surface2)] border border-[var(--border)]">
-          <button type="button" onClick={() => { setThemeGlobal("light"); setThemeState("light"); }} className={`px-4 py-1.5 rounded-full transition ${theme === "light" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => { setThemeGlobal("light"); setThemeState("light"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "light" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("settings.theme.light")}
           </button>
-          <button type="button" onClick={() => { setThemeGlobal("dark"); setThemeState("dark"); }} className={`px-4 py-1.5 rounded-full transition ${theme === "dark" ? "bg-[#2563EB] text-white" : "text-gray-400"}`}>
+          <button type="button" onClick={() => { setThemeGlobal("dark"); setThemeState("dark"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "dark" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
             {t("settings.theme.dark")}
           </button>
         </div>
-      </div>
+      </AppCard>
     </>
   );
 
   const ProPanel = () => (
     <>
       <SectionHeader title={t("settings.section.pro")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-3">
         {isPro ? (
-          <div className="flex items-center gap-2 text-green-400 font-semibold">
+          <div className="flex items-center gap-2 text-green-400 font-semibold p-2 bg-green-500/10 rounded-xl justify-center">
             <span>✅</span>
             <span>{t("settings.pro.active")}</span>
           </div>
         ) : (
-          <div className="text-gray-400">{t("settings.alert.noActiveSubscription")}</div>
+          <div className="text-[var(--muted)] bg-[var(--surface2)] rounded-xl p-3 text-center">{t("settings.alert.noActiveSubscription")}</div>
         )}
 
         {!isPro && (
-          <button onClick={openPaywall} className={btnPrimaryClass + " w-full mt-2"}>{t("settings.pro.buy")}</button>
+          <AppButton onClick={openPaywall} variant="primary" fullWidth className="mt-2">{t("settings.pro.buy")}</AppButton>
         )}
-        <button onClick={handleRestorePurchases} className={btnClass + " mt-2"}>{t("settings.pro.restorePurchases")}</button>
-      </div>
+        <AppButton onClick={handleRestorePurchases} variant="secondary" fullWidth className="mt-2 text-sm">{t("settings.pro.restorePurchases")}</AppButton>
+      </AppCard>
     </>
   );
 
   const DataPanel = () => (
     <>
       <SectionHeader title={t("settings.section.data")} />
-      <div className={cardClass}>
+      <AppCard variant="glass" className="space-y-2">
         <p className="text-sm opacity-70">{t("settings.data.subtitle")}</p>
         <div className="space-y-2 pt-2">
-          <button onClick={handleClearCalendar} className="w-full text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 hover:bg-red-500/20">{t("settings.data.clearCalendar")}</button>
-          <button onClick={handleClearHistory} className="w-full text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 hover:bg-red-500/20">{t("settings.data.clearHistory")}</button>
+          <AppButton onClick={handleClearCalendar} variant="danger" fullWidth className="bg-red-500/10 text-red-500 border-red-500/20">{t("settings.data.clearCalendar")}</AppButton>
+          <AppButton onClick={handleClearHistory} variant="danger" fullWidth className="bg-red-500/10 text-red-500 border-red-500/20">{t("settings.data.clearHistory")}</AppButton>
+          <AppButton onClick={handleResetOnboarding} variant="danger" fullWidth className="bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/20">{t("settings.data.resetOnboarding")}</AppButton>
         </div>
-      </div>
+        <p className="text-xs opacity-50 pt-2">{t("settings.data.resetOnboardingNote")}</p>
+      </AppCard>
     </>
   );
 
   const HelpPanel = () => (
     <>
       <SectionHeader title={t("settings.section.help")} />
-      <div className={cardClass}>
+      <AppCard variant="glass">
         <p className="text-sm opacity-70">{t("settings.help.version")}</p>
-        <p className="text-xs opacity-50">TrainQ Inc.</p>
-        <button className={btnClass} onClick={() => window.open("mailto:support@trainq.app")}>{t("settings.help.contact")}</button>
-      </div>
+        <p className="text-xs opacity-50 mb-3">TrainQ Inc.</p>
+        <AppButton variant="secondary" fullWidth onClick={() => window.open("mailto:support@trainq.app")}>{t("settings.help.contact")}</AppButton>
+      </AppCard>
     </>
   );
 
@@ -470,35 +487,28 @@ export default function SettingPage({
 
   // -------- Layout --------
   // bg-brand-bg corresponds to var(--bg) now in tailwind config
+  // -------- Layout --------
+  // bg-[var(--bg)] handled by styles
   return (
-    <div className="h-full w-full overflow-y-auto bg-brand-bg text-[var(--text)] px-4 py-5" style={{ paddingTop: `calc(1.25rem + ${safeTop})`, paddingBottom: `calc(5rem + ${safeBottom})` }}>
-      <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="h-full w-full overflow-y-auto bg-[var(--bg)] text-[var(--text)]" style={{ isolation: "isolate" }}>
+      <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(var(--safe-top)+20px)] pb-[var(--nav-height)] space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              className="h-10 w-10 flex items-center justify-center rounded-full bg-[var(--surface)] border border-[var(--border)] text-gray-400 hover:brightness-110"
-              title={t("common.back")}
-            >
+            <AppButton onClick={onBack} variant="secondary" className="w-10 !px-0 rounded-full" title={t("common.back")}>
               {"<"}
-            </button>
-            <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
+            </AppButton>
+            <h1 className="text-3xl font-bold tracking-tight">{t("settings.title")}</h1>
           </div>
           {!isPro && (
-            <button
-              type="button"
-              onClick={openPaywall}
-              className={btnPrimaryClass}
-            >
+            <AppButton onClick={openPaywall} variant="primary" size="sm">
               {t("settings.pro.buy")}
-            </button>
+            </AppButton>
           )}
         </div>
 
         {/* MOBILE: Accordion */}
         <div className="md:hidden space-y-3">
-          <div className={`${cardClass} p-2`}>
+          <AppCard variant="glass" className="p-2">
             <div className="space-y-1">
               {menuItems.map((it) => {
                 const isActive = section === it.key;
@@ -507,15 +517,15 @@ export default function SettingPage({
                     <button
                       type="button"
                       onClick={() => onMenuClick(it.key)}
-                      className="w-full text-left px-3 py-3 rounded-xl hover:bg-[var(--surface2)] transition-colors"
+                      className="w-full text-left px-3 py-3 rounded-2xl hover:bg-[var(--surface2)] transition-colors active:scale-[0.99] duration-150"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-medium opacity-90">{it.label}</span>
-                        <span className="text-lg opacity-50">{isActive ? "–" : "+"}</span>
+                        <span className="text-base font-semibold opacity-90">{it.label}</span>
+                        <span className="text-lg opacity-50 font-bold">{isActive ? "–" : "+"}</span>
                       </div>
                     </button>
                     {isActive && (
-                      <div className="rounded-xl p-3 space-y-3 bg-[var(--bg)]/30 border border-[var(--border)]">
+                      <div className="rounded-2xl p-2 bg-[var(--bg)]/10">
                         {renderSectionContent(it.key as SettingsSection)}
                       </div>
                     )}
@@ -523,12 +533,12 @@ export default function SettingPage({
                 );
               })}
             </div>
-          </div>
+          </AppCard>
         </div>
 
         {/* DESKTOP: Sidebar + Content */}
         <div className="hidden md:grid grid-cols-[280px_1fr] gap-6">
-          <div className={`${cardClass} p-2`}>
+          <AppCard variant="glass" className="h-fit sticky top-6">
             <div className="space-y-1">
               {menuItems.map((it) => {
                 const isActive = section === it.key;
@@ -537,14 +547,14 @@ export default function SettingPage({
                     key={it.key}
                     type="button"
                     onClick={() => onMenuClick(it.key)}
-                    className={`w-full text-left px-4 py-3 rounded-xl transition ${isActive ? "bg-[var(--surface2)] font-semibold" : "hover:bg-[var(--surface2)] opacity-80"}`}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition ${isActive ? "bg-[var(--surface2)] font-bold text-[var(--primary)]" : "hover:bg-[var(--surface2)] opacity-80"}`}
                   >
                     <span className="text-base">{it.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </AppCard>
           <div className="space-y-4">
             {renderSectionContent(section)}
           </div>
