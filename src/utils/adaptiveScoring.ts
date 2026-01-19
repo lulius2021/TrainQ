@@ -11,6 +11,19 @@ import type {
   AdaptiveSuggestion,
 } from "../types/adaptive";
 
+export function profileAccent(profile: string) {
+  switch (profile) {
+    case "stabil":
+      return { bg: "rgba(37, 99, 235, 0.1)", border: "rgba(37, 99, 235, 0.3)", badgeBg: "rgba(37, 99, 235, 0.2)" };
+    case "kompakt":
+      return { bg: "rgba(245, 158, 11, 0.1)", border: "rgba(245, 158, 11, 0.3)", badgeBg: "rgba(245, 158, 11, 0.2)" };
+    case "fokus":
+      return { bg: "rgba(168, 85, 247, 0.1)", border: "rgba(168, 85, 247, 0.3)", badgeBg: "rgba(168, 85, 247, 0.2)" };
+    default:
+      return { bg: "rgba(255, 255, 255, 0.05)", border: "rgba(255, 255, 255, 0.1)", badgeBg: "rgba(255, 255, 255, 0.1)" };
+  }
+}
+
 // ------------------------------
 // Helper
 // ------------------------------

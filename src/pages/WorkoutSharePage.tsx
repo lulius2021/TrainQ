@@ -69,7 +69,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: Props) {
       if (isGym) return true;
       return tpl.id !== "EXERCISE_SPOTLIGHT" && tpl.id !== "STICKER_EXERCISE";
     });
-    return list.map((tpl) => ({ ...tpl, label: t(tpl.nameKey) }));
+    return list.map((tpl) => ({ ...tpl, label: t(tpl.nameKey as any) }));
   }, [isGym, t]);
 
   useEffect(() => {

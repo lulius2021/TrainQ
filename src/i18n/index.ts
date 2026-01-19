@@ -22,7 +22,7 @@ export function assertTranslationsMatch(): void {
   const missingInDe = enKeys.filter((k) => !(k in translationsDe));
   const missingInEn = deKeys.filter((k) => !(k in translationsEn));
   if (missingInDe.length || missingInEn.length) {
-    // eslint-disable-next-line no-console
+     
     console.warn("[i18n] Missing translation keys", { missingInDe, missingInEn });
   }
 }

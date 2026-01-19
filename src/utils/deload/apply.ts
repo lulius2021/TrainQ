@@ -39,10 +39,11 @@ function applyDeloadToLiveSet(set: LiveSet, rules: DeloadRule): LiveSet {
   if (typeof next.weight === "number" && typeof rules.reduceWeightPct === "number") {
     next.weight = reduceWeight(next.weight, rules.reduceWeightPct);
   }
-  if (rules.applyWeightToDropsets && typeof rules.reduceWeightPct === "number" && Array.isArray(next.drops)) {
+  const pct = rules.reduceWeightPct;
+  if (rules.applyWeightToDropsets && typeof pct === "number" && Array.isArray(next.drops)) {
     next.drops = next.drops.map((drop) => ({
       ...drop,
-      weight: typeof drop.weight === "number" ? reduceWeight(drop.weight, rules.reduceWeightPct) : drop.weight,
+      weight: typeof drop.weight === "number" ? reduceWeight(drop.weight, pct) : drop.weight,
     }));
   }
   return next;

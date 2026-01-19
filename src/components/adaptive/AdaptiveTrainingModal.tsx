@@ -1,10 +1,10 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useI18n } from "../../i18n/useI18n";
-import type { TranslationKey } from "../../i18n";
+import type { TranslationKey } from "../../i18n/index";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
-import { buildAdaptiveSuggestions } from "../../utils/adaptiveScoring";
+import { buildAdaptiveSuggestions, profileAccent } from "../../utils/adaptiveScoring";
 
 // ... (Helper functions remain unchanged)
 

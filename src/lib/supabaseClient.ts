@@ -1,5 +1,5 @@
-// src/lib/supabaseClient.ts
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { authStorageAdapter } from "./authStorageAdapter";
 
 let cachedClient: SupabaseClient | null = null;
 
@@ -27,9 +27,11 @@ export function getSupabaseClient(): SupabaseClient | null {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storage: authStorageAdapter,
       },
     });
   }
 
   return cachedClient;
 }
+

@@ -247,7 +247,7 @@ export function consumeAdaptiveTraining(state: EntitlementsState): EntitlementsS
 
 // ⚠️ setPro ist absichtlich NICHT mehr vorgesehen, weil Pro aus Account kommt.
 // (Wir lassen die Funktion für API-Kompatibilität, aber sie ändert nichts Persistentes.)
-export function setPro(state: EntitlementsState, _isPro: boolean): EntitlementsState {
+export function setPro(state: EntitlementsState): EntitlementsState {
   return { ...state, isPro: state.isPro };
 }
 

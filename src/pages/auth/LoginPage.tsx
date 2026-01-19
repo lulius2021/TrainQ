@@ -1,6 +1,6 @@
 // src/pages/auth/LoginPage.tsx
 import React, { useEffect, useState } from "react";
-import type { AuthResult } from "../../types/auth";
+import type { AuthResult } from "../../context/AuthContext";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../i18n/useI18n";
 
@@ -30,11 +30,23 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
   const onSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const emailTrim = email.trim();
+    if (!emailTrim || !password) {
+      setError(t("auth.login.empty") || "Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
+
     setBusy(true);
 
     try {
-      const res = await auth.login(email, password);
-      if (!res.ok) setError(res.error ?? t("auth.login.error"));
+      const res = await auth.login(emailTrim, password);
+      // Supabase returns generic error messages, map them if possible
+      if (!res.ok) {
+        let msg = res.error ?? t("auth.login.error");
+        if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid") || "E-Mail oder Passwort falsch.";
+        setError(msg);
+      }
     } catch (e: any) {
       setError(e?.message ?? t("auth.login.error"));
     } finally {
@@ -68,17 +80,58 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
           <h1 className="text-2xl font-bold text-white">{t("auth.login.title")}</h1>
         </div>
 
+        {/* DEV ONLY: Test Accounts */}
+        {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEST_USERS === "true") && (
+          <div className="mb-6 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-yellow-500">
+              Test Accounts (Dev Only)
+            </label>
+            <select
+              className="w-full rounded-lg bg-black/20 px-3 py-2 text-sm text-white outline-none ring-1 ring-white/10 focus:ring-yellow-500"
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const [addr, pass] = e.target.value.split(":");
+                setEmail(addr);
+                setPassword(pass);
+              }}
+              defaultValue=""
+            >
+              <option value="">-- Choose User --</option>
+              <optgroup label="Pro Plan">
+                {Array.from({ length: 5 }, (_, i) => {
+                  const id = i + 1 < 10 ? `0${i + 1}` : `${i + 1}`;
+                  return (
+                    <option key={`pro${id}`} value={`pro${id}@testflight.trainq:trainq1234`}>
+                      Pro {id}
+                    </option>
+                  );
+                })}
+              </optgroup>
+              <optgroup label="Free Plan">
+                {Array.from({ length: 3 }, (_, i) => {
+                  const id = i + 1 < 10 ? `0${i + 1}` : `${i + 1}`;
+                  return (
+                    <option key={`free${id}`} value={`free${id}@testflight.trainq:trainq1234`}>
+                      Free {id}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            </select>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </div>
         )}
 
-        <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="off">
+        <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="on">
           <div className="space-y-2">
             <label className="block text-sm text-gray-300">{t("auth.email")}</label>
             <input
-              name="trainq_email"
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-base text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] focus:ring-offset-[#061226]"
@@ -87,7 +140,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               autoCorrect="off"
               spellCheck={false}
               inputMode="email"
-              autoComplete="off"
+              autoComplete="username"
             />
           </div>
 
@@ -95,13 +148,13 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             <label className="block text-sm text-gray-300">{t("auth.password")}</label>
             <div className="relative">
               <input
-                name="trainq_password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-base text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] focus:ring-offset-[#061226]"
                 placeholder="••••••••"
                 type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -128,9 +181,8 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             <button
               type="submit"
               disabled={busy}
-              className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-all duration-300 ${
-                busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-[#2563EB] text-white hover:bg-sky-500 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
-              }`}
+              className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-[#2563EB] text-white hover:bg-sky-500 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
+                }`}
             >
               {busy ? t("auth.login.loading") : t("auth.login.email")}
             </button>
@@ -155,7 +207,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 onClick={onGoToForgotPassword}
                 className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
               >
-                {t("auth.login.forgot")}
+                {t("auth.login.forgot") || "Passwort vergessen?"}
               </button>
             ) : (
               <div />
@@ -163,30 +215,26 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
           </div>
         </form>
 
-        {auth.loginWithApple && (
-            <>
-                <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                        <div className="w-full border-t border-white/10"></div>
-                    </div>
-                    <div className="relative flex justify-center">
-                        <span className="bg-white/5 px-2 text-sm text-gray-400 backdrop-blur-md">ODER</span>
-                    </div>
-                </div>
-                <div>
-                    <button
-                        type="button"
-                        onClick={onApple}
-                        disabled={busy}
-                        className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-colors ${
-                        busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
-                        }`}
-                    >
-                        {busy ? t("auth.login.loading") : t("auth.login.apple")}
-                    </button>
-                </div>
-            </>
-        )}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-white/10"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white/5 px-2 text-sm text-gray-400 backdrop-blur-md">ODER</span>
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={onApple}
+            disabled={busy}
+            className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-colors ${busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
+              }`}
+          >
+            {busy ? t("auth.login.loading") : t("auth.login.apple")}
+          </button>
+        </div>
       </div>
     </div>
   );

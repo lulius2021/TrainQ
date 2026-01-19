@@ -5,7 +5,8 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { signInSupabase, signOutSupabase, signUpSupabase } from "../services/supabaseAuth";
+import { signOutSupabase } from "../services/supabaseAuth";
+import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple";
 
@@ -15,163 +16,27 @@ export type AuthUser = {
   email?: string;
   displayName?: string;
   isPro?: boolean;
-  supabaseId?: string;
-
-  // Apple stable identifier for this app (profile.user)
-  appleSub?: string;
-
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
+  supabaseId?: string; // Should match id for Email users
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type AuthResult = { ok: boolean; error?: string };
 
 export type AuthContextValue = {
   user: AuthUser | null;
-
-  // Email/Password
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (email: string, password: string) => Promise<AuthResult>;
   requestPasswordReset: (email: string) => Promise<AuthResult>;
-
-  // Apple
   loginWithApple: () => Promise<AuthResult>;
-
-  // Session
   logout: () => void;
-
-  // Account flags
   setUserPro: (isPro: boolean) => void;
+  loading: boolean;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-// -------------------- Storage Keys --------------------
-
-const LS_USERS = "trainq_auth_users_v1";
-const LS_SESSION = "trainq_auth_session_v1"; // { userId: string }
-const LS_APPLE_SUB = "trainq_auth_apple_sub_v1";
-
 // -------------------- Helpers --------------------
-
-function nowISO(): string {
-  return new Date().toISOString();
-}
-
-function uuidFallback(prefix = "id") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function newId(prefix = "u"): string {
-  // randomUUID ist nicht überall garantiert
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const c: any = typeof crypto !== "undefined" ? crypto : undefined;
-  if (c?.randomUUID) return c.randomUUID();
-  return uuidFallback(prefix);
-}
-
-function safeParse<T>(raw: string | null, fallback: T): T {
-  try {
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function readUsers(): AuthUser[] {
-  if (typeof window === "undefined") return [];
-  return safeParse<AuthUser[]>(window.localStorage.getItem(LS_USERS), []);
-}
-
-function writeUsers(users: AuthUser[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(LS_USERS, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
-}
-
-function readSessionUserId(): string | null {
-  if (typeof window === "undefined") return null;
-  const s = safeParse<{ userId?: string }>(window.localStorage.getItem(LS_SESSION), {});
-  return typeof s.userId === "string" && s.userId.trim() ? s.userId : null;
-}
-
-function writeSessionUserId(userId: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (!userId) window.localStorage.removeItem(LS_SESSION);
-    else window.localStorage.setItem(LS_SESSION, JSON.stringify({ userId }));
-  } catch {
-    // ignore
-  }
-}
-
-function normalizeEmail(email: string): string {
-  return String(email ?? "").trim().toLowerCase();
-}
-
-// Für dein MVP okay (lokal), aber: in Produktion nicht plaintext speichern.
-type StoredUserRecord = AuthUser & { password?: string };
-
-function readStoredUsers(): StoredUserRecord[] {
-  return readUsers() as StoredUserRecord[];
-}
-
-function writeStoredUsers(users: StoredUserRecord[]) {
-  writeUsers(users as AuthUser[]);
-}
-
-function seedDefaultTestAccountsIfMissing() {
-  const users = readStoredUsers();
-  if (users.some((u) => u.provider === "email" && u.email)) return;
-
-  const t = nowISO();
-
-  const seeded: StoredUserRecord[] = [
-    {
-      id: newId("u"),
-      provider: "email",
-      email: "pro01@testflight.trainq",
-      displayName: "Pro 01",
-      isPro: true,
-      password: "trainq1234",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: newId("u"),
-      provider: "email",
-      email: "pro02@testflight.trainq",
-      displayName: "Pro 02",
-      isPro: true,
-      password: "trainq1234",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: newId("u"),
-      provider: "email",
-      email: "free01@testflight.trainq",
-      displayName: "Free 01",
-      isPro: false,
-      password: "trainq1234",
-      createdAt: t,
-      updatedAt: t,
-    },
-  ];
-
-  writeStoredUsers([...users, ...seeded]);
-}
-
-function buildDisplayNameFromApple(email?: string, given?: string, family?: string): string {
-  const n = `${String(given ?? "").trim()} ${String(family ?? "").trim()}`.trim();
-  if (n) return n;
-  if (email && email.includes("@")) return email.split("@")[0] || "Apple User";
-  return "Apple User";
-}
 
 function isNativeIOS(): boolean {
   try {
@@ -181,348 +46,188 @@ function isNativeIOS(): boolean {
   }
 }
 
-function randomState(prefix = "st") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 // -------------------- Provider --------------------
 
 export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const mountedRef = useRef(true);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  const sanitizeUser = (u: StoredUserRecord): AuthUser => {
-    // Passwort niemals in den React-State übernehmen
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...rest } = u;
-    return rest;
-  };
-
-  const persistAndSetUser = useCallback((u: StoredUserRecord | null) => {
-    if (!mountedRef.current) return;
-    if (!u) {
+  // Sync Supabase Session -> AuthUser
+  const syncSessionToUser = useCallback((session: Session | null) => {
+    if (!session?.user) {
       setUser(null);
-      writeSessionUserId(null);
       clearActiveSession();
       return;
     }
-    setUser(sanitizeUser(u));
-    writeSessionUserId(u.id);
-    setActiveSession({ userId: u.id, isPro: u.isPro === true, email: u.email });
-    migrateUserStorage(u.id);
-  }, []);
 
-  const updateStoredUser = useCallback(
-    (next: StoredUserRecord) => {
-      const users = readStoredUsers();
-      const idx = users.findIndex((u) => u.id === next.id);
-      if (idx < 0) return;
-      const updated = { ...users[idx], ...next, updatedAt: nowISO() };
-      const copy = [...users];
-      copy[idx] = updated;
-      writeStoredUsers(copy);
-      persistAndSetUser(updated);
-    },
-    [persistAndSetUser]
-  );
+    const u = session.user;
+    const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro";
 
-  // Init: Seed + Session restore (+ SocialLogin init)
-  useEffect(() => {
-    mountedRef.current = true;
-
-    const initAuth = async () => {
-      if (import.meta.env.DEV) {
-        seedDefaultTestAccountsIfMissing();
-      }
-
-      // SocialLogin init (native iOS)
-      if (isNativeIOS()) {
-        SocialLogin.initialize({ apple: {} }).catch(() => {
-          // MVP: ignore
-        });
-      }
-
-      // Get Supabase session
-      const client = getSupabaseClient();
-      const supaSession = client ? (await client.auth.getSession()).data.session : null;
-
-      const sessionUserId = readSessionUserId();
-      if (sessionUserId) {
-        const users = readStoredUsers();
-        const foundUserIndex = users.findIndex((u) => u.id === sessionUserId);
-
-        if (foundUserIndex !== -1) {
-          let userToSet = users[foundUserIndex];
-
-          // If we have a supabase session but no id on the user, update it
-          if (supaSession?.user && !userToSet.supabaseId) {
-            const updatedUser = { ...userToSet, supabaseId: supaSession.user.id };
-            const nextUsers = [...users];
-            nextUsers[foundUserIndex] = updatedUser;
-            writeStoredUsers(nextUsers);
-            userToSet = updatedUser;
-          }
-
-          setUser(sanitizeUser(userToSet));
-          setActiveSession({ userId: userToSet.id, isPro: userToSet.isPro === true, email: userToSet.email });
-          migrateUserStorage(userToSet.id);
-        } else {
-          // Local session is invalid
-          writeSessionUserId(null);
-          clearActiveSession();
-          setUser(null);
-          // If local session is invalid, supabase session should be too
-          if (supaSession && client) {
-            await client.auth.signOut();
-          }
-        }
-      } else {
-        setUser(null);
-        clearActiveSession();
-      }
+    // Map Supabase User to our AuthUser
+    const authUser: AuthUser = {
+      id: u.id,
+      provider: u.app_metadata?.provider === "apple" ? "apple" : "email",
+      email: u.email,
+      displayName: u.user_metadata?.full_name || u.email?.split("@")[0],
+      isPro,
+      supabaseId: u.id,
+      createdAt: u.created_at,
+      updatedAt: u.updated_at,
     };
 
-    initAuth();
+    setUser(authUser);
+    setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
+    migrateUserStorage(authUser.id);
+  }, []);
+
+  // 1. Init Listener
+  useEffect(() => {
+    mountedRef.current = true;
+    const client = getSupabaseClient();
+
+    // Check initial session
+    client?.auth.getSession().then(({ data }) => {
+      if (mountedRef.current) {
+        syncSessionToUser(data.session);
+        setLoading(false);
+      }
+    });
+
+    // Listen for changes
+    const { data: listener } = client?.auth.onAuthStateChange((_event, session) => {
+      if (mountedRef.current) {
+        syncSessionToUser(session);
+      }
+    }) || { data: null };
+
+    // Init Social Login (Native)
+    if (isNativeIOS()) {
+      SocialLogin.initialize({ apple: {} }).catch(() => console.warn("SocialLogin init failed"));
+    }
 
     return () => {
       mountedRef.current = false;
+      listener?.subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncSessionToUser]);
+
+  // -------------------- Actions --------------------
+
+  const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const client = getSupabaseClient();
+    if (!client) return { ok: false, error: "Auth Client nicht verfügbar." };
+
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) return { ok: false, error: error.message };
+
+    // Session update logic handled by onAuthStateChange
+    return { ok: true };
   }, []);
 
-  // -------------------- Email/Password --------------------
+  const register = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const client = getSupabaseClient();
+    if (!client) return { ok: false, error: "Auth Client nicht verfügbar." };
 
-  const login = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
-      const e = normalizeEmail(email);
-      const p = String(password ?? "");
-
-      if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
-      if (!p) return { ok: false, error: "Bitte Passwort eingeben." };
-
-      const users = readStoredUsers();
-      const found = users.find((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
-
-      if (!found) return { ok: false, error: "Account nicht gefunden." };
-      if ((found as StoredUserRecord).password !== p) return { ok: false, error: "Passwort ist falsch." };
-
-      persistAndSetUser(found);
-
-      const supa = await signInSupabase(e, p);
-      if (supa.userId) {
-        updateStoredUser({ ...found, supabaseId: supa.userId });
-      } else if (supa.error && supa.error.toLowerCase().includes("invalid")) {
-        const created = await signUpSupabase(e, p);
-        if (created.userId) {
-          updateStoredUser({ ...found, supabaseId: created.userId });
+    const { error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          plan: "free", // Default
         }
       }
-      return { ok: true };
-    },
-    [persistAndSetUser, updateStoredUser]
-  );
+    });
 
-  const register = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
-      const e = normalizeEmail(email);
-      const p = String(password ?? "");
-
-      if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
-      if (p.length < 6) return { ok: false, error: "Passwort muss mindestens 6 Zeichen haben." };
-
-      const users = readStoredUsers();
-      const exists = users.some((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
-      if (exists) return { ok: false, error: "Diese E-Mail ist bereits registriert." };
-
-      const t = nowISO();
-      const created: StoredUserRecord = {
-        id: newId("u"),
-        provider: "email",
-        email: e,
-        displayName: e.split("@")[0] || "User",
-        isPro: false,
-        password: p,
-        createdAt: t,
-        updatedAt: t,
-      };
-
-      writeStoredUsers([...users, created]);
-      persistAndSetUser(created);
-
-      const supa = await signUpSupabase(e, p);
-      if (supa.userId) {
-        updateStoredUser({ ...created, supabaseId: supa.userId });
-      }
-      return { ok: true };
-    },
-    [persistAndSetUser, updateStoredUser]
-  );
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }, []);
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
-    const e = normalizeEmail(email);
-    if (!e) return { ok: false, error: "Bitte E-Mail eingeben." };
+    const client = getSupabaseClient();
+    if (!client) return { ok: false, error: "Auth Client nicht verfügbar." };
 
-    // MVP (lokal) – kein echter Mailversand.
-    const users = readStoredUsers();
-    const exists = users.some((u) => u.provider === "email" && normalizeEmail(u.email ?? "") === e);
-    if (!exists) return { ok: false, error: "Account nicht gefunden." };
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/reset-password", // Ensure this route exists or client handles it
+    });
 
+    if (error) return { ok: false, error: error.message };
     return { ok: true };
   }, []);
 
-  // -------------------- Apple (REAL on iOS) + fallback --------------------
+  const logout = useCallback(async () => {
+    const client = getSupabaseClient();
+    await client?.auth.signOut();
+    // onAuthStateChange will handle state clear
+    // Force clear locally just in case
+    setUser(null);
+    clearActiveSession();
+  }, []);
+
+  // -------------------- Apple --------------------
+  // Note: For a "Pure Supabase" pivot, Apple Login should ideally exchange token with Supabase.
+  // Since we don't have the backend config verified, we will try to sign in with ID token if available,
+  // or fallback to a limited local session (WITHOUT PASSWORD) if strictly necessary. 
+  // Given the "Security Engineer" persona: I will strictly NOT store passwords.
 
   const loginWithApple = useCallback(async (): Promise<AuthResult> => {
-    if (typeof window === "undefined") return { ok: false, error: "Apple Login ist hier nicht verfügbar." };
-
-    // ✅ Real Apple flow (native iOS) via Capgo SocialLogin
-    if (isNativeIOS()) {
-      try {
-        const nonce = randomState("nonce");
-
-        const result = await SocialLogin.login({
-          provider: "apple",
-          options: {
-            scopes: ["email", "name"],
-            nonce,
-          },
-        });
-
-        const profile = (result as any)?.result?.profile;
-        const appleSub = profile?.user;
-        if (!appleSub) return { ok: false, error: "Apple Login: Keine User-ID erhalten." };
-
-        const email = profile?.email ?? undefined; // häufig nur beim ersten Mal
-        const givenName = profile?.givenName ?? undefined;
-        const familyName = profile?.familyName ?? undefined;
-
-        const displayName = buildDisplayNameFromApple(email, givenName, familyName);
-
-        // optionaler Cache
-        try {
-          window.localStorage.setItem(LS_APPLE_SUB, JSON.stringify(appleSub));
-        } catch {
-          // ignore
-        }
-
-        const users = readStoredUsers();
-        let found = users.find((u) => u.provider === "apple" && u.appleSub === appleSub);
-
-        const t = nowISO();
-
-        if (!found) {
-          const created: StoredUserRecord = {
-            id: newId("u"),
-            provider: "apple",
-            appleSub,
-            email,
-            displayName,
-            isPro: false,
-            createdAt: t,
-            updatedAt: t,
-          };
-
-          writeStoredUsers([...users, created]);
-          persistAndSetUser(created);
-          return { ok: true };
-        }
-
-        // Update nur auffüllen, wenn Apple neue Infos liefert
-        const updated: StoredUserRecord = {
-          ...found,
-          email: found.email || email,
-          displayName: found.displayName || displayName,
-          updatedAt: t,
-        };
-
-        const nextUsers = users.map((u) => (u.id === found!.id ? updated : u));
-        writeStoredUsers(nextUsers);
-        persistAndSetUser(updated);
-
-        return { ok: true };
-      } catch (e: any) {
-        const msg = String(e?.message ?? "Apple Login fehlgeschlagen.");
-        const low = msg.toLowerCase();
-        if (low.includes("canceled") || low.includes("cancelled")) return { ok: false, error: "Abgebrochen." };
-        return { ok: false, error: msg };
-      }
+    if (!isNativeIOS()) {
+      return { ok: false, error: "Apple Login nur auf iOS verfügbar (Dev Stub removed for security)." };
     }
-
-    // ✅ Fallback für Browser/Dev (damit du weiter testen kannst)
-    let sub = safeParse<string | null>(window.localStorage.getItem(LS_APPLE_SUB), null);
-    if (!sub) sub = `apple-stub-${newId("sub")}`;
 
     try {
-      window.localStorage.setItem(LS_APPLE_SUB, JSON.stringify(sub));
-    } catch {
-      // ignore
-    }
-
-    const users = readStoredUsers();
-    let found = users.find((u) => u.provider === "apple" && u.appleSub === sub);
-
-    if (!found) {
-      const t = nowISO();
-      const created: StoredUserRecord = {
-        id: newId("u"),
+      const result = await SocialLogin.login({
         provider: "apple",
-        appleSub: sub,
-        displayName: "Apple User",
-        isPro: false,
-        createdAt: t,
-        updatedAt: t,
-      };
-      writeStoredUsers([...users, created]);
-      found = created;
+        options: { scopes: ["email", "name"] },
+      });
+
+      const profile = (result as any)?.result?.profile;
+      const idToken = (result as any)?.result?.response?.identityToken;
+
+      if (!idToken) return { ok: false, error: "Kein Identity Token erhalten." };
+
+      const client = getSupabaseClient();
+      if (!client) return { ok: false, error: "Supabase Client fehlt." };
+
+      const { error } = await client.auth.signInWithIdToken({
+        provider: 'apple',
+        token: idToken,
+      });
+
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+
+    } catch (e: any) {
+      return { ok: false, error: e.message || "Apple Login fehlgeschlagen." };
     }
+  }, []);
 
-    persistAndSetUser(found);
-    return { ok: true };
-  }, [persistAndSetUser]);
+  const setUserPro = useCallback(async (isPro: boolean) => {
+    // Attempt to update metadata in Supabase
+    // This often requires RLS policies allowing users to update their own metadata
+    const client = getSupabaseClient();
+    if (!client) return;
 
-  // -------------------- Session / Flags --------------------
+    try {
+      await client.auth.updateUser({
+        data: { plan: isPro ? "pro" : "free" }
+      });
+      // Listener will pick up change
+    } catch {
+      console.warn("Could not update user metadata. RLS might block this.");
+    }
+  }, []);
 
-  const logout = useCallback(() => {
-    persistAndSetUser(null);
-    signOutSupabase();
-  }, [persistAndSetUser]);
-
-  const setUserPro = useCallback(
-    (isPro: boolean) => {
-      if (!import.meta.env.DEV) return;
-      if (!user) return;
-
-      const users = readStoredUsers();
-      const idx = users.findIndex((u) => u.id === user.id);
-      if (idx < 0) return;
-
-      const updated: StoredUserRecord = {
-        ...users[idx],
-        isPro: !!isPro,
-        updatedAt: nowISO(),
-      };
-
-      const next = [...users];
-      next[idx] = updated;
-      writeStoredUsers(next);
-
-      persistAndSetUser(updated);
-    },
-    [user, persistAndSetUser]
-  );
-
-  const value: AuthContextValue = useMemo(
-    () => ({
-      user,
-      login,
-      register,
-      requestPasswordReset,
-      loginWithApple,
-      logout,
-      setUserPro,
-    }),
-    [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro]
-  );
+  const value = useMemo(() => ({
+    user,
+    login,
+    register,
+    requestPasswordReset,
+    loginWithApple,
+    logout,
+    setUserPro,
+    loading
+  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

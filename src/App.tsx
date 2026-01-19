@@ -30,6 +30,7 @@ import OnboardingPage from "./pages/onboarding/OnboardingPage";
 import { AuthContextProvider } from "./context/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 import { useTabSwipeNavigation } from "./hooks/useTabSwipeNavigation";
+import { LoadingScreen } from "./components/ui/LoadingScreen";
 
 // Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
@@ -76,7 +77,10 @@ import {
 import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks } from "./utils/deload/schedule";
 
 const INITIAL_EVENTS: CalendarEvent[] = [];
-
+import ImpressumPage from "./pages/legal/ImpressumPage";
+import PrivacyPage from "./pages/legal/PrivacyPage";
+import TermsPage from "./pages/legal/TermsPage";
+import { Footer } from "./components/Footer";
 /** Exportiert für andere Komponenten */
 export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";
 type AppRoute =
@@ -85,7 +89,10 @@ type AppRoute =
   | "/live-training"
   | "/debug/trainq"
   | "/workout-share"
-  | "/public-profile";
+  | "/public-profile"
+  | "/impressum"
+  | "/privacy"
+  | "/terms";
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
@@ -243,6 +250,9 @@ function getRouteFromLocation(): AppRoute {
   if (path === "/debug/trainq") return "/debug/trainq";
   if (path === "/today") return "/today";
   if (path === "/workout-share") return "/workout-share";
+  if (path === "/impressum") return "/impressum";
+  if (path === "/privacy") return "/privacy";
+  if (path === "/terms") return "/terms";
   if (path.startsWith("/u/")) return "/public-profile";
 
   return "/";
@@ -924,6 +934,18 @@ const MainAppShell: React.FC = () => {
     );
   }
 
+
+
+  if (route === "/impressum") {
+    return <div className="w-full h-full overflow-y-auto"><ImpressumPage /></div>;
+  }
+  if (route === "/privacy") {
+    return <div className="w-full h-full overflow-y-auto"><PrivacyPage /></div>;
+  }
+  if (route === "/terms") {
+    return <div className="w-full h-full overflow-y-auto"><TermsPage /></div>;
+  }
+
   // ---------- Normal App Layout: genau 1 Scroll-Container ----------
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -968,14 +990,6 @@ const MainAppShell: React.FC = () => {
                 isPro={isPro}
                 onOpenPaywall={openPaywall}
                 onOpenWorkoutShare={openWorkoutShare}
-                deloadPlan={deloadPlan}
-                deloadDismissedUntilISO={deloadDismissedUntilISO}
-                planStartISO={planStartISO}
-                lastDeloadStartISO={lastDeloadStartISO}
-                lastDeloadIntervalWeeks={lastDeloadIntervalWeeks}
-                onPlanDeload={handlePlanDeload}
-                onDiscardDeload={handleDiscardDeload}
-                onDismissDeload={handleDismissDeload}
               />
             )}
 
@@ -986,7 +1000,6 @@ const MainAppShell: React.FC = () => {
                 onDeleteEvent={handleDeleteEvent}
                 onUpdateEvents={setEvents}
                 isPro={isPro}
-                deloadPlan={deloadPlan}
               />
             )}
 
@@ -1020,7 +1033,6 @@ const MainAppShell: React.FC = () => {
                 <ProfilePage
                   onClearCalendar={handleClearCalendar}
                   onOpenWorkoutShare={openWorkoutShare}
-                  onOpenSettings={() => setProfileScreen("settings")}
                 />
               ))}
           </div>
@@ -1061,7 +1073,7 @@ const MainAppShell: React.FC = () => {
 // -------------------- Auth Gate --------------------
 
 const AuthGate: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const [authScreen, setAuthScreen] = useState<"login" | "register" | "forgot">("login");
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => readOnboardingCompletedSafe());
@@ -1082,6 +1094,10 @@ const AuthGate: React.FC = () => {
   const handleOnboardingFinished = useCallback(() => {
     setOnboardingCompleted(true);
   }, []);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   if (!user) {
     if (authScreen === "register") return <RegisterPage onGoToLogin={() => setAuthScreen("login")} />;
@@ -1117,11 +1133,11 @@ export const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#061226] font-sans text-gray-400">
-        <AuthContextProvider>
-          <OnboardingProvider>
-            <AuthGate />
-          </OnboardingProvider>
-        </AuthContextProvider>
+      <AuthContextProvider>
+        <OnboardingProvider>
+          <AuthGate />
+        </OnboardingProvider>
+      </AuthContextProvider>
     </div>
   );
 };

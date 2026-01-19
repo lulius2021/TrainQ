@@ -258,18 +258,18 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
       prev.map((ex) =>
         ex.id === exerciseId
           ? {
-              ...ex,
-              sets: [
-                ...(Array.isArray(ex.sets) ? ex.sets : []),
-                {
-                  id: makeId("set"),
-                  completed: false,
-                  reps: isCardio ? 10 : undefined,
-                  weight: undefined,
-                  notes: "",
-                } as LiveSet,
-              ],
-            }
+            ...ex,
+            sets: [
+              ...(Array.isArray(ex.sets) ? ex.sets : []),
+              {
+                id: makeId("set"),
+                completed: false,
+                reps: isCardio ? 10 : undefined,
+                weight: undefined,
+                notes: "",
+              } as LiveSet,
+            ],
+          }
           : ex
       )
     );
@@ -533,12 +533,12 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                           key={ex.id}
                           exercise={ex}
                           isCardio={isCardio}
-                          onChange={(patch) => updateExercise(ex.id, patch)}
+                          onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
                           onRemove={() => removeExercise(ex.id)}
                           onAddSet={() => addSet(ex.id, isCardio)}
-                          onRemoveSet={(setId) => removeSet(ex.id, setId)}
-                          onSetChange={(setId, patch) => updateSet(ex.id, setId, patch)}
-                          onToggleSet={(setId) => toggleSetCompleted(ex.id, setId)}
+                          onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
+                          onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
+                          onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
                           onMoveUp={isEditing && exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
                           onMoveDown={isEditing && exIdx < draftExercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
                         />

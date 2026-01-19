@@ -26,7 +26,7 @@ import { useAuth } from "../hooks/useAuth";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { useI18n } from "../i18n/useI18n";
-import type { TranslationKey } from "../i18n";
+import type { TranslationKey } from "../i18n/index";
 import {
   buildTrainingTemplateSignature,
   deleteTrainingTemplate,
@@ -82,8 +82,8 @@ type TrainingContainerKind = "weekly" | "routine";
 
 const SPORT_LABEL_KEY: Record<WeeklySportType, TranslationKey> = {
   Gym: "plan.sport.gym",
-  Laufen: "plan.sport.running",
-  Radfahren: "plan.sport.cycling",
+  Laufen: "plan.sport.run",
+  Radfahren: "plan.sport.bike",
   Custom: "plan.sport.custom",
   Ruhetag: "plan.sport.rest",
 };
@@ -222,11 +222,11 @@ function normalizeExercisesForSeed(exercises: BlockExercise[]): any[] {
     name: ex.name ?? "Übung",
     sets: Array.isArray(ex.sets)
       ? ex.sets.map((s) => ({
-          id: String(s.id ?? Date.now()),
-          reps: typeof s.reps === "number" ? s.reps : undefined,
-          weight: typeof s.weight === "number" ? s.weight : undefined,
-          notes: typeof s.notes === "string" ? s.notes : "",
-        }))
+        id: String(s.id ?? Date.now()),
+        reps: typeof s.reps === "number" ? s.reps : undefined,
+        weight: typeof s.weight === "number" ? s.weight : undefined,
+        notes: typeof s.notes === "string" ? s.notes : "",
+      }))
       : [],
   }));
 }
@@ -271,8 +271,8 @@ function normalizeWeeklyDay(input: any, fallbackId: number): WeeklyDayConfig {
     hasOldRest || rawSport === "Ruhetag"
       ? "Ruhetag"
       : rawSport === "Gym" || rawSport === "Laufen" || rawSport === "Radfahren" || rawSport === "Custom"
-      ? rawSport
-      : "Gym";
+        ? rawSport
+        : "Gym";
 
   const label = typeof input?.label === "string" && input.label.trim() ? input.label : `Tag ${id}`;
 
@@ -280,14 +280,14 @@ function normalizeWeeklyDay(input: any, fallbackId: number): WeeklyDayConfig {
     typeof input?.focus === "string" && input.focus.trim()
       ? input.focus
       : isRestSport(sport)
-      ? "Ruhetag"
-      : sport === "Gym"
-      ? "Push"
-      : sport === "Laufen"
-      ? "Laufen – locker"
-      : sport === "Radfahren"
-      ? "Radfahren – GA1"
-      : "Training";
+        ? "Ruhetag"
+        : sport === "Gym"
+          ? "Push"
+          : sport === "Laufen"
+            ? "Laufen – locker"
+            : sport === "Radfahren"
+              ? "Radfahren – GA1"
+              : "Training";
 
   const exercises = Array.isArray(input?.exercises) ? input.exercises : [];
   const startTime = typeof input?.startTime === "string" ? input.startTime : "";
@@ -306,8 +306,8 @@ function normalizeRoutineBlock(input: any, fallbackId: number): RoutineBlock {
     rawSport === "Ruhetag" || rawType === "Rest"
       ? "Ruhetag"
       : rawSport === "Gym" || rawSport === "Laufen" || rawSport === "Radfahren" || rawSport === "Custom"
-      ? rawSport
-      : "Gym";
+        ? rawSport
+        : "Gym";
 
   const type: RoutineBlockType = isRestSport(sport) ? "Rest" : "Custom";
 
@@ -315,8 +315,8 @@ function normalizeRoutineBlock(input: any, fallbackId: number): RoutineBlock {
     typeof input?.label === "string" && input.label.trim()
       ? input.label
       : type === "Rest"
-      ? "Ruhetag"
-      : "Neues Training";
+        ? "Ruhetag"
+        : "Neues Training";
 
   return {
     id,
@@ -509,17 +509,17 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       exercises: prev.exercises.map((ex) =>
         ex.id === exerciseId
           ? {
-              ...ex,
-              sets: [
-                ...ex.sets,
-                {
-                  id: nextExerciseSetId(),
-                  reps: isCardioLibrary ? 10 : 8,
-                  weight: isCardioLibrary ? undefined : 0,
-                  notes: "",
-                },
-              ],
-            }
+            ...ex,
+            sets: [
+              ...ex.sets,
+              {
+                id: nextExerciseSetId(),
+                reps: isCardioLibrary ? 10 : 8,
+                weight: isCardioLibrary ? undefined : 0,
+                notes: "",
+              },
+            ],
+          }
           : ex
       ),
     }));
@@ -538,21 +538,21 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       exercises: prev.exercises.map((ex) =>
         ex.id === exerciseId
           ? {
-              ...ex,
-              sets: ex.sets.map((set) =>
-                set.id === setId
-                  ? {
-                      ...set,
-                      [field]:
-                        field === "reps" || field === "weight"
-                          ? value === ""
-                            ? undefined
-                            : Number(value)
-                          : value,
-                    }
-                  : set
-              ),
-            }
+            ...ex,
+            sets: ex.sets.map((set) =>
+              set.id === setId
+                ? {
+                  ...set,
+                  [field]:
+                    field === "reps" || field === "weight"
+                      ? value === ""
+                        ? undefined
+                        : Number(value)
+                      : value,
+                }
+                : set
+            ),
+          }
           : ex
       ),
     }));
@@ -828,12 +828,12 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 type PreviewModalState =
   | null
   | {
-      title: string;
-      subtitle: string;
-      isCardio: boolean;
-      sport: TrainingSportType;
-      exercises: BlockExercise[];
-    };
+    title: string;
+    subtitle: string;
+    isCardio: boolean;
+    sport: TrainingSportType;
+    exercises: BlockExercise[];
+  };
 
 const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => void }> = ({ state, onClose }) => {
   const { t } = useI18n();
@@ -975,7 +975,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     if (typeof window === "undefined") return;
     try {
       setScopedItem(STORAGE_KEY_PLAN_START_ISO, planStartISO);
-    } catch {}
+    } catch { }
   }, [planStartISO]);
 
   // Weekly
@@ -1020,14 +1020,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     if (typeof window === "undefined") return;
     try {
       setScopedItem(STORAGE_KEY_WEEKLY_TEMPLATES, JSON.stringify(weeklyTemplates));
-    } catch {}
+    } catch { }
   }, [weeklyTemplates]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       setScopedItem(STORAGE_KEY_ROUTINE_TEMPLATES, JSON.stringify(routineTemplates));
-    } catch {}
+    } catch { }
   }, [routineTemplates]);
 
   useEffect(() => {
@@ -1088,7 +1088,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     const templateId = makeTemplateId();
     try {
       setScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
-    } catch {}
+    } catch { }
 
     const startDate = isoToDate(planStartISO);
     const totalDays = weeklyDurationWeeks * 7;
@@ -1146,7 +1146,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     const templateId = makeTemplateId();
     try {
       setScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID, templateId);
-    } catch {}
+    } catch { }
 
     const startDate = isoToDate(planStartISO);
     const totalDays = routineDurationWeeks * 7;
@@ -1825,18 +1825,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           </summary>
                           <div className="mt-3 space-y-3">
                             <div>
-                                <label className="text-sm text-gray-300">{t("plan.sport")}</label>
-                                <select
-                                  value={day.sport}
-                                  onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
-                                  className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-2 text-base text-white outline-none"
-                                >
-                                  <option value="Gym">{t("plan.sport.gym")}</option>
-                                  <option value="Laufen">{t("plan.sport.run")}</option>
-                                  <option value="Radfahren">{t("plan.sport.bike")}</option>
-                                  <option value="Custom">{t("plan.sport.custom")}</option>
-                                  <option value="Ruhetag">{t("plan.sport.rest")}</option>
-                                </select>
+                              <label className="text-sm text-gray-300">{t("plan.sport")}</label>
+                              <select
+                                value={day.sport}
+                                onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
+                                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-2 text-base text-white outline-none"
+                              >
+                                <option value="Gym">{t("plan.sport.gym")}</option>
+                                <option value="Laufen">{t("plan.sport.run")}</option>
+                                <option value="Radfahren">{t("plan.sport.bike")}</option>
+                                <option value="Custom">{t("plan.sport.custom")}</option>
+                                <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                              </select>
                             </div>
 
                             {hasWorkout && (
@@ -1980,22 +1980,22 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         </div>
 
                         <details className="rounded-xl bg-white/5 border border-white/10 p-3">
-                            <summary className="cursor-pointer text-base font-medium text-white">{t("plan.details")}</summary>
-                            <div className="mt-3 space-y-3">
-                                <div>
-                                    <label className="text-sm text-gray-300">{t("plan.sport")}</label>
-                                    <select
-                                        value={block.sport}
-                                        onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
-                                        className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-2 text-base text-white outline-none"
-                                    >
-                                        <option value="Gym">{t("plan.sport.gym")}</option>
-                                        <option value="Laufen">{t("plan.sport.run")}</option>
-                                        <option value="Radfahren">{t("plan.sport.bike")}</option>
-                                        <option value="Custom">{t("plan.sport.custom")}</option>
-                                        <option value="Ruhetag">{t("plan.sport.rest")}</option>
-                                    </select>
-                                </div>
+                          <summary className="cursor-pointer text-base font-medium text-white">{t("plan.details")}</summary>
+                          <div className="mt-3 space-y-3">
+                            <div>
+                              <label className="text-sm text-gray-300">{t("plan.sport")}</label>
+                              <select
+                                value={block.sport}
+                                onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
+                                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-2 text-base text-white outline-none"
+                              >
+                                <option value="Gym">{t("plan.sport.gym")}</option>
+                                <option value="Laufen">{t("plan.sport.run")}</option>
+                                <option value="Radfahren">{t("plan.sport.bike")}</option>
+                                <option value="Custom">{t("plan.sport.custom")}</option>
+                                <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                              </select>
+                            </div>
                           </div>
                         </details>
                       </>
@@ -2096,9 +2096,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[12px] font-semibold text-[var(--text)]">Tag {day.id}</span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isRest ? "bg-gray-500/20 text-gray-300" : "bg-green-500/20 text-green-300"
-                        }`}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "bg-gray-500/20 text-gray-300" : "bg-green-500/20 text-green-300"
+                          }`}
                       >
                         {isRest ? "Ruhetag" : day.sport}
                       </span>

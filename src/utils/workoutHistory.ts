@@ -1,5 +1,5 @@
 // src/utils/workoutHistory.ts
-import { getScopedItem, removeScopedItem, scopedKey, setScopedItem } from "./scopedStorage";
+import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
 import { getActiveUserId } from "./session";
 //
 // Source of Truth für Profil + Diagramme:
@@ -465,7 +465,7 @@ export function clearWorkoutHistory(): void {
 }
 
 export function onWorkoutHistoryUpdated(cb: () => void): () => void {
-  if (!hasWindow()) return () => {};
+  if (!hasWindow()) return () => { };
   window.addEventListener(UPDATED_EVENT, cb as EventListener);
   return () => window.removeEventListener(UPDATED_EVENT, cb as EventListener);
 }

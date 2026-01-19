@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}"
@@ -8,9 +9,9 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          bg: "#061226",
-          card: "#0b1020",
-          primary: "#2563eb",
+          bg: "var(--bg)",
+          card: "var(--surface)",
+          primary: "var(--primary)",
           accent: "#22c55e"
         }
       }
