@@ -24,7 +24,6 @@ import PublicProfilePage from "./pages/PublicProfilePage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
-import OnboardingPage from "./pages/onboarding/OnboardingPage";
 
 // Context + Hooks
 import { AuthContextProvider } from "./context/AuthContext";
@@ -42,6 +41,7 @@ import PaywallModal from "./components/paywall/PaywallModal";
 
 // Onboarding Source of Truth
 import { OnboardingProvider, readOnboardingDataFromStorage } from "./context/OnboardingContext";
+import { Onboarding } from "./components/Onboarding";
 
 // ✅ NavBar (floating)
 import { NavBar } from "./components/NavBar";
@@ -1074,26 +1074,7 @@ const MainAppShell: React.FC = () => {
 
 const AuthGate: React.FC = () => {
   const { user, loading } = useAuth();
-
   const [authScreen, setAuthScreen] = useState<"login" | "register" | "forgot">("login");
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => readOnboardingCompletedSafe());
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const sync = () => setOnboardingCompleted(readOnboardingCompletedSafe());
-    window.addEventListener(ONBOARDING_CHANGED_EVENT, sync);
-    window.addEventListener("storage", sync);
-
-    return () => {
-      window.removeEventListener(ONBOARDING_CHANGED_EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
-  const handleOnboardingFinished = useCallback(() => {
-    setOnboardingCompleted(true);
-  }, []);
 
   if (loading) {
     return <LoadingScreen />;
@@ -1111,8 +1092,10 @@ const AuthGate: React.FC = () => {
     );
   }
 
-  if (!onboardingCompleted) {
-    return <OnboardingPage onFinished={handleOnboardingFinished} />;
+  // ✅ Check Supabase Profile Status
+  // If user is logged in but onboarding not completed, show Onboarding
+  if (user.onboardingCompleted === false) {
+    return <Onboarding />;
   }
 
   return <MainAppShell />;
