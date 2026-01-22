@@ -1789,9 +1789,6 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         {t("plan.dayLabel", { day: day.id })}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
-                          {isRest ? t("plan.restday") : t(SPORT_LABEL_KEY[day.sport])}
-                        </span>
                         {hasTime && (
                           <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
                             {day.startTime}
@@ -1825,60 +1822,59 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </AppButton>
                     ) : (
                       <>
-                        <AppButton
+                        <div className="w-full flex justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
+                          <span className="text-base text-[var(--text)] font-medium">{t("plan.sport")}</span>
+                          <select
+                            value={day.sport}
+                            onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
+                            className="bg-transparent text-[var(--text)] text-right outline-none font-medium"
+                          >
+                            <option value="Gym">{t("plan.sport.gym")}</option>
+                            <option value="Laufen">{t("plan.sport.run")}</option>
+                            <option value="Radfahren">{t("plan.sport.bike")}</option>
+                            <option value="Custom">{t("plan.sport.custom")}</option>
+                            <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="button"
                           onClick={() => openWeeklyTraining(day)}
-                          variant="primary"
-                          fullWidth
-                          className="py-2.5"
+                          className="w-full py-3 bg-[#007AFF] hover:bg-[#0066CC] text-white font-semibold rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
                         >
                           {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
-                        </AppButton>
-
-                        <div className="flex items-center justify-between rounded-xl bg-[var(--surface)] border border-[var(--border)] px-4 py-2">
-                          <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
-                          {hasTime ? (
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
-                                {day.startTime}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
-                                className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
-                                title={t("plan.timeRemove")}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())}
-                              className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
-                            >
-                              {t("plan.timeAdd")}
-                            </button>
-                          )}
-                        </div>
+                        </button>
 
                         <details className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
                           <summary className="cursor-pointer text-base font-medium text-[var(--text)]">
                             {t("plan.details")}
                           </summary>
                           <div className="mt-3 space-y-3">
-                            <div>
-                              <label className="text-sm text-[var(--muted)]">{t("plan.sport")}</label>
-                              <select
-                                value={day.sport}
-                                onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
-                                className="mt-1 w-full rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2.5 py-2 text-base text-[var(--text)] outline-none"
-                              >
-                                <option value="Gym">{t("plan.sport.gym")}</option>
-                                <option value="Laufen">{t("plan.sport.run")}</option>
-                                <option value="Radfahren">{t("plan.sport.bike")}</option>
-                                <option value="Custom">{t("plan.sport.custom")}</option>
-                                <option value="Ruhetag">{t("plan.sport.rest")}</option>
-                              </select>
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
+                              {hasTime ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
+                                    {day.startTime}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
+                                    className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
+                                    title={t("plan.timeRemove")}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())}
+                                  className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
+                                >
+                                  {t("plan.timeAdd")}
+                                </button>
+                              )}
                             </div>
 
                             {hasWorkout && (
@@ -2014,7 +2010,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openRoutineTraining(block)}
-                          className="w-full rounded-xl bg-[var(--primary)] px-3 py-2.5 text-base font-semibold text-white hover:opacity-90"
+                          className="w-full py-3 bg-[#007AFF] hover:bg-[#0066CC] text-white font-semibold rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
                         >
                           {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
                         </button>
