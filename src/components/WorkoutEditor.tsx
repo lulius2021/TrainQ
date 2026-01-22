@@ -171,6 +171,18 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
     >
       <h2 className="text-lg font-semibold mb-1">{t("workoutEditor.title")}</h2>
 
+      {/* Titel */}
+      <div className="flex flex-col">
+        <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.titleOptional")}</label>
+        <input
+          type="text"
+          placeholder={t("workoutEditor.titlePlaceholder")}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
+        />
+      </div>
+
       {/* Sportart */}
       <div className="flex flex-col">
         <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.sport")}</label>
@@ -181,7 +193,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             setSportart(value);
             setSessionType(null);
           }}
-          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
         >
           <option value="REST">{t("training.sport.rest")}</option>
           <option value="GYM">{t("training.sport.gym")}</option>
@@ -202,7 +214,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                 (e.target.value as SessionType) || null
               )
             }
-            className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+            className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
           >
             <option value="">{t("workoutEditor.selectPlaceholder")}</option>
             <option value="LONGRUN">{t("workoutEditor.longrun")}</option>
@@ -211,18 +223,6 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
           </select>
         </div>
       )}
-
-      {/* Titel */}
-      <div className="flex flex-col">
-        <label className="text-xs text-gray-400 mb-1">{t("workoutEditor.titleOptional")}</label>
-        <input
-          type="text"
-          placeholder={t("workoutEditor.titlePlaceholder")}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
-        />
-      </div>
 
       {/* Dynamische Felder für Laufen & Rad */}
       {(sportart === "LAUFEN" || sportart === "RADFAHREN") && (
@@ -271,7 +271,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                     onChange={(e) =>
                       updateExerciseName(ex.id, e.target.value)
                     }
-                    className="flex-1 rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                    className="flex-1 rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
                   />
                   <button
                     type="button"
@@ -350,7 +350,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="rounded-md bg-gray-900 border border-gray-700 px-2 py-1 text-sm focus:outline-none focus:border-blue-500 resize-none"
+          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] resize-none"
           placeholder={t("workoutEditor.notesPlaceholder")}
         />
       </div>

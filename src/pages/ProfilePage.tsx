@@ -618,87 +618,87 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
-          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
+          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-6 max-h-[85vh] overflow-y-auto pb-[140px]">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Profil bearbeiten</h2>
-              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
+              <h2 className="text-xl font-bold text-white">Profil bearbeiten</h2>
+              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10">✕</AppButton>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60">
-                {avatarDataUrl ? (<img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />) : (<span className="text-2xl font-semibold text-white">{safeInitials(profileName)}</span>)}
+              <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60 ring-4 ring-white/5">
+                {avatarDataUrl ? (<img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />) : (<span className="text-3xl font-semibold text-white">{safeInitials(profileName)}</span>)}
               </div>
               <div className="flex flex-col gap-2">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
-                <AppButton onClick={onPickAvatar} variant="secondary" size="sm">
+                <AppButton onClick={onPickAvatar} className="bg-white/10 border border-white/20 text-white hover:bg-white/20" size="sm">
                   {t("profile.avatarSelect")}
                 </AppButton>
                 {avatarDataUrl && (
-                  <AppButton onClick={() => setAvatarDataUrl("")} variant="secondary" size="sm">
+                  <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20" size="sm">
                     {t("profile.avatarRemove")}
                   </AppButton>
                 )}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="block text-sm text-[var(--muted)]">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.namePlaceholder")} />
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-white/60">Name</label>
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder={t("profile.namePlaceholder")} />
               </div>
-              <div className="space-y-1">
-                <label className="block text-sm text-[var(--muted)]">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] min-h-[80px] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.bioPlaceholder")} />
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-white/60">Beschreibung</label>
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder={t("profile.bioPlaceholder")} />
               </div>
             </div>
 
-            <AppCard variant="soft" className="space-y-4 p-4">
-              <h3 className="text-base font-semibold text-[var(--text)]">Deine Daten</h3>
+            <div className="space-y-4 pt-2">
+              <h3 className="text-lg font-semibold text-white">Deine Daten</h3>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[var(--muted)]">Alter</label>
-                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-white/60">Alter</label>
+                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[var(--muted)]">Größe (cm)</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-white/60">Größe (cm)</label>
+                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[var(--muted)]">Gewicht (kg)</label>
-                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-white/60">Gewicht (kg)</label>
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[var(--muted)]">Stunden/Woche</label>
-                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="h" />
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-white/60">Stunden/Woche</label>
+                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="h" />
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[var(--muted)]">Einheiten/Woche</label>
-                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="#" />
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-white/60">Einheiten/Woche</label>
+                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="#" />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-[var(--muted)]">Sportarten (CSV)</label>
-                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Laufen, Gym..." />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-white/60">Sportarten (CSV)</label>
+                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Laufen, Gym..." />
               </div>
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-[var(--muted)]">Ziele (CSV)</label>
-                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Marathon, Kraft..." />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-white/60">Ziele (CSV)</label>
+                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Marathon, Kraft..." />
               </div>
-            </AppCard>
+            </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="secondary">
-                {t("common.cancel")}
-              </AppButton>
-              <AppButton onClick={saveProfileEdits} variant="primary">
+            <div className="pt-6">
+              <button
+                onClick={saveProfileEdits}
+                className="w-full bg-[#007AFF] hover:bg-[#0066CC] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
+              >
                 Speichern
-              </AppButton>
+              </button>
             </div>
           </AppCard>
         </div>

@@ -1948,13 +1948,20 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 return (
                   <div key={block.id} className="rounded-[24px] border-[1.5px] border-[var(--border)] bg-[var(--surface)] p-4 space-y-4 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-lg font-semibold text-[var(--text)]">
-                        {t("plan.dayLabel", { day: index + 1 })}
+                      <div className="flex items-center gap-3">
+                        <div className="text-lg font-semibold text-[var(--text)]">
+                          Routine {index + 1}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRoutineBlock(block.id)}
+                          className="text-red-500 hover:text-red-400 p-2 hover:bg-white/10 rounded-full transition-all"
+                          title="Tag löschen"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                        </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
-                          {isRest ? t("plan.restday") : t(SPORT_LABEL_KEY[block.sport])}
-                        </span>
                         {hasTime && (
                           <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
                             {block.startTime}
@@ -1977,6 +1984,23 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       )}
                     </div>
 
+                    {!isRest && (
+                      <div className="w-full flex justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
+                        <span className="text-base text-[var(--text)] font-medium">{t("plan.sport")}</span>
+                        <select
+                          value={block.sport}
+                          onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
+                          className="bg-transparent text-[var(--text)] text-right outline-none font-medium"
+                        >
+                          <option value="Gym">{t("plan.sport.gym")}</option>
+                          <option value="Laufen">{t("plan.sport.run")}</option>
+                          <option value="Radfahren">{t("plan.sport.bike")}</option>
+                          <option value="Custom">{t("plan.sport.custom")}</option>
+                          <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                        </select>
+                      </div>
+                    )}
+
                     {isRest ? (
                       <button
                         type="button"
@@ -1995,49 +2019,34 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
                         </button>
 
-                        <div className="flex items-center justify-between rounded-xl bg-[var(--surface)] border border-[var(--border)] px-4 py-2">
-                          <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
-                          {hasTime ? (
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
-                                {block.startTime}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
-                                className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
-                                title={t("plan.timeRemove")}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())}
-                              className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
-                            >
-                              {t("plan.timeAdd")}
-                            </button>
-                          )}
-                        </div>
-
                         <details className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
                           <summary className="cursor-pointer text-base font-medium text-[var(--text)]">{t("plan.details")}</summary>
                           <div className="mt-3 space-y-3">
-                            <div>
-                              <label className="text-sm text-[var(--muted)]">{t("plan.sport")}</label>
-                              <select
-                                value={block.sport}
-                                onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
-                                className="mt-1 w-full rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2.5 py-2 text-base text-[var(--text)] outline-none"
-                              >
-                                <option value="Gym">{t("plan.sport.gym")}</option>
-                                <option value="Laufen">{t("plan.sport.run")}</option>
-                                <option value="Radfahren">{t("plan.sport.bike")}</option>
-                                <option value="Custom">{t("plan.sport.custom")}</option>
-                                <option value="Ruhetag">{t("plan.sport.rest")}</option>
-                              </select>
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
+                              {hasTime ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
+                                    {block.startTime}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
+                                    className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
+                                    title={t("plan.timeRemove")}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())}
+                                  className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
+                                >
+                                  {t("plan.timeAdd")}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </details>

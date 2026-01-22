@@ -1,6 +1,6 @@
 // src/components/paywall/PaywallModal.tsx
+import { useEffect } from "react";
 import type { PaywallReason } from "../../utils/entitlements";
-import { FREE_LIMITS } from "../../utils/entitlements";
 import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
@@ -28,16 +28,6 @@ function reasonTitle(t: (key: any, vars?: any) => string, reason: PaywallReason)
   return t("paywall.reason.calendar");
 }
 
-function reasonSubtitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
-  if (reason === "adaptive_limit") {
-    return t("paywall.reason.adaptiveSub"); // Hardcoded limit in json
-  }
-  if (reason === "plan_shift") {
-    return t("paywall.reason.planShiftSub");
-  }
-  return t("paywall.reason.calendarSub");
-}
-
 function buildBullets(t: (key: any) => string): Array<{ label: string; ok: boolean }> {
   return [
     { label: t("paywall.bullet.adaptive"), ok: true },
@@ -48,125 +38,141 @@ function buildBullets(t: (key: any) => string): Array<{ label: string; ok: boole
   ];
 }
 
-function formatRemaining(n: number): string {
-  if (!Number.isFinite(n)) return "∞";
-  return String(Math.max(0, Math.floor(n)));
-}
-
 export default function PaywallModal(props: Props) {
   const { t } = useI18n();
   const {
     open,
     reason,
     onClose,
-    isPro,
-    adaptiveBCRemaining,
-    planShiftRemaining,
-    calendar7DaysRemaining,
     onBuyMonthly,
     onBuyYearly,
     onRestore,
   } = props;
 
+  // Lock body scroll when open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
   if (!open) return null;
 
-  const remainingLine = (() => {
-    if (isPro) return t("paywall.remaining.proActive");
-
-    if (reason === "adaptive_limit")
-      return `${t("paywall.remaining.adaptive")}: ${formatRemaining(adaptiveBCRemaining)}`;
-    if (reason === "plan_shift")
-      return `${t("paywall.remaining.planShift")}: ${formatRemaining(planShiftRemaining)}`;
-    return `${t("paywall.remaining.calendar")}: ${formatRemaining(calendar7DaysRemaining)}`;
-  })();
   const bullets = buildBullets(t);
 
   return (
     <div
-      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-[9999] h-[100dvh] w-full bg-black/90 backdrop-blur-xl flex justify-center items-start overflow-y-auto"
       data-overlay-open="true"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
+      style={{ WebkitOverflowScrolling: "touch" }}
     >
-      {/* Modal */}
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl backdrop-blur-xl"
+        className="relative w-full max-w-sm my-10 overflow-hidden rounded-[32px] border border-white/10 bg-[#1c1c1e]/90 shadow-2xl backdrop-blur-2xl transition-all"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-white/60">{t("paywall.title")}</div>
-            <div className="text-lg font-semibold text-white">{reasonTitle(t, reason)}</div>
-            <div className="mt-1 text-sm text-white/70 leading-snug">{reasonSubtitle(t, reason)}</div>
-          </div>
-
+        <div className="relative p-6 pt-8 text-center pb-8">
+          {/* Close Button absolute top right */}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 hover:bg-white/10"
-            aria-label={t("common.close")}
-            title={t("common.close")}
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white z-10"
           >
             ✕
           </button>
-        </div>
 
-        <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-white/70">
-          {remainingLine}
-        </div>
+          {/* Header Icon & Title */}
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#007AFF]/20 to-[#0055BB]/5 border border-[#007AFF]/30 shadow-lg shadow-blue-900/20">
+            <span className="text-3xl">✨</span>
+          </div>
 
-        <div className="mt-4 space-y-2">
-          {bullets.map((b) => (
-            <div key={b.label} className="flex items-center gap-2 text-sm text-white/85">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-200 text-[12px]">
-                ✓
-              </span>
-              <span>{b.label}</span>
-            </div>
-          ))}
-        </div>
+          <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
+            TrainQ <span className="text-[#007AFF]">Pro</span>
+          </h2>
 
-        {/* Pricing */}
-        <div className="mt-5 grid gap-2">
+          <p className="max-w-[85%] mx-auto text-sm text-white/60 leading-relaxed mb-6">
+            {reason === "adaptive_limit" || reason === "plan_shift" ? reasonTitle(t, reason) : t("paywall.title")}
+          </p>
+
+          {/* Feature List */}
+          <div className="space-y-3 pl-2 pr-2 mb-8 text-left">
+            {bullets.map((b) => (
+              <div key={b.label} className="flex items-start gap-3">
+                <span className="mt-0.5 flex-shrink-0 text-[#007AFF]">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
+                </span>
+                <span className="text-[15px] font-medium text-white/90 leading-tight">
+                  {b.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pricing Cards */}
+          <div className="space-y-3">
+            {/* Yearly - HERO */}
+            <button
+              type="button"
+              onClick={onBuyYearly}
+              className="relative w-full group overflow-hidden rounded-2xl border-2 border-[#007AFF] bg-[#007AFF]/20 p-4 text-left transition-all active:scale-[0.98]"
+            >
+              <div className="absolute top-0 right-0 rounded-bl-xl bg-[#007AFF] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                {t("paywall.plan.recommended")}
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-base font-bold text-white mb-0.5">{t("paywall.plan.yearly")}</div>
+                  <div className="text-xs font-medium text-white/80">{t("paywall.plan.yearlyDetail")}</div>
+                </div>
+                <div className="text-right">
+                  {/* Just dummy savings text or arrow */}
+                  <div className="font-bold text-white text-lg">→</div>
+                </div>
+              </div>
+            </button>
+
+            {/* Monthly */}
+            <button
+              type="button"
+              onClick={onBuyMonthly}
+              className="relative w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:bg-white/10 active:scale-[0.98]"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-base font-semibold text-white mb-0.5">{t("paywall.plan.monthly")}</div>
+                  <div className="text-xs text-white/50">{t("paywall.plan.monthlyDetail")}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Main CTA */}
           <button
             type="button"
             onClick={onBuyYearly}
-            className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left hover:bg-white/15"
+            className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#007AFF] to-[#0055BB] py-4 text-lg font-bold text-white shadow-lg shadow-blue-500/30 transition-transform active:scale-[0.97] hover:scale-[1.01]"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-white">{t("paywall.plan.yearly")}</div>
-                <div className="text-[12px] text-white/65">{t("paywall.plan.yearlyDetail")}</div>
-              </div>
-              <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-[11px] text-emerald-100">
-                {t("paywall.plan.recommended")}
-              </span>
-            </div>
+            Jetzt Pro aktivieren
           </button>
 
-          <button
-            type="button"
-            onClick={onBuyMonthly}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-white">{t("paywall.plan.monthly")}</div>
-                <div className="text-[12px] text-white/65">{t("paywall.plan.monthlyDetail")}</div>
-              </div>
-            </div>
-          </button>
-
+          {/* Restore Link */}
           {typeof onRestore === "function" && (
             <button
               type="button"
               onClick={onRestore}
-              className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-[12px] text-white/70 hover:bg-white/5"
+              className="mt-4 text-xs font-medium text-white/40 hover:text-white/60 underline underline-offset-4"
             >
               {t("paywall.restore")}
             </button>
           )}
+
+          {/* Bottom Spacer for safe scrolling */}
+          <div className="h-20" />
         </div>
       </div>
     </div>
