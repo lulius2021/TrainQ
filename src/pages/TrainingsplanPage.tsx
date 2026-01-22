@@ -1840,7 +1840,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openWeeklyTraining(day)}
-                          className="w-full py-3 bg-[#007AFF] hover:bg-[#0066CC] text-white font-semibold rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
+                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
                           {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
                         </button>
@@ -2010,7 +2010,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openRoutineTraining(block)}
-                          className="w-full py-3 bg-[#007AFF] hover:bg-[#0066CC] text-white font-semibold rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2"
+                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
                           {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
                         </button>
