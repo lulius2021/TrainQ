@@ -468,7 +468,8 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
-  const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : "Training"));
+  // Initialize with existing label or empty to encourage naming
+  const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : ""));
   const [selectedWorkoutTemplateId, setSelectedWorkoutTemplateId] = useState<string>("");
 
   const compatibleWorkoutTemplates = useMemo(() => {
@@ -477,11 +478,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""));
   }, [workoutTemplates, isCardioLibrary]);
 
-  const headingPrefix = kind === "routine" ? t("plan.editor.titleBlock") : t("plan.editor.titleDay");
+  // Sync draft label with local state
+  useEffect(() => {
+    setDraft(prev => ({ ...prev, label: templateName }));
+  }, [templateName]);
 
   const handleAddExerciseFromLibrary = (exercise: Exercise) => {
     const cardioMin = isCardioLibrary ? parseMinutesFromTitle(exercise.name) : undefined;
-
     const newBlockExercise: BlockExercise = {
       id: nextBlockExerciseId(),
       exerciseId: exercise.id,
@@ -489,16 +492,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       sets: [
         {
           id: nextExerciseSetId(),
-          reps: isCardioLibrary ? (cardioMin ?? 30) : 8, // ✅ Cardio = Minuten
-          weight: isCardioLibrary ? undefined : 0, // ✅ Cardio = km optional
+          reps: isCardioLibrary ? (cardioMin ?? 30) : 8,
+          weight: isCardioLibrary ? undefined : 0,
           notes: "",
         },
       ],
     };
     setDraft((prev) => ({ ...prev, exercises: [...prev.exercises, newBlockExercise] }));
-    if (import.meta.env.DEV) {
-      console.log("[Trainingsplan] Added exercise from library", exercise.id, newBlockExercise.name);
-    }
   };
 
   const handleAddCustomExercise = () => {
@@ -515,9 +515,6 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       ],
     };
     setDraft((prev) => ({ ...prev, exercises: [...prev.exercises, newBlockExercise] }));
-    if (import.meta.env.DEV) {
-      console.log("[Trainingsplan] Added custom exercise", newBlockExercise.name);
-    }
   };
 
   const handleRemoveBlockExercise = (exerciseId: number) => {
@@ -587,7 +584,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   };
 
   const handleSaveClick = () => {
-    onSave(draft);
+    // Determine final label
+    const finalLabel = templateName.trim() || t("plan.editor.titleDay");
+    onSave({ ...draft, label: finalLabel });
     onClose();
   };
 
@@ -612,7 +611,6 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     const tpl = compatibleWorkoutTemplates.find((t) => t.id === id);
     if (!tpl) return;
 
-    // ✅ Laden: Deep Copy + neue IDs generieren, damit keine Referenzen geteilt werden
     const freshExercises: BlockExercise[] = (tpl.exercises || []).map((ex) => ({
       id: nextBlockExerciseId(),
       exerciseId: ex.exerciseId,
@@ -630,222 +628,212 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       exercises: freshExercises,
     }));
 
-    // Name übernehmen wenn Draft noch "leer"/"Training" heißt
     if (!templateName || templateName === "Training") {
-      setTemplateName(tpl.name || templateName);
+      setTemplateName(tpl.name || "");
     }
   };
 
   const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
   const weightPlaceholder = isCardioLibrary ? "Distanz (km)" : "kg";
-  const notesPlaceholder = isCardioLibrary ? "Pace / Intervall-Details" : "Notizen / RPE / Tempo";
+  const notesPlaceholder = isCardioLibrary ? "Pace / Intervall" : "Notizen";
+
   const existingExerciseIds = draft.exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[];
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-      <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl bg-[var(--surface)]">
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-[var(--text)]">
-              {headingPrefix}: {draft.label}
-            </div>
-            <div className="text-[11px] text-[var(--muted)]">
-              {isCardioLibrary ? t("plan.editor.subtitleCardio") : t("plan.editor.subtitleStrength")}
-            </div>
-          </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" data-overlay-open="true">
+      <AppCard variant="glass" className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl bg-[#1c1c1e] ring-1 ring-white/10">
 
-          <div className="flex items-center gap-2">
-            {/* ✅ Trainingsvorlage speichern */}
-            <div className="hidden items-center gap-2 md:flex">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 bg-[#1c1c1e]/80 backdrop-blur-xl sticky top-0 z-10">
+          <button
+            onClick={onClose}
+            className="text-[17px] text-red-500 hover:text-red-400 transition-colors font-medium"
+          >
+            {t("common.cancel")}
+          </button>
+          <div className="text-[17px] font-bold text-white text-center truncate px-2">
+            {t("plan.editWorkout")}
+          </div>
+          <button
+            onClick={handleSaveClick}
+            className="text-[17px] font-bold text-[#007AFF] hover:text-[#007AFF]/80 transition-colors"
+          >
+            {t("common.save")}
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
+          {/* Top Section: Meta Data */}
+          <div className="space-y-4 mb-6">
+            <div>
               <input
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder={t("plan.templateNamePlaceholder")}
-                className="w-48 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[11px] text-[var(--text)] outline-none focus:ring-1 focus:ring-sky-500/60"
+                className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
               />
-              <AppButton
-                onClick={handleSaveWorkoutTemplate}
-                variant="secondary"
-                size="sm"
-                className="py-1.5 text-[11px]"
-                title={t("plan.templateSaveHint")}
-              >
-                {t("plan.editor.saveTemplate")}
-              </AppButton>
-            </div>
-
-            <AppButton
-              onClick={onClose}
-              variant="secondary"
-              size="sm"
-              className="py-1.5 text-[11px]"
-            >
-              {t("common.cancel")}
-            </AppButton>
-            <AppButton
-              onClick={handleSaveClick}
-              variant="primary"
-              size="sm"
-              className="py-1.5 text-[11px]"
-            >
-              {t("common.save")}
-            </AppButton>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
-          <div className="flex w-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-[var(--text)]">{isCardioLibrary ? t("plan.editor.unitsBlock") : t("plan.editor.exercisesBlock")}</span>
-
-              <div className="flex items-center gap-2">
+              {/* Save as Template Quick Action */}
+              <div className="flex justify-end mt-2">
                 <button
-                  type="button"
-                  onClick={() => {
-                    setLibraryOpen(true);
-                    if (import.meta.env.DEV) console.log("[Trainingsplan] Open exercise library");
-                  }}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
+                  onClick={handleSaveWorkoutTemplate}
+                  className="text-xs text-[#007AFF] font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
                 >
-                  {isCardioLibrary ? t("plan.editor.openCardio") : t("plan.editor.openLibrary")}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddCustomExercise}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] px-2 py-1 text-[11px] text-[var(--text)] hover:opacity-95"
-                >
-                  + {isCardioLibrary ? t("plan.editor.addCustomUnit") : t("plan.editor.addCustomExercise")}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                  {t("plan.editor.saveTemplate")}
                 </button>
               </div>
             </div>
 
-            {/* ✅ Vorlagen (reine Trainings) laden */}
-            <div className="flex items-center justify-between gap-2">
-              <select
-                value={selectedWorkoutTemplateId}
-                onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] text-[var(--text)] outline-none"
-                title={t("plan.templateLoadHint")}
-              >
-                <option value="">{compatibleWorkoutTemplates.length ? t("plan.editor.loadTemplate") : t("plan.editor.noTemplates")}</option>
-                {compatibleWorkoutTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-
-              <span className="text-[10px] text-[var(--muted)]">
-                {draft.exercises.length} {isCardioLibrary ? t("plan.editor.unit") : t("plan.editor.exercise")}
-                {draft.exercises.length === 1 ? "" : "en"}
-              </span>
+            <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-xl">
+              <span className="text-white/80 font-medium text-sm">{t("plan.editor.loadTemplate")}</span>
+              <div className="relative">
+                <select
+                  value={selectedWorkoutTemplateId}
+                  onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
+                  className="bg-transparent text-[#007AFF] font-medium outline-none text-right pr-6 cursor-pointer text-sm appearance-none"
+                  style={{ minWidth: '100px' }}
+                >
+                  <option value="">{t("plan.select")}</option>
+                  {compatibleWorkoutTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[#007AFF]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Action Grid */}
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            <button
+              onClick={() => setLibraryOpen(true)}
+              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span className="text-[#007AFF] font-medium text-sm">{t("plan.editor.openLibrary")}</span>
+            </button>
+
+            <button
+              onClick={handleAddCustomExercise}
+              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="text-[#007AFF] font-medium text-sm">{t("plan.editor.addCustomExercise")}</span>
+            </button>
+          </div>
+
+          {/* Exercise List */}
+          <div className="space-y-4">
+            <h3 className="text-white/50 text-xs font-semibold uppercase tracking-wider pl-1">
+              {isCardioLibrary ? t("plan.editor.unitsBlock") : t("plan.editor.exercisesBlock")} ({draft.exercises.length})
+            </h3>
 
             {draft.exercises.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-[11px] text-[var(--muted)]">
-                {t("plan.editor.empty")}
+              <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl bg-white/5 border border-white/5">
+                <span className="text-white/20 mb-3 text-3xl">🏋️</span>
+                <p className="text-white/40 font-medium text-sm">{t("plan.editor.empty")}</p>
               </div>
             ) : (
-              <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+              <div className="space-y-4">
                 {draft.exercises.map((ex) => (
-                  <div key={ex.id} className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface2)] p-3">
-                    <div className="flex items-center justify-between gap-2">
+                  <div key={ex.id} className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-4">
                       <input
                         type="text"
                         value={ex.name}
                         onChange={(e) => handleUpdateExerciseName(ex.id, e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                        className="w-full bg-transparent text-white font-semibold outline-none border-b border-transparent focus:border-[#007AFF]/50 transition-colors py-1"
+                        placeholder="Übungsname"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveBlockExercise(ex.id)}
-                        className="shrink-0 rounded-lg border border-red-500/60 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-200 hover:bg-red-500/20"
+                        className="p-2 -mr-2 text-white/40 hover:text-red-400 transition-colors"
+                        title={t("common.remove")}
                       >
-                        {t("common.remove")}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                       </button>
                     </div>
 
-                    <div className="space-y-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-[var(--text)]">
-                        <span>{isCardioLibrary ? t("plan.editor.intervalsSections") : t("plan.editor.sets")}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleAddSet(ex.id)}
-                          className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--text)] hover:opacity-95"
-                        >
-                          + {isCardioLibrary ? t("plan.editor.addInterval") : t("plan.editor.addSet")}
-                        </button>
+                    <div className="space-y-2">
+                      {/* Sets Header */}
+                      <div className="flex items-center justify-between text-[11px] text-white/50 px-1">
+                        <div className="grid grid-cols-[auto,1fr,1fr,2fr] gap-3 w-full pr-8">
+                          <span>#</span>
+                          <span>{repsPlaceholder}</span>
+                          <span>{weightPlaceholder}</span>
+                          <span>{notesPlaceholder}</span>
+                        </div>
                       </div>
 
-                      <div className="space-y-1">
-                        {ex.sets.map((set, index) => (
-                          <div key={set.id} className="grid grid-cols-[auto,1fr,1fr,1.5fr,auto] items-center gap-2 text-[10px]">
-                            <span className="text-[var(--text)]">
-                              {isCardioLibrary ? t("plan.editor.section") : t("plan.editor.set")} {index + 1}
-                            </span>
+                      {ex.sets.map((set, index) => (
+                        <div key={set.id} className="relative flex items-center group">
+                          <div className="grid grid-cols-[auto,1fr,1fr,2fr] gap-3 w-full items-center">
+                            <span className="text-white/40 text-xs w-4">{index + 1}</span>
 
                             <input
                               type="number"
                               min={1}
-                              placeholder={repsPlaceholder}
                               value={set.reps ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
+                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              placeholder="0"
                             />
 
                             <input
                               type="number"
                               min={0}
-                              placeholder={weightPlaceholder}
                               value={set.weight ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
+                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              placeholder="0"
                             />
 
                             <input
                               type="text"
-                              placeholder={notesPlaceholder}
                               value={set.notes ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "notes", e.target.value)}
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-[10px] text-[var(--text)] outline-none"
+                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors"
+                              placeholder="-"
                             />
+                          </div>
 
+                          <div className="absolute -right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
                             <button
                               type="button"
                               onClick={() => handleRemoveSet(ex.id, set.id)}
-                              className="rounded-full border border-[var(--border)] bg-[var(--surface2)] px-2 py-0.5 text-[10px] text-[var(--muted)] hover:opacity-95"
+                              className="p-1.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-full"
                             >
-                              ✕
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddSet(ex.id)}
+                      className="mt-3 w-full py-2 rounded-lg bg-white/5 border border-white/5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors flex items-center justify-center gap-1"
+                    >
+                      + {isCardioLibrary ? t("plan.editor.addInterval") : t("plan.editor.addSet")}
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Mobile: Vorlagen speichern */}
-            <div className="mt-1 flex items-center gap-2 md:hidden">
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder={t("plan.templateNamePlaceholder")}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] text-[var(--text)] outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleSaveWorkoutTemplate}
-                className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-3 py-2 text-[11px] text-[var(--text)] hover:opacity-95"
-              >
-                Speichern
-              </button>
-            </div>
           </div>
         </div>
+
       </AppCard>
 
       <ExerciseLibraryModal
@@ -857,7 +845,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         onPick={(exercise: Exercise) => handleAddExerciseFromLibrary(exercise)}
         onPickCustom={handleAddCustomExercise}
       />
-    </div >
+    </div>
   );
 };
 
