@@ -74,8 +74,8 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-[#061226]">
-      <div className="w-full max-w-md rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md p-6">
+    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-[var(--bg)]">
+      <div className="w-full max-w-md rounded-[24px] border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl p-6">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-white">{t("auth.login.title")}</h1>
         </div>
@@ -135,7 +135,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onBlur={() => setEmail((e) => e.trim())} // Auto-trim on blur
-              className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-base text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] focus:ring-offset-[#061226]"
+              className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base text-[var(--text)] placeholder-[var(--muted)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="name@email.com"
               type="email"
               autoCapitalize="none"
@@ -153,7 +153,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-base text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] focus:ring-offset-[#061226]"
+                className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] pl-4 pr-12 py-3 text-base text-[var(--text)] placeholder-[var(--muted)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="••••••••"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
@@ -183,7 +183,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             <button
               type="submit"
               disabled={busy}
-              className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-[#2563EB] text-white hover:bg-sky-500 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
+              className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--primary)] text-white hover:opacity-90 shadow-lg"
                 }`}
             >
               {busy ? t("auth.login.loading") : t("auth.login.email")}
@@ -231,7 +231,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             type="button"
             onClick={onApple}
             disabled={busy}
-            className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-colors ${busy ? "bg-white/10 text-white/40 cursor-not-allowed" : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
+            className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-colors ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)] border border-[var(--border)]"
               }`}
           >
             {busy ? t("auth.login.loading") : t("auth.login.apple")}

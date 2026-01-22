@@ -450,13 +450,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
   const badgeStylePro: React.CSSProperties = {
     background: "rgba(245, 158, 11, 0.16)",
-    border: "1px solid rgba(245, 158, 11, 0.28)",
+    border: "1px solid var(--border)",
     color: "rgba(245, 158, 11, 0.95)",
   };
 
   const badgeStyleFree: React.CSSProperties = {
     background: "rgba(16, 185, 129, 0.14)",
-    border: "1px solid rgba(16, 185, 129, 0.26)",
+    border: "1px solid var(--border)",
     color: "rgba(16, 185, 129, 0.95)",
   };
 
@@ -468,7 +468,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   return (
     <>
       <div className="w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[var(--nav-height)] space-y-6">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-[var(--nav-height)] space-y-6">
           <section className="mt-2 space-y-4">
             <div className="flex items-center justify-between px-1">
               <h1 className="text-2xl font-bold text-[var(--text)]">Profil</h1>
@@ -515,7 +515,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-xl font-semibold truncate text-[var(--text)]">{profileName}</h2>
                     {isPro ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-500">Pro</span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[var(--primary)]">Pro</span>
                     ) : (
                       <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title={t("profile.upgradePro")}>
                         Free
@@ -581,7 +581,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </div>
 
               {workouts.length === 0 && (
-                <div className="rounded-xl p-3 text-sm bg-[var(--surface)] border-[1.5px] border-white/10 text-[var(--muted)]">
+                <div className="rounded-xl p-3 text-sm bg-[var(--surface)] border-[1.5px] border-[var(--border)] text-[var(--muted)]">
                   Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
                 </div>
               )}
@@ -594,12 +594,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
                     const mins = durationMinutes(w);
                     return (
-                      <div key={w.id} className="rounded-xl p-3 bg-[var(--surface)] border-[1.5px] border-white/10">
+                      <div key={w.id} className="rounded-xl p-3 bg-[var(--surface)] border-[1.5px] border-[var(--border)]">
                         <p className="text-sm text-[var(--muted)]">{date} • {mins} min</p>
                         <h4 className="mt-1 text-base font-semibold truncate text-[var(--text)]">{w.title ?? "Training"}</h4>
                         <p className="mt-1 text-sm text-[var(--muted)]">{exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}</p>
                         <div className="mt-3 flex items-center gap-2">
-                          <AppButton onClick={() => handleShareImage(w)} variant="ghost" size="sm" className="rounded-full !px-3 !py-1.5 h-auto text-xs border border-white/10 bg-white/5 hover:bg-white/10" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
+                          <AppButton onClick={() => handleShareImage(w)} variant="ghost" size="sm" className="rounded-full !px-3 !py-1.5 h-auto text-xs border border-[var(--border)] bg-[var(--surface2)] hover:bg-[var(--surface)]" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
                             <span className="inline-flex items-center gap-1.5 text-[var(--text)]">
                               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                               Export
@@ -645,11 +645,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="block text-sm text-[var(--muted)]">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-white/10 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.namePlaceholder")} />
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.namePlaceholder")} />
               </div>
               <div className="space-y-1">
                 <label className="block text-sm text-[var(--muted)]">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-white/10 px-3 py-2.5 text-base text-[var(--text)] min-h-[80px] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.bioPlaceholder")} />
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] min-h-[80px] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)]" placeholder={t("profile.bioPlaceholder")} />
               </div>
             </div>
 
@@ -659,36 +659,36 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[var(--muted)]">Alter</label>
-                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
                 </div>
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[var(--muted)]">Größe (cm)</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
                 </div>
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[var(--muted)]">Gewicht (kg)</label>
-                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="-" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[var(--muted)]">Stunden/Woche</label>
-                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="h" />
+                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="h" />
                 </div>
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[var(--muted)]">Einheiten/Woche</label>
-                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="#" />
+                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="#" />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-[var(--muted)]">Sportarten (CSV)</label>
-                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Laufen, Gym..." />
+                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Laufen, Gym..." />
               </div>
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-[var(--muted)]">Ziele (CSV)</label>
-                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-white/5 px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Marathon, Kraft..." />
+                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full rounded-xl bg-[var(--bg)] border border-[var(--border)] px-3 py-2.5 text-base text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]/50 focus:border-[var(--primary)] transition-all" placeholder="Marathon, Kraft..." />
               </div>
             </AppCard>
 
@@ -724,14 +724,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSettingsOpen(false)} />
 
           {/* panel */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--surface)] border-l border-white/10 shadow-2xl">
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl">
             <div className="h-full flex flex-col">
               <div className="flex-1 overflow-y-auto">
                 <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar} onOpenPaywall={openPaywall} />
               </div>
 
               {/* Quick actions footer */}
-              <div className="p-4 border-t border-white/10 bg-[var(--surface)]">
+              <div className="p-4 border-t border-[var(--border)] bg-[var(--surface)]">
                 <div className="grid grid-cols-2 gap-3">
                   <AppButton
                     onClick={handleClearHistory}

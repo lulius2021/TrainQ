@@ -47,6 +47,7 @@ import { toISODateLocal } from "../utils/calendarGeneration";
 const styles: Record<string, React.CSSProperties> = {
   page: {
     padding: 16,
+    paddingTop: "max(16px, env(safe-area-inset-top))",
     maxWidth: 1180,
     margin: "0 auto",
     color: "#e5e7eb",

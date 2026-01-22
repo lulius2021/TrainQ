@@ -26,7 +26,7 @@ export const OnboardingProgress: React.FC<OnboardingProgressProps> = ({
         <span>{t("onboarding.progress", { current: safeCurrent, total: safeTotal })}</span>
       </div>
 
-      <div className="h-2 bg-[#111827] rounded-full overflow-hidden">
+      <div className="h-2 bg-[var(--surface2)] rounded-full overflow-hidden">
         <div
           className="h-full bg-blue-500 transition-all duration-300"
           style={{ width: `${percentage}%` }}

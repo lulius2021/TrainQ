@@ -19,13 +19,18 @@ html[data-theme="light"] {
   --letter-spacing: -0.4px;
 
   /* Background */
-  --bg: #F5F5F7;
-  --bg-gradient: linear-gradient(135deg, #F5F5F7 0%, #FFFFFF 100%);
+  --bg: #FFFFFF;
+  /* Fallback */
+  /* Mesh Gradient: Top-Left White -> Bottom-Right Fresh Blue */
+  --bg-gradient: linear-gradient(to bottom right, #FFFFFF 0%, #D0E8FF 100%);
 
   /* Surfaces */
-  --surface: rgba(255, 255, 255, 0.8);
-  --surface2: rgba(255, 255, 255, 0.95);
-  --border: rgba(0, 0, 0, 0.1);
+  --surface: rgba(255, 255, 255, 0.60);
+  /* Glassy white (60%) */
+  --surface2: rgba(255, 255, 255, 0.80);
+  /* Slightly more opaque */
+  --border: rgba(0, 0, 0, 0.10);
+  /* Light border */
 
   /* Text */
   --text: #000000;
@@ -51,6 +56,8 @@ html[data-theme="light"] {
   --nav-height: calc(88px + var(--safe-bottom) + 32px);
   --bottom-nav-h: 88px;
   --bottom-nav-gap: 12px;
+
+  --icon-filter: none;
 }
 
 /* Optional fallback for very old iOS WebViews */
@@ -72,28 +79,33 @@ html.dark {
   --font-base: 17px;
   --line-base: 1.45;
 
-  /* Background */
+  /* Background - Pure Black */
   --bg: #000000;
-  --bg-gradient: #000000;
+  /* Mesh Gradient: Top-Left Black -> Bottom-Right Deep Blue */
+  --bg-gradient: linear-gradient(to bottom right, #000000 0%, #003366 100%);
 
-  /* Surfaces */
-  --surface: rgba(255, 255, 255, 0.05);
-  --surface2: rgba(255, 255, 255, 0.1);
-  --border: rgba(255, 255, 255, 0.1);
+  /* Surfaces - Glassy-Gray with backdrop blur */
+  --surface: rgba(255, 255, 255, 0.10);
+  /* Glassy (10%) */
+  --surface2: rgba(255, 255, 255, 0.15);
+  --border: rgba(255, 255, 255, 0.20);
+  /* Silver border (20%) */
 
   /* Text */
-  --text: #FFFFFF;
-  --muted: rgba(235, 235, 245, 0.6);
+  --text: #ffffff;
+  --muted: #9CA3AF;
 
-  /* Brand */
+  /* Brand - Apple Blue */
   --primary: #007AFF;
-  --primarySoft: #47A1FF;
+  --primarySoft: rgba(0, 122, 255, 0.2);
 
   /* Effects */
   --shadow: none;
   --r: 16px;
   /* rounded-2xl */
   --r2: 24px;
+
+  --icon-filter: invert(1);
 }
 
 /* =========================
@@ -196,8 +208,8 @@ body::before {
   /* ✅ verhindert Scroll-Chain in Richtung WebView/Body */
   overscroll-behavior: none;
 
-  /* Safe Areas */
-  padding-top: var(--safe-top);
+  /* Safe Areas - Removed to eliminate blue strip */
+  padding-top: 0 !important;
   padding-right: var(--safe-right);
   padding-bottom: 0;
   padding-left: var(--safe-left);

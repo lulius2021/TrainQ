@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getSupabaseClient } from '../lib/supabaseClient';
+import { AppCard } from './ui/AppCard';
+import { AppButton } from './ui/AppButton';
+import { PageHeader } from './ui/PageHeader';
 
 /**
  * ------------------------------------------------------------
@@ -24,67 +27,10 @@ const OnboardingLayout: React.FC<{ children: React.ReactNode; progress: number }
         </div>
 
         {/* content */}
-        <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-8 overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-4 overflow-y-auto overflow-x-hidden no-scrollbar">
             {children}
         </div>
     </div>
-);
-
-const Header: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
-    <div className="space-y-3 mb-8">
-        <h1 className="text-3xl font-extrabold tracking-tight leading-tight text-white">
-            {title}
-        </h1>
-        {subtitle && <p className="text-lg text-gray-400 font-medium leading-relaxed">{subtitle}</p>}
-    </div>
-);
-
-const OptionCard: React.FC<{
-    selected: boolean;
-    onClick: () => void;
-    label: string;
-    description: string;
-    icon?: React.ReactNode
-}> = ({ selected, onClick, label, description, icon }) => (
-    <button
-        onClick={onClick}
-        className={`w-full text-left p-6 rounded-2xl border transition-all duration-200 group active:scale-[0.98]
-            ${selected
-                ? 'bg-[var(--primary)] border-[var(--primary)] shadow-lg shadow-blue-900/20'
-                : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface2)]'
-            }`}
-    >
-        <div className="flex items-center justify-between">
-            <div className={`font-bold text-lg mb-1 ${selected ? 'text-white' : 'text-gray-100'}`}>
-                {label}
-            </div>
-            {icon && <div className={selected ? 'text-white' : 'text-gray-400'}>{icon}</div>}
-        </div>
-        <div className={`text-sm font-medium ${selected ? 'text-blue-100' : 'text-gray-500'}`}>
-            {description}
-        </div>
-    </button>
-);
-
-const PrimaryButton: React.FC<{
-    onClick: () => void;
-    disabled?: boolean;
-    label: React.ReactNode;
-    loading?: boolean;
-}> = ({ onClick, disabled, label, loading }) => (
-    <button
-        onClick={onClick}
-        disabled={disabled || loading}
-        className="w-full py-4 rounded-xl bg-[var(--primary)] font-bold text-white shadow-lg shadow-blue-500/20 
-                   active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
-    >
-        {loading ? (
-            <div className="flex items-center justify-center gap-2">
-                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Wird eingerichtet...</span>
-            </div>
-        ) : label}
-    </button>
 );
 
 /**
@@ -125,8 +71,6 @@ export const Onboarding: React.FC = () => {
 
             if (error) {
                 console.error('Onboarding preference update failed:', error);
-                // We continue to complete onboarding even if preferences fail, or should we stop?
-                // Better to stop to ensure data integrity, but let's try to proceed to avoid loops.
             }
 
             // 2. Complete Onboarding (Persist & Cache)
@@ -136,8 +80,6 @@ export const Onboarding: React.FC = () => {
             // Ensure we are logically at root
             window.history.replaceState({}, "", "/");
             window.dispatchEvent(new PopStateEvent("popstate"));
-
-            // Reload optional to ensure all start-up checks run? No, React state update should handle it.
 
         } catch (e) {
             console.error('Onboarding error:', e);
@@ -154,9 +96,10 @@ export const Onboarding: React.FC = () => {
             {/* STEP 0: Persona */}
             {step === 0 && (
                 <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <Header
+                    <PageHeader
                         title="Dein Fokus?"
                         subtitle="Wir passen den Algorithmus an dein Leben an."
+                        className="px-0"
                     />
 
                     <div className="space-y-4 flex-1">
@@ -164,15 +107,26 @@ export const Onboarding: React.FC = () => {
                             { id: 'pro', label: 'Profi-Athlet', desc: 'Maximale Leistung & Volumen' },
                             { id: 'manager', label: 'High Performer', desc: 'Effizient, Zeitsparend, Fokus' },
                             { id: 'beginner', label: 'Gesundheit', desc: 'Nachhaltiger Aufbau & Balance' },
-                        ].map((opt) => (
-                            <OptionCard
-                                key={opt.id}
-                                selected={goal === opt.id}
-                                label={opt.label}
-                                description={opt.desc}
-                                onClick={() => { setGoal(opt.id); handleNext(); }}
-                            />
-                        ))}
+                        ].map((opt) => {
+                            const selected = goal === opt.id;
+                            return (
+                                <AppCard
+                                    key={opt.id}
+                                    variant={selected ? "solid" : "glass"}
+                                    onClick={() => { setGoal(opt.id); handleNext(); }}
+                                    className={`p-6 cursor-pointer text-left border-transition ${selected ? '!border-[var(--primary)] !bg-[var(--primary)]/10' : ''}`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className={`font-bold text-lg mb-1 ${selected ? 'text-white' : 'text-white'}`}>
+                                            {opt.label}
+                                        </div>
+                                    </div>
+                                    <div className={`text-sm font-medium ${selected ? 'text-blue-100' : 'text-gray-500'}`}>
+                                        {opt.desc}
+                                    </div>
+                                </AppCard>
+                            )
+                        })}
                     </div>
                 </div>
             )}
@@ -180,9 +134,10 @@ export const Onboarding: React.FC = () => {
             {/* STEP 1: Time */}
             {step === 1 && (
                 <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <Header
+                    <PageHeader
                         title="Dein Zeitbudget"
                         subtitle="Wie viel Zeit hast du realistisch pro Einheit?"
+                        className="px-0"
                     />
 
                     <div className="flex-1 flex flex-col justify-center space-y-12">
@@ -210,19 +165,24 @@ export const Onboarding: React.FC = () => {
                         </div>
                     </div>
 
-                    <PrimaryButton
+                    <AppButton
                         onClick={handleNext}
-                        label="Weiter"
-                    />
+                        fullWidth
+                        size="lg"
+                        className="mt-auto shadow-lg"
+                    >
+                        Weiter
+                    </AppButton>
                 </div>
             )}
 
             {/* STEP 2: Fitness Level */}
             {step === 2 && (
                 <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <Header
+                    <PageHeader
                         title="Dein Level"
                         subtitle="Wie schätzt du deine aktuelle Fitness ein?"
+                        className="px-0"
                     />
 
                     <div className="flex-1 flex flex-col justify-center">
@@ -244,7 +204,7 @@ export const Onboarding: React.FC = () => {
                             ))}
                         </div>
 
-                        <div className="bg-[var(--surface)] p-6 rounded-2xl border border-[var(--border)] text-center transition-all duration-300">
+                        <AppCard variant="glass" className="p-6 text-center">
                             <div className="text-[var(--primary)] font-bold mb-2 uppercase tracking-wide text-sm">
                                 Level {fitnessLevel}
                             </div>
@@ -255,14 +215,18 @@ export const Onboarding: React.FC = () => {
                                 {fitnessLevel === 4 && "Sehr Fit – Sport ist dein Lifestyle."}
                                 {fitnessLevel === 5 && "Elite – Du lebst für Höchstleistung."}
                             </div>
-                        </div>
+                        </AppCard>
                     </div>
 
-                    <PrimaryButton
+                    <AppButton
                         onClick={handleFinish}
-                        loading={loading}
-                        label="Training starten"
-                    />
+                        isLoading={loading}
+                        fullWidth
+                        size="lg"
+                        className="mt-auto shadow-lg"
+                    >
+                        Training starten
+                    </AppButton>
                 </div>
             )}
 

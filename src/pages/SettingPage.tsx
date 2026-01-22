@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
@@ -270,7 +271,7 @@ export default function SettingPage({
   const ProfilePanel = () => (
     <>
       <SectionHeader title={t("settings.section.profile")} />
-      <AppCard variant="glass">
+      <AppCard variant="glass" className="bg-white/20 border-white/30">
         <p className="text-sm opacity-70 mb-3">{t("settings.profile.subtitle")}</p>
         {onOpenGoals && (
           <AppButton onClick={onOpenGoals} fullWidth className="mb-3">
@@ -287,11 +288,11 @@ export default function SettingPage({
   const AccountPanel = () => (
     <>
       <SectionHeader title={t("settings.section.account")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         <p className="text-sm opacity-70">
           {t("settings.account.email")}: <span className="text-[var(--text)] opacity-100 font-medium">{user?.email || t("settings.value.unset")}</span>
         </p>
-        <AppButton onClick={handleLogout} variant="secondary" fullWidth>
+        <AppButton onClick={handleLogout} variant="secondary" fullWidth className="bg-white/25 hover:bg-white/35 text-white">
           {t("settings.account.logout")}
         </AppButton>
         <div className="pt-2 border-t border-[var(--border)]">
@@ -306,14 +307,14 @@ export default function SettingPage({
   const NotificationsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.notifications")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         <p className="text-sm opacity-70">{t("settings.notifications.subtitle")}</p>
         <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface2)] cursor-pointer transition active:scale-[0.98]">
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-white/20 border border-white/30 cursor-pointer transition active:scale-[0.98]">
             <span className="text-base font-medium">{t("settings.notifications.trainingReminders")}</span>
             <input type="checkbox" checked={notifTraining} onChange={toggleNotifTraining} className="rounded h-5 w-5 accent-[var(--primary)]" />
           </label>
-          <label className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface2)] cursor-pointer transition active:scale-[0.98]">
+          <label className="flex items-center justify-between p-3 rounded-2xl bg-white/20 border border-white/30 cursor-pointer transition active:scale-[0.98]">
             <span className="text-base font-medium">{t("settings.notifications.weeklySummary")}</span>
             <input type="checkbox" checked={notifWeekly} onChange={toggleNotifWeekly} className="rounded h-5 w-5 accent-[var(--primary)]" />
           </label>
@@ -326,20 +327,20 @@ export default function SettingPage({
   const IntegrationsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.integrations")} />
-      <AppCard variant="glass" className="space-y-4">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Garmin Icon Placeholder */}
             <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xs ring-1 ring-white/10">G</div>
             <span className="font-semibold text-lg">{t("settings.integrations.garmin")}</span>
           </div>
-          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${garminConnected ? "bg-green-500/20 text-green-500" : "bg-[var(--surface2)] text-[var(--muted)]"}`}>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${garminConnected ? "bg-green-500/20 text-green-500" : "bg-white/10 text-[var(--muted)]"}`}>
             {garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
           </span>
         </div>
 
         {garminConnected ? (
-          <AppButton onClick={handleGarminDisconnect} variant="secondary" fullWidth>{t("settings.integrations.disconnect")}</AppButton>
+          <AppButton onClick={handleGarminDisconnect} variant="secondary" fullWidth className="bg-white/25 hover:bg-white/35 text-white">{t("settings.integrations.disconnect")}</AppButton>
         ) : (
           <AppButton onClick={handleGarminConnect} variant="primary" fullWidth>{t("settings.integrations.connect")}</AppButton>
         )}
@@ -351,13 +352,13 @@ export default function SettingPage({
   const UnitsPanel = () => (
     <>
       <SectionHeader title={t("settings.section.units")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         <p className="text-sm opacity-70">{t("settings.units.subtitle")}</p>
-        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
-          <button type="button" onClick={() => { setUnits("metric"); setScopedItem("trainq_units", "metric"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "metric" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+        <div className="flex bg-white/20 border border-white/30 rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => { setUnits("metric"); setScopedItem("trainq_units", "metric"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "metric" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("settings.units.metric")}
           </button>
-          <button type="button" onClick={() => { setUnits("imperial"); setScopedItem("trainq_units", "imperial"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "imperial" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+          <button type="button" onClick={() => { setUnits("imperial"); setScopedItem("trainq_units", "imperial"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${units === "imperial" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("settings.units.imperial")}
           </button>
         </div>
@@ -370,16 +371,16 @@ export default function SettingPage({
     <>
       <SectionHeader title={t("settings.section.legal")} />
 
-      <AppCard variant="glass" className="space-y-2">
-        <AppButton onClick={() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-2">
+        <AppButton onClick={() => { window.history.pushState({}, "", "/privacy"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between bg-white/25 hover:bg-white/35 text-white">
           <span>{t("settings.legal.tab.privacy")}</span>
           <span className="opacity-50">→</span>
         </AppButton>
-        <AppButton onClick={() => { window.history.pushState({}, "", "/impressum"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
+        <AppButton onClick={() => { window.history.pushState({}, "", "/impressum"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between bg-white/25 hover:bg-white/35 text-white">
           <span>{t("settings.legal.tab.imprint")}</span>
           <span className="opacity-50">→</span>
         </AppButton>
-        <AppButton onClick={() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between">
+        <AppButton onClick={() => { window.history.pushState({}, "", "/terms"); window.dispatchEvent(new PopStateEvent("popstate")); }} variant="secondary" fullWidth className="justify-between bg-white/25 hover:bg-white/35 text-white">
           <span>{t("settings.legal.tab.terms")}</span>
           <span className="opacity-50">→</span>
         </AppButton>
@@ -390,13 +391,13 @@ export default function SettingPage({
   const LanguagePanel = () => (
     <>
       <SectionHeader title={t("settings.section.language")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         <p className="text-sm opacity-70">{t("settings.language.subtitle")}</p>
-        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
-          <button type="button" onClick={() => setLang("de")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "de" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+        <div className="flex bg-white/20 border border-white/30 rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => setLang("de")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "de" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("language.de")}
           </button>
-          <button type="button" onClick={() => setLang("en")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "en" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+          <button type="button" onClick={() => setLang("en")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${lang === "en" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("language.en")}
           </button>
         </div>
@@ -407,13 +408,13 @@ export default function SettingPage({
   const ThemePanel = () => (
     <>
       <SectionHeader title={t("settings.section.theme")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         <p className="text-sm opacity-70">{t("settings.theme.subtitle")}</p>
-        <div className="flex bg-[var(--surface2)] rounded-xl p-1 w-fit">
-          <button type="button" onClick={() => { setThemeGlobal("light"); setThemeState("light"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "light" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+        <div className="flex bg-white/20 border border-white/30 rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => { setThemeGlobal("light"); setThemeState("light"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "light" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("settings.theme.light")}
           </button>
-          <button type="button" onClick={() => { setThemeGlobal("dark"); setThemeState("dark"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "dark" ? "bg-[var(--surface)] shadow-sm text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}>
+          <button type="button" onClick={() => { setThemeGlobal("dark"); setThemeState("dark"); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${theme === "dark" ? "bg-white/40 shadow-sm text-[var(--text)]" : "text-[var(--text)] opacity-60 hover:opacity-100"}`}>
             {t("settings.theme.dark")}
           </button>
         </div>
@@ -424,7 +425,7 @@ export default function SettingPage({
   const ProPanel = () => (
     <>
       <SectionHeader title={t("settings.section.pro")} />
-      <AppCard variant="glass" className="space-y-3">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-3">
         {isPro ? (
           <div className="flex items-center gap-2 text-green-400 font-semibold p-2 bg-green-500/10 rounded-xl justify-center">
             <span>✅</span>
@@ -437,7 +438,7 @@ export default function SettingPage({
         {!isPro && (
           <AppButton onClick={openPaywall} variant="primary" fullWidth className="mt-2">{t("settings.pro.buy")}</AppButton>
         )}
-        <AppButton onClick={handleRestorePurchases} variant="secondary" fullWidth className="mt-2 text-sm">{t("settings.pro.restorePurchases")}</AppButton>
+        <AppButton onClick={handleRestorePurchases} variant="secondary" fullWidth className="mt-2 text-sm bg-white/25 hover:bg-white/35 text-white">{t("settings.pro.restorePurchases")}</AppButton>
       </AppCard>
     </>
   );
@@ -445,12 +446,12 @@ export default function SettingPage({
   const DataPanel = () => (
     <>
       <SectionHeader title={t("settings.section.data")} />
-      <AppCard variant="glass" className="space-y-2">
+      <AppCard variant="glass" className="bg-white/20 border-white/30 space-y-2">
         <p className="text-sm opacity-70">{t("settings.data.subtitle")}</p>
         <div className="space-y-2 pt-2">
           <AppButton onClick={handleClearCalendar} variant="danger" fullWidth className="bg-red-500/10 text-red-500 border-red-500/20">{t("settings.data.clearCalendar")}</AppButton>
           <AppButton onClick={handleClearHistory} variant="danger" fullWidth className="bg-red-500/10 text-red-500 border-red-500/20">{t("settings.data.clearHistory")}</AppButton>
-          <AppButton onClick={handleResetOnboarding} variant="danger" fullWidth className="bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/20">{t("settings.data.resetOnboarding")}</AppButton>
+          <AppButton onClick={handleResetOnboarding} variant="danger" fullWidth className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20">{t("settings.data.resetOnboarding")}</AppButton>
         </div>
         <p className="text-xs opacity-50 pt-2">{t("settings.data.resetOnboardingNote")}</p>
       </AppCard>
@@ -460,10 +461,10 @@ export default function SettingPage({
   const HelpPanel = () => (
     <>
       <SectionHeader title={t("settings.section.help")} />
-      <AppCard variant="glass">
+      <AppCard variant="glass" className="bg-white/20 border-white/30">
         <p className="text-sm opacity-70">{t("settings.help.version")}</p>
         <p className="text-xs opacity-50 mb-3">TrainQ Inc.</p>
-        <AppButton variant="secondary" fullWidth onClick={() => window.open("mailto:support@trainq.app")}>{t("settings.help.contact")}</AppButton>
+        <AppButton variant="secondary" fullWidth className="bg-white/25 hover:bg-white/35 text-white" onClick={() => window.open("mailto:support@trainq.app")}>{t("settings.help.contact")}</AppButton>
       </AppCard>
     </>
   );
@@ -486,29 +487,38 @@ export default function SettingPage({
   };
 
   // -------- Layout --------
-  // bg-brand-bg corresponds to var(--bg) now in tailwind config
-  // -------- Layout --------
-  // bg-[var(--bg)] handled by styles
+  useEffect(() => {
+    // Freeze Background
+    document.body.style.overflow = 'hidden';
+    return () => {
+      // Unfreeze on cleanup
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  // bg-[var(--bg)] removed to allow global gradient to show through
   return (
-    <div className="h-full w-full overflow-y-auto bg-[var(--bg)] text-[var(--text)]" style={{ isolation: "isolate" }}>
-      <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(var(--safe-top)+20px)] pb-[var(--nav-height)] space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AppButton onClick={onBack} variant="secondary" className="w-10 !px-0 rounded-full" title={t("common.back")}>
+    <div className="fixed inset-0 z-50 h-[100dvh] w-full bg-black/80 backdrop-blur-xl overflow-y-auto overscroll-contain text-[var(--text)]" style={{ isolation: "isolate" }}>
+      <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[120px] space-y-6">
+        <PageHeader
+          title={t("settings.title")}
+          leftAction={
+            <AppButton onClick={onBack} variant="secondary" className="relative z-50 w-10 h-10 !px-0 rounded-full bg-white/25 hover:bg-white/35 text-white" title={t("common.back")}>
               {"<"}
             </AppButton>
-            <h1 className="text-3xl font-bold tracking-tight">{t("settings.title")}</h1>
-          </div>
-          {!isPro && (
-            <AppButton onClick={openPaywall} variant="primary" size="sm">
-              {t("settings.pro.buy")}
-            </AppButton>
-          )}
-        </div>
+          }
+          rightAction={
+            !isPro && (
+              <AppButton onClick={openPaywall} variant="primary" size="sm" className="relative z-50">
+                {t("settings.pro.buy")}
+              </AppButton>
+            )
+          }
+        />
 
         {/* MOBILE: Accordion */}
         <div className="md:hidden space-y-3">
-          <AppCard variant="glass" className="p-2">
+          <AppCard variant="glass" className="bg-white/20 border-white/30 p-2">
             <div className="space-y-1">
               {menuItems.map((it) => {
                 const isActive = section === it.key;
@@ -517,7 +527,7 @@ export default function SettingPage({
                     <button
                       type="button"
                       onClick={() => onMenuClick(it.key)}
-                      className="w-full text-left px-3 py-3 rounded-2xl hover:bg-[var(--surface2)] transition-colors active:scale-[0.99] duration-150"
+                      className="w-full text-left px-3 py-3 rounded-2xl hover:bg-white/20 transition-colors active:scale-[0.99] duration-150 border border-transparent hover:border-white/30"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-base font-semibold opacity-90">{it.label}</span>
@@ -525,7 +535,7 @@ export default function SettingPage({
                       </div>
                     </button>
                     {isActive && (
-                      <div className="rounded-2xl p-2 bg-[var(--bg)]/10">
+                      <div className="rounded-2xl p-2 bg-white/20 border border-white/30 backdrop-blur-lg">
                         {renderSectionContent(it.key as SettingsSection)}
                       </div>
                     )}
@@ -538,7 +548,7 @@ export default function SettingPage({
 
         {/* DESKTOP: Sidebar + Content */}
         <div className="hidden md:grid grid-cols-[280px_1fr] gap-6">
-          <AppCard variant="glass" className="h-fit sticky top-6">
+          <AppCard variant="glass" className="bg-white/20 border-white/30 h-fit sticky top-6">
             <div className="space-y-1">
               {menuItems.map((it) => {
                 const isActive = section === it.key;
@@ -547,7 +557,7 @@ export default function SettingPage({
                     key={it.key}
                     type="button"
                     onClick={() => onMenuClick(it.key)}
-                    className={`w-full text-left px-4 py-3 rounded-xl transition ${isActive ? "bg-[var(--surface2)] font-bold text-[var(--primary)]" : "hover:bg-[var(--surface2)] opacity-80"}`}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition border ${isActive ? "bg-white/20 border-white/30 font-bold text-[var(--text)]" : "border-transparent hover:bg-white/5 opacity-80"}`}
                   >
                     <span className="text-base">{it.label}</span>
                   </button>

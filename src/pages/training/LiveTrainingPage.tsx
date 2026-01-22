@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppCard } from "../../components/ui/AppCard";
 import { AppButton } from "../../components/ui/AppButton";
+import { PageHeader } from "../../components/ui/PageHeader";
 import type {
   CalendarEvent,
   LiveExercise,
@@ -881,9 +882,10 @@ export default function LiveTrainingPage({
 
   // ✅ STABIL: Reserve space für fixed Header + optional Restbar
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
+  // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
   const mainPadTop = activeRest
-    ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
-    : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
+    ? "calc(env(safe-area-inset-top) + 110px)"
+    : "calc(env(safe-area-inset-top) + 72px)";
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
@@ -897,30 +899,29 @@ export default function LiveTrainingPage({
     <LiveTrainingErrorBoundary onExit={onExit}>
       <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
         {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
-        <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
-          <AppCard variant="glass" noPadding className="mx-auto max-w-5xl px-4 py-3 shadow-lg">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div className="text-center sm:text-left">
-                <div className="tabular-nums text-5xl font-bold leading-none tracking-tight">
-                  {elapsedText}
-                </div>
-              </div>
-              <div className="flex justify-stretch sm:justify-end">
+        {/* ✅ FIXED HEADER - using PageHeader for consistency */}
+        <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10">
+          <div className="px-4 pb-2" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
+            <PageHeader
+              title={elapsedText}
+              className="py-0 pb-2"
+              rightAction={
                 <AppButton
                   onClick={finishTraining}
                   variant="primary"
-                  className="h-12 w-full sm:w-auto min-w-[180px] shadow-[0_0_20px_theme(colors.sky.500/50%)]"
+                  size="sm"
+                  className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
                 >
-                  Training beenden
+                  Beenden
                 </AppButton>
+              }
+            />
+            {activeRest && (
+              <div className="-mt-1 pb-2">
+                <RestTimerBar key={`${activeRest.exerciseId}_${activeRest.setId}`} seconds={activeRest.restSeconds} running={true} onDone={() => setActiveRest(null)} />
               </div>
-            </div>
-          </AppCard>
-          {activeRest && (
-            <div className="px-1 pt-3">
-              <RestTimerBar key={`${activeRest.exerciseId}_${activeRest.setId}`} seconds={activeRest.restSeconds} running={true} onDone={() => setActiveRest(null)} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
@@ -969,8 +970,9 @@ export default function LiveTrainingPage({
         </main>
 
         {/* ✅ FIXED FOOTER */}
-        <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3">
-          <AppCard variant="glass" noPadding className="mx-auto w-full max-w-5xl px-3 py-3 shadow-lg">
+        {/* ✅ FIXED FOOTER */}
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+          <div className="mx-auto w-full max-w-5xl">
             <div className="mb-2 flex items-center justify-center gap-4 text-sm text-[var(--muted)]">
               {!isCardioWorkout && (<> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
               <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
@@ -985,7 +987,7 @@ export default function LiveTrainingPage({
                 Abbrechen
               </AppButton>
             </div>
-          </AppCard>
+          </div>
         </div>
 
         <ExerciseLibraryModal
@@ -1010,25 +1012,27 @@ export default function LiveTrainingPage({
           keyboardHeight={keyboardHeight}
           rightButton={
             platesEnabled ? (
-              <button
-                type="button"
+              <AppButton
                 onClick={openPlates}
-                className="rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white shadow-lg"
+                variant="primary"
+                size="sm"
+                className="rounded-full shadow-lg"
               >
                 Scheiben
-              </button>
+              </AppButton>
             ) : (
-              <button
-                type="button"
+              <AppButton
                 onClick={() => (document.activeElement as HTMLElement)?.blur()}
-                className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur shadow-lg border border-white/10"
+                variant="secondary"
+                size="sm"
+                className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
               >
                 Fertig
-              </button>
+              </AppButton>
             )
           }
         />
       </div>
-    </LiveTrainingErrorBoundary>
+    </LiveTrainingErrorBoundary >
   );
 }

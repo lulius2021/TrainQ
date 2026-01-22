@@ -61,7 +61,7 @@ export default function AdaptiveTestPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 pt-[calc(var(--safe-top)+20px)] pb-[var(--nav-height)]">
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 pt-0 pb-[var(--nav-height)]">
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
                 <AppCard>

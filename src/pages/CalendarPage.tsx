@@ -716,10 +716,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     <>
 
       <div className="w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+20px)] pb-[var(--nav-height)] space-y-4">
-          {/* Header / Pager */}
+        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-[var(--nav-height)] space-y-2">
+          {/* Header */}
+          <div className="mb-2">
+            <h1 className="text-3xl font-bold text-white tracking-tight">Kalender</h1>
+          </div>
+
+          {/* Pager */}
           <div className="flex items-center">
-            <div className="w-full inline-flex items-center rounded-2xl p-1 bg-[var(--surface)] border border-white/5">
+            <div className="w-full inline-flex items-center rounded-2xl p-1 bg-[var(--surface)] border border-[var(--border)]">
               <AppButton
                 onClick={goPrev}
                 variant="ghost"
@@ -742,7 +747,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
           {/* View switch + Today */}
           <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-            <div className="inline-flex rounded-2xl p-1 text-base bg-[var(--surface)] border border-white/5">
+            <div className="inline-flex rounded-2xl p-1 text-base bg-[var(--surface)] border border-[var(--border)]">
               <AppButton
                 onClick={() => setViewMode("day")}
                 variant={viewMode === "day" ? "primary" : "ghost"}
@@ -790,7 +795,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             {/* Monatsansicht */}
             {viewMode === "month" && (
               <div className="space-y-2">
-                <div className="grid grid-cols-7 text-center text-sm text-gray-400">
+                <div className="grid grid-cols-7 text-center text-sm text-[var(--muted)]">
                   {weekdayShort.map((wd) => (
                     <div key={wd} className="py-1">{wd}</div>
                   ))}
@@ -806,9 +811,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     const minH = monthWeeks === 5 ? 120 : 100;
 
                     const cellClasses = [
-                      "flex flex-col rounded-xl px-2 py-2 text-left transition hover:bg-white/10",
-                      isSelected ? "bg-sky-500/30 border border-sky-500/50" : "bg-white/5 border border-white/10",
-                      isToday && !isSelected ? "border border-sky-500/50" : "",
+                      "flex flex-col rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface2)]",
+                      isSelected ? "bg-[var(--primary)]/30 border border-[var(--primary)]/50" : "bg-[var(--surface)] border border-[var(--border)]",
+                      isToday && !isSelected ? "border border-[var(--primary)]/50" : "",
                       !isCurrentMonth ? "opacity-40" : ""
                     ].join(" ");
 
@@ -821,13 +826,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           {dayEvents.slice(0, 3).map((ev) => {
                             const isDone = isCompletedTraining(ev);
                             const isTraining = isTrainingEvent(ev);
-                            const dotClass = isDone ? "bg-green-500" : isTraining ? "bg-sky-500" : "bg-gray-500";
+                            const dotClass = isDone ? "bg-green-500" : isTraining ? "bg-[var(--primary)]" : "bg-[var(--muted)]";
                             return (
                               <div key={ev.id} className={`h-1.5 w-full rounded-full ${dotClass}`} title={normalizeTitle(ev.title)} />
                             );
                           })}
                           {dayEvents.length > 3 && (
-                            <div className="text-xs font-medium text-gray-400 mt-1">+{dayEvents.length - 3}</div>
+                            <div className="text-xs font-medium text-[var(--muted)] mt-1">+{dayEvents.length - 3}</div>
                           )}
                         </div>
                       </button>
@@ -851,21 +856,21 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         key={key}
                         type="button"
                         onClick={() => openDayViewFromDate(d, "week")}
-                        className={`flex flex-col h-full rounded-xl p-2 text-left transition bg-white/5 border hover:bg-white/10 min-w-0 ${isToday ? "border-sky-500/50" : "border-white/10"}`}
+                        className={`flex flex-col h-full rounded-xl p-2 text-left transition bg-[var(--surface)] border hover:bg-[var(--surface2)] min-w-0 ${isToday ? "border-[var(--primary)]/50" : "border-[var(--border)]"}`}
                       >
                         <div className="mb-2 flex items-center justify-between min-w-0">
-                          <span className="text-sm font-medium leading-tight truncate text-gray-400">{weekdayShort[idx]}</span>
+                          <span className="text-sm font-medium leading-tight truncate text-[var(--muted)]">{weekdayShort[idx]}</span>
                           <span className="text-base font-semibold leading-none">{d.getDate()}</span>
                         </div>
                         <div className="mt-0.5 space-y-2 flex-1 min-w-0">
                           {dayEvents.map((ev) => {
                             const done = isCompletedTraining(ev);
                             const training = isTrainingEvent(ev);
-                            const leftBorder = done ? "bg-green-500" : training ? "bg-sky-500" : "bg-gray-500";
+                            const leftBorder = done ? "bg-green-500" : training ? "bg-[var(--primary)]" : "bg-[var(--muted)]";
                             return (
-                              <div key={ev.id} className={`rounded-md px-2 py-1.5 min-w-0 bg-white/5 border border-white/10 border-l-4 ${leftBorder.replace("bg-", "border-")}`}>
-                                <p className="text-xs font-semibold truncate">{normalizeTitle(ev.title)}</p>
-                                <p className="text-xs text-gray-400">{ev.startTime}</p>
+                              <div key={ev.id} className={`rounded-md px-2 py-1.5 min-w-0 bg-[var(--surface)] border border-[var(--border)] border-l-4 ${leftBorder.replace("bg-", "border-")}`}>
+                                <p className="text-xs font-semibold truncate text-[var(--text)]">{normalizeTitle(ev.title)}</p>
+                                <p className="text-xs text-[var(--muted)]">{ev.startTime}</p>
                               </div>
                             );
                           })}
@@ -882,27 +887,27 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <div className="flex flex-col h-full">
                 {(previousView === "month" || previousView === "week") && (
                   <div className="text-right mb-2">
-                    <button type="button" onClick={handleBackFromDay} className="text-sm text-gray-300 underline-offset-2 hover:underline">
+                    <button type="button" onClick={handleBackFromDay} className="text-sm text-[var(--muted)] underline-offset-2 hover:underline">
                       Zurück zur {previousView === "month" ? "Monatsansicht" : "Wochenansicht"}
                     </button>
                   </div>
                 )}
-                <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-3 flex-1">
+                <div className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-4 space-y-3 flex-1">
                   {eventsForSelectedDay.length === 0 ? (
-                    <p className="text-base text-gray-400">Keine Termine an diesem Tag.</p>
+                    <p className="text-base text-[var(--muted)]">Keine Termine an diesem Tag.</p>
                   ) : (
                     eventsForSelectedDay.map((ev) => {
                       const label = eventLabel(ev);
                       const training = isTrainingEvent(ev);
-                      const leftBorder = isCompletedTraining(ev) ? "border-green-500" : training ? "border-sky-500" : "border-gray-500";
+                      const leftBorder = isCompletedTraining(ev) ? "border-green-500" : training ? "border-[var(--primary)]" : "border-[var(--muted)]";
 
                       return (
-                        <div key={ev.id} className={`rounded-lg px-4 py-3 flex flex-col gap-2 cursor-pointer bg-white/5 border border-transparent border-l-4 ${leftBorder}`} onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}>
+                        <div key={ev.id} className={`rounded-lg px-4 py-3 flex flex-col gap-2 cursor-pointer bg-[var(--surface)] border border-transparent border-l-4 ${leftBorder}`} onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}>
                           <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-lg font-semibold truncate">{normalizeTitle(ev.title)}</h3>
-                            <p className="text-base whitespace-nowrap text-gray-300">{isTrainingEvent(ev) ? ev.startTime || "" : `${ev.startTime || ""}–${ev.endTime || ""}`}</p>
+                            <h3 className="text-lg font-semibold truncate text-[var(--text)]">{normalizeTitle(ev.title)}</h3>
+                            <p className="text-base whitespace-nowrap text-[var(--muted)]">{isTrainingEvent(ev) ? ev.startTime || "" : `${ev.startTime || ""}–${ev.endTime || ""}`}</p>
                           </div>
-                          {label && <p className="text-sm text-gray-300">{label}</p>}
+                          {label && <p className="text-sm text-[var(--muted)]">{label}</p>}
                         </div>
                       );
                     })
@@ -911,35 +916,36 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               </div>
             )}
 
-            {/* FAB mit Plus-Menü */}
-            <div className="absolute bottom-4 right-4 flex flex-col items-end gap-3">
-              {isPlusMenuOpen && (
-                <AppCard variant="glass" noPadding className="mb-2 overflow-hidden min-w-[180px]">
-                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
-                    Termin anlegen
-                  </button>
-                  <div className="h-px bg-white/10" />
-                  <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("training"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
-                    Training anlegen
-                  </button>
-                  {onUpdateEvents && (<>
-                    <div className="h-px bg-white/10" />
-                    <button type="button" onClick={handlePlanShift} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-white/10 active:bg-white/20 transition-colors">
-                      {t("calendar.shiftPlan")}
-                    </button>
-                  </>)}
-                </AppCard>
-              )}
-              <AppButton
-                onClick={() => setIsPlusMenuOpen((prev) => !prev)}
-                variant="primary"
-                className={`h-14 w-14 rounded-full !p-0 text-3xl shadow-xl transition-transform ${isPlusMenuOpen ? "rotate-45" : ""}`}
-                style={{ transform: isPlusMenuOpen ? "rotate(45deg)" : "rotate(0deg)" }}
-              >
-                +
-              </AppButton>
-            </div>
           </AppCard>
+
+          {/* FAB mit Plus-Menü - Global Fixed */}
+          <div className="fixed bottom-[110px] right-4 z-40 flex flex-col items-end gap-3 pointer-events-none">
+            {isPlusMenuOpen && (
+              <div className="pointer-events-auto mb-2 min-w-[180px] overflow-hidden rounded-2xl border-[1.5px] border-[var(--border)] bg-[var(--surface2)] shadow-2xl backdrop-blur-xl">
+                <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
+                  Termin anlegen
+                </button>
+                <div className="h-px bg-[var(--border)]" />
+                <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("training"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
+                  Training anlegen
+                </button>
+                {onUpdateEvents && (<>
+                  <div className="h-px bg-[var(--border)]" />
+                  <button type="button" onClick={handlePlanShift} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
+                    {t("calendar.shiftPlan")}
+                  </button>
+                </>)}
+              </div>
+            )}
+            <AppButton
+              onClick={() => setIsPlusMenuOpen((prev) => !prev)}
+              variant="primary"
+              className={`pointer-events-auto h-14 w-14 rounded-full !p-0 text-3xl shadow-lg transition-transform ${isPlusMenuOpen ? "rotate-45" : ""}`}
+              style={{ transform: isPlusMenuOpen ? "rotate(45deg)" : "rotate(0deg)" }}
+            >
+              +
+            </AppButton>
+          </div>
         </div>
       </div>
 

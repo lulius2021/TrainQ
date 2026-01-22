@@ -4,10 +4,7 @@ import { authStorageAdapter } from "./authStorageAdapter";
 let cachedClient: SupabaseClient | null = null;
 
 // Helper only for "existence" check, but we use direct access for values below to ensure Vite replacement.
-const getEnvVar = (key: string) => {
-  // @ts-ignore
-  return import.meta.env[key];
-};
+
 
 export function hasSupabaseEnv(): boolean {
   const url = import.meta.env.VITE_SUPABASE_URL;

@@ -27,7 +27,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   const { t } = useI18n();
   const nextText = nextLabel ?? t("common.next");
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#05060A] text-white px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg)] text-white px-4">
       <div className="w-full max-w-md space-y-6">
         <div>
           <h1 className="text-2xl font-semibold mb-2">{title}</h1>
@@ -36,7 +36,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
           )}
         </div>
 
-        <div className="bg-[#111827] rounded-2xl p-4 space-y-4 shadow-lg border border-[#1F2937]">
+        <div className="bg-[var(--surface)] backdrop-blur-xl rounded-2xl p-4 space-y-4 shadow-lg border border-[var(--border)]">
           {children}
         </div>
 
@@ -58,7 +58,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
               type="button"
               onClick={onNext}
               disabled={isNextDisabled}
-              className="flex-1 text-sm rounded-full py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600"
+              className="flex-1 text-sm rounded-full py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--primary)]"
             >
               {nextText}
             </button>

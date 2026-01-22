@@ -46,7 +46,7 @@ export default function ExerciseEditor({
   const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
 
   return (
-    <div className="space-y-4 rounded-[32px] p-5 bg-[var(--surface)] border border-[var(--border)] backdrop-blur-xl shadow-lg">
+    <div className="space-y-4 rounded-2xl p-5 bg-white/10 border-[1.5px] border-white/10 backdrop-blur-xl shadow-lg">
       <div className="flex items-center gap-3">
         <input
           ref={nameRef}
@@ -74,7 +74,7 @@ export default function ExerciseEditor({
                 <button
                   type="button"
                   onClick={() => onToggleSet(set.id)}
-                  className={`h-14 w-14 rounded-2xl border-2 transition-colors flex items-center justify-center ${set.completed ? 'bg-[#2563EB] border-transparent' : 'border-[var(--border)] hover:opacity-80'}`}
+                  className={`h-14 w-14 rounded-2xl border-2 transition-colors flex items-center justify-center ${set.completed ? 'bg-[var(--primary)] border-transparent' : 'border-[var(--border)] hover:opacity-80'}`}
                   aria-label={set.completed ? t("training.exercise.setMarkOpen") : t("training.exercise.setMarkDone")}
                 >
                   {set.completed ? (

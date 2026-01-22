@@ -44,3 +44,5 @@ export type {
   AdaptiveReason,
   AdaptiveSuggestion,
 } from "./adaptive";
+
+export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";

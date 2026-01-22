@@ -33,9 +33,9 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
       >
         {isPrimary ? (
           <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center bg-brand-primary"
+            className="h-12 w-12 rounded-xl flex items-center justify-center bg-[var(--primary)]"
             style={{
-              boxShadow: isActive ? "0 5px 15px rgba(37, 99, 235, 0.4)" : "0 4px 10px rgba(37, 99, 235, 0.3)",
+              boxShadow: isActive ? "0 5px 15px rgba(59, 130, 246, 0.4)" : "0 4px 10px rgba(59, 130, 246, 0.3)",
             }}
           >
             {renderIcon?.(isActive)}
@@ -50,23 +50,21 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
             className="h-6 w-6"
             style={{
               opacity: isActive ? 1 : 0.6,
-              filter: "invert(1) brightness(2)",
+              filter: "var(--icon-filter)",
             }}
           />
         )}
 
         <span
-          className={`text-[11px] ${
-            isActive ? "font-semibold text-white" : "font-normal text-gray-400"
-          }`}
+          className={`text-[11px] ${isActive ? "font-semibold text-[var(--text)]" : "font-medium text-[var(--muted)]"
+            }`}
         >
           {label}
         </span>
 
         <div
-          className={`mt-0.5 h-[3px] w-4 rounded-full ${
-            !isPrimary && isActive ? "bg-brand-primary" : "bg-transparent"
-          }`}
+          className={`mt-0.5 h-[3px] w-4 rounded-full ${!isPrimary && isActive ? "bg-[var(--primary)]" : "bg-transparent"
+            }`}
         />
       </button>
     );
@@ -78,8 +76,8 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
       style={{ paddingBottom: "var(--safe-bottom)" }}
     >
       <footer
-        className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5
-                   p-0 backdrop-blur-xl shadow-2xl shadow-black/50"
+        className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10
+                   p-0 backdrop-blur-xl shadow-2xl"
       >
         <div className="grid grid-cols-5">
           <Item tab="dashboard" label={t("nav.dashboard")} icon={iconDashboard} />

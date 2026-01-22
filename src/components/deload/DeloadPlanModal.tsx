@@ -56,7 +56,7 @@ export default function DeloadPlanModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0b1120] text-white p-6 space-y-5">
+      <div className="w-full max-w-lg rounded-[24px] border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl text-[var(--text)] p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="text-base font-semibold">{onDiscard ? "Deload anpassen" : "Deload planen"}</div>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-white/60 hover:text-white">
@@ -68,10 +68,10 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={() => setWeekChoice("current")}
-            className="rounded-xl px-4 py-2 text-xs font-semibold"
+            className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors"
             style={{
-              background: weekChoice === "current" ? "rgba(251,146,60,0.9)" : "rgba(255,255,255,0.08)",
-              color: weekChoice === "current" ? "#111827" : "white",
+              background: weekChoice === "current" ? "#007AFF" : "rgba(255,255,255,0.08)",
+              color: "white",
             }}
           >
             Diese Woche
@@ -79,10 +79,10 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={() => setWeekChoice("next")}
-            className="rounded-xl px-4 py-2 text-xs font-semibold"
+            className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors"
             style={{
-              background: weekChoice === "next" ? "rgba(251,146,60,0.9)" : "rgba(255,255,255,0.08)",
-              color: weekChoice === "next" ? "#111827" : "white",
+              background: weekChoice === "next" ? "#007AFF" : "rgba(255,255,255,0.08)",
+              color: "white",
             }}
           >
             Nächste Woche
@@ -140,7 +140,7 @@ export default function DeloadPlanModal({
                 max={30}
                 value={rules.reduceWeightPct ?? 15}
                 onChange={(e) => setRules((prev) => ({ ...prev, reduceWeightPct: Number(e.target.value) }))}
-                className="w-full"
+                className="w-fullaccent-[#007AFF]"
               />
               <label className="flex items-center gap-2 text-xs">
                 <input
@@ -164,7 +164,7 @@ export default function DeloadPlanModal({
             <button
               type="button"
               onClick={onDiscard}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-orange-200 border border-orange-400/40"
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
             >
               Deload verwerfen
             </button>
@@ -179,8 +179,7 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={() => onConfirm(startISO, endISO, rules)}
-            className="rounded-xl px-4 py-2 text-xs font-semibold text-black"
-            style={{ background: "rgb(251,146,60)" }}
+            className="rounded-xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] hover:opacity-90 transition-colors"
           >
             {onDiscard ? "Deload anpassen" : "Deload planen"}
           </button>

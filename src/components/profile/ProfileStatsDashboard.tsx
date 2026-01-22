@@ -82,7 +82,7 @@ function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyVal
         return (
           <div key={label} className="flex flex-1 flex-col items-center gap-2">
             <div className="w-full bg-white/10 rounded-lg" style={{ height: `${height}%`, minHeight: '4px' }}>
-              <div className="h-full w-full rounded-lg bg-[#2563EB]" style={{ boxShadow: "0 0 12px 0px rgba(37, 99, 235, 0.6)" }} />
+              <div className="h-full w-full rounded-lg bg-[var(--primary)]" style={{ boxShadow: "0 0 12px 0px var(--primarySoft)" }} />
             </div>
             <span className="text-xs text-gray-400 tabular-nums">{labelFormatter(label)}</span>
           </div>
@@ -94,7 +94,7 @@ function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyVal
 
 function LineChart({ series }: { series: DailyValue[] }) {
   if (series.length < 2) return <div className="h-36 flex items-center justify-center text-sm text-gray-400">Nicht genügend Datenpunkte.</div>;
-  
+
   const values = series.map(s => s.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -183,7 +183,7 @@ export default function ProfileStatsDashboard(props: Props) {
     <div className="space-y-6 px-2">
       <div className="flex flex-wrap items-center gap-2">
         {(["7d", "4w", "12w"] as RangePreset[]).map(k => (
-          <button key={k} type="button" onClick={() => setPreset(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${preset === k ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'}`}>
+          <button key={k} type="button" onClick={() => setPreset(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${preset === k ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface2)] border border-[var(--border)]'}`}>
             {k === "7d" ? "7 Tage" : k === "4w" ? "4 Wochen" : "12 Wochen"}
           </button>
         ))}
@@ -191,7 +191,7 @@ export default function ProfileStatsDashboard(props: Props) {
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {(["overview", "strength", "volume", "load"] as StatsTab[]).map(k => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${tab === k ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'}`}>
+          <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${tab === k ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface2)] border border-[var(--border)]'}`}>
             {k === "overview" ? "Übersicht" : k === "strength" ? "Kraft" : k === "volume" ? "Volumen" : "Belastung"}
           </button>
         ))}
@@ -211,11 +211,11 @@ export default function ProfileStatsDashboard(props: Props) {
         {tab === "strength" && (
           <>
             <div className="rounded-[32px] p-8 bg-white/5 border border-white/10 backdrop-blur-xl md:col-span-2 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-400">Übung für e1RM</h3>
-                <select value={selectedExercise} onChange={e => setSelectedExercise(e.target.value)} className="rounded-2xl px-4 py-3 bg-black/20 border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500">
-                  {allExercises.length === 0 && <option value="">Keine Übungen</option>}
-                  {allExercises.map(name => <option key={name} value={name}>{name}</option>)}
-                </select>
+              <h3 className="text-lg font-bold text-gray-400">Übung für e1RM</h3>
+              <select value={selectedExercise} onChange={e => setSelectedExercise(e.target.value)} className="rounded-2xl px-4 py-3 bg-black/20 border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500">
+                {allExercises.length === 0 && <option value="">Keine Übungen</option>}
+                {allExercises.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
             </div>
             <StatWidget title="e1RM Verlauf" hint={selectedExercise ? `All-Time PR: ${Math.round(allTimePR.get(selectedExercise) ?? 0)} kg` : ''}>
               <LineChart series={bestE1RMSeries} />
@@ -225,14 +225,14 @@ export default function ProfileStatsDashboard(props: Props) {
         )}
 
         {tab === "volume" && (
-            <>
-              <StatWidget title="Volumen pro Tag" className="md:col-span-2">
-                <BarChart series={volumeByDay} labelFormatter={formatShortDate} />
-              </StatWidget>
-              <StatWidget title="Volumen pro Woche" className="md:col-span-2">
-                <BarChart series={volumeByWeek} labelFormatter={formatWeekLabel} />
-              </StatWidget>
-            </>
+          <>
+            <StatWidget title="Volumen pro Tag" className="md:col-span-2">
+              <BarChart series={volumeByDay} labelFormatter={formatShortDate} />
+            </StatWidget>
+            <StatWidget title="Volumen pro Woche" className="md:col-span-2">
+              <BarChart series={volumeByWeek} labelFormatter={formatWeekLabel} />
+            </StatWidget>
+          </>
         )}
 
         {tab === "load" && (

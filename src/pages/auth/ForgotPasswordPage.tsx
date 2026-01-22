@@ -32,7 +32,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#05060A] text-white px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-white px-4">
       <div className="w-full max-w-sm space-y-6">
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t("auth.forgot.title")}</h1>

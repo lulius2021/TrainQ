@@ -91,7 +91,7 @@ export default function PaywallModal(props: Props) {
     >
       {/* Modal */}
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0B0D12]/95 p-5 shadow-2xl backdrop-blur"
+        className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">

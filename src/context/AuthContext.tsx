@@ -132,87 +132,56 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     migrateUserStorage(authUser.id);
   }, []);
 
-  // 1. Init Listener
+  // 1. Init Listener - ROBUST IMPLEMENTATION (Fixes Error #310)
   useEffect(() => {
-    mountedRef.current = true;
+    if (!mountedRef.current) return;
+
+    // Prevent double-init
     const client = getSupabaseClient();
+    let isCancelled = false;
 
-    // Safety Timeout: Force loading to false after 2.5s to prevent blackscreen
-    const SAFETY_TIMEOUT_MS = 2500;
-    const items = [
-      new Promise<void>((resolve) => {
-        // Normal Supabase Init
-        if (!client) {
-          console.warn("Supabase client missing in AuthContext");
-          resolve();
-          return;
-        }
-        client.auth.getSession()
-          .then(async ({ data }) => {
-            if (mountedRef.current && data.session) {
-              await syncSessionToUser(data.session);
-            }
-          })
-          .catch((err) => {
-            console.error("Auth init session error:", err);
-          })
-          .finally(() => resolve());
-      }),
-      new Promise<void>((resolve) => setTimeout(resolve, SAFETY_TIMEOUT_MS))
-    ];
+    const initAuth = async () => {
+      if (!client) {
+        if (!isCancelled) setLoading(false);
+        return;
+      }
 
-    // Race: Whichever finishes first (or rather, we wait for Init but timeout if too long? 
-    // Actually we want to wait for Init, but IF it hangs, proceed.
-    // So we use a race logic manually or just a separate timeout effect.
-    // Simpler approach:
+      try {
+        // 1. Get initial session
+        const { data, error } = await client.auth.getSession();
+        if (error) throw error;
 
-    let isInitDone = false;
-
-    if (client) {
-      client.auth.getSession().then(async ({ data }) => {
-        if (mountedRef.current) {
+        if (!isCancelled) {
           await syncSessionToUser(data.session);
-          if (!isInitDone) {
-            isInitDone = true;
-            setLoading(false);
-          }
         }
-      }).catch((err) => {
-        console.error("Auth init session error:", err);
-        if (mountedRef.current && !isInitDone) {
-          isInitDone = true;
+      } catch (err) {
+        console.error("Auth initialization failed:", err);
+      } finally {
+        if (!isCancelled) {
           setLoading(false);
         }
-      });
-    } else {
-      setLoading(false);
-      isInitDone = true;
-    }
-
-    // Force release after timeout
-    const timer = setTimeout(() => {
-      if (mountedRef.current && !isInitDone) {
-        console.warn("[AuthContext] Initialization timed out. Forcing app start.");
-        isInitDone = true;
-        setLoading(false);
       }
-    }, SAFETY_TIMEOUT_MS);
+    };
 
-    // Listen for changes
+    // Run init
+    initAuth();
+
+    // 2. Listen for changes
+    // Important: We only start listening after init started to avoid race, 
+    // but here we just set up the listener which is safe.
     const { data: listener } = client?.auth.onAuthStateChange((_event, session) => {
-      if (mountedRef.current) {
+      if (!isCancelled && mountedRef.current) {
         syncSessionToUser(session);
       }
     }) || { data: null };
 
-    // Init Social Login (Native)
+    // 3. Init Social Login (Native)
     if (isNativeIOS()) {
       SocialLogin.initialize({ apple: {} }).catch(() => console.warn("SocialLogin init failed"));
     }
 
     return () => {
-      mountedRef.current = false;
-      clearTimeout(timer);
+      isCancelled = true;
       listener?.subscription.unsubscribe();
     };
   }, [syncSessionToUser]);
@@ -306,20 +275,31 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     try {
-      const result = await SocialLogin.login({
+      // Defined locally to match partial responses from different plugin versions
+      type AppleResponse = {
+        result?: {
+          profile?: unknown;
+          response?: { identityToken?: string };
+          idToken?: string;
+          credential?: { identityToken?: string };
+          nonce?: string;
+        };
+      };
+
+      const result = (await SocialLogin.login({
         provider: "apple",
         options: { scopes: ["email", "name"] },
-      });
+      })) as AppleResponse;
+
       console.log("Apple Login Result:", JSON.stringify(result));
 
-      const profile = (result as any)?.result?.profile;
       // Extract identityToken - check multiple potential paths based on plugin version/platform
-      let idToken = (result as any)?.result?.response?.identityToken;
+      let idToken = result.result?.response?.identityToken;
       if (!idToken) {
-        idToken = (result as any)?.result?.idToken;
+        idToken = result.result?.idToken;
       }
-      if (!idToken && (result as any)?.result?.credential?.identityToken) {
-        idToken = (result as any)?.result?.credential?.identityToken;
+      if (!idToken && result.result?.credential?.identityToken) {
+        idToken = result.result?.credential?.identityToken;
       }
 
       if (!idToken) {
@@ -330,7 +310,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const client = getSafeClient();
       if (!client) return { ok: false, error: "Systemfehler: Auth-Dienst nicht bereitzustellen." };
 
-      const nonce = (result as any)?.result?.nonce;
+      const nonce = result.result?.nonce;
 
       const { error } = await client.auth.signInWithIdToken({
         provider: 'apple',
@@ -342,7 +322,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { ok: true };
 
     } catch (e: any) {
-      return { ok: false, error: e.message || "Apple Login fehlgeschlagen." };
+      // Keep 'any' for catch clause types as they are unknown by default
+      return { ok: false, error: e?.message || "Apple Login fehlgeschlagen." };
     }
   }, [getSafeClient]);
 
@@ -418,4 +399,12 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = React.useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthContextProvider");
+  }
+  return context;
 };

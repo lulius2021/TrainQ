@@ -61,7 +61,7 @@ export default function AdaptivePlanCard({
                                 {profileLabel}
                             </span>
                             {!isPro && suggestion.profile !== "stabil" && (
-                                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30">
                                     Pro
                                 </span>
                             )}

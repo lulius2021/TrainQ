@@ -1,9 +1,8 @@
 import React from "react";
-import { clsx } from "clsx";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { twMerge } from "tailwind-merge";
 
 interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: "primary" | "secondary" | "ghost" | "danger";
+    variant?: "primary" | "secondary" | "danger" | "ghost";
     size?: "sm" | "md" | "lg";
     fullWidth?: boolean;
     isLoading?: boolean;
@@ -16,58 +15,46 @@ export const AppButton: React.FC<AppButtonProps> = ({
     size = "md",
     fullWidth = false,
     isLoading = false,
-    onClick,
     disabled,
     ...props
 }) => {
-    const handleHaptic = async () => {
-        try {
-            await Haptics.impact({ style: ImpactStyle.Light });
-        } catch (e) {
-            // Ignore haptics error on web/unsupported
-        }
-    };
-
-    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-        if (!disabled && !isLoading) {
-            handleHaptic();
-            onClick?.(e);
-        }
-    };
-
-    const baseStyles =
-        "relative inline-flex items-center justify-center font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-2xl";
+    const baseStyles = "relative inline-flex items-center justify-center font-semibold transition-transform active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-xl";
 
     const variants = {
-        primary: "bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20 active:bg-blue-600",
-        secondary: "bg-[var(--surface2)] text-[var(--text)] active:bg-gray-200 dark:active:bg-slate-700",
-        ghost: "bg-transparent text-[var(--primary)] hover:bg-[var(--primary)]/10",
-        danger: "bg-red-500 text-white shadow-lg shadow-red-500/20 active:bg-red-600",
+        primary: "bg-[var(--primary)]/90 text-white shadow-lg shadow-blue-500/20 backdrop-blur-xl border border-white/10 hover:opacity-90 active:scale-[0.98]",
+        secondary: "bg-[var(--surface)] text-[var(--text)] border-[1.5px] border-[var(--border)] backdrop-blur-md hover:bg-[var(--surface2)]",
+        danger: "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-[1.5px] border-red-500/20",
+        ghost: "bg-transparent text-[var(--primary)] hover:bg-[var(--surface)]",
     };
 
     const sizes = {
-        sm: "h-9 px-4 text-sm",
-        md: "h-12 px-6 text-[17px]", // Standard Apple-like height and size
-        lg: "h-14 px-8 text-lg",
+        sm: "px-3 py-1.5 text-[15px]",
+        md: "px-5 py-3 text-[17px]",
+        lg: "px-6 py-4 text-[19px]",
     };
 
     return (
         <button
-            className={clsx(
+            className={twMerge(
                 baseStyles,
                 variants[variant],
                 sizes[size],
-                fullWidth && "w-full",
+                fullWidth ? "w-full" : "",
                 className
             )}
-            onClick={handleClick}
             disabled={disabled || isLoading}
             {...props}
         >
             {isLoading ? (
-                <span className="animate-spin mr-2 h-5 w-5 border-2 border-white/30 border-t-white rounded-full block" />
-            ) : null}
-            {children}
+                <span className="absolute inset-0 flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+            ) : (
+                children
+            )}
         </button>
     );
 };
