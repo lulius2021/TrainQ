@@ -32,11 +32,14 @@ export function BottomSheet({
   bottomOffset = "calc(var(--bottom-nav-h) + var(--safe-bottom))",
   sheetStyle,
   footerStyle,
-}: BottomSheetProps) {
+  backdropClassName,
+  variant = "floating",
+}: BottomSheetProps & { backdropClassName?: string; variant?: "floating" | "docked" }) {
   const dragControls = useDragControls();
   const footerBaseStyle: React.CSSProperties = {
     background: "var(--surface)",
     borderTop: "1px solid var(--border)",
+    paddingBottom: variant === "docked" ? "env(safe-area-inset-bottom)" : 0,
   };
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export function BottomSheet({
   };
 
   const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+  const isDocked = variant === "docked";
 
   return (
     <AnimatePresence>
@@ -66,11 +70,14 @@ export function BottomSheet({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+          <div className={`absolute inset-0 ${backdropClassName || "bg-black/70"}`} onClick={onClose} />
 
-          <div className="fixed left-0 right-0 flex justify-center px-4" style={{ bottom: bottomOffset }}>
+          <div
+            className={`fixed left-0 right-0 flex justify-center ${isDocked ? "px-0" : "px-4"}`}
+            style={{ bottom: isDocked ? 0 : bottomOffset }}
+          >
             <MotionDiv
-              className="w-full max-w-md rounded-t-2xl shadow-lg shadow-black/30 flex flex-col"
+              className={`w-full max-w-md shadow-lg shadow-black/30 flex flex-col ${isDocked ? "rounded-t-[32px]" : "rounded-t-2xl"}`}
               style={{ ...sheetStyle, height, maxHeight }}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -85,11 +92,11 @@ export function BottomSheet({
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <div
-                className="pt-2 pb-1"
+                className="pt-3 pb-1"
                 onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
               >
                 <div className="flex justify-center">
-                  <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 w-12 rounded-full bg-white/20" />
                 </div>
                 {header && <div className="pt-2">{header}</div>}
               </div>

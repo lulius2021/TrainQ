@@ -810,29 +810,65 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     const dayEvents = eventsByDate.get(key) ?? [];
                     const minH = monthWeeks === 5 ? 120 : 100;
 
+                    // Date comparison for status logic
+                    const now = startOfDay(new Date());
+                    const checkDate = startOfDay(day);
+                    const isPast = checkDate < now;
+                    const isFuture = checkDate > now;
+
                     const cellClasses = [
-                      "flex flex-col rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface2)]",
-                      isSelected ? "bg-[var(--primary)]/30 border border-[var(--primary)]/50" : "bg-[var(--surface)] border border-[var(--border)]",
-                      isToday && !isSelected ? "border border-[var(--primary)]/50" : "",
-                      !isCurrentMonth ? "opacity-40" : ""
+                      "flex flex-col rounded-xl px-2 py-2 text-left transition relative overflow-hidden",
+                      isSelected
+                        ? "bg-[var(--surface2)] ring-1 ring-[#007AFF] shadow-lg shadow-[#007AFF]/10"
+                        : "bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface2)]",
+                      !isCurrentMonth ? "opacity-30" : ""
                     ].join(" ");
 
                     return (
                       <button key={key} type="button" onClick={() => openDayViewFromDate(day, "month")} className={cellClasses} style={{ minHeight: minH }}>
-                        <div className="flex items-center justify-end">
-                          <span className="text-base font-semibold">{day.getDate()}</span>
+                        {/* Today Highlight */}
+                        {isToday && !isSelected && (
+                          <div className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-[#007AFF]" />
+                        )}
+
+                        <div className="flex items-center justify-between w-full">
+                          {/* Date Number */}
+                          <div className={`text-base font-semibold ${isSelected ? "text-[#007AFF]" : isToday ? "text-white" : "text-[var(--muted)]"}`}>
+                            {day.getDate()}
+                          </div>
                         </div>
-                        <div className="mt-1 space-y-1.5 overflow-hidden">
-                          {dayEvents.slice(0, 3).map((ev) => {
+
+                        <div className="mt-auto space-y-1.5 w-full">
+                          {dayEvents.slice(0, 4).map((ev) => {
                             const isDone = isCompletedTraining(ev);
                             const isTraining = isTrainingEvent(ev);
-                            const dotClass = isDone ? "bg-green-500" : isTraining ? "bg-[var(--primary)]" : "bg-[var(--muted)]";
+                            const status = (ev as any).trainingStatus;
+
+                            // Visual Logic
+                            let dotClass = "bg-[var(--muted)]"; // default other
+
+                            if (isTraining) {
+                              if (isDone) {
+                                // Past + Done = Glowing Green
+                                dotClass = "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]";
+                              } else if (isPast && status !== "completed") {
+                                // Past + Missed (not done) = Dimmed Red
+                                dotClass = "bg-red-500/40";
+                              } else if (isFuture || isToday) {
+                                // Future = Hollow Ring (approximated with border)
+                                dotClass = "bg-transparent border-[1.5px] border-white/30";
+                              } else {
+                                // Default fallback
+                                dotClass = "bg-[var(--primary)]";
+                              }
+                            }
+
                             return (
-                              <div key={ev.id} className={`h-1.5 w-full rounded-full ${dotClass}`} title={normalizeTitle(ev.title)} />
+                              <div key={ev.id} className={`h-2 w-full rounded-full transition-all ${dotClass}`} title={normalizeTitle(ev.title)} />
                             );
                           })}
-                          {dayEvents.length > 3 && (
-                            <div className="text-xs font-medium text-[var(--muted)] mt-1">+{dayEvents.length - 3}</div>
+                          {dayEvents.length > 4 && (
+                            <div className="text-[10px] font-medium text-[var(--muted)] text-right">+{dayEvents.length - 4}</div>
                           )}
                         </div>
                       </button>
@@ -892,26 +928,126 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     </button>
                   </div>
                 )}
-                <div className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-4 space-y-3 flex-1">
-                  {eventsForSelectedDay.length === 0 ? (
-                    <p className="text-base text-[var(--muted)]">Keine Termine an diesem Tag.</p>
-                  ) : (
-                    eventsForSelectedDay.map((ev) => {
-                      const label = eventLabel(ev);
-                      const training = isTrainingEvent(ev);
-                      const leftBorder = isCompletedTraining(ev) ? "border-green-500" : training ? "border-[var(--primary)]" : "border-[var(--muted)]";
+                <div className="space-y-4 flex-1">
+                  {/* Weekly Summary Header */}
+                  {(() => {
+                    // Calculate Weekly Stats
+                    const start = startOfWeekMonday(selectedDate);
+                    const daysInWeek = Array.from({ length: 7 }).map((_, i) => {
+                      const d = new Date(start);
+                      d.setDate(d.getDate() + i);
+                      return dateKey(d);
+                    });
 
-                      return (
-                        <div key={ev.id} className={`rounded-lg px-4 py-3 flex flex-col gap-2 cursor-pointer bg-[var(--surface)] border border-transparent border-l-4 ${leftBorder}`} onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}>
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-lg font-semibold truncate text-[var(--text)]">{normalizeTitle(ev.title)}</h3>
-                            <p className="text-base whitespace-nowrap text-[var(--muted)]">{isTrainingEvent(ev) ? ev.startTime || "" : `${ev.startTime || ""}–${ev.endTime || ""}`}</p>
-                          </div>
-                          {label && <p className="text-sm text-[var(--muted)]">{label}</p>}
+                    let scheduled = 0;
+                    let completed = 0;
+
+                    daysInWeek.forEach(k => {
+                      const evs = eventsByDate.get(k) ?? [];
+                      evs.forEach(ev => {
+                        if (isTrainingEvent(ev)) {
+                          scheduled++;
+                          if (isCompletedTraining(ev)) completed++;
+                        }
+                      });
+                    });
+
+                    const percent = scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0;
+
+                    if (scheduled === 0) return null;
+
+                    return (
+                      <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-white/10 px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Diese Woche</span>
+                          <span className="text-sm font-medium text-white">{completed}/{scheduled} Einheiten erledigt</span>
                         </div>
-                      );
-                    })
-                  )}
+                        <div className="text-xl font-bold text-white">{percent}%</div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-3">
+                    {eventsForSelectedDay.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center bg-[var(--surface)]">
+                        <p className="text-base text-[var(--muted)]">Keine Einträge für diesen Tag</p>
+                        <button onClick={() => openCreateModal("training")} className="mt-2 text-sm text-[#007AFF] font-medium hover:underline">Training hinzufügen</button>
+                      </div>
+                    ) : (
+                      eventsForSelectedDay.map((ev) => {
+                        const label = eventLabel(ev);
+                        const isTraining = isTrainingEvent(ev);
+                        const isDone = isCompletedTraining(ev);
+                        const trainingType = getTrainingType(ev);
+
+                        // Card Styling Logic
+                        // Left bar color
+                        let barColor = "bg-[var(--muted)]";
+                        if (isTraining) {
+                          if (trainingType === "laufen" || trainingType === "radfahren") barColor = "bg-blue-500";
+                          else if (trainingType === "gym") barColor = "bg-purple-500";
+                          else barColor = "bg-orange-500"; // Custom
+                        } else {
+                          // Appointments
+                          barColor = "bg-emerald-500";
+                        }
+
+                        // Badge / Status
+                        let statusBadge = null;
+                        if (isTraining) {
+                          if (isDone) {
+                            statusBadge = (
+                              <div className="flex items-center justify-center h-6 w-6 rounded-full bg-green-500/20 text-green-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                              </div>
+                            );
+                          } else {
+                            statusBadge = (
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)] border border-[var(--border)] px-1.5 py-0.5 rounded">
+                                Geplant
+                              </span>
+                            );
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={ev.id}
+                            className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-[0.99] cursor-pointer"
+                            onClick={() => (isTraining ? openTrainingPreview(ev) : openInfoSheet(ev))}
+                          >
+                            {/* Context Indicators */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${barColor}`} />
+
+                            <div className="flex items-center p-4 pl-5 gap-4">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-white truncate leading-tight mb-0.5">
+                                  {normalizeTitle(ev.title)}
+                                </h3>
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                  <span>
+                                    {isTraining ? ev.startTime || "Ganztägig" : `${ev.startTime || ""} – ${ev.endTime || ""}`}
+                                  </span>
+                                  {label && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{label}</span>
+                                    </>
+                                  )}
+                                  {/* Optional: Add Duration or Focus if available in notes or description */}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center">
+                                {statusBadge}
+                                {!isTraining && <span className="text-[var(--muted)] text-opacity-50">›</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             )}

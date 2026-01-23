@@ -276,7 +276,7 @@ const LiveTrainingMiniBar: React.FC<{
     if (!active || !active.isActive) return null;
 
     return (
-        <div className="fixed left-0 right-0 z-[60] px-3" style={{ bottom: MINI_BAR_BOTTOM }}>
+        <div className="fixed left-4 right-4 z-50" style={{ bottom: "calc(96px + env(safe-area-inset-bottom))" }}>
             <div className="mx-auto max-w-5xl rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-3 backdrop-blur-xl shadow-lg shadow-black/40">
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -608,8 +608,8 @@ const MainAppShell: React.FC = () => {
                 if (next !== "profile") setProfileScreen("profile");
             }}
             showNavBar={true}
+            floatingWidget={<LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />}
         >
-            <LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />
 
             {route === "/workout-share" && (
                 <WorkoutSharePage

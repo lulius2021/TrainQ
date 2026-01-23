@@ -483,6 +483,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     setDraft(prev => ({ ...prev, label: templateName }));
   }, [templateName]);
 
+  // Scroll Lock: Freeze Background when modal is active
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = "hidden";
+    // Optional: prevent touch move on overlay if needed, often overflow:hidden is enough.
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   const handleAddExerciseFromLibrary = (exercise: Exercise) => {
     const cardioMin = isCardioLibrary ? parseMinutesFromTitle(exercise.name) : undefined;
     const newBlockExercise: BlockExercise = {

@@ -7,13 +7,15 @@ interface MainLayoutProps {
     activeTab: TabKey;
     onTabChange: (tab: TabKey) => void;
     showNavBar?: boolean;
+    floatingWidget?: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
     children,
     activeTab,
     onTabChange,
-    showNavBar = true
+    showNavBar = true,
+    floatingWidget
 }) => {
     return (
         <div className="relative flex h-full w-full flex-col overflow-hidden font-[SF Pro Display,sans-serif]"
@@ -30,6 +32,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     {children}
                 </div>
             </main>
+
+            {/* Floating Widget Area */}
+            {floatingWidget}
 
             {/* Fixed Navigation */}
             {showNavBar && (

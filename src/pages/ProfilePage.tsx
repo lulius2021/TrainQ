@@ -122,6 +122,12 @@ function toNumberOrNull(raw: string): number | null {
 
 // -------------------- Page --------------------
 
+import MonthlyRecapModal from "../components/profile/MonthlyRecapModal";
+
+// ... existing imports ...
+
+// -------------------- Page --------------------
+
 const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
   const { user, logout } = useAuth();
   const { isPro } = useEntitlements(user?.id);
@@ -465,6 +471,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     color: "#061226",
   };
 
+  // -------- Monthly Recap Logic --------
+  const [recapOpen, setRecapOpen] = useState(false);
+
+  const { lastMonthYear, lastMonthIndex, lastMonthName, hasLastMonthWorkouts } = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1); // Previous month
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const name = d.toLocaleString("de-DE", { month: "long" });
+
+    const hasWorkouts = workouts.some(w => {
+      const wd = new Date(w.startedAt);
+      return wd.getFullYear() === year && wd.getMonth() === month;
+    });
+
+    return { lastMonthYear: year, lastMonthIndex: month, lastMonthName: name, hasLastMonthWorkouts: hasWorkouts };
+  }, [workouts]);
+
   return (
     <>
       <div className="w-full text-[var(--text)]">
@@ -472,6 +496,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
           <section className="mt-2 space-y-4">
             <div className="flex items-center justify-between px-1">
               <h1 className="text-2xl font-bold text-[var(--text)]">Profil</h1>
+              {/* ... existing header buttons ... */}
               <div className="flex items-center gap-2">
                 <AppButton
                   onClick={handleShareProfile}
@@ -501,8 +526,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </div>
             </div>
 
+            {/* ✅ Monthly Recap Trigger */}
+            {hasLastMonthWorkouts && (
+              <div
+                onClick={() => setRecapOpen(true)}
+                className="w-full rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-transform active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(90deg, rgba(0,122,255,0.15) 0%, rgba(0,0,0,0) 100%)",
+                  border: "1px solid rgba(0,122,255,0.3)"
+                }}
+              >
+                <div className="flex flex-col">
+                  <span className="text-[#007AFF] text-xs font-bold uppercase tracking-wider mb-0.5">Highlights</span>
+                  <span className="text-white font-semibold text-lg">Dein {lastMonthName} {lastMonthYear} ist fertig.</span>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-[#007AFF]/20 flex items-center justify-center text-[#007AFF]">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                </div>
+              </div>
+            )}
+
             {/* Profile card */}
             <AppCard variant="glass" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* ... (rest of profile card content) ... */}
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60">
                   {avatarDataUrl ? (
@@ -536,6 +582,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </AppButton>
               </div>
             </AppCard>
+
+            {/* ... rest of the page ... */}
+
 
             {(copyFeedback || shareFeedback) && (
               <AppCard variant="soft" className="px-4 py-2 text-sm text-center">
@@ -615,6 +664,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
           </section>
         </div>
       </div>
+
+      <MonthlyRecapModal
+        isOpen={recapOpen}
+        onClose={() => setRecapOpen(false)}
+        year={lastMonthYear}
+        month={lastMonthIndex}
+        workouts={workouts}
+      />
 
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (

@@ -25,6 +25,8 @@ import type {
 import ExerciseEditor from "../../components/training/ExerciseEditor";
 import RestTimerBar from "../../components/training/RestTimerBar";
 import ExerciseLibraryModal from "../../components/training/ExerciseLibraryModal";
+import ExerciseDetailsModal from "../../components/exercises/ExerciseDetailsModal";
+import { BottomSheet } from "../../components/common/BottomSheet";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { EXERCISES } from "../../data/exerciseLibrary";
 
@@ -384,12 +386,46 @@ export default function LiveTrainingPage({
   const totalSets = useMemo(() => {
     if (!workout) return 0;
     const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
-    return exercises.reduce((acc, ex) => acc + (ex.sets ? ex.sets.length : 0), 0);
+    // Only count COMPLETED sets
+    return exercises.reduce((acc, ex) => {
+      const sets = Array.isArray(ex.sets) ? ex.sets : [];
+      return acc + sets.filter(s => s.completed).length;
+    }, 0);
   }, [workout]);
+
+  // -------- Modals / Sheets --------
+  const [previewExerciseLibraryId, setPreviewExerciseLibraryId] = useState<string | null>(null);
+  const [timerEditExerciseId, setTimerEditExerciseId] = useState<string | null>(null);
+
+  const previewExercise = useMemo(() => {
+    if (!previewExerciseLibraryId) return null;
+    return EXERCISES.find(e => e.id === previewExerciseLibraryId) ?? null;
+  }, [previewExerciseLibraryId]);
+
+  const handleOpenDetails = (liveExerciseId: string) => {
+    if (!workout) return;
+    const ex = workout.exercises.find(e => e.id === liveExerciseId);
+    if (ex?.exerciseId) setPreviewExerciseLibraryId(ex.exerciseId);
+  };
+
+  const handleOpenTimer = (liveExerciseId: string) => {
+    setTimerEditExerciseId(liveExerciseId);
+  };
+
+  const activeTimerExercise = useMemo(() => {
+    if (!timerEditExerciseId || !workout) return null;
+    return workout.exercises.find(e => e.id === timerEditExerciseId) ?? null;
+  }, [workout, timerEditExerciseId]);
+
+  const handleSetRestTime = (seconds: number) => {
+    if (!timerEditExerciseId) return;
+    updateExercise(timerEditExerciseId, { restSeconds: seconds });
+    setTimerEditExerciseId(null);
+  };
 
   const topMuscleGroups = useMemo(() => {
     if (!workout) return [];
-    if (workout.sport === "Laufen" || workout.sport === "Radfahren") return [];
+    if (workout.sport === "Laufen" || workout.sport === "Radfahren" || workout.sport === "Custom") return [];
 
     const byId = new Map(EXERCISES.map((ex) => [ex.id, ex]));
     const counts = new Map<string, number>();
@@ -399,7 +435,7 @@ export default function LiveTrainingPage({
       if (!ex.exerciseId) return;
       const meta = byId.get(ex.exerciseId);
       if (!meta) return;
-      const weight = Math.max(1, ex.sets?.length ?? 0);
+      const weight = Math.max(1, (ex.sets || []).filter(s => s.completed).length); // Weight by completed sets
       meta.primaryMuscles.forEach((m) => {
         counts.set(m, (counts.get(m) ?? 0) + weight);
       });
@@ -442,10 +478,10 @@ export default function LiveTrainingPage({
             : "";
 
     const cardioDistance = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.weight === "number" ? sAcc + s.weight : sAcc), 0);
+      return acc + (ex.sets || []).reduce((sAcc, s) => (s.completed && typeof s.weight === "number" ? sAcc + s.weight : sAcc), 0);
     }, 0);
     const cardioMinutes = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.reps === "number" ? sAcc + s.reps : sAcc), 0);
+      return acc + (ex.sets || []).reduce((sAcc, s) => (s.completed && typeof s.reps === "number" ? sAcc + s.reps : sAcc), 0);
     }, 0);
 
     const overlaySubtitle = isCardioWorkout
@@ -486,6 +522,74 @@ export default function LiveTrainingPage({
       activeSet,
     };
   }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]);
+
+  // ... (ticks and timers remain same)
+
+  // ...
+
+  const toggleSetCompleted = (exerciseId: string, setId: string) => {
+    if (!workout) return;
+
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+
+      const nextExercises = prevExercises.map((e) => {
+        if (e.id !== exerciseId) return e;
+
+        const sets = Array.isArray(e.sets) ? e.sets : [];
+        const nextSets = sets.map((s) => {
+          if (s.id !== setId) return s;
+
+
+          const nextCompleted = !s.completed;
+          let rest = normalizeRestSeconds((e as any).restSeconds);
+
+          if (nextCompleted) {
+            Haptics.impact({ style: ImpactStyle.Light }).catch(() => { });
+
+            // Auto-start Timer Logic
+            if (!rest && !isCardioWorkout) {
+              rest = 90; // Default to 90s if unset
+              // We should also persist this default to the exercise so next time it's consistent
+              // Ideally this happens via side-effect or we mutate e copy. 
+              // However, doing state update inside mapper is tricky.
+              // We will just use the value locally for the timer start.
+            }
+
+            if (typeof rest === "number" && rest > 0) {
+              setActiveRest({ exerciseId, setId, restSeconds: rest });
+            }
+          } else {
+            setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
+          }
+
+          return { ...s, completed: nextCompleted, completedAt: nextCompleted ? nowISO() : undefined };
+        });
+
+        return { ...e, sets: nextSets } as LiveExercise;
+      });
+
+      return { ...prev, exercises: nextExercises };
+    });
+  };
+
+  // ... (history remain same)
+
+  // ...
+
+  // Update render of ExerciseEditor:
+  /*
+    <ExerciseEditor
+        ...
+        onOpenExerciseDetails={handleOpenDetails}
+        onOpenTimer={handleOpenTimer}
+        ...
+    />
+  */
+
+  // Update JSX return to include modals:
+
 
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
   useEffect(() => {
@@ -705,42 +809,7 @@ export default function LiveTrainingPage({
     });
   };
 
-  const toggleSetCompleted = (exerciseId: string, setId: string) => {
-    if (!workout) return;
 
-    setWorkout((prev) => {
-      if (!prev) return prev;
-      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
-
-      const nextExercises = prevExercises.map((e) => {
-        if (e.id !== exerciseId) return e;
-
-        const sets = Array.isArray(e.sets) ? e.sets : [];
-        const nextSets = sets.map((s) => {
-          if (s.id !== setId) return s;
-
-
-          const nextCompleted = !s.completed;
-          const rest = normalizeRestSeconds((e as any).restSeconds);
-
-          if (nextCompleted) {
-            Haptics.impact({ style: ImpactStyle.Light }).catch(() => { });
-            if (typeof rest === "number") {
-              setActiveRest({ exerciseId, setId, restSeconds: rest });
-            }
-          } else {
-            setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
-          }
-
-          return { ...s, completed: nextCompleted, completedAt: nextCompleted ? nowISO() : undefined };
-        });
-
-        return { ...e, sets: nextSets } as LiveExercise;
-      });
-
-      return { ...prev, exercises: nextExercises };
-    });
-  };
 
   // -------- Grey values (Übungs-History) --------
   const historyByExerciseLocalId = useMemo(() => {
@@ -916,11 +985,7 @@ export default function LiveTrainingPage({
                 </AppButton>
               }
             />
-            {activeRest && (
-              <div className="-mt-1 pb-2">
-                <RestTimerBar key={`${activeRest.exerciseId}_${activeRest.setId}`} seconds={activeRest.restSeconds} running={true} onDone={() => setActiveRest(null)} />
-              </div>
-            )}
+            {/* <RestTimerBar> removed, moving logic to ExerciseEditor */}
           </div>
         </div>
 
@@ -948,6 +1013,8 @@ export default function LiveTrainingPage({
                       exercise={ex}
                       history={historyByExerciseLocalId.get(ex.id) ?? null}
                       isCardio={isCardioWorkout}
+                      activeRest={activeRest}
+                      restRemainingSec={restRemainingSec ?? undefined}
                       onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
                       onRemove={() => removeExercise(ex.id)}
                       onAddSet={() => addSet(ex.id)}
@@ -957,6 +1024,8 @@ export default function LiveTrainingPage({
                       onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
                       onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
                       onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
+                      onOpenExerciseDetails={handleOpenDetails}
+                      onOpenTimer={handleOpenTimer}
                     />
                   </div>
                 ))}
@@ -1032,6 +1101,41 @@ export default function LiveTrainingPage({
             )
           }
         />
+
+        <ExerciseDetailsModal
+          open={!!previewExercise}
+          exercise={previewExercise}
+          isAdded={true}
+          onClose={() => setPreviewExerciseLibraryId(null)}
+          onAdd={() => { }}
+        />
+
+        <BottomSheet
+          open={!!timerEditExerciseId}
+          onClose={() => setTimerEditExerciseId(null)}
+          height="auto"
+          variant="docked"
+          backdropClassName="bg-black/80"
+          sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
+        >
+          <div className="p-4 pb-8 space-y-4">
+            <h3 className="text-center font-bold text-white mb-4">Pausenzeit Einstellung</h3>
+            <div className="grid grid-cols-4 gap-3">
+              {[30, 60, 90, 120, 150, 180, 240, 300].map(sec => (
+                <button
+                  key={sec}
+                  onClick={() => handleSetRestTime(sec)}
+                  className={`h-12 rounded-xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
+                    ? "bg-[#007AFF] text-white"
+                    : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
+                    }`}
+                >
+                  {sec < 60 ? `${sec}s` : formatMmSs(sec)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </BottomSheet>
       </div>
     </LiveTrainingErrorBoundary >
   );

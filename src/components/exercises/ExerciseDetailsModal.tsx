@@ -145,6 +145,8 @@ function ExerciseDetailsContent({ exercise, isAdded, onClose, onAdd }: ContentPr
       maxHeight="80dvh"
       zIndex={10020}
       sheetStyle={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      backdropClassName="bg-[#1c1c1e]"
+      variant="docked"
     >
       <div className="space-y-4 px-4 pb-4" style={{ color: "var(--text)" }}>
         <div

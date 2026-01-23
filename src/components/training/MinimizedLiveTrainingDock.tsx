@@ -101,9 +101,10 @@ export default function MinimizedLiveTrainingDock({
 
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
   const bottomStyle = useMemo(() => {
-    // 10px Basis + Safe-Area + NavBar-Zone + Gap
-    return { bottom: `calc(10px + ${safeBottom} + ${navBarStackPx}px + ${gapPx}px)` };
-  }, [navBarStackPx, gapPx]);
+    // Fixed positioning just above the TabBar (TabBar is ~83px tall including padding)
+    // We want ~10px gap. So 83 + 10 = 93px.
+    return { bottom: "calc(env(safe-area-inset-bottom) + 94px)" };
+  }, []);
 
   if (!active) return null;
 

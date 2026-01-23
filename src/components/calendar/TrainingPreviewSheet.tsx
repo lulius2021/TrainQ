@@ -382,9 +382,9 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
           <div className="fixed left-0 right-0 flex justify-center px-4" style={{ bottom: 0 }}>
             <MotionDiv
-              className="w-full h-full max-w-md rounded-t-2xl shadow-lg shadow-black/30 flex flex-col"
+              className="w-full h-full max-w-md rounded-t-[32px] shadow-lg shadow-black/30 flex flex-col"
               style={{
-                background: "var(--surface)",
+                background: "#1c1c1e",
                 border: "1px solid var(--border)",
                 height: "75dvh",
                 maxHeight: "75dvh",
@@ -402,13 +402,19 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
               onDragEnd={handleDragEnd}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
-              <div className="pt-1 pb-2 px-4" onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}>
-                <div className="flex justify-center">
-                  <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border)" }} />
-                </div>
+              {/* Drag Handle Area - Expanded */}
+              <div
+                className="w-full flex justify-center pt-4 pb-2 touch-none cursor-grab active:cursor-grabbing"
+                onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
+              >
+                <div className="h-1.5 w-12 rounded-full bg-white/20" />
               </div>
 
-              <div className="flex items-start justify-between gap-2 px-4">
+              {/* Header Area - Draggable if not editing */}
+              <div
+                className="flex items-start justify-between gap-2 px-4 pb-2 touch-none"
+                onPointerDown={(e: React.PointerEvent) => !isEditing && dragControls.start(e)}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm" style={{ color: "var(--muted)" }}>
                     {t("calendar.preview.title")}
@@ -498,6 +504,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                   className="h-9 w-9 rounded-full border flex items-center justify-center hover:opacity-95"
                   style={{ borderColor: "var(--border)", color: "var(--text)" }}
                   aria-label={isEditing ? t("calendar.preview.saveEdit") : t("calendar.preview.edit")}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <PencilIcon />
                 </button>
@@ -563,8 +570,8 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                 className="mt-auto flex gap-2 px-4 pt-3"
                 style={{
                   borderTop: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
+                  background: "#1c1c1e",
+                  paddingBottom: "calc(env(safe-area-inset-bottom) + 90px)",
                 }}
               >
                 {isEditing ? (
