@@ -12,9 +12,9 @@ import { PageHeader } from './ui/PageHeader';
  */
 
 const OnboardingLayout: React.FC<{ children: React.ReactNode; progress: number }> = ({ children, progress }) => (
-    <div className="fixed inset-0 z-[100] bg-[var(--bg)] text-[var(--text)] flex flex-col font-sans overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black text-white flex flex-col font-sans overflow-hidden">
         {/* Safe Area Background Fix (Top) */}
-        <div className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] bg-[var(--bg)] z-50" />
+        <div className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] bg-[#0f172a] z-50" />
 
         {/* Progress Bar */}
         <div className="relative pt-[calc(env(safe-area-inset-top)+20px)] px-6 z-40">

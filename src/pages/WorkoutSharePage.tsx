@@ -4,11 +4,13 @@ import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
 import { loadWorkoutHistory, onWorkoutHistoryUpdated } from "../utils/workoutHistory";
 import { sharePng, savePngToPhotos } from "../utils/shareImage";
 import { useI18n } from "../i18n/useI18n";
-import { mapWorkoutToShareModel, WorkoutShareExercise, WorkoutShareModel } from "../utils/share/mapWorkoutToShareModel";
+import { mapWorkoutToShareModel } from "../utils/share/mapWorkoutToShareModel";
+import type { WorkoutShareExercise, WorkoutShareModel } from "../utils/share/mapWorkoutToShareModel";
 import { toPng } from "html-to-image";
 import { useAuth } from "../context/AuthContext";
 import logoImg from "../assets/logos/Logo.png";
-import { motion, AnimatePresence, PanInfo, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import type { PanInfo, Variants } from "framer-motion";
 
 // --- FORMATTERS ---
 const formatDuration = (seconds?: number | null) => {
@@ -145,7 +147,7 @@ const TemplateBigStats = ({ model, user, logo }: TemplateProps) => {
 const TemplateSplit = ({ model, user, logo }: TemplateProps) => {
   const muscleCounts: Record<string, number> = {};
   let total = 0;
-  safeArray(model.exercises).forEach(ex => {
+  safeArray<WorkoutShareExercise>(model.exercises).forEach(ex => {
     const main = ex.muscles?.[0] || "General";
     muscleCounts[main] = (muscleCounts[main] || 0) + (ex.volume || 1);
     total += (ex.volume || 1);
@@ -444,7 +446,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black overflow-hidden safe-area-view">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black overflow-hidden safe-area-view">
 
       {/* 1. Header */}
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-end z-50 pt-[calc(env(safe-area-inset-top)+16px)]">

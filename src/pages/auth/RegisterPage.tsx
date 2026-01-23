@@ -44,7 +44,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4" style={{ background: "transparent" }}>
+    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/40 p-5 shadow-xl shadow-black/40">
         <div className="mb-4">
           <div className="text-lg font-semibold text-white">{t("auth.register.title")}</div>
