@@ -51,6 +51,12 @@ export type WorkoutShareModel = {
 
 type Locale = "de" | "en";
 
+const safeArray = <T>(arr: T[] | undefined | null | unknown): T[] => {
+  if (!arr) return [];
+  if (Array.isArray(arr)) return arr;
+  return [];
+};
+
 function formatDateLabel(dateISO: string, locale: Locale): string {
   const d = new Date(dateISO);
   if (Number.isNaN(d.getTime())) return "";
@@ -64,8 +70,8 @@ function formatDateLabel(dateISO: string, locale: Locale): string {
 function computeTotalVolume(entry: WorkoutHistoryEntry): number {
   if (Number.isFinite(entry.totalVolume)) return Math.max(0, Math.round(entry.totalVolume));
   let total = 0;
-  for (const ex of entry.exercises ?? []) {
-    for (const s of ex.sets ?? []) {
+  for (const ex of safeArray<WorkoutHistoryExercise>(entry.exercises)) {
+    for (const s of safeArray<WorkoutHistorySet>(ex.sets)) {
       const reps = Number.isFinite(s.reps) ? s.reps : 0;
       const weight = Number.isFinite(s.weight) ? s.weight : 0;
       total += reps * weight;
@@ -76,10 +82,10 @@ function computeTotalVolume(entry: WorkoutHistoryEntry): number {
 
 function buildTopExercises(entry: WorkoutHistoryEntry): string[] {
   const map = new Map<string, number>();
-  for (const ex of entry.exercises ?? []) {
+  for (const ex of safeArray<WorkoutHistoryExercise>(entry.exercises)) {
     const name = String(ex.name || "Übung");
     let total = map.get(name) ?? 0;
-    for (const s of ex.sets ?? []) {
+    for (const s of safeArray<WorkoutHistorySet>(ex.sets)) {
       const reps = Number.isFinite(s.reps) ? s.reps : 0;
       const weight = Number.isFinite(s.weight) ? s.weight : 0;
       total += reps * weight;
@@ -91,13 +97,13 @@ function buildTopExercises(entry: WorkoutHistoryEntry): string[] {
     .map(([name]) => name)
     .filter(Boolean);
   if (ordered.length) return ordered.slice(0, 3);
-  return (entry.exercises ?? []).map((ex) => ex.name).filter(Boolean).slice(0, 3);
+  return safeArray<WorkoutHistoryExercise>(entry.exercises).map((ex) => ex.name).filter(Boolean).slice(0, 3);
 }
 
 function findBestSet(sets: WorkoutHistorySet[]): { weight: number | null; reps: number | null } | undefined {
   let best: { weight: number | null; reps: number | null } | undefined;
   let bestScore = -1;
-  for (const s of sets ?? []) {
+  for (const s of safeArray<WorkoutHistorySet>(sets)) {
     const reps = Number.isFinite(s.reps) ? s.reps : null;
     const weight = Number.isFinite(s.weight) ? s.weight : null;
     const score = (reps ?? 0) * (weight ?? 0);
@@ -111,7 +117,7 @@ function findBestSet(sets: WorkoutHistorySet[]): { weight: number | null; reps: 
 
 function resolveTags(sets: WorkoutHistorySet[]): string[] {
   const tags = new Set<string>();
-  for (const s of sets ?? []) {
+  for (const s of safeArray<WorkoutHistorySet>(sets)) {
     if (s.setType === "warmup") tags.add("W");
     if (s.setType === "failure") tags.add("F");
     if (s.setType === "1D") tags.add("D");
@@ -136,7 +142,7 @@ function resolveExerciseImageSrc(exerciseId?: string): string | undefined {
 
 function computeExerciseVolume(ex: WorkoutHistoryExercise): number {
   let total = 0;
-  for (const s of ex.sets ?? []) {
+  for (const s of safeArray<WorkoutHistorySet>(ex.sets)) {
     const reps = Number.isFinite(s.reps) ? s.reps : 0;
     const weight = Number.isFinite(s.weight) ? s.weight : 0;
     total += reps * weight;
@@ -145,10 +151,11 @@ function computeExerciseVolume(ex: WorkoutHistoryExercise): number {
 }
 
 function pickSpotlightExercise(exercises: WorkoutShareExercise[]): WorkoutShareExercise | undefined {
-  if (!exercises.length) return undefined;
-  let best = exercises[0];
+  const safe = safeArray<WorkoutShareExercise>(exercises);
+  if (!safe.length) return undefined;
+  let best = safe[0];
   let bestVolume = best.volume ?? 0;
-  for (const ex of exercises) {
+  for (const ex of safe) {
     const volume = ex.volume ?? 0;
     if (volume > bestVolume) {
       best = ex;
@@ -163,8 +170,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseHighlightItems(value: unknown): WorkoutShareHighlightItem[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const items = value
+  const safe = safeArray<any>(value);
+  if (!safe.length) return undefined;
+  const items = safe
     .map((item) => {
       if (!isRecord(item)) return null;
       const label = typeof item.label === "string" ? item.label : null;
@@ -199,19 +207,21 @@ export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Local
   const sportType = String(entry.sport ?? "Training");
   const totalVolumeKg = computeTotalVolume(entry);
   const distanceKm = Number.isFinite(entry.distanceKm) ? entry.distanceKm : null;
-  const setsCount = (entry.exercises ?? []).reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
-  const exercisesCount = (entry.exercises ?? []).length;
+  const safeExercises = safeArray<WorkoutHistoryExercise>(entry.exercises);
+  const setsCount = safeExercises.reduce((acc, ex) => acc + (safeArray<WorkoutHistorySet>(ex.sets).length), 0);
+  const exercisesCount = safeExercises.length;
   const topExercises = buildTopExercises(entry);
   const highlights = resolveHighlights(entry);
 
-  const exercises: WorkoutShareExercise[] = (entry.exercises ?? []).map((ex) => {
-    const tags = resolveTags(ex.sets ?? []);
+  const exercises: WorkoutShareExercise[] = safeExercises.map((ex) => {
+    const safeSets = safeArray<WorkoutHistorySet>(ex.sets);
+    const tags = resolveTags(safeSets);
     return {
       name: ex.name || (locale === "de" ? "Übung" : "Exercise"),
       exerciseId: ex.exerciseId,
       imageSrc: resolveExerciseImageSrc(ex.exerciseId),
       muscles: resolveMuscles(ex.exerciseId),
-      bestSet: findBestSet(ex.sets ?? []),
+      bestSet: findBestSet(safeSets),
       tags,
       tagsSummary: tags.length ? tags.join(" · ") : undefined,
       volume: computeExerciseVolume(ex),
