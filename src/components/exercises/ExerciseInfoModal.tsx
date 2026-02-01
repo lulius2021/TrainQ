@@ -62,7 +62,7 @@ export default function ExerciseInfoModal({ isOpen, onClose, exercise }: Exercis
                     <div className="overflow-y-auto flex-1 bg-zinc-950 overscroll-contain">
 
                         {/* Image Section */}
-                        <div className="w-full aspect-video bg-zinc-900 flex items-center justify-center relative overflow-hidden shrink-0">
+                        <div className="w-full aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden shrink-0">
                             {imageUrl ? (
                                 <img
                                     src={imageUrl}

@@ -294,7 +294,7 @@ const LiveTrainingMiniBar: React.FC<{
 
     return (
         <div className="fixed left-4 right-4 z-50" style={{ bottom: "calc(96px + env(safe-area-inset-bottom))" }}>
-            <div className="mx-auto max-w-5xl rounded-[32px] border border-zinc-800 bg-zinc-900 p-3 backdrop-blur-xl shadow-lg shadow-black/40">
+            <div className="mx-auto max-w-5xl rounded-[32px] border border-zinc-800 bg-zinc-800 p-3 backdrop-blur-xl shadow-lg shadow-black/40">
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <div className="text-[11px] text-gray-400">{t("live.mini.running")}</div>

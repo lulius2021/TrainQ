@@ -1201,7 +1201,7 @@ export default function LiveTrainingPage({
             <div className="mx-auto w-full max-w-5xl">
               <div className="mb-2">
                 {/* QUICK STATS ROW */}
-                <div className="bg-zinc-900/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800">
+                <div className="bg-zinc-800/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800">
                   {/* 1. ZEIT */}
                   <div className="flex flex-col items-center justify-center border-r border-zinc-800 h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Zeit</span>

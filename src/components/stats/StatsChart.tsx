@@ -61,7 +61,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
     };
 
     return (
-        <div className="w-full bg-zinc-900/80 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col items-start gap-4 shadow-xl">
+        <div className="w-full bg-zinc-800/80 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col items-start gap-4 shadow-xl">
             <div className="w-full flex items-end justify-between px-1">
                 <div className="flex flex-col">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">{title}</h3>

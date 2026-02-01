@@ -4,7 +4,22 @@
 
 @layer base {
 
-    /* 1. GLOBAL RESET (Border Protection) */
+    :root {
+        --border: #27272a;
+        /* zinc-800 */
+        --surface: #18181b;
+        /* zinc-900 */
+        --surface2: #27272a;
+        /* zinc-800 */
+        --text: #ffffff;
+        --muted: #a1a1aa;
+        /* zinc-400 */
+        --primary: #2563eb;
+        /* blue-600 */
+    }
+
+    /* GLOBAL RESET */
+
     *,
     ::before,
     ::after {
@@ -13,7 +28,6 @@
         border-color: #27272a;
     }
 
-    /* 2. THE BACKGROUND GRADIENT */
     html,
     body,
     #root {
@@ -22,15 +36,9 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
-        /* No bouncing */
 
-        /* GRADIENT: Top-Left (Black/Zinc-950) -> Bottom-Right (Dark Blue) */
-        background: linear-gradient(to bottom right, #09090b 40%, #172554 100%) !important;
-        background-attachment: fixed;
-        /* Ensures gradient stays solid during scroll */
-        background-color: #09090b;
-        /* Fallback */
-
+        /* CHANGED: Background is now Dark Gray (Zinc-900) instead of Black */
+        background-color: #18181b !important;
         color: #ffffff !important;
     }
 

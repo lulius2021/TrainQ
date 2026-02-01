@@ -150,7 +150,7 @@ const SettingsModal = ({
 
 // 4. Toggle Switch Component
 const ToggleSwitch = ({ checked, onChange, label, icon: Icon }: { checked: boolean; onChange: (v: boolean) => void; label: string; icon?: React.ElementType }) => (
-    <div className="flex items-center justify-between p-4 bg-zinc-900 rounded-2xl border border-white/5">
+    <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-2xl border border-white/5">
         <div className="flex items-center gap-3">
             {Icon && <Icon size={20} className="text-zinc-400" />}
             <span className="text-base font-medium text-white">{label}</span>
@@ -174,7 +174,7 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", suffix
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
             />
             {suffix && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
@@ -201,7 +201,7 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                         onClick={() => { setLang(opt.code as any); onClose(); }}
                         className={`flex items-center justify-between p-4 rounded-2xl transition-all border border-transparent ${lang === opt.code
                             ? "bg-blue-600 text-white font-bold border-blue-400/30"
-                            : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border-white/5"
+                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-800 border-white/5"
                             }`}
                     >
                         <span className="flex items-center gap-2" dangerouslySetInnerHTML={{ __html: opt.label }} />
@@ -491,7 +491,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                     <div className="px-1 py-2 border-t border-white/5 pt-6">
                         <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Einheiten</h3>
-                        <div className="p-4 bg-zinc-900 rounded-2xl border border-white/5 flex justify-between items-center opacity-70">
+                        <div className="p-4 bg-zinc-800 rounded-2xl border border-white/5 flex justify-between items-center opacity-70">
                             <span className="text-white">Gewichtseinheit</span>
                             <span className="text-zinc-400 font-mono">KG (Metrisch)</span>
                         </div>
@@ -513,7 +513,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <div className="border-t border-white/5 pt-6 space-y-4">
                         <h3 className="text-lg font-bold text-white">Rechtliches</h3>
                         <div className="space-y-2">
-                            <div className="p-4 bg-zinc-900 rounded-xl border border-white/5">
+                            <div className="p-4 bg-zinc-800 rounded-xl border border-white/5">
                                 <h4 className="font-bold text-white mb-1">Impressum</h4>
                                 <p className="text-xs text-zinc-500">
                                     TrainQ Inc.<br />
@@ -522,7 +522,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                     Vertreten durch: Julius
                                 </p>
                             </div>
-                            <div className="p-4 bg-zinc-900 rounded-xl border border-white/5">
+                            <div className="p-4 bg-zinc-800 rounded-xl border border-white/5">
                                 <h4 className="font-bold text-white mb-1">Datenschutz</h4>
                                 <p className="text-xs text-zinc-500 mb-3">
                                     Wir speichern Daten lokal auf deinem Gerät. Backups erfolgen verschlüsselt in der Cloud.

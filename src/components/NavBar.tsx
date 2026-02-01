@@ -49,14 +49,14 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
             draggable={false}
             className="h-6 w-6"
             style={{
-              opacity: isActive ? 1 : 0.6,
+              opacity: 1,
+              filter: "brightness(0) invert(1)"
             }}
           />
         )}
 
         <span
-          className={`text-[11px] ${isActive ? "font-semibold text-white" : "font-medium text-zinc-500"
-            }`}
+          className={`text-[11px] text-white ${isActive ? "font-semibold" : "font-medium"}`}
         >
           {label}
         </span>

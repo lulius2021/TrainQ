@@ -18,10 +18,10 @@ export const AppCard: React.FC<AppCardProps> = ({
     const baseStyles = "rounded-2xl transition-all duration-200";
 
     const variants = {
-        glass: "bg-white/10 backdrop-blur-xl border-[1.5px] border-white/10 shadow-sm",
+        glass: "bg-zinc-800/60 backdrop-blur-xl border border-zinc-800 shadow-sm",
         solid: "bg-zinc-800 backdrop-blur-lg border border-zinc-800",
         transparent: "bg-transparent border-0",
-        soft: "bg-zinc-900 backdrop-blur-md border border-zinc-800",
+        soft: "bg-zinc-800 backdrop-blur-md border border-zinc-800",
     };
 
     return (

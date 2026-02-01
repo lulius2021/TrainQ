@@ -76,7 +76,7 @@ export const WorkoutExportCard = ({ model, userName }: Props) => {
                 {visibleExercises.map((ex, i) => (
                     <div key={i} className="flex items-center gap-4">
                         {/* Sets Badge */}
-                        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-blue-400 text-xs font-bold shadow-sm">
+                        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-zinc-800 border border-zinc-800 text-blue-400 text-xs font-bold shadow-sm">
                             {ex.sets?.length || 0}
                         </div>
                         {/* Exercise Name */}

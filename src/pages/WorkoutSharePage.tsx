@@ -164,7 +164,7 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
           </div>
         </div>
 
-        <div className={`bg-zinc-900/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
+        <div className={`bg-zinc-800/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
           <p className={`text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
             Großartige Ausdauerleistung! <br />
             <span className={`text-blue-400 font-bold inline-block mt-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>Keep it up! ⚡️</span>
@@ -190,7 +190,7 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
         </div>
       </div>
 
-      <div className={`bg-zinc-900/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
+      <div className={`bg-zinc-800/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
         <p className={`text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
           Das ist schwerer als ein <br />
           <span className={`text-blue-400 font-bold inline-block mt-1 transform -rotate-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>T-Rex 🦖</span>
@@ -233,7 +233,7 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
       <div className={`relative ${isExportMode ? 'mb-20' : 'mb-10'}`}>
         <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full" />
         <Flame size={isExportMode ? 160 : 80} className="text-orange-500 fill-orange-500/20 relative z-10" />
-        <div className={`absolute bg-zinc-900 text-white font-bold rounded-full border border-zinc-800 z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`}>
+        <div className={`absolute bg-zinc-800 text-white font-bold rounded-full border border-zinc-800 z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`}>
           {displayCount}x
         </div>
       </div>

@@ -517,7 +517,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   title="Profil teilen"
                   aria-label="Profil teilen"
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-[var(--muted)]">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-white">
                     <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
@@ -530,9 +530,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   aria-label="Einstellungen"
                 >
                   <div className="flex flex-col gap-1.5 px-2">
-                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
-                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
-                    <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
+                    <span className="block h-0.5 w-5 rounded bg-white" />
+                    <span className="block h-0.5 w-5 rounded bg-white" />
+                    <span className="block h-0.5 w-5 rounded bg-white" />
                   </div>
                 </AppButton>
               </div>
@@ -701,7 +701,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             {/* Workout history list TRIGGER */}
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
+              className="w-full bg-zinc-800 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
             >
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-white/5 rounded-lg text-white/70 group-hover:text-white transition-colors">

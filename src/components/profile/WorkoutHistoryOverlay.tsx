@@ -36,12 +36,12 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ on
             {/* Header */}
             <div className="flex items-center justify-between px-4 pb-4 pt-8 bg-zinc-950 border-b border-zinc-900 sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-zinc-900 rounded-full">
+                    <div className="p-2 bg-zinc-800 rounded-full">
                         <History className="w-5 h-5 text-white" />
                     </div>
                     <h2 className="text-xl font-bold text-white">Deine Historie</h2>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+                <button onClick={onClose} className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             </div>
@@ -67,7 +67,7 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ on
                     const mins = durationMinutes(w);
 
                     return (
-                        <div key={w.id} className="rounded-xl p-4 bg-zinc-900 border border-white/10 hover:border-white/20 transition-all">
+                        <div key={w.id} className="rounded-xl p-4 bg-zinc-800 border border-white/10 hover:border-white/20 transition-all">
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <div className="text-xs text-white/50 uppercase font-semibold tracking-wider mb-1">{date}</div>
