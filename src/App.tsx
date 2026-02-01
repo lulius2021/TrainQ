@@ -113,9 +113,11 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen w-screen overflow-hidden bg-transparent font-[SF Pro Display,sans-serif] text-white">
       <GlobalErrorBoundary>
-        <AuthContextProvider>
-          <AppContent />
-        </AuthContextProvider>
+        <ThemeProvider>
+          <AuthContextProvider>
+            <AppContent />
+          </AuthContextProvider>
+        </ThemeProvider>
       </GlobalErrorBoundary>
     </div>
   );

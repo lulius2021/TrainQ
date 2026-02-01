@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User as UserIcon,
@@ -264,7 +265,8 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
     // -- Preferences State --
     const [hapticEnabled, setHapticEnabled] = useState(true);
-    const [darkModeForce, setDarkModeForce] = useState(true);
+    // const [darkModeForce, setDarkModeForce] = useState(true); // Replaced by global theme
+    const { theme, toggleTheme } = useTheme();
     const [soundEnabled, setSoundEnabled] = useState(true);
 
     // Initial Load
@@ -279,8 +281,8 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
         const storedHaptic = localStorage.getItem("trainq_pref_haptic");
         if (storedHaptic !== null) setHapticEnabled(storedHaptic === "true");
 
-        const storedDark = localStorage.getItem("trainq_pref_dark");
-        if (storedDark !== null) setDarkModeForce(storedDark === "true");
+        // const storedDark = localStorage.getItem("trainq_pref_dark"); // Managed by ThemeContext
+        // if (storedDark !== null) setDarkModeForce(storedDark === "true");
 
         const storedSound = localStorage.getItem("trainq_pref_sound");
         if (storedSound !== null) setSoundEnabled(storedSound === "true");
@@ -289,7 +291,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
     // Persist Preferences
     useEffect(() => { localStorage.setItem("trainq_pref_haptic", String(hapticEnabled)); }, [hapticEnabled]);
-    useEffect(() => { localStorage.setItem("trainq_pref_dark", String(darkModeForce)); }, [darkModeForce]);
+    // useEffect(() => { localStorage.setItem("trainq_pref_dark", String(darkModeForce)); }, [darkModeForce]); // Managed by ThemeContext
     useEffect(() => { localStorage.setItem("trainq_pref_sound", String(soundEnabled)); }, [soundEnabled]);
 
     const handleSaveProfile = () => {
@@ -463,9 +465,9 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <div className="px-1 py-2">
                         <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Erscheinungsbild</h3>
                         <ToggleSwitch
-                            label="Dunkelmodus erzwingen"
-                            checked={darkModeForce}
-                            onChange={setDarkModeForce}
+                            label="Dunkelmodus"
+                            checked={theme === 'dark'}
+                            onChange={toggleTheme}
                             icon={Moon}
                         />
                         <p className="text-xs text-zinc-500 mt-2 px-2">TrainQ ist für Dark Mode optimiert. Deaktivieren führt zum System-Standard (nicht empfohlen).</p>
