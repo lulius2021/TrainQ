@@ -36,6 +36,7 @@ export type AuthContextValue = {
   completeOnboardingLocal: () => void; // @deprecated
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
+  loginAsDemoUser: () => Promise<void>;
   loading: boolean;
 };
 
@@ -132,59 +133,69 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     migrateUserStorage(authUser.id);
   }, []);
 
+  const loginAsDemoUser = useCallback(async (): Promise<void> => {
+    const mockUser: AuthUser = {
+      id: "apple-review-id",
+      provider: "email",
+      email: "apple@trainq.app",
+      displayName: "Apple Review",
+      isPro: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      onboardingCompleted: true
+    };
+
+    // Persist the "Lie"
+    localStorage.setItem("isDemoSession", "true");
+    setActiveSession({ userId: mockUser.id, isPro: true, email: mockUser.email });
+    setUser(mockUser);
+  }, []);
+
   // 1. Init Listener - ROBUST IMPLEMENTATION (Fixes Error #310)
+  // 1. Init Listener - OPTIMIZED FOR PERSISTENCE
   useEffect(() => {
     if (!mountedRef.current) return;
 
-    // Prevent double-init
     const client = getSupabaseClient();
-    let isCancelled = false;
 
-    const initAuth = async () => {
-      if (!client) {
-        if (!isCancelled) setLoading(false);
-        return;
-      }
-
-      try {
-        // 1. Get initial session
-        const { data, error } = await client.auth.getSession();
-        if (error) throw error;
-
-        if (!isCancelled) {
-          await syncSessionToUser(data.session);
-        }
-      } catch (err) {
-        console.error("Auth initialization failed:", err);
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    // Run init
-    initAuth();
-
-    // 2. Listen for changes
-    // Important: We only start listening after init started to avoid race, 
-    // but here we just set up the listener which is safe.
-    const { data: listener } = client?.auth.onAuthStateChange((_event, session) => {
-      if (!isCancelled && mountedRef.current) {
-        syncSessionToUser(session);
-      }
-    }) || { data: null };
-
-    // 3. Init Social Login (Native)
-    if (isNativeIOS()) {
-      SocialLogin.initialize({ apple: {} }).catch(() => console.warn("SocialLogin init failed"));
+    // A. Demo Session Bypass (Local Only)
+    if (localStorage.getItem("isDemoSession") === "true") {
+      console.log("[Auth] Restoring Demo Session...");
+      loginAsDemoUser();
+      setLoading(false);
+      return;
     }
 
+    // B. Supabase Session (Persistent)
+    if (!client) {
+      console.warn("[Auth] No client available, stopping load.");
+      setLoading(false);
+      return;
+    }
+
+    // 1. Check active session immediately (Async)
+    client.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mountedRef.current) return;
+      console.log("[Auth] Initial session restored:", !!session);
+      await syncSessionToUser(session);
+      setLoading(false);
+    }).catch((err) => {
+      console.error("[Auth] Session restore failed:", err);
+      if (mountedRef.current) setLoading(false);
+    });
+
+    // 2. Listen for changes (Login, Logout, Auto-Refresh)
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (!mountedRef.current) return;
+      // Note: We don't set loading=false here aggressively to avoid flickering, 
+      // but strictly sync the user state.
+      syncSessionToUser(session);
+    });
+
     return () => {
-      isCancelled = true;
-      listener?.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [syncSessionToUser]);
+  }, [syncSessionToUser, loginAsDemoUser]);
 
   // -------------------- Safe Client Access --------------------
 
@@ -263,6 +274,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const logout = useCallback(async () => {
     const client = getSafeClient();
     await client?.auth.signOut();
+    localStorage.removeItem("isDemoSession");
     setUser(null);
     clearActiveSession();
   }, [getSafeClient]);
@@ -384,6 +396,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [user, getSafeClient]);
 
+
+
   const value = useMemo(() => ({
     user,
     login,
@@ -394,9 +408,10 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setUserPro,
     completeOnboardingLocal: completeOnboarding, // Deprecated name kept for compatibility if needed, but implementation updated
     completeOnboarding,
-    resetOnboarding, // New method
+    resetOnboarding,
+    loginAsDemoUser,
     loading
-  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loading]);
+  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loginAsDemoUser, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

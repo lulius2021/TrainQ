@@ -21,10 +21,10 @@ export const AppButton: React.FC<AppButtonProps> = ({
     const baseStyles = "relative inline-flex items-center justify-center font-semibold transition-transform active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-xl";
 
     const variants = {
-        primary: "bg-[var(--primary)]/90 text-white shadow-lg shadow-blue-500/20 backdrop-blur-xl border border-white/10 hover:opacity-90 active:scale-[0.98]",
-        secondary: "bg-[var(--surface)] text-[var(--text)] border-[1.5px] border-[var(--border)] backdrop-blur-md hover:bg-[var(--surface2)]",
+        primary: "bg-blue-600/90 text-white shadow-lg shadow-blue-500/20 backdrop-blur-xl border border-white/10 hover:opacity-90 active:scale-[0.98]",
+        secondary: "bg-zinc-800 text-white border-[1.5px] border-zinc-700 backdrop-blur-md hover:bg-zinc-700",
         danger: "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-[1.5px] border-red-500/20",
-        ghost: "bg-transparent text-[var(--primary)] hover:bg-[var(--surface)]",
+        ghost: "bg-transparent text-blue-500 hover:bg-zinc-800",
     };
 
     const sizes = {

@@ -28,7 +28,7 @@ import { useProGuard } from "../hooks/useProGuard";
 import { useAuth } from "../hooks/useAuth";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
-import { useI18n } from "../i18n/useI18n";
+
 import type { TranslationKey } from "../i18n/index";
 import {
   buildTrainingTemplateSignature,
@@ -83,12 +83,12 @@ type RoutineBlock = TrainingTemplate & {
 type ActiveTab = "weekly" | "routine";
 type TrainingContainerKind = "weekly" | "routine";
 
-const SPORT_LABEL_KEY: Record<WeeklySportType, TranslationKey> = {
-  Gym: "plan.sport.gym",
-  Laufen: "plan.sport.run",
-  Radfahren: "plan.sport.bike",
-  Custom: "plan.sport.custom",
-  Ruhetag: "plan.sport.rest",
+const SPORT_LABEL_DISPLAY: Record<WeeklySportType, string> = {
+  Gym: "Gym",
+  Laufen: "Laufen",
+  Radfahren: "Radfahren",
+  Custom: "Custom",
+  Ruhetag: "Ruhetag",
 };
 
 interface TrainingsplanPageProps {
@@ -128,24 +128,24 @@ type WorkoutTemplate = {
 
 // -------------------- Konfiguration --------------------
 
-function getDefaultWeeklyDays(t: (key: any, vars?: any) => string): WeeklyDayConfig[] {
+function getDefaultWeeklyDays(): WeeklyDayConfig[] {
   return [
-    { id: 1, label: t("plan.dayLabel", { day: 1 }), sport: "Gym", focus: t("plan.focus.push"), exercises: [], startTime: "" },
-    { id: 2, label: t("plan.dayLabel", { day: 2 }), sport: "Gym", focus: t("plan.focus.pull"), exercises: [], startTime: "" },
-    { id: 3, label: t("plan.dayLabel", { day: 3 }), sport: "Gym", focus: t("plan.focus.legs"), exercises: [], startTime: "" },
-    { id: 4, label: t("plan.dayLabel", { day: 4 }), sport: "Ruhetag", focus: t("plan.restday"), exercises: [], startTime: "" },
-    { id: 5, label: t("plan.dayLabel", { day: 5 }), sport: "Gym", focus: t("plan.focus.pushShort"), exercises: [], startTime: "" },
-    { id: 6, label: t("plan.dayLabel", { day: 6 }), sport: "Gym", focus: t("plan.focus.pullShort"), exercises: [], startTime: "" },
-    { id: 7, label: t("plan.dayLabel", { day: 7 }), sport: "Ruhetag", focus: t("plan.restday"), exercises: [], startTime: "" },
+    { id: 1, label: "Tag 1", sport: "Gym", focus: "Push", exercises: [], startTime: "" },
+    { id: 2, label: "Tag 2", sport: "Gym", focus: "Pull", exercises: [], startTime: "" },
+    { id: 3, label: "Tag 3", sport: "Gym", focus: "Beine", exercises: [], startTime: "" },
+    { id: 4, label: "Tag 4", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
+    { id: 5, label: "Tag 5", sport: "Gym", focus: "Push (Kurz)", exercises: [], startTime: "" },
+    { id: 6, label: "Tag 6", sport: "Gym", focus: "Pull (Kurz)", exercises: [], startTime: "" },
+    { id: 7, label: "Tag 7", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
   ];
 }
 
-function getDefaultRoutineBlocks(t: (key: any, vars?: any) => string): RoutineBlock[] {
+function getDefaultRoutineBlocks(): RoutineBlock[] {
   return [
-    { id: 1, type: "Custom", sport: "Gym", label: t("plan.focus.push"), exercises: [], startTime: "" },
-    { id: 2, type: "Custom", sport: "Gym", label: t("plan.focus.pull"), exercises: [], startTime: "" },
-    { id: 3, type: "Custom", sport: "Gym", label: t("plan.focus.legs"), exercises: [], startTime: "" },
-    { id: 4, type: "Rest", sport: "Ruhetag", label: t("plan.restday"), exercises: [], startTime: "" },
+    { id: 1, type: "Custom", sport: "Gym", label: "Push", exercises: [], startTime: "" },
+    { id: 2, type: "Custom", sport: "Gym", label: "Pull", exercises: [], startTime: "" },
+    { id: 3, type: "Custom", sport: "Gym", label: "Beine", exercises: [], startTime: "" },
+    { id: 4, type: "Rest", sport: "Ruhetag", label: "Ruhetag", exercises: [], startTime: "" },
   ];
 }
 
@@ -464,7 +464,6 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { t } = useI18n();
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -514,7 +513,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const handleAddCustomExercise = () => {
     const newBlockExercise: BlockExercise = {
       id: nextBlockExerciseId(),
-      name: isCardioLibrary ? t("plan.editor.newUnit") : t("plan.editor.newExercise"),
+      name: isCardioLibrary ? "Neue Einheit" : "Neue Übung",
       sets: [
         {
           id: nextExerciseSetId(),
@@ -595,7 +594,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
   const handleSaveClick = () => {
     // Determine final label
-    const finalLabel = templateName.trim() || t("plan.editor.titleDay");
+    const finalLabel = templateName.trim() || "Trainingstag";
     onSave({ ...draft, label: finalLabel });
     onClose();
   };
@@ -659,16 +658,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             onClick={onClose}
             className="text-[17px] text-red-500 hover:text-red-400 transition-colors font-medium"
           >
-            {t("common.cancel")}
+            Abbrechen
           </button>
           <div className="text-[17px] font-bold text-white text-center truncate px-2">
-            {t("plan.editWorkout")}
+            {isCardioLibrary ? "Einheit bearbeiten" : "Training bearbeiten"}
           </div>
           <button
             onClick={handleSaveClick}
             className="text-[17px] font-bold text-[#007AFF] hover:text-[#007AFF]/80 transition-colors"
           >
-            {t("common.save")}
+            Speichern
           </button>
         </div>
 
@@ -680,7 +679,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                placeholder={t("plan.templateNamePlaceholder")}
+                placeholder="Name der Vorlage (optional)"
                 className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
               />
               {/* Save as Template Quick Action */}
@@ -690,13 +689,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   className="text-xs text-[#007AFF] font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
-                  {t("plan.editor.saveTemplate")}
+                  Als Vorlage speichern
                 </button>
               </div>
             </div>
 
             <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-xl">
-              <span className="text-white/80 font-medium text-sm">{t("plan.editor.loadTemplate")}</span>
+              <span className="text-white/80 font-medium text-sm">Vorlage laden</span>
               <div className="relative">
                 <select
                   value={selectedWorkoutTemplateId}
@@ -704,7 +703,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   className="bg-transparent text-[#007AFF] font-medium outline-none text-right pr-6 cursor-pointer text-sm appearance-none"
                   style={{ minWidth: '100px' }}
                 >
-                  <option value="">{t("plan.select")}</option>
+                  <option value="">Auswählen</option>
                   {compatibleWorkoutTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -727,7 +726,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <span className="text-[#007AFF] font-medium text-sm">{t("plan.editor.openLibrary")}</span>
+              <span className="text-[#007AFF] font-medium text-sm">Bibliothek öffnen</span>
             </button>
 
             <button
@@ -737,20 +736,20 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-[#007AFF] font-medium text-sm">{t("plan.editor.addCustomExercise")}</span>
+              <span className="text-[#007AFF] font-medium text-sm">Eigene Übung</span>
             </button>
           </div>
 
           {/* Exercise List */}
           <div className="space-y-4">
             <h3 className="text-white/50 text-xs font-semibold uppercase tracking-wider pl-1">
-              {isCardioLibrary ? t("plan.editor.unitsBlock") : t("plan.editor.exercisesBlock")} ({draft.exercises.length})
+              {isCardioLibrary ? "Einheiten" : "Übungen"} ({draft.exercises.length})
             </h3>
 
             {draft.exercises.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl bg-white/5 border border-white/5">
                 <span className="text-white/20 mb-3 text-3xl">🏋️</span>
-                <p className="text-white/40 font-medium text-sm">{t("plan.editor.empty")}</p>
+                <p className="text-white/40 font-medium text-sm">Keine Übungen. Füge welche hinzu!</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -768,7 +767,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                         type="button"
                         onClick={() => handleRemoveBlockExercise(ex.id)}
                         className="p-2 -mr-2 text-white/40 hover:text-red-400 transition-colors"
-                        title={t("common.remove")}
+                        title="Entfernen"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                       </button>
@@ -835,7 +834,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                       onClick={() => handleAddSet(ex.id)}
                       className="mt-3 w-full py-2 rounded-lg bg-white/5 border border-white/5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors flex items-center justify-center gap-1"
                     >
-                      + {isCardioLibrary ? t("plan.editor.addInterval") : t("plan.editor.addSet")}
+                      + {isCardioLibrary ? "Intervall hinzufügen" : "Satz hinzufügen"}
                     </button>
                   </div>
                 ))}
@@ -872,7 +871,6 @@ type PreviewModalState =
   };
 
 const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => void }> = ({ state, onClose }) => {
-  const { t } = useI18n();
   const isOpen = !!state;
 
   if (!state) return null;
@@ -897,7 +895,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
           {state.exercises.length === 0 ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)] p-4 text-sm text-[var(--muted)]">
-              {t("plan.emptyExercises")}
+              Keine Übungen
             </div>
           ) : (
             <div className="space-y-3">
@@ -987,7 +985,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 // -------------------- Haupt-Komponente --------------------
 
 const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
-  const { t, formatDate } = useI18n();
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -1017,14 +1015,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   // Weekly
   const [weeklyDays, setWeeklyDays] = useState<WeeklyDayConfig[]>(() =>
-    getDefaultWeeklyDays(t).map((d, i) => normalizeWeeklyDay(d as any, i + 1))
+    getDefaultWeeklyDays().map((d, i) => normalizeWeeklyDay(d as any, i + 1))
   );
   const [weeklyDurationWeeks, setWeeklyDurationWeeks] = useState<number>(6);
   const [weeklySaved, setWeeklySaved] = useState<boolean>(false);
 
   // Routine
   const [routineBlocks, setRoutineBlocks] = useState<RoutineBlock[]>(() =>
-    getDefaultRoutineBlocks(t).map((b, i) => normalizeRoutineBlock(b as any, i + 1))
+    getDefaultRoutineBlocks().map((b, i) => normalizeRoutineBlock(b as any, i + 1))
   );
   const [routineDurationWeeks, setRoutineDurationWeeks] = useState<number>(6);
   const [routineSaved, setRoutineSaved] = useState<boolean>(false);
@@ -1637,7 +1635,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   // -------------------- Render --------------------
 
   return (
-    <div className="w-full text-[var(--text)] pb-32">
+    <div className="w-full text-[var(--text)] pb-40">
 
       <div className="mx-auto max-w-5xl space-y-4">
         {/* Tabs */}
@@ -1646,13 +1644,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             onClick={() => setActiveTab("weekly")}
             className={`flex-1 rounded-full px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-[var(--primary)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--surface)]"}`}
           >
-            {t("plan.weeklyTab")}
+            Wochenplan
           </button>
           <button
             onClick={() => setActiveTab("routine")}
             className={`flex-1 rounded-full px-3 py-2 font-medium transition ${activeTab === "routine" ? "bg-[var(--primary)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--surface)]"}`}
           >
-            {t("plan.routineTab")}
+            Routine
           </button>
         </div>
 
@@ -1660,7 +1658,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <AppCard variant="glass" className="p-4 text-base">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-sm text-[var(--muted)]">{t("plan.startDate")}</label>
+              <label className="text-sm text-[var(--muted)]">Startdatum</label>
               <input
                 type="date"
                 value={planStartISO}
@@ -1674,7 +1672,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             </div>
 
             <div>
-              <label className="text-sm text-[var(--muted)]">{t("plan.duration")}</label>
+              <label className="text-sm text-[var(--muted)]">Dauer</label>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <div className="inline-flex items-center gap-3">
                   <AppButton
@@ -1690,7 +1688,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     }}
                     variant="secondary"
                     className="h-11 w-11 text-xl font-semibold p-0 flex items-center justify-center"
-                    aria-label={t("plan.weeks.less")}
+                    aria-label="Weniger Wochen"
                   >
                     –
                   </AppButton>
@@ -1710,12 +1708,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     }}
                     variant="secondary"
                     className="h-11 w-11 text-xl font-semibold p-0 flex items-center justify-center"
-                    aria-label={t("plan.weeks.more")}
+                    aria-label="Mehr Wochen"
                   >
                     +
                   </AppButton>
                 </div>
-                <span className="text-sm text-[var(--muted)]">{t("plan.weeks.label")}</span>
+                <span className="text-sm text-[var(--muted)]">Wochen</span>
               </div>
             </div>
           </div>
@@ -1726,14 +1724,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 i
               </span>
               <div className="flex-1 text-sm text-[var(--muted)]">
-                {t("plan.freeLimit.note")}
+                Kostenloses Limit beachten
               </div>
               <span className="rounded-full px-2 py-1 text-sm font-semibold bg-[var(--surface)] border border-[var(--border)] text-[var(--text)]">
-                {t("plan.freeLimit.remaining", {
-                  count: Number.isFinite(calendar7DaysRemaining as number)
-                    ? (calendar7DaysRemaining as number)
-                    : FREE_LIMITS.calendar7DaysPerMonth,
-                })}
+                {Number.isFinite(calendar7DaysRemaining as number)
+                  ? (calendar7DaysRemaining as number)
+                  : FREE_LIMITS.calendar7DaysPerMonth} Tage übrig
               </span>
             </div>
           )}
@@ -1744,7 +1740,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               variant="secondary"
               className="w-full py-3"
             >
-              {t("plan.templates.workouts")}
+              Trainings-Vorlagen
             </AppButton>
 
             <AppButton
@@ -1755,7 +1751,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               variant="secondary"
               className="w-full py-3"
             >
-              {t("plan.templates.plans")}
+              Plan-Vorlagen
             </AppButton>
           </div>
         </AppCard>
@@ -1765,12 +1761,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--text)]">{t("plan.weeklyTitle")}</h2>
+                <h2 className="text-xl font-semibold text-[var(--text)]">Wochenplan</h2>
                 <div className="mt-1 text-sm text-[var(--muted)]">
-                  {t("plan.startLabel")} <span className="text-[var(--text)]">{planStartISO}</span>
+                  Startet am <span className="text-[var(--text)]">{planStartISO}</span>
                 </div>
               </div>
-              {weeklySaved && <span className="text-sm text-emerald-400">{t("plan.savedToCalendar")}</span>}
+              {weeklySaved && <span className="text-sm text-emerald-400">Im Kalender gespeichert</span>}
             </div>
 
             <div className="space-y-4">
@@ -1784,7 +1780,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   <AppCard key={day.id} variant="glass" className="p-4 space-y-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-lg font-semibold text-[var(--text)]">
-                        {t("plan.dayLabel", { day: day.id })}
+                        Tag {day.id}
                       </div>
                       <div className="flex items-center gap-2">
                         {hasTime && (
@@ -1796,16 +1792,16 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[var(--muted)]">{t("plan.name")}</label>
+                      <label className="block text-sm font-medium text-[var(--muted)]">Bezeichnung</label>
                       <input
                         type="text"
-                        value={isRest ? t("plan.restday") : day.focus}
+                        value={isRest ? "Ruhetag" : day.focus}
                         disabled={isRest}
                         onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
                         className={`mt-1 w-full rounded-xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-[var(--primary)] ${isRest ? "bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]" : "bg-[var(--surface)] border border-[var(--border)] text-[var(--text)]"}`}
                       />
                       {!isRest && (
-                        <div className="mt-2 text-sm text-[var(--muted)]">{t("plan.addExercisesHint")}</div>
+                        <div className="mt-2 text-sm text-[var(--muted)]">Füge Übungen hinzu, um diesen Tag zu planen.</div>
                       )}
                     </div>
 
@@ -1816,22 +1812,23 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         fullWidth
                         className="py-2.5"
                       >
-                        {t("plan.removeRestday")}
+                        Ruhetag entfernen
                       </AppButton>
                     ) : (
                       <>
                         <div className="w-full flex justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
-                          <span className="text-base text-[var(--text)] font-medium">{t("plan.sport")}</span>
+                          <span className="text-base text-[var(--text)] font-medium">Sportart</span>
                           <select
                             value={day.sport}
                             onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
+
                             className="bg-transparent text-[var(--text)] text-right outline-none font-medium"
                           >
-                            <option value="Gym">{t("plan.sport.gym")}</option>
-                            <option value="Laufen">{t("plan.sport.run")}</option>
-                            <option value="Radfahren">{t("plan.sport.bike")}</option>
-                            <option value="Custom">{t("plan.sport.custom")}</option>
-                            <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                            <option value="Gym">Gym</option>
+                            <option value="Laufen">Laufen</option>
+                            <option value="Radfahren">Radfahren</option>
+                            <option value="Custom">Custom</option>
+                            <option value="Ruhetag">Ruhetag</option>
                           </select>
                         </div>
 
@@ -1840,16 +1837,16 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           onClick={() => openWeeklyTraining(day)}
                           className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
-                          {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
+                          {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
                         </button>
 
                         <details className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
                           <summary className="cursor-pointer text-base font-medium text-[var(--text)]">
-                            {t("plan.details")}
+                            Details
                           </summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
+                              <div className="text-sm text-[var(--muted)]">Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
@@ -1859,7 +1856,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                     type="button"
                                     onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
                                     className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
-                                    title={t("plan.timeRemove")}
+                                    title="Startzeit entfernen"
                                   >
                                     ✕
                                   </button>
@@ -1870,7 +1867,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                   onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())}
                                   className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
                                 >
-                                  {t("plan.timeAdd")}
+                                  Startzeit hinzufügen
                                 </button>
                               )}
                             </div>
@@ -1882,7 +1879,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 fullWidth
                                 className="py-2 font-medium"
                               >
-                                {t("plan.previewStart")}
+                                Vorschau & Start
                               </AppButton>
                             )}
                           </div>
@@ -1900,17 +1897,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 onClick={() => setWeeklyPreviewOpen(true)}
                 className="inline-flex items-center justify-center rounded-xl bg-[var(--surface)] border border-[var(--border)] px-4 py-2 text-base font-medium text-[var(--text)] hover:bg-[var(--surface2)]"
               >
-                {t("plan.preview")}
+                Vorschau
               </button>
 
               <button
                 onClick={() => {
-                  setWeeklyTemplateName(`${t("plan.weeklyTitle")} (${formatDate(new Date())})`);
+                  setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString("de-DE")})`);
                   setWeeklySaveDialogOpen(true);
                 }}
                 className="inline-flex items-center justify-center rounded-xl bg-[var(--primary)] px-4 py-2 text-base font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
-                {t("plan.saveWeekly")}
+                Wochenplan speichern
               </button>
             </div>
           </section>
@@ -1921,14 +1918,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--text)]">{t("plan.routineTitle")}</h2>
+                <h2 className="text-xl font-semibold text-[var(--text)]">Routine-Zyklus</h2>
                 <div className="mt-1 text-sm text-[var(--muted)]">
-                  {t("plan.startLabel")} <span className="text-[var(--text)]">{planStartISO}</span>
+                  Startet am <span className="text-[var(--text)]">{planStartISO}</span>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                {routineSaved && <span className="text-sm text-emerald-400">{t("plan.savedToCalendar")}</span>}
+                {routineSaved && <span className="text-sm text-emerald-400">Im Kalender gespeichert</span>}
               </div>
             </div>
 
@@ -1965,32 +1962,32 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[var(--muted)]">{t("plan.name")}</label>
+                      <label className="block text-sm font-medium text-[var(--muted)]">Bezeichnung</label>
                       <input
                         type="text"
-                        value={isRest ? t("plan.restday") : block.label}
+                        value={isRest ? "Ruhetag" : block.label}
                         disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
                         className={`mt-1 w-full rounded-xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "bg-[var(--surface)] border-[var(--border)] text-[var(--muted)]" : "bg-[var(--surface)] border-[var(--border)] text-[var(--text)]"}`}
                       />
                       {!isRest && (
-                        <div className="mt-2 text-sm text-[var(--muted)]">{t("plan.addExercisesHint")}</div>
+                        <div className="mt-2 text-sm text-[var(--muted)]">Füge Übungen hinzu, um diesen Tag zu planen.</div>
                       )}
                     </div>
 
                     {!isRest && (
                       <div className="w-full flex justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
-                        <span className="text-base text-[var(--text)] font-medium">{t("plan.sport")}</span>
+                        <span className="text-base text-[var(--text)] font-medium">Sportart</span>
                         <select
                           value={block.sport}
                           onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
                           className="bg-transparent text-[var(--text)] text-right outline-none font-medium"
                         >
-                          <option value="Gym">{t("plan.sport.gym")}</option>
-                          <option value="Laufen">{t("plan.sport.run")}</option>
-                          <option value="Radfahren">{t("plan.sport.bike")}</option>
-                          <option value="Custom">{t("plan.sport.custom")}</option>
-                          <option value="Ruhetag">{t("plan.sport.rest")}</option>
+                          <option value="Gym">Gym</option>
+                          <option value="Laufen">Laufen</option>
+                          <option value="Radfahren">Radfahren</option>
+                          <option value="Custom">Custom</option>
+                          <option value="Ruhetag">Ruhetag</option>
                         </select>
                       </div>
                     )}
@@ -2001,7 +1998,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         onClick={() => handleRoutineBlockChange(block.id, "sport", "Gym")}
                         className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-3 py-2.5 text-base font-semibold text-[var(--text)] hover:bg-[var(--surface2)]"
                       >
-                        {t("plan.removeRestday")}
+                        Ruhetag entfernen
                       </button>
                     ) : (
                       <>
@@ -2010,14 +2007,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           onClick={() => openRoutineTraining(block)}
                           className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
-                          {hasWorkout ? t("plan.editWorkout") : t("plan.createWorkout")}
+
+                          {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
                         </button>
 
                         <details className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
-                          <summary className="cursor-pointer text-base font-medium text-[var(--text)]">{t("plan.details")}</summary>
+                          <summary className="cursor-pointer text-base font-medium text-[var(--text)]">Details</summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm text-[var(--muted)]">{t("plan.startTime")}</div>
+                              <div className="text-sm text-[var(--muted)]">Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)]">
@@ -2027,7 +2025,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                     type="button"
                                     onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
                                     className="rounded-full bg-[var(--surface)] px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface2)]"
-                                    title={t("plan.timeRemove")}
+                                    title="Startzeit entfernen"
                                   >
                                     ✕
                                   </button>
@@ -2038,7 +2036,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                   onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())}
                                   className="rounded-full bg-[var(--surface2)] px-3 py-1 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
                                 >
-                                  {t("plan.timeAdd")}
+                                  Startzeit hinzufügen
                                 </button>
                               )}
                             </div>
@@ -2057,7 +2055,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 onClick={handleAddRoutineBlock}
                 className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:opacity-95"
               >
-                + {t("plan.addDay")}
+                + Tag hinzufügen
               </button>
 
               <button
@@ -2065,17 +2063,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 onClick={() => setRoutinePreviewOpen(true)}
                 className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:opacity-95"
               >
-                {t("plan.preview")}
+                Vorschau
               </button>
 
               <button
                 onClick={() => {
-                  setRoutineTemplateName(`${t("plan.routineTitle")} (${formatDate(new Date())})`);
+                  setRoutineTemplateName(`Routine-Zyklus (${new Date().toLocaleDateString("de-DE")})`);
                   setRoutineSaveDialogOpen(true);
                 }}
                 className="inline-flex items-center justify-center rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
-                {t("plan.saveRoutine")}
+                Routine speichern
               </button>
             </div>
           </section>
@@ -2124,7 +2122,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.previewWeekTitle")}</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Wochenvorschau</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2168,7 +2166,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.previewRoutineTitle")}</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Routinevorschau</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2207,7 +2205,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.workoutsTitle")}</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Deine Trainingsvorlagen</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2264,7 +2262,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.weeklyTitle")}</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Deine Wochenpläne</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2276,7 +2274,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             </div>
             <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
               {weeklyTemplates.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">{t("plan.templates.empty")}</p>
+                <p className="text-sm text-[var(--muted)]">Keine Vorlagen gefunden.</p>
               ) : (
                 <div className="space-y-2">
                   {weeklyTemplates.map((tpl) => (
@@ -2313,7 +2311,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <h3 className="text-sm font-semibold text-[var(--text)]">{t("plan.templates.routineTitle")}</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Deine Routinen</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2325,7 +2323,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             </div>
             <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
               {routineTemplates.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">{t("plan.templates.empty")}</p>
+                <p className="text-sm text-[var(--muted)]">Keine Vorlagen gefunden.</p>
               ) : (
                 <div className="space-y-2">
                   {routineTemplates.map((tpl) => (
@@ -2362,10 +2360,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {weeklySaveDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-[var(--text)]">{t("plan.applyWeeklyTitle")}</h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">{t("plan.applyTemplateOptional")}</p>
+            <h3 className="text-base font-semibold text-[var(--text)]">Wochenplan anwenden</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">Möchtest du diesen Plan auch als Vorlage speichern?</p>
             <div className="mt-4 space-y-2">
-              <label className="block text-sm text-[var(--muted)]">{t("plan.templateNameLabel")}</label>
+              <label className="block text-sm text-[var(--muted)]">Vorlagen-Name</label>
               <input
                 type="text"
                 value={weeklyTemplateName}
@@ -2394,10 +2392,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {routineSaveDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-[var(--text)]">{t("plan.applyRoutineTitle")}</h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">{t("plan.applyTemplateOptional")}</p>
+            <h3 className="text-base font-semibold text-[var(--text)]">Routine anwenden</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">Möchtest du diesen Plan auch als Vorlage speichern?</p>
             <div className="mt-4 space-y-2">
-              <label className="block text-sm text-[var(--muted)]">{t("plan.templateNameLabel")}</label>
+              <label className="block text-sm text-[var(--muted)]">Vorlagen-Name</label>
               <input
                 type="text"
                 value={routineTemplateName}

@@ -1,69 +1,70 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor } from "@capacitor/core";
+import { LiveActivity } from "capacitor-live-activity";
 
 export type LiveActivityPayload = {
-  workoutId: string;
-  badge: string;
-  title: string;
-  subtitle: string;
-  primaryLine: string;
-  avatarLetter: string;
-  deepLink?: string;
-  updatedAt: number;
+  exerciseName: string;
+  setInfo: string;
+  nextSet: string;
+  progress: number; // 0.0 to 1.0
 };
-
-type TrainQLiveActivityPlugin = {
-  setLiveTrainingState(payload: LiveActivityPayload): Promise<void>;
-  clearLiveTrainingState(): Promise<void>;
-  refresh(): Promise<void>;
-  debugStart(): Promise<{ ok?: boolean; id?: string; error?: string }>;
-  debugEnd(): Promise<{ ok?: boolean }>;
-};
-
-const LiveActivity = registerPlugin<TrainQLiveActivityPlugin>("TrainQLiveActivity");
 
 const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 
+const ACTIVITY_LOGICAL_ID = "TRAINQ_LIVE_WORKOUT";
+
 export async function setLiveTrainingState(payload: LiveActivityPayload): Promise<void> {
   if (!isNativeIOS) return;
+
   try {
-    await LiveActivity.setLiveTrainingState(payload);
-  } catch {
-    return;
+    // Check if running first
+    let isRuns = false;
+    try {
+      const status = await LiveActivity.isRunning({ id: ACTIVITY_LOGICAL_ID });
+      isRuns = status.value;
+    } catch {
+      // ignore
+    }
+
+    const contentState = {
+      exerciseName: payload.exerciseName,
+      setInfo: payload.setInfo,
+      nextSet: payload.nextSet,
+      progress: payload.progress,
+    };
+
+    if (isRuns) {
+      await LiveActivity.updateActivity({
+        id: ACTIVITY_LOGICAL_ID,
+        contentState: contentState as any,
+      });
+    } else {
+      await LiveActivity.startActivity({
+        id: ACTIVITY_LOGICAL_ID,
+        attributes: {
+          customId: ACTIVITY_LOGICAL_ID // Example static attribute
+        },
+        contentState: contentState as any,
+      });
+    }
+  } catch (error) {
+    console.warn("LiveActivity update failed:", error);
   }
 }
 
 export async function clearLiveTrainingState(): Promise<void> {
   if (!isNativeIOS) return;
   try {
-    await LiveActivity.clearLiveTrainingState();
-  } catch {
-    return;
-  }
-}
-
-export async function refreshLiveActivity(): Promise<void> {
-  if (!isNativeIOS) return;
-  try {
-    await LiveActivity.refresh();
-  } catch {
-    return;
-  }
-}
-
-export async function debugStartLiveActivity(): Promise<{ ok?: boolean; id?: string; error?: string } | undefined> {
-  if (!isNativeIOS) return;
-  try {
-    return await LiveActivity.debugStart();
-  } catch {
-    return;
-  }
-}
-
-export async function debugEndLiveActivity(): Promise<{ ok?: boolean } | undefined> {
-  if (!isNativeIOS) return;
-  try {
-    return await LiveActivity.debugEnd();
-  } catch {
-    return;
+    await LiveActivity.endActivity({
+      id: ACTIVITY_LOGICAL_ID,
+      contentState: {
+        exerciseName: "Training beendet",
+        setInfo: "Gut gemacht!",
+        nextSet: "",
+        progress: 1.0,
+      } as any,
+      dismissalDate: Math.floor(Date.now() / 1000) + 2, // Dismiss after 2s
+    });
+  } catch (error) {
+    console.warn("LiveActivity end failed:", error);
   }
 }

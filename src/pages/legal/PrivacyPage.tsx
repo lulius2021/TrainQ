@@ -1,7 +1,7 @@
-import { useTranslation } from "react-i18next";
+// src/pages/legal/PrivacyPage.tsx
+import React from "react";
 
 export default function PrivacyPage() {
-    const { t } = useTranslation();
     const safeTop = "env(safe-area-inset-top, 0px)";
 
     const goBack = () => {
@@ -9,31 +9,37 @@ export default function PrivacyPage() {
     };
 
     return (
-        <div className="min-h-screen bg-brand-bg text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
             <div className="max-w-2xl mx-auto space-y-6">
                 <button
                     onClick={goBack}
                     className="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity"
                 >
-                    &larr; {t("common.back")}
+                    &larr; Zurück
                 </button>
 
-                <h1 className="text-3xl font-bold">{t("settings.legal.privacy.title")}</h1>
+                <h1 className="text-3xl font-bold">Datenschutzerklärung</h1>
 
                 <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
-                    <p>{t("settings.legal.privacy.p1")}</p>
-                    <p>{t("settings.legal.privacy.p2")}</p>
-                    <p>{t("settings.legal.privacy.p3")}</p>
+                    <p>
+                        Der Schutz deiner Daten ist uns wichtig. In dieser Datenschutzerklärung erfährst du,
+                        welche Daten wir erfassen und wie wir sie nutzen.
+                    </p>
+                    <p>
+                        Wir speichern deine Trainingsdaten (z.B. Übungen, Gewichte, Sätze) lokal auf deinem Gerät
+                        oder synchronisiert in unserer sicheren Datenbank, um dir Funktionen wie Fortschrittsanalysen
+                        und adaptive Trainingspläne anzubieten.
+                    </p>
 
                     <h2 className="text-xl font-bold mt-6">Garmin Connect</h2>
                     <p>
-                        TrainQ offers integration with Garmin Connect.
-                        If you choose to connect your Garmin account, we will receive data about your activities
-                        (workouts, duration, heart rate, GPS traces, etc.) according to your Garmin permissions.
+                        TrainQ bietet eine Integration mit Garmin Connect an.
+                        Wenn du dein Garmin-Konto verbindest, empfangen wir Daten zu deinen Aktivitäten
+                        (Workouts, Dauer, Herzfrequenz, GPS-Daten usw.) gemäß deinen Garmin-Berechtigungen.
                     </p>
                     <p>
-                        We store this data locally on your device or securely in our database solely for the purpose of
-                        providing training analysis. We do not sell your personal data.
+                        Wir speichern diese Daten, um deine Erholung (Body Battery) und Trainingsbelastung zu berechnen.
+                        Wir verkaufen deine persönlichen Daten niemals an Dritte.
                     </p>
                 </div>
             </div>

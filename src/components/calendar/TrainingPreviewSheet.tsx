@@ -378,37 +378,16 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-black/70" onClick={handleClose} />
-
-          <div className="fixed left-0 right-0 flex justify-center px-4" style={{ bottom: 0 }}>
-            <MotionDiv
-              className="w-full h-full max-w-md rounded-t-[32px] shadow-lg shadow-black/30 flex flex-col"
-              style={{
-                background: "#1c1c1e",
-                border: "1px solid var(--border)",
-                height: "75dvh",
-                maxHeight: "75dvh",
-                willChange: "transform",
-              }}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 420, damping: 38 }}
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.12}
-              dragListener={false}
-              dragControls={dragControls}
-              onDragEnd={handleDragEnd}
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            >
-              {/* Drag Handle Area - Expanded */}
+          <div className="fixed inset-0 z-[60] flex flex-col bg-black">
+            {/* Header (fixiert) */}
+            <div className="flex-none">
+              {/* Drag Handle Area - Optional, kept for visual consistency if needed, or remove if no longer draggable */}
               <div
-                className="w-full flex justify-center pt-4 pb-2 touch-none cursor-grab active:cursor-grabbing"
-                onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
+                className="w-full flex justify-center pt-4 pb-2"
               >
                 <div className="h-1.5 w-12 rounded-full bg-white/20" />
               </div>
+
 
               {/* Header Area - Draggable if not editing */}
               <div
@@ -510,105 +489,104 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-4 pt-3 px-4" style={{ WebkitOverflowScrolling: "touch" }}>
-                <div className="rounded-xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
-                      {t("calendar.preview.scope")}
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="space-y-4">
+                  <div className="rounded-xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+                        {t("calendar.preview.scope")}
+                      </div>
+                      <div className="text-sm">
+                        {t("calendar.preview.scopeCounts", { exercises: previewCounts.exercises, sets: previewCounts.sets })}
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      {t("calendar.preview.scopeCounts", { exercises: previewCounts.exercises, sets: previewCounts.sets })}
-                    </div>
+
+                    {seedMissing && (
+                      <div className="mt-2 text-sm" style={{ color: "rgba(245,158,11,0.95)" }}>
+                        {t("calendar.preview.seedMissing")}
+                      </div>
+                    )}
                   </div>
 
-                  {seedMissing && (
-                    <div className="mt-2 text-sm" style={{ color: "rgba(245,158,11,0.95)" }}>
-                      {t("calendar.preview.seedMissing")}
-                    </div>
-                  )}
-                </div>
+                  <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
+                    {draftExercises.length === 0 ? (
+                      <div className="rounded-xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                        {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {draftExercises.map((ex, exIdx) => (
+                          <ExerciseEditor
+                            key={ex.id}
+                            exercise={ex}
+                            isCardio={isCardio}
+                            onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
+                            onRemove={() => removeExercise(ex.id)}
+                            onAddSet={() => addSet(ex.id, isCardio)}
+                            onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
+                            onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
+                            onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
+                            onMoveUp={isEditing && exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
+                            onMoveDown={isEditing && exIdx < draftExercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
+                          />
+                        ))}
+                      </div>
+                    )}
 
-                <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
-                  {draftExercises.length === 0 ? (
-                    <div className="rounded-xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
-                      {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {draftExercises.map((ex, exIdx) => (
-                        <ExerciseEditor
-                          key={ex.id}
-                          exercise={ex}
-                          isCardio={isCardio}
-                          onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
-                          onRemove={() => removeExercise(ex.id)}
-                          onAddSet={() => addSet(ex.id, isCardio)}
-                          onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
-                          onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
-                          onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
-                          onMoveUp={isEditing && exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
-                          onMoveDown={isEditing && exIdx < draftExercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
-                        />
-                      ))}
-                    </div>
-                  )}
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => setLibraryOpen(true)}
+                        className="mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold hover:opacity-95"
+                        style={{ background: "var(--surface2)", borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        {isCardio ? t("calendar.preview.addCardio") : t("calendar.preview.addExercise")}
+                      </button>
+                    )}
+                  </div>
 
-                  {isEditing && (
+                  {/* Footer actions moved inside scroll area */}
+                  <div className="pt-6 pb-4 flex gap-2">
+                    {isEditing ? (
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        className="flex-1 px-4 py-3 rounded-2xl text-base font-semibold shadow hover:opacity-95"
+                        style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
+                      >
+                        {t("common.save")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleStart}
+                        disabled={!canStartPreview}
+                        className="flex-1 px-4 py-3 rounded-2xl text-base font-semibold shadow hover:opacity-95 disabled:cursor-not-allowed"
+                        style={
+                          canStartPreview
+                            ? { background: "rgba(16,185,129,0.95)", color: "#06120c" }
+                            : { background: "rgba(148,163,184,0.25)", color: "var(--muted)" }
+                        }
+                      >
+                        {t("calendar.preview.startTraining")}
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => setLibraryOpen(true)}
-                      className="mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold hover:opacity-95"
-                      style={{ background: "var(--surface2)", borderColor: "var(--border)", color: "var(--text)" }}
+                      onClick={handleClose}
+                      className="px-4 py-3 rounded-2xl text-sm hover:opacity-95"
+                      style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
                     >
-                      {isCardio ? t("calendar.preview.addCardio") : t("calendar.preview.addExercise")}
+                      {t("common.close")}
                     </button>
-                  )}
+                  </div>
+
+                  {/* Spacer um unter der Navbar hervorzukommen */}
+                  <div className="h-40 w-full shrink-0" aria-hidden="true" />
                 </div>
               </div>
-
-              <div
-                className="mt-auto flex gap-2 px-4 pt-3"
-                style={{
-                  borderTop: "1px solid var(--border)",
-                  background: "#1c1c1e",
-                  paddingBottom: "calc(env(safe-area-inset-bottom) + 90px)",
-                }}
-              >
-                {isEditing ? (
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="flex-1 px-4 py-2.5 rounded-2xl text-base font-semibold shadow hover:opacity-95"
-                    style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
-                  >
-                    {t("common.save")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleStart}
-                    disabled={!canStartPreview}
-                    className="flex-1 px-4 py-2.5 rounded-2xl text-base font-semibold shadow hover:opacity-95 disabled:cursor-not-allowed"
-                    style={
-                      canStartPreview
-                        ? { background: "rgba(16,185,129,0.95)", color: "#06120c" }
-                        : { background: "rgba(148,163,184,0.25)", color: "var(--muted)" }
-                    }
-                  >
-                    {t("calendar.preview.startTraining")}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2.5 rounded-2xl text-sm hover:opacity-95"
-                  style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
-                >
-                  {t("common.close")}
-                </button>
-              </div>
-            </MotionDiv>
+            </div>
           </div>
         </MotionDiv>
       )}

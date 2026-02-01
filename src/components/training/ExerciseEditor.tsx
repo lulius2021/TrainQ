@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from "react";
 import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
 import { useI18n } from "../../i18n/useI18n";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
+import { Info } from "lucide-react";
 
 // -------------------- Helpers --------------------
 function parseOptionalNumber(v: string): number | undefined {
@@ -113,7 +114,7 @@ const SwipeableSetRow = ({
         style={{ touchAction: "pan-y" }}
         className="relative z-10 bg-[#1c1c1e] rounded-xl overflow-hidden shadow-sm"
       >
-        <div className="grid grid-cols-[24px_1fr_80px_80px_44px] gap-3 items-center bg-[#1c1c1e]">
+        <div className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center bg-[#1c1c1e]">
           {/* 1. Set Index (Type Selector) */}
           <div className="flex items-center justify-center cursor-pointer" onClick={handleTypeCycle}>
             <span className={`text-sm font-bold select-none ${getTypeColor(set.type)}`}>
@@ -137,7 +138,7 @@ const SwipeableSetRow = ({
             onFocus={() => onWeightFocus?.(set.id, set.weight)}
             onBlur={() => onWeightBlur?.()}
             onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none ring-1 ring-transparent focus:ring-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
               }`}
           />
 
@@ -148,20 +149,20 @@ const SwipeableSetRow = ({
             placeholder={fmtPlaceholderNumber(last?.reps, "-")}
             onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
             onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none ring-1 ring-transparent focus:ring-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
               }`}
             inputMode="numeric"
           />
 
           {/* 5. Check Button / Timer */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center w-full h-10">
             {isTimerRunning && restRemainingSec !== undefined ? (
               <div
-                className="h-10 w-full flex items-center justify-center rounded-xl bg-[#007AFF] animate-pulse cursor-pointer"
+                className="h-10 w-14 flex items-center justify-center rounded-xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
                 onPointerDownCapture={(e) => e.stopPropagation()}
                 onClick={() => onToggleSet(set.id)}
               >
-                <span className="text-sm font-bold text-white tabular-nums tracking-tight">
+                <span className="text-[10px] font-bold text-white tabular-nums tracking-tighter leading-none">
                   {Math.floor(restRemainingSec / 60)}:{(restRemainingSec % 60).toString().padStart(2, "0")}
                 </span>
               </div>
@@ -170,15 +171,17 @@ const SwipeableSetRow = ({
                 type="button"
                 onClick={() => onToggleSet(set.id)}
                 onPointerDownCapture={(e) => e.stopPropagation()}
-                className={`h-9 w-9 rounded-full flex items-center justify-center transition-all ${set.completed
-                  ? "bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
-                  : "bg-transparent border-[2px] border-[#3a3a3c] hover:border-[#007AFF]"
+                className={`h-10 w-14 rounded-xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
+                  ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
+                  : "bg-[#2c2c2e] border-transparent hover:border-[#007AFF]"
                   }`}
               >
-                {set.completed && (
+                {set.completed ? (
                   <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
+                ) : (
+                  <div className="h-2 w-2 rounded-full bg-white/10" />
                 )}
               </button>
             )}
@@ -217,13 +220,13 @@ export default function ExerciseEditor({
   onOpenExerciseDetails, // New Prop
   onOpenTimer,           // New Prop
 }: any) {
-  const { t } = useI18n();
+  // const { t } = useI18n(); // Removed i18n
   const nameRef = useRef<HTMLInputElement | null>(null);
 
   const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
-  const repsUnit = isCardio ? t("training.units.min") : t("training.units.repsShort");
-  const weightUnit = isCardio ? t("training.units.km") : t("training.units.kg");
-  const addSetLabel = isCardio ? t("training.exercise.addInterval") : t("training.exercise.addSet");
+  const repsUnit = isCardio ? "Min" : "Wdh.";
+  const weightUnit = isCardio ? "km" : "kg";
+  const addSetLabel = isCardio ? "Intervall hinzufügen" : "Satz hinzufügen";
   const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
 
   const handleTitleClick = () => {
@@ -239,17 +242,16 @@ export default function ExerciseEditor({
       {/* Exercise Header */}
       <div className="flex items-center justify-between mb-2 gap-2">
         <div
-          className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer group"
-          onClick={handleTitleClick}
-          role="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id);
+          }}
+          className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer hover:opacity-75 transition-opacity"
         >
-          <h3 className="text-xl font-bold text-white truncate group-hover:text-[#007AFF] transition-colors select-none">
-            {exercise.name || t("training.exercise.placeholder")}
+          <h3 className="text-xl font-bold text-white truncate w-full">
+            {exercise.name || "Neue Übung"}
           </h3>
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white/30 group-hover:text-[#007AFF] transition-colors shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4M12 8h.01" />
-          </svg>
+          <Info size={20} className="text-[#007AFF] shrink-0" />
         </div>
 
         {/* Action Buttons */}
@@ -269,7 +271,7 @@ export default function ExerciseEditor({
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
             className="h-9 w-9 flex items-center justify-center rounded-lg bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-            title={t("training.exercise.delete")}
+            title="Übung entfernen"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -279,7 +281,7 @@ export default function ExerciseEditor({
       </div>
 
       {/* Grid Header */}
-      <div className="grid grid-cols-[24px_1fr_80px_80px_44px] gap-3 items-center px-1">
+      <div className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center px-1">
         <span className="text-xs font-semibold text-center text-white/30 uppercase tracking-wider">#</span>
         <span className="text-xs font-semibold text-left text-white/30 uppercase tracking-wider pl-1">Vorher</span>
         <span className="text-xs font-semibold text-center text-white/30 uppercase tracking-wider">{weightUnit}</span>

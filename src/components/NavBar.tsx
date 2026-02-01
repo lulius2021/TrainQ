@@ -33,7 +33,7 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
       >
         {isPrimary ? (
           <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center bg-[var(--primary)]"
+            className="h-12 w-12 rounded-xl flex items-center justify-center bg-blue-600"
             style={{
               boxShadow: isActive ? "0 5px 15px rgba(59, 130, 246, 0.4)" : "0 4px 10px rgba(59, 130, 246, 0.3)",
             }}
@@ -50,20 +50,19 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
             className="h-6 w-6"
             style={{
               opacity: isActive ? 1 : 0.6,
-              filter: "var(--icon-filter)",
             }}
           />
         )}
 
         <span
-          className={`text-[11px] ${isActive ? "font-semibold text-[var(--text)]" : "font-medium text-[var(--muted)]"
+          className={`text-[11px] ${isActive ? "font-semibold text-white" : "font-medium text-zinc-500"
             }`}
         >
           {label}
         </span>
 
         <div
-          className={`mt-0.5 h-[3px] w-4 rounded-full ${!isPrimary && isActive ? "bg-[var(--primary)]" : "bg-transparent"
+          className={`mt-0.5 h-[3px] w-4 rounded-full ${!isPrimary && isActive ? "bg-blue-600" : "bg-transparent"
             }`}
         />
       </button>
@@ -73,7 +72,7 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
   return (
     <div
       className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4"
-      style={{ paddingBottom: "var(--safe-bottom)" }}
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <footer
         className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10

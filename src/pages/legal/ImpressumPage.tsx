@@ -1,7 +1,7 @@
-import { useTranslation } from "react-i18next";
+// src/pages/legal/ImpressumPage.tsx
+import React from "react";
 
 export default function ImpressumPage() {
-    const { t } = useTranslation();
     const safeTop = "env(safe-area-inset-top, 0px)";
 
     const goBack = () => {
@@ -9,13 +9,13 @@ export default function ImpressumPage() {
     };
 
     return (
-        <div className="min-h-screen bg-brand-bg text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
             <div className="max-w-2xl mx-auto space-y-6">
                 <button
                     onClick={goBack}
                     className="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity"
                 >
-                    &larr; {t("common.back")}
+                    &larr; Zurück
                 </button>
 
                 <h1 className="text-3xl font-bold">Impressum</h1>

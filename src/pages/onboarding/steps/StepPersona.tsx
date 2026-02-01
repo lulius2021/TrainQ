@@ -1,3 +1,4 @@
+// src/pages/onboarding/steps/StepPersona.tsx
 import React from 'react';
 import { OnboardingStepLayout } from "../../../components/onboarding/OnboardingStepLayout";
 import { useOnboarding } from "../../../context/OnboardingContext";
@@ -8,9 +9,9 @@ interface Props {
 }
 
 const PERSONAS: { id: Persona; label: string; desc: string; icon: string }[] = [
-    { id: 'athlete', label: "Athlet", desc: "Maximale Performance & Progression.", icon: "🏆" },
-    { id: 'manager', label: "Manager", desc: "Wenig Zeit, hohe Effizienz.", icon: "💼" },
-    { id: 'beginner', label: "Einsteiger", desc: "Gesunder Start ohne Überforderung.", icon: "🌱" },
+    { id: 'athlete', label: "Athlet", desc: "Leistungsorientiert & datengetrieben.", icon: "🏆" },
+    { id: 'manager', label: "Manager", desc: "Effizient & zeitoptimiert.", icon: "💼" },
+    { id: 'beginner', label: "Neustarter", desc: "Gesundheit & Wohlbefinden.", icon: "🌱" },
 ];
 
 export const StepPersona: React.FC<Props> = ({ onNext }) => {
@@ -22,8 +23,8 @@ export const StepPersona: React.FC<Props> = ({ onNext }) => {
 
     return (
         <OnboardingStepLayout
-            title="Dein Profil"
-            subtitle="Was beschreibt dich am besten?"
+            title="Wer bist du?"
+            subtitle="Das hilft uns, den richtigen Ton zu treffen."
             onContinue={onNext}
             canContinue={!!data.personal.persona}
         >

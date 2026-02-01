@@ -52,21 +52,21 @@ export async function calculateAdaptiveWorkout(config: AdaptiveConfig): Promise<
     // "Wenn Body Battery < 30 -> 15% Reduktion (0.85)"
     // "recovery_factor (0.8 bis 1.0)"
     let factor = 1.0;
-    let reason = "Fit & Ready";
+    let reason = "Fit & Bereit";
 
     if (bodyBattery < 30) {
         factor = 0.85;
-        reason = "Recovery Low (-15%)";
+        reason = "Erholung niedrig (-15%)";
     } else if (bodyBattery < 50) {
         factor = 0.90;
-        reason = "Recovery Mod (-10%)";
+        reason = "Erholung moderat (-10%)";
     } else if (bodyBattery < 70) {
         factor = 0.95;
-        reason = "Recovery OK (-5%)";
+        reason = "Erholung OK (-5%)";
     } else {
         // > 70
         factor = 1.0;
-        reason = "High Energy (+Progress)";
+        reason = "Energie hoch (+Fortschritt)";
     }
 
     // 3. Select Template Exercises
@@ -95,15 +95,15 @@ export async function calculateAdaptiveWorkout(config: AdaptiveConfig): Promise<
             // "Basis: last_weight * 1.025"
             if (bodyBattery >= 70) {
                 targetWeight = w * 1.025; // Progressive Overload
-                baseNote = "Progression (+2.5%)";
+                baseNote = "Steigerung (+2.5%)";
             } else {
                 targetWeight = w; // Maintenance base
-                baseNote = "Maintenance";
+                baseNote = "Erhalt";
             }
 
             targetReps = lastSet.reps || 10;
         } else {
-            baseNote = "New Exercise";
+            baseNote = "Neue Übung";
         }
 
         // Apply Recovery Factor

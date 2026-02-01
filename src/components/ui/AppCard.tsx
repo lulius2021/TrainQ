@@ -19,9 +19,9 @@ export const AppCard: React.FC<AppCardProps> = ({
 
     const variants = {
         glass: "bg-white/10 backdrop-blur-xl border-[1.5px] border-white/10 shadow-sm",
-        solid: "bg-[var(--surface2)] backdrop-blur-lg border border-[var(--border)]",
+        solid: "bg-zinc-800 backdrop-blur-lg border border-zinc-800",
         transparent: "bg-transparent border-0",
-        soft: "bg-[var(--surface)] backdrop-blur-md border border-[var(--border)]",
+        soft: "bg-zinc-900 backdrop-blur-md border border-zinc-800",
     };
 
     return (

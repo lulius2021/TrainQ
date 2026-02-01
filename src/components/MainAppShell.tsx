@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useI18n } from "../i18n/useI18n";
 
 // Pages
@@ -28,6 +28,7 @@ import { useEntitlements } from "../hooks/useEntitlements";
 // Utils
 import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
+import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
 import { resolveLiveSeed, writeLiveSeedForEventOrKey } from "../utils/liveTrainingSeed";
 import type { LiveTrainingSeed } from "../utils/liveTrainingSeed";
 import { getScopedItem, removeScopedItem, setScopedItem } from "../utils/scopedStorage";
@@ -56,7 +57,12 @@ import type { PaywallReason } from "../utils/entitlements";
 // Local Constants & Types
 type AppRoute =
     | "/"
+    | "/dashboard"
+    | "/train"
     | "/today"
+    | "/calendar"
+    | "/plan"
+    | "/profile"
     | "/live-training"
     | "/debug/trainq"
     | "/workout-share"
@@ -68,7 +74,7 @@ type AppRoute =
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
 const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
-const MINI_BAR_BOTTOM = "calc(var(--nav-height) + var(--bottom-nav-gap))";
+const MINI_BAR_BOTTOM = "calc(70px + env(safe-area-inset-bottom))";
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 // -------------------- Helpers (Copied from App.tsx) --------------------
@@ -167,6 +173,11 @@ function getRouteFromLocation(): AppRoute {
     if (path === "/live-training") return "/live-training";
     if (path === "/debug/trainq") return "/debug/trainq";
     if (path === "/today") return "/today";
+    if (path === "/train") return "/train";
+    if (path === "/dashboard") return "/dashboard";
+    if (path === "/calendar") return "/calendar";
+    if (path === "/plan") return "/plan";
+    if (path === "/profile") return "/profile";
     if (path === "/workout-share") return "/workout-share";
     if (path === "/impressum") return "/impressum";
     if (path === "/privacy") return "/privacy";
@@ -180,6 +191,13 @@ function pushRoute(path: AppRoute, search?: string): void {
     const next = search ? `${path}?${search}` : path;
     if (window.location.pathname + window.location.search === next) return;
     window.history.pushState({}, "", next);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function replaceRoute(path: AppRoute): void {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname === path) return;
+    window.history.replaceState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -262,22 +280,21 @@ const LiveTrainingMiniBar: React.FC<{
     onAbort: () => void;
 }> = ({ visible, onMaximize, onAbort }) => {
     const { t } = useI18n();
-    const [active, setActive] = useState(() => getActiveLiveWorkout());
+    const active = useLiveTrainingStore((state) => state.activeWorkout);
+    const [, forceUpdate] = useState(0);
 
     useEffect(() => {
-        if (!visible) return;
-        const t = window.setInterval(() => {
-            setActive(getActiveLiveWorkout());
-        }, 1000);
+        if (!visible || !active) return;
+        const t = window.setInterval(() => forceUpdate(n => n + 1), 1000);
         return () => window.clearInterval(t);
-    }, [visible]);
+    }, [visible, !!active]);
 
     if (!visible) return null;
     if (!active || !active.isActive) return null;
 
     return (
         <div className="fixed left-4 right-4 z-50" style={{ bottom: "calc(96px + env(safe-area-inset-bottom))" }}>
-            <div className="mx-auto max-w-5xl rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-3 backdrop-blur-xl shadow-lg shadow-black/40">
+            <div className="mx-auto max-w-5xl rounded-[32px] border border-zinc-800 bg-zinc-900 p-3 backdrop-blur-xl shadow-lg shadow-black/40">
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <div className="text-[11px] text-gray-400">{t("live.mini.running")}</div>
@@ -289,7 +306,7 @@ const LiveTrainingMiniBar: React.FC<{
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => onMaximize(active.calendarEventId)} className="rounded-2xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-white">
+                        <button type="button" onClick={() => onMaximize(active.calendarEventId)} className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white">
                             {t("live.mini.maximize")}
                         </button>
                         <button type="button" onClick={onAbort} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white/80">
@@ -310,7 +327,15 @@ const MainAppShell: React.FC = () => {
     const { user } = useAuth();
     const userId = user?.id;
 
-    const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+    const [activeTab, setActiveTab] = useState<TabKey>(() => {
+        if (typeof window === "undefined") return "today"; // Default to 'today' (Train)
+        const path = window.location.pathname;
+        if (path === "/dashboard") return "dashboard";
+        if (path === "/calendar") return "calendar";
+        if (path === "/plan") return "plan";
+        if (path === "/profile") return "profile";
+        return "today"; // Default /train -> today tab
+    });
     const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
     const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId(userId));
     const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
@@ -346,6 +371,21 @@ const MainAppShell: React.FC = () => {
 
     useEffect(() => { writeEventsToStorage(events, userId); }, [events, userId]);
 
+    // ✅ CHECK AUTO-RESTORE ON MOUNT
+    const restoreChecked = useRef(false);
+    useEffect(() => {
+        if (restoreChecked.current) return;
+        restoreChecked.current = true;
+
+        const stored = useLiveTrainingStore.getState().activeWorkout;
+        if (stored && stored.isActive) {
+            console.log("🔄 Auto-Restoring Active Workout:", stored.title);
+            if (stored.calendarEventId) setActiveLiveEventId(stored.calendarEventId);
+            setRoute("/live-training");
+            window.history.replaceState(null, "", "/live-training");
+        }
+    }, []);
+
     useEffect(() => {
         setEvents(readEventsFromStorage(userId));
         setActiveLiveEventId(readActiveLiveEventId(userId));
@@ -374,8 +414,16 @@ const MainAppShell: React.FC = () => {
             setRoute(nextRoute);
             if (nextRoute === "/live-training") {
                 setActiveLiveEventId(readActiveLiveEventId(userId));
-            } else if (nextRoute === "/today") {
+            } else if (nextRoute === "/train" || nextRoute === "/today") {
                 setActiveTab("today");
+            } else if (nextRoute === "/dashboard") {
+                setActiveTab("dashboard");
+            } else if (nextRoute === "/calendar") {
+                setActiveTab("calendar");
+            } else if (nextRoute === "/plan") {
+                setActiveTab("plan");
+            } else if (nextRoute === "/profile") {
+                setActiveTab("profile");
             } else if (nextRoute === "/workout-share") {
                 const params = new URLSearchParams(window.location.search);
                 const id = params.get("id");
@@ -397,8 +445,16 @@ const MainAppShell: React.FC = () => {
                 const normalized = typeof nextEventId === "string" && nextEventId.trim() ? nextEventId.trim() : undefined;
                 setActiveLiveEventId(normalized);
                 writeActiveLiveEventId(normalized, userId);
-            } else if (next === "/today") {
+            } else if (next === "/train" || next === "/today") {
                 setActiveTab("today");
+            } else if (next === "/dashboard") {
+                setActiveTab("dashboard");
+            } else if (next === "/calendar") {
+                setActiveTab("calendar");
+            } else if (next === "/plan") {
+                setActiveTab("plan");
+            } else if (next === "/profile") {
+                setActiveTab("profile");
             } else if (next === "/workout-share") {
                 const workoutId = e?.detail?.workoutId;
                 if (typeof workoutId === "string" && workoutId.trim()) setShareWorkoutId(workoutId.trim());
@@ -420,6 +476,16 @@ const MainAppShell: React.FC = () => {
             window.removeEventListener("trainq:navigate", onCustomNavigate as EventListener);
         };
     }, [userId]);
+
+    // Redirect root to /train
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (window.location.pathname === "/") {
+            replaceRoute("/train");
+            setRoute("/train");
+            setActiveTab("today");
+        }
+    }, []);
 
     const openWorkoutShare = useCallback(
         (workoutId: string, returnTo: "dashboard" | "profile" = "dashboard") => {
@@ -448,20 +514,13 @@ const MainAppShell: React.FC = () => {
         };
     }, [isPro]);
 
-    const [hasActiveWorkout, setHasActiveWorkout] = useState<boolean>(() => {
-        const a = getActiveLiveWorkout();
-        return !!a?.isActive && a?.isMinimized === true;
-    });
+    const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
+    // ✅ CRITICAL FIX: MiniPlayer works globally whenever training is active but NOT on screen
+    // We ignore 'isMinimized' flag because if we are not on the route, it IS effectively minimized.
+    const hasActiveWorkout = !!activeWorkout?.isActive;
 
-    useEffect(() => {
-        const t = window.setInterval(() => {
-            const a = getActiveLiveWorkout();
-            setHasActiveWorkout(!!a?.isActive && a?.isMinimized === true);
-        }, 500);
-        return () => window.clearInterval(t);
-    }, []);
-
-    const showMiniBar = route !== "/live-training" && hasActiveWorkout;
+    // Logic: Show if workout is active AND we are NOT on the full-screen live page
+    const showMiniBar = hasActiveWorkout && route !== "/live-training";
 
     const isSwipeBlocked = useCallback(() => {
         if (paywallOpen) return true;
@@ -470,9 +529,9 @@ const MainAppShell: React.FC = () => {
         return !!document.querySelector('[data-overlay-open="true"]');
     }, [paywallOpen]);
 
-    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "profile"];
-    const isTabRoute = route === "/" || route === "/today";
-    const tabSwipeEnabled = route === "/" && profileScreen === "profile";
+    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
+    const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/profile";
+    const tabSwipeEnabled = isTabRoute && profileScreen === "profile" && !paywallOpen;
 
     useTabSwipeNavigation({
         enabled: tabSwipeEnabled,
@@ -492,7 +551,6 @@ const MainAppShell: React.FC = () => {
 
     const maybeAutoSeedTraining = useCallback((ev: CalendarEvent) => {
         // No explicit 'any' needed if CalendarEvent is strict enough.
-        // But for safety against runtime partial objects we keep safe checks
         const isTraining = ev.type === "training";
         if (!isTraining) return;
 
@@ -507,7 +565,22 @@ const MainAppShell: React.FC = () => {
         const trainingType = String(ev.trainingType ?? "").toLowerCase() as "gym" | "laufen" | "radfahren" | "custom";
         const sport: LiveTrainingSeed["sport"] = trainingType === "laufen" ? "Laufen" : trainingType === "radfahren" ? "Radfahren" : trainingType === "custom" ? "Custom" : "Gym";
         const isCardio = trainingType === "laufen" || trainingType === "radfahren";
-        const seed: LiveTrainingSeed = { title, sport, isCardio, exercises: [] };
+
+        // Check if we have pre-planned workout data
+        const workoutData = ev.workoutData;
+        const exercises = workoutData?.exercises?.map((ex) => ({
+            id: ex.id,
+            exerciseId: ex.exerciseId,
+            name: ex.name,
+            sets: ex.sets.map((s) => ({
+                id: s.id,
+                reps: s.reps,
+                weight: s.weight,
+                notes: s.notes,
+            })),
+        })) || [];
+
+        const seed: LiveTrainingSeed = { title, sport, isCardio, exercises };
         writeLiveSeedForEventOrKey({ eventId, dateISO, title, seed });
     }, []);
 
@@ -603,8 +676,12 @@ const MainAppShell: React.FC = () => {
             activeTab={activeTab}
             onTabChange={(next) => {
                 setActiveTab(next);
-                if (next === "today") { pushRoute("/today"); setRoute("/today"); }
-                else if (route !== "/") { pushRoute("/"); setRoute("/"); }
+                if (next === "today") { pushRoute("/train"); setRoute("/train"); }
+                else if (next === "dashboard") { pushRoute("/dashboard"); setRoute("/dashboard"); }
+                else if (next === "calendar") { pushRoute("/calendar"); setRoute("/calendar"); }
+                else if (next === "plan") { pushRoute("/plan"); setRoute("/plan"); }
+                else if (next === "profile") { pushRoute("/profile"); setRoute("/profile"); }
+
                 if (next !== "profile") setProfileScreen("profile");
             }}
             showNavBar={true}

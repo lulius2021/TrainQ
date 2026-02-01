@@ -43,7 +43,7 @@ export default function LiveOverlayWidget({
 
   return (
     <div
-      className="fixed left-1/2 z-40 w-[92vw] max-w-[420px] -translate-x-1/2"
+      className="fixed left-1/2 z-50 w-[92vw] max-w-[420px] -translate-x-1/2"
       style={rootStyle}
       onClick={onTap}
       role="button"

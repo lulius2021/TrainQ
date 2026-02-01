@@ -1,6 +1,6 @@
 // src/pages/CalendarPage.tsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { useI18n } from "../i18n/useI18n";
+import { useI18n } from "../i18n/useI18n"; // Kept for formatDate if needed, otherwise remove if only t() was used
 import type { CalendarEvent, NewCalendarEvent, TrainingType } from "../types/training";
 import type { TrainingPlanTemplate, TrainingTemplate } from "../types/trainingTemplates";
 
@@ -12,8 +12,10 @@ import { loadTrainingPlanTemplates } from "../services/trainingPlanTemplatesServ
 import { getTrainingTemplateById, loadTrainingTemplates } from "../services/trainingTemplatesService";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
+import { AddEventModal } from "../components/calendar/AddEventModal";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import { EVENT_CATEGORIES } from "../constants/events";
 
 // ✅ Plan-Seed -> LiveTraining (Preview + Start)
 import {
@@ -219,7 +221,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   isPro = false,
 }) => {
   const { isPro: isProEntitlements, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining, canUseShift, consumeShift } = useEntitlements();
-  const { t } = useI18n();
+  // removed t, kept hook if needed for date formatting, but logic below uses native Date
   const effectiveIsPro = isProEntitlements || isPro;
   const requirePro = useProGuard();
 
@@ -252,7 +254,6 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   };
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [previousView, setPreviousView] = useState<ViewMode | null>(null);
   const [createMode, setCreateMode] = useState<"appointment" | "training">("appointment");
 
@@ -279,22 +280,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     return categoryLabelByKey.get(k) ?? k;
   };
 
-  const [appointmentCategory, setAppointmentCategory] = useState<AppointmentCategory>("alltag");
-
-  const [categoryCreateMode, setCategoryCreateMode] = useState<"select" | "create">("select");
-  const [newCategoryLabel, setNewCategoryLabel] = useState("");
-
-  const [trainingType, setTrainingType] = useState<TrainingType>("gym");
-
-  const [form, setForm] = useState<NewCalendarEvent>({
-    title: "",
-    description: "",
-    date: dateKey(new Date()),
-    startTime: "",
-    endTime: "",
-    type: "other",
-    notes: "",
-  });
+  // ✅ New Modal State (Mode-based)
+  const [addEventMode, setAddEventMode] = useState<'appointment' | 'training' | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
@@ -439,35 +426,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     setPreviewEvent(null);
   };
 
-  const closeCreateModal = () => {
-    setIsCreateOpen(false);
-    setCreateMode("appointment");
-    setAppointmentCategory("alltag");
-    setCategoryCreateMode("select");
-    setNewCategoryLabel("");
-    setTrainingType("gym");
-    setForm({
-      title: "",
-      description: "",
-      date: selectedKey,
-      startTime: "",
-      endTime: "",
-      type: "other",
-      notes: "",
-    });
-  };
-
-  const openCreateModal = (mode: "appointment" | "training") => {
-    setForm((prev) => ({ ...prev, date: selectedKey, startTime: "", endTime: "" }));
-    setCreateMode(mode);
-    if (mode === "appointment") {
-      setAppointmentCategory("alltag");
-      setCategoryCreateMode("select");
-      setNewCategoryLabel("");
-    } else {
-      setTrainingType("gym");
-    }
-    setIsCreateOpen(true);
+  const handleOpenAddEvent = (mode: 'appointment' | 'training') => {
+    setAddEventMode(mode);
   };
 
   const handlePreviewSave = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
@@ -483,7 +443,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   };
 
 
-  const swipeDisabled = previewOpen || infoSheetOpen || isCreateOpen || isPlusMenuOpen;
+  const swipeDisabled = previewOpen || infoSheetOpen || !!addEventMode || isPlusMenuOpen;
 
   const handleSwipePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (swipeDisabled) return;
@@ -502,7 +462,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   };
 
   useEffect(() => {
-    if (!isCreateOpen) return;
+    if (!addEventMode) return;
     const prevBodyOverflow = document.body.style.overflow;
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const scrollY = window.scrollY || window.pageYOffset;
@@ -519,7 +479,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       document.body.style.width = "";
       window.scrollTo(0, scrollY);
     };
-  }, [isCreateOpen]);
+  }, [addEventMode]);
 
   const handleSwipePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const state = swipeRef.current;
@@ -548,40 +508,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   // -------------------- Event erstellen --------------------
 
-  const maybeCreateCategory = (): { categoryKey?: string } => {
-    if (createMode !== "appointment") return {};
-
-    if (categoryCreateMode === "select") {
-      return { categoryKey: appointmentCategory };
-    }
-
-    const label = normalizeTitle(newCategoryLabel);
-    if (!label) return { categoryKey: appointmentCategory };
-
-    const keyBase = slugifyCategoryLabel(label);
-
-    let key = keyBase;
-    let n = 2;
-    while (categoryLabelByKey.has(key)) {
-      key = `${keyBase}-${n}`;
-      n++;
-    }
-
-    const next = dedupCategories([...customCategories, { key, label }]);
-    setCustomCategories(next);
-
-    setAppointmentCategory(key);
-    setCategoryCreateMode("select");
-    setNewCategoryLabel("");
-
-    return { categoryKey: key };
-  };
-
-  const handleCreateEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!normalizeTitle(form.title)) return;
-
-    const isBeyond7Days = !isWithinDaysAhead(form.date, 7);
+  const handleSaveNewEvent = (payload: NewCalendarEvent) => {
+    const isBeyond7Days = !isWithinDaysAhead(payload.date, 7);
 
     if (!effectiveIsPro && isBeyond7Days) {
       const allowed = canUseCalendar7();
@@ -591,35 +519,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       }
     }
 
-    const finalType: NewCalendarEvent["type"] = createMode === "training" ? "training" : "other";
-
-    const extra: any = {};
-    if (createMode === "appointment") {
-      const created = maybeCreateCategory();
-      extra.category = created.categoryKey ?? appointmentCategory;
-    } else {
-      extra.trainingType = trainingType;
-      extra.trainingStatus = "open";
-
-      // ✅ Seed wird NACH Event-Erstellung in App.tsx geschrieben (mit eventId)
-      // Hier NICHT schreiben, da eventId noch nicht existiert
-    }
-
-    onAddEvent({
-      ...form,
-      ...extra,
-      type: finalType,
-      title: normalizeTitle(form.title),
-      description: normalizeTitle(form.description),
-      notes: normalizeTitle(form.notes),
-      endTime: createMode === "training" ? "" : normalizeTitle((form as any).endTime),
-      startTime: normalizeTitle((form as any).startTime),
-    });
+    onAddEvent(payload);
 
     if (!effectiveIsPro && isBeyond7Days) consumeCalendar7();
-
-    setForm((prev) => ({ ...prev, title: "", description: "", notes: "" }));
-    setIsCreateOpen(false);
   };
 
   const handleDelete = (id: string) => {
@@ -686,7 +588,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     onUpdateEvents(res.nextEvents);
     if (!effectiveIsPro) consumeShift();
     setIsPlusMenuOpen(false);
-    alert(t("calendar.shift.success"));
+    alert("Plan erfolgreich um 1 Tag verschoben.");
   };
 
   // -------------------- Info Sheet --------------------
@@ -716,7 +618,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     <>
 
       <div className="w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-[var(--nav-height)] space-y-2">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-40 space-y-2">
           {/* Header */}
           <div className="mb-2">
             <h1 className="text-3xl font-bold text-white tracking-tight">Kalender</h1>
@@ -754,7 +656,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 size="sm"
                 className={viewMode === "day" ? "" : "text-[var(--muted)]"}
               >
-                {t("calendar.view.day")}
+                Tag
               </AppButton>
               <AppButton
                 onClick={() => setViewMode("week")}
@@ -762,7 +664,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 size="sm"
                 className={viewMode === "week" ? "" : "text-[var(--muted)]"}
               >
-                {t("calendar.view.week")}
+                Woche
               </AppButton>
               <AppButton
                 onClick={() => setViewMode("month")}
@@ -770,7 +672,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 size="sm"
                 className={viewMode === "month" ? "" : "text-[var(--muted)]"}
               >
-                {t("calendar.view.month")}
+                Monat
               </AppButton>
             </div>
             <AppButton
@@ -778,9 +680,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               variant="secondary"
               size="sm"
               className="shrink-0"
-              title={viewMode === "day" ? t("calendar.today") : t("calendar.todayOpenDay")}
+              title={viewMode === "day" ? "Heute" : "Heute öffnen"}
             >
-              {t("calendar.today")}
+              Heute
             </AppButton>
           </div>
           <AppCard
@@ -846,6 +748,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
                             // Visual Logic
                             let dotClass = "bg-[var(--muted)]"; // default other
+
+                            if (!isTraining) {
+                              const cat = EVENT_CATEGORIES.find(c => c.id === (ev as any).category);
+                              if (cat) dotClass = cat.color;
+                            }
 
                             if (isTraining) {
                               if (isDone) {
@@ -971,7 +878,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     {eventsForSelectedDay.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center bg-[var(--surface)]">
                         <p className="text-base text-[var(--muted)]">Keine Einträge für diesen Tag</p>
-                        <button onClick={() => openCreateModal("training")} className="mt-2 text-sm text-[#007AFF] font-medium hover:underline">Training hinzufügen</button>
+                        <button onClick={() => handleOpenAddEvent("training")} className="mt-2 text-sm text-[#007AFF] font-medium hover:underline">Training hinzufügen</button>
                       </div>
                     ) : (
                       eventsForSelectedDay.map((ev) => {
@@ -989,7 +896,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           else barColor = "bg-orange-500"; // Custom
                         } else {
                           // Appointments
-                          barColor = "bg-emerald-500";
+                          const cat = EVENT_CATEGORIES.find(c => c.id === (ev as any).category);
+                          barColor = cat ? cat.color : "bg-emerald-500";
                         }
 
                         // Badge / Status
@@ -1055,20 +963,20 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           </AppCard>
 
           {/* FAB mit Plus-Menü - Global Fixed */}
-          <div className="fixed bottom-[110px] right-4 z-40 flex flex-col items-end gap-3 pointer-events-none">
+          <div className="fixed bottom-[110px] right-4 z-50 flex flex-col items-end gap-3 pointer-events-none">
             {isPlusMenuOpen && (
               <div className="pointer-events-auto mb-2 min-w-[180px] overflow-hidden rounded-2xl border-[1.5px] border-[var(--border)] bg-[var(--surface2)] shadow-2xl backdrop-blur-xl">
-                <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
+                <button type="button" onClick={() => { setIsPlusMenuOpen(false); handleOpenAddEvent("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
                   Termin anlegen
                 </button>
                 <div className="h-px bg-[var(--border)]" />
-                <button type="button" onClick={() => { setIsPlusMenuOpen(false); openCreateModal("training"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
+                <button type="button" onClick={() => { setIsPlusMenuOpen(false); handleOpenAddEvent("training"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
                   Training anlegen
                 </button>
                 {onUpdateEvents && (<>
                   <div className="h-px bg-[var(--border)]" />
                   <button type="button" onClick={handlePlanShift} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
-                    {t("calendar.shiftPlan")}
+                    Plan verschieben
                   </button>
                 </>)}
               </div>
@@ -1115,25 +1023,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
         </div>
       )}
 
-      {/* Modal: Termin / Training erstellen */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" data-overlay-open="true">
-          <AppCard variant="glass" className="w-full max-w-md max-h-[85vh] flex flex-col p-0">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h2 className="text-lg font-semibold text-[var(--text)]">{createMode === "training" ? "Training anlegen" : "Termin anlegen"}</h2>
-              <AppButton onClick={closeCreateModal} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 scale-[1.01]"> {/* slightly reset scale context if needed */}
-              <form onSubmit={handleCreateEvent} className="space-y-4">
-                {/* ... form fields with glass styling ... */}
-                <div className="flex justify-end gap-3 pt-2">
-                  <AppButton type="button" onClick={closeCreateModal} variant="secondary">Abbrechen</AppButton>
-                  <AppButton type="submit" variant="primary">Speichern</AppButton>
-                </div>
-              </form>
-            </div>
-          </AppCard>
-        </div>
+      {/* Unified Add Event Modal */}
+      {addEventMode && (
+        <AddEventModal
+          isOpen={!!addEventMode}
+          onClose={() => setAddEventMode(null)}
+          initialDate={selectedKey}
+          mode={addEventMode}
+          onSave={handleSaveNewEvent}
+        />
       )}
     </>
   );

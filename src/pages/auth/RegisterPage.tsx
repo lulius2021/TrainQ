@@ -1,87 +1,120 @@
 // src/pages/auth/RegisterPage.tsx
 import React, { useState } from "react";
-import { AuthInput } from "../../components/auth/AuthInput";
-import { AuthButton } from "../../components/auth/AuthButton";
-import { useAuth } from "../../hooks/useAuth";
-import { useI18n } from "../../i18n/useI18n";
+import { AuthInput } from "../../components/auth/AuthInput.tsx";
+import { AuthButton } from "../../components/auth/AuthButton.tsx";
+import { useAuth } from "../../hooks/useAuth.ts";
 
-interface Props {
-  onGoToLogin?: () => void;
+interface RegisterPageProps {
+  onGoToLogin: () => void;
 }
 
-const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
+const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const { register } = useAuth();
-  const { t } = useI18n();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [repeatPassword, setRepeatPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // New onboarding logic: Name
+  const [name, setName] = useState("");
 
-    if (password !== repeatPassword) {
-      setError(t("auth.register.passwordMismatch"));
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) {
+      setError("Passwörter stimmen nicht überein.");
       return;
     }
-
     setError(null);
     setBusy(true);
 
     try {
-      const res: any = await register(email, password);
-      if (res && res.ok === false) {
-        setError(res.error || t("auth.register.error"));
+      const res = await register(email, password, { full_name: name });
+      if (!res.ok) {
+        setError(res.error || "Registrierung fehlgeschlagen.");
       } else {
-        // optional: nach erfolgreicher Registrierung zurück zum Login
-        onGoToLogin?.();
+        if (!res.session) {
+          alert("Konto erstellt! Bitte E-Mail bestätigen.");
+          onGoToLogin();
+        }
+        // If session exists, AppRouter handles redirect
       }
+    } catch (err: any) {
+      setError(err?.message || "Ein unbekannter Fehler ist aufgetreten.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-black/40 p-5 shadow-xl shadow-black/40">
-        <div className="mb-4">
-          <div className="text-lg font-semibold text-white">{t("auth.register.title")}</div>
-        </div>
+    <div className="min-h-screen flex flex-col justify-center bg-[var(--bg)] px-6 py-12 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-white">
+          Konto erstellen
+        </h2>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthInput label={t("auth.email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <AuthInput
-            label={t("auth.password")}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <AuthInput
-            label={t("auth.register.repeatPassword")}
-            type="password"
-            value={repeatPassword}
-            onChange={(e) => setRepeatPassword(e.target.value)}
-            required
-            error={error ?? undefined}
-          />
+      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+          <form className="space-y-6" onSubmit={handleRegister}>
+            {error && (
+              <div className="p-3 text-sm text-red-200 bg-red-900/40 border border-red-500/50 rounded-lg">
+                {error}
+              </div>
+            )}
 
-          <div className="text-[11px] text-white/45">
-            {t("auth.register.terms")}
-          </div>
+            <AuthInput
+              label="Name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Dein Name"
+            />
 
-          <AuthButton type="submit" disabled={busy}>
-            {busy ? t("auth.register.loading") : t("auth.register.submit")}
-          </AuthButton>
-        </form>
+            <AuthInput
+              label="E-Mail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
 
-        <div className="mt-4 text-xs text-center text-white/60">
-          {t("auth.register.already")}{" "}
-          <button type="button" onClick={onGoToLogin} className="text-blue-400 hover:text-blue-300">
-            {t("auth.register.login")}
-          </button>
+            <AuthInput
+              label="Passwort"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            <AuthInput
+              label="Passwort wiederholen"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+
+            <div className="text-xs text-gray-400">
+              Durch die Registrierung stimmst du unseren Nutzungsbedingungen und Datenschutzrichtlinien zu.
+            </div>
+
+            <div>
+              <AuthButton type="submit" disabled={busy}>
+                {busy ? "Erstelle Konto..." : "Registrieren"}
+              </AuthButton>
+            </div>
+          </form>
+
+          <p className="mt-10 text-center text-sm text-gray-400">
+            Bereits ein Konto?{" "}
+            <button
+              onClick={onGoToLogin}
+              className="font-semibold leading-6 text-[#007AFF] hover:text-[#0056b3]"
+            >
+              Anmelden
+            </button>
+          </p>
         </div>
       </div>
     </div>

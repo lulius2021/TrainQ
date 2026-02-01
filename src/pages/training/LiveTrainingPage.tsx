@@ -23,12 +23,15 @@ import type {
 } from "../../types/training";
 
 import ExerciseEditor from "../../components/training/ExerciseEditor";
+import { LiveStatsPanel } from "../../components/training/LiveStatsPanel";
+import { LiveStatsOverlay } from "../../components/training/LiveStatsOverlay";
 import RestTimerBar from "../../components/training/RestTimerBar";
 import ExerciseLibraryModal from "../../components/training/ExerciseLibraryModal";
-import ExerciseDetailsModal from "../../components/exercises/ExerciseDetailsModal";
+import ExerciseInfoModal from "../../components/exercises/ExerciseInfoModal";
 import { BottomSheet } from "../../components/common/BottomSheet";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { EXERCISES } from "../../data/exerciseLibrary";
+import { getCustomExercises } from "../../utils/customExercisesStore";
 
 import {
   readGlobalLiveSeed,
@@ -49,11 +52,13 @@ import {
   getLastSetsForExercise,
 } from "../../utils/trainingHistory";
 
+import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
 import { formatMmSs } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
+import { LiveActivity } from "capacitor-live-activity"; // Import requested by prompt
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 
 type LiveTrainingPageProps = {
@@ -65,6 +70,9 @@ type LiveTrainingPageProps = {
   onMinimize?: () => void;
   onShareWorkout?: (workoutId: string) => void;
 };
+
+// --- FORCE LIVE ACTIVITY START (DEBUG) ---
+
 
 class LiveTrainingErrorBoundary extends React.Component<
   { onExit: () => void; children: React.ReactNode },
@@ -85,10 +93,10 @@ class LiveTrainingErrorBoundary extends React.Component<
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
-      <div className="flex h-screen w-screen items-center justify-center px-4 bg-[var(--bg)] text-[var(--text)]">
+      <div className="flex h-screen w-screen items-center justify-center px-4 bg-zinc-950 text-white">
         <AppCard className="w-full max-w-md text-center">
           <div className="text-sm font-semibold">Live-Training ist abgestürzt.</div>
-          <div className="mt-2 text-xs text-[var(--muted)]">
+          <div className="mt-2 text-xs text-zinc-400">
             {this.state.errorMessage || "Bitte erneut versuchen."}
           </div>
           <AppButton
@@ -208,6 +216,91 @@ export default function LiveTrainingPage({
 
   const [workout, setWorkout] = useState<LiveWorkout | null>(null);
   const [initDone, setInitDone] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+
+  // --- Quick Stats Logic for Action Sheet ---
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!workout?.startedAt) return;
+    const start = new Date(workout.startedAt).getTime();
+    if (isNaN(start)) return;
+
+    setElapsedMs(Date.now() - start); // Init
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - start);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [workout?.startedAt]);
+
+  const quickStats = useMemo(() => {
+    let sets = 0;
+    let volume = 0;
+    workout?.exercises.forEach((ex) => {
+      ex.sets.forEach((s) => {
+        if (s.completed) {
+          sets++;
+          const w = s.weight || 0;
+          const r = s.reps || 0;
+          volume += w * r;
+        }
+      });
+    });
+    return { sets, volume };
+  }, [workout]);
+
+  const formatQuickDuration = (ms: number) => {
+    const sec = Math.floor((ms / 1000) % 60);
+    const min = Math.floor((ms / 1000 / 60) % 60);
+    const hrs = Math.floor(ms / 1000 / 3600);
+    if (hrs > 0) return `${hrs}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+    return `${min}:${String(sec).padStart(2, "0")}`;
+  };
+
+  // --- LIVE ACTIVITY LOGIC (SIMPLIFIED) ---
+  const startLiveActivity = async () => {
+    try {
+      const currentExercise = workout?.exercises[0]; // fallback to first ex
+      const exName = currentExercise?.name || "Training läuft";
+      const setTxt = "Satz 1";
+
+      await LiveActivity.startActivity({
+        id: "TRAINQ_LIVE_WORKOUT",
+        attributes: {}, // EMPTY as requested
+        contentState: {
+          exerciseName: exName,
+          setInfo: setTxt,
+          progressValue: 0.0
+        } as any,
+      });
+      console.log("✅ Widget gestartet");
+    } catch (e) {
+      console.error("❌ Widget Fehler:", e);
+    }
+  };
+
+  const endLiveActivity = async () => {
+    try {
+      await LiveActivity.endActivity({
+        id: "TRAINQ_LIVE_WORKOUT",
+        contentState: {
+          exerciseName: "Training beendet",
+          setInfo: "Fertig",
+          progressValue: 1.0
+        } as any
+      });
+    } catch (e) { }
+  };
+
+  useEffect(() => {
+    // Start automatically on mount
+    startLiveActivity();
+
+    return () => {
+      endLiveActivity();
+    };
+  }, []);
+  // ---------------------------------
   const [initError, setInitError] = useState<string | null>(null);
 
   const [elapsedSec, setElapsedSec] = useState<number>(0);
@@ -260,6 +353,14 @@ export default function LiveTrainingPage({
     };
 
     try {
+      // ✅ 0. CHECK ZUSTAND STORE FIRST (Priority)
+      const storedWorkout = useLiveTrainingStore.getState().activeWorkout;
+      if (storedWorkout && storedWorkout.isActive) {
+        log("Resuming from Zustand Store", storedWorkout.id);
+        setAndMark(storedWorkout);
+        return;
+      }
+
       const active = getActiveLiveWorkout();
       const isReallyActive = !!active && active.isActive === true;
       const matchesEvent = !eventId ? true : String(active?.calendarEventId || "") === String(eventId);
@@ -375,6 +476,8 @@ export default function LiveTrainingPage({
       return (
         acc +
         (ex.sets || []).reduce((setAcc, set) => {
+          // NUR wenn abgehakt, zähle dazu
+          if (!set.completed) return setAcc;
           const reps = typeof set.reps === "number" ? set.reps : 0;
           const weight = typeof set.weight === "number" ? set.weight : 0;
           return setAcc + reps * weight;
@@ -394,18 +497,32 @@ export default function LiveTrainingPage({
   }, [workout]);
 
   // -------- Modals / Sheets --------
-  const [previewExerciseLibraryId, setPreviewExerciseLibraryId] = useState<string | null>(null);
+  const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
   const [timerEditExerciseId, setTimerEditExerciseId] = useState<string | null>(null);
-
-  const previewExercise = useMemo(() => {
-    if (!previewExerciseLibraryId) return null;
-    return EXERCISES.find(e => e.id === previewExerciseLibraryId) ?? null;
-  }, [previewExerciseLibraryId]);
 
   const handleOpenDetails = (liveExerciseId: string) => {
     if (!workout) return;
-    const ex = workout.exercises.find(e => e.id === liveExerciseId);
-    if (ex?.exerciseId) setPreviewExerciseLibraryId(ex.exerciseId);
+
+    // 1. Active Workout Exercise finden
+    const workoutExercise = workout.exercises.find(e => e.id === liveExerciseId);
+    if (!workoutExercise) return;
+
+    // 2. Suche im Library Store (Beste Quelle für Bilder)
+    let fullExercise = EXERCISES.find(e => e.id === workoutExercise.exerciseId);
+
+    // 3. Wenn nicht im static store, suche in den Custom Exercises
+    if (!fullExercise) {
+      const customExercises = getCustomExercises();
+      fullExercise = customExercises.find(e => e.id === workoutExercise.exerciseId);
+    }
+
+    // 4. Fallback: Nimm das Workout-Exercise-Objekt als Exercise (hat meist name, etc.)
+    const finalExercise = (fullExercise || workoutExercise) as unknown as Exercise;
+
+    // Debug log to confirm image source
+    console.log("Opening details for:", finalExercise.name, "ID:", finalExercise.id, "Image:", finalExercise.image || finalExercise.imageSrc);
+
+    setPreviewExercise(finalExercise);
   };
 
   const handleOpenTimer = (liveExerciseId: string) => {
@@ -520,6 +637,7 @@ export default function LiveTrainingPage({
       cardioDistance,
       activeExercise,
       activeSet,
+      activeSetIndex,
     };
   }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]);
 
@@ -645,10 +763,12 @@ export default function LiveTrainingPage({
   }, [activeRest]);
 
   // ✅ Persist Active Workout bei jeder Änderung (nur solange aktiv)
+  // Syncs to BOTH: legacy (utils) and Zustand (store)
   useEffect(() => {
     if (!workout) return;
     if (!workout.isActive) return;
     persistActiveLiveWorkout(workout);
+    useLiveTrainingStore.getState().updateWorkout(workout); // ✅ Sync to Store
   }, [workout]);
 
   // ✅ Scroll Effect
@@ -821,18 +941,47 @@ export default function LiveTrainingPage({
 
   const buildLiveActivityPayload = useCallback((): LiveActivityPayload | null => {
     if (!workout || !overlayData) return null;
-    const badge = workout.sport === "Laufen" ? "RUN" : workout.sport === "Radfahren" ? "BIKE" : workout.sport === "Gym" ? "GYM" : "WORKOUT";
-    const avatarLetter = (workout.title || "W").trim().slice(0, 1).toUpperCase();
-    const deepLink = `trainq://live?workoutId=${workout.id}`;
+
+    const exercises = workout.exercises;
+    const activeExerciseIndex = overlayData.activeExercise ? exercises.indexOf(overlayData.activeExercise) : -1;
+    const currentEx = activeExerciseIndex !== -1 ? exercises[activeExerciseIndex] : null;
+
+    if (!currentEx) {
+      return {
+        exerciseName: workout.title || "Training",
+        setInfo: "Training läuft",
+        nextSet: "",
+        progress: 0,
+      };
+    }
+
+    const totalSets = currentEx.sets?.length || 0;
+    // Current completed sets
+    const completedSets = (currentEx.sets || []).filter((s) => s.completed).length;
+    const progress = totalSets > 0 ? completedSets / totalSets : 0;
+
+    // Set info
+    const setNumber = (overlayData.activeSetIndex ?? 0) + 1;
+    const currentSetInfo = `Satz ${setNumber} von ${totalSets}`;
+
+    // Next set info
+    let nextSetInfo = "Übung abgeschlossen";
+    if (overlayData.activeSetIndex !== undefined && overlayData.activeSetIndex + 1 < totalSets) {
+      const nextSet = currentEx.sets![overlayData.activeSetIndex + 1];
+      if (nextSet) {
+        const w = nextSet.weight ? `${nextSet.weight}kg` : "";
+        const r = nextSet.reps ? `${nextSet.reps} Wdh` : "";
+        nextSetInfo = `Nächstes: ${w} ${w && r ? "x" : ""} ${r}`.trim();
+      }
+    } else if (completedSets < totalSets) {
+      nextSetInfo = "Nächster Satz wartet";
+    }
+
     return {
-      workoutId: workout.id,
-      badge,
-      title: workout.title || workout.sport,
-      subtitle: overlayData.overlaySubtitle,
-      primaryLine: overlayData.overlayPrimaryText,
-      avatarLetter,
-      deepLink,
-      updatedAt: Date.now(),
+      exerciseName: currentEx.name || "Übung",
+      setInfo: currentSetInfo,
+      nextSet: nextSetInfo,
+      progress,
     };
   }, [workout, overlayData]);
 
@@ -872,6 +1021,7 @@ export default function LiveTrainingPage({
     const completed = completeLiveWorkout(workout);
     markCalendarEvent("completed", completed.id);
     clearLiveTrainingState();
+    useLiveTrainingStore.getState().finishWorkout(); // ✅ Clear Store
     if (typeof onShareWorkout === "function") {
       onShareWorkout(completed.id);
     } else {
@@ -886,6 +1036,7 @@ export default function LiveTrainingPage({
     }
     abortLiveWorkout(workout);
     clearLiveTrainingState();
+    useLiveTrainingStore.getState().cancelWorkout(); // ✅ Clear Store
     onExit();
   };
 
@@ -965,178 +1116,208 @@ export default function LiveTrainingPage({
   const overlayRightTopText = overlayData?.overlayRightTopText;
 
   return (
-    <LiveTrainingErrorBoundary onExit={onExit}>
-      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
-        {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
-        {/* ✅ FIXED HEADER - using PageHeader for consistency */}
-        <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10">
-          <div className="px-4 pb-2" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
-            <PageHeader
-              title={elapsedText}
-              className="py-0 pb-2"
-              rightAction={
-                <AppButton
-                  onClick={finishTraining}
-                  variant="primary"
-                  size="sm"
-                  className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
-                >
-                  Beenden
-                </AppButton>
-              }
-            />
-            {/* <RestTimerBar> removed, moving logic to ExerciseEditor */}
+    <>
+      <LiveTrainingErrorBoundary onExit={onExit}>
+        <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
+          {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
+          {/* ✅ FIXED HEADER - using PageHeader for consistency */}
+          <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10">
+            <div className="px-4 pb-2" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
+              <PageHeader
+                title={elapsedText}
+                className="py-0 pb-2"
+                rightAction={
+                  <AppButton
+                    onClick={finishTraining}
+                    variant="primary"
+                    size="sm"
+                    className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
+                  >
+                    Beenden
+                  </AppButton>
+                }
+              />
+              {/* <RestTimerBar> removed, moving logic to ExerciseEditor */}
+            </div>
           </div>
-        </div>
 
-        {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
-        <main
-          ref={mainRef}
-          className="flex-1 min-h-0 overflow-y-auto px-4"
-          style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
-        >
-          <div className="py-4 max-w-5xl mx-auto w-full">
-            {exercises.length === 0 ? (
-              <AppCard variant="soft" className="p-5 text-center">
-                <div className="text-base text-[var(--muted)] mb-4">
-                  Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
-                </div>
-                <AppButton onClick={() => setLibraryOpen(true)} className="w-full" variant="secondary">
-                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
-                </AppButton>
-              </AppCard>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {exercises.map((ex, exIdx) => (
-                  <div key={`${ex.id}-${exIdx}`} ref={(node) => { exerciseRefs.current[ex.id] = node; }}>
-                    <ExerciseEditor
-                      exercise={ex}
-                      history={historyByExerciseLocalId.get(ex.id) ?? null}
-                      isCardio={isCardioWorkout}
-                      activeRest={activeRest}
-                      restRemainingSec={restRemainingSec ?? undefined}
-                      onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
-                      onRemove={() => removeExercise(ex.id)}
-                      onAddSet={() => addSet(ex.id)}
-                      onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
-                      onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
-                      onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
-                      onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
-                      onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
-                      onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
-                      onOpenExerciseDetails={handleOpenDetails}
-                      onOpenTimer={handleOpenTimer}
-                    />
+          {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
+          <main
+            ref={mainRef}
+            className="flex-1 min-h-0 overflow-y-auto px-4"
+            style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
+          >
+            <div className="py-4 max-w-5xl mx-auto w-full">
+              {/* ✅ HUD / STATS PANEL */}
+              <div className="-mx-4 mb-4 sticky -top-4 z-40">
+                <LiveStatsPanel workout={workout} onOpenOverlay={() => setStatsOpen(true)} />
+              </div>
+
+              {exercises.length === 0 ? (
+                <AppCard variant="soft" className="p-5 text-center">
+                  <div className="text-base text-[var(--muted)] mb-4">
+                    Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
                   </div>
-                ))}
+                  <AppButton onClick={() => setLibraryOpen(true)} className="w-full" variant="secondary">
+                    + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                  </AppButton>
+                </AppCard>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {exercises.map((ex, exIdx) => (
+                    <div key={`${ex.id}-${exIdx}`} ref={(node) => { exerciseRefs.current[ex.id] = node; }}>
+                      <ExerciseEditor
+                        exercise={ex}
+                        history={historyByExerciseLocalId.get(ex.id) ?? null}
+                        isCardio={isCardioWorkout}
+                        activeRest={activeRest}
+                        restRemainingSec={restRemainingSec ?? undefined}
+                        onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
+                        onRemove={() => removeExercise(ex.id)}
+                        onAddSet={() => addSet(ex.id)}
+                        onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
+                        onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
+                        onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
+                        onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
+                        onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
+                        onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
+                        onOpenExerciseDetails={handleOpenDetails}
+                        onOpenTimer={handleOpenTimer}
+                      />
+                    </div>
+                  ))}
 
-                <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]">
-                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                  <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]">
+                    + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                  </AppButton>
+                </div>
+              )}
+            </div>
+          </main>
+
+          {/* ✅ FIXED FOOTER */}
+          {/* ✅ FIXED FOOTER */}
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+            <div className="mx-auto w-full max-w-5xl">
+              <div className="mb-2">
+                {/* QUICK STATS ROW */}
+                <div className="bg-zinc-900/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800">
+                  {/* 1. ZEIT */}
+                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 h-10">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Zeit</span>
+                    <span className="text-white font-mono text-lg leading-none mt-1">{formatQuickDuration(elapsedMs)}</span>
+                  </div>
+
+                  {/* 2. SÄTZE */}
+                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 h-10">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Sätze</span>
+                    <span className="text-blue-400 font-bold text-lg leading-none mt-1">{quickStats.sets}</span>
+                  </div>
+
+                  {/* 3. VOLUMEN */}
+                  <div className="flex flex-col items-center justify-center h-10">
+                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Volumen</span>
+                    <span className="text-emerald-400 font-bold text-lg leading-none mt-1">{(quickStats.volume / 1000).toFixed(1)}t</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12">
+                  Minimieren
+                </AppButton>
+                <AppButton onClick={abortAndExit} variant="ghost" className="flex-1 h-12 text-red-400 hover:bg-red-500/10 hover:text-red-500" title="Training abbrechen">
+                  Abbrechen
                 </AppButton>
               </div>
-            )}
-          </div>
-        </main>
-
-        {/* ✅ FIXED FOOTER */}
-        {/* ✅ FIXED FOOTER */}
-        <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
-          <div className="mx-auto w-full max-w-5xl">
-            <div className="mb-2 flex items-center justify-center gap-4 text-sm text-[var(--muted)]">
-              {!isCardioWorkout && (<> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
-              <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
-              <span>•</span>
-              <span>Zeit: {elapsedText}</span>
-            </div>
-            <div className="flex gap-3">
-              <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12">
-                Minimieren
-              </AppButton>
-              <AppButton onClick={abortAndExit} variant="ghost" className="flex-1 h-12 text-red-400 hover:bg-red-500/10 hover:text-red-500" title="Training abbrechen">
-                Abbrechen
-              </AppButton>
             </div>
           </div>
-        </div>
 
-        <ExerciseLibraryModal
-          open={libraryOpen}
-          onClose={() => setLibraryOpen(false)}
-          isCardioLibrary={isCardioWorkout}
-          onPick={(ex) => {
-            addExerciseDirect({ exerciseId: ex.id, name: ex.name });
-            setLibraryOpen(false);
-          }}
-          existingExerciseIds={exercises.map(e => e.exerciseId).filter(Boolean) as string[]}
-        />
+          <ExerciseLibraryModal
+            open={libraryOpen}
+            onClose={() => setLibraryOpen(false)}
+            category={workout?.sport === "Laufen" ? "running" : workout?.sport === "Radfahren" ? "cycling" : "gym"}
+            onPick={(ex) => {
+              addExerciseDirect({ exerciseId: ex.id, name: ex.name });
+              setLibraryOpen(false);
+            }}
+            existingExerciseIds={exercises.map(e => e.exerciseId).filter(Boolean) as string[]}
+          />
 
-        <PlateCalculatorSheet
-          open={plateSheetOpen}
-          onClose={() => setPlateSheetOpen(false)}
-          onApply={applyPlatesWeight}
-        />
+          {workout && (
+            <LiveStatsOverlay
+              isOpen={statsOpen}
+              onClose={() => setStatsOpen(false)}
+              workout={workout}
+              historyMap={historyByExerciseLocalId}
+            />
+          )}
 
-        <KeyboardAccessoryBar
-          visible={keyboardOpen && !plateSheetOpen}
-          keyboardHeight={keyboardHeight}
-          rightButton={
-            platesEnabled ? (
-              <AppButton
-                onClick={openPlates}
-                variant="primary"
-                size="sm"
-                className="rounded-full shadow-lg"
-              >
-                Scheiben
-              </AppButton>
-            ) : (
-              <AppButton
-                onClick={() => (document.activeElement as HTMLElement)?.blur()}
-                variant="secondary"
-                size="sm"
-                className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
-              >
-                Fertig
-              </AppButton>
-            )
-          }
-        />
+          <PlateCalculatorSheet
+            open={plateSheetOpen}
+            onClose={() => setPlateSheetOpen(false)}
+            onApply={applyPlatesWeight}
+          />
 
-        <ExerciseDetailsModal
-          open={!!previewExercise}
-          exercise={previewExercise}
-          isAdded={true}
-          onClose={() => setPreviewExerciseLibraryId(null)}
-          onAdd={() => { }}
-        />
-
-        <BottomSheet
-          open={!!timerEditExerciseId}
-          onClose={() => setTimerEditExerciseId(null)}
-          height="auto"
-          variant="docked"
-          backdropClassName="bg-black/80"
-          sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
-        >
-          <div className="p-4 pb-8 space-y-4">
-            <h3 className="text-center font-bold text-white mb-4">Pausenzeit Einstellung</h3>
-            <div className="grid grid-cols-4 gap-3">
-              {[30, 60, 90, 120, 150, 180, 240, 300].map(sec => (
-                <button
-                  key={sec}
-                  onClick={() => handleSetRestTime(sec)}
-                  className={`h-12 rounded-xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
-                    ? "bg-[#007AFF] text-white"
-                    : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
-                    }`}
+          <KeyboardAccessoryBar
+            visible={keyboardOpen && !plateSheetOpen}
+            keyboardHeight={keyboardHeight}
+            rightButton={
+              platesEnabled ? (
+                <AppButton
+                  onClick={openPlates}
+                  variant="primary"
+                  size="sm"
+                  className="rounded-full shadow-lg"
                 >
-                  {sec < 60 ? `${sec}s` : formatMmSs(sec)}
-                </button>
-              ))}
+                  Scheiben
+                </AppButton>
+              ) : (
+                <AppButton
+                  onClick={() => (document.activeElement as HTMLElement)?.blur()}
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
+                >
+                  Fertig
+                </AppButton>
+              )
+            }
+          />
+
+          <ExerciseInfoModal
+            isOpen={!!previewExercise}
+            exercise={previewExercise}
+            onClose={() => setPreviewExercise(null)}
+          />
+
+          <BottomSheet
+            open={!!timerEditExerciseId}
+            onClose={() => setTimerEditExerciseId(null)}
+            height="auto"
+            variant="docked"
+            backdropClassName="bg-black/80"
+            sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            <div className="p-4 pb-8 space-y-4">
+              <h3 className="text-center font-bold text-white mb-4">Pausenzeit Einstellung</h3>
+              <div className="grid grid-cols-4 gap-3">
+                {[30, 60, 90, 120, 150, 180, 240, 300].map(sec => (
+                  <button
+                    key={sec}
+                    onClick={() => handleSetRestTime(sec)}
+                    className={`h-12 rounded-xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
+                      ? "bg-[#007AFF] text-white"
+                      : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
+                      }`}
+                  >
+                    {sec < 60 ? `${sec}s` : formatMmSs(sec)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </BottomSheet>
-      </div>
-    </LiveTrainingErrorBoundary >
+          </BottomSheet>
+        </div>
+      </LiveTrainingErrorBoundary>
+    </>
   );
 }

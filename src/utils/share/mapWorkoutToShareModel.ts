@@ -1,5 +1,6 @@
 import type { WorkoutHistoryEntry, WorkoutHistoryExercise, WorkoutHistorySet } from "../workoutHistory";
 import { EXERCISES } from "../../data/exerciseLibrary";
+import i18n from "../../i18n/config";
 
 export type WorkoutShareHighlightItem = {
   label: string;
@@ -17,6 +18,7 @@ export type WorkoutShareExercise = {
   imageSrc?: string;
   muscles?: string[];
   bestSet?: { weight: number | null; reps: number | null };
+  sets?: WorkoutHistorySet[];
   tags?: string[];
   tagsSummary?: string;
   volume?: number;
@@ -186,7 +188,6 @@ function parseHighlightItems(value: unknown): WorkoutShareHighlightItem[] | unde
 
 function resolveHighlights(raw: WorkoutHistoryEntry): WorkoutShareHighlights | undefined {
   const record = raw as Record<string, unknown>;
-  // Only consumes PR/highlight fields if they already exist on the raw payload.
   const directCount = typeof record.prsCount === "number" ? record.prsCount : undefined;
   const highlights = isRecord(record.highlights) ? record.highlights : undefined;
   const highlightCount =
@@ -202,9 +203,17 @@ function resolveHighlights(raw: WorkoutHistoryEntry): WorkoutShareHighlights | u
 }
 
 export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Locale): WorkoutShareModel {
+  const t = i18n.getFixedT(locale);
   const title = String(entry.title ?? "Workout");
   const dateISO = entry.endedAt || entry.startedAt || new Date().toISOString();
   const sportType = String(entry.sport ?? "Training");
+
+  // Translate Sport Label
+  const sportKey = `training.sport.${sportType.toLowerCase()}`;
+  const sportLabel = i18n.exists(sportKey, { lng: locale })
+    ? t(sportKey)
+    : sportType;
+
   const totalVolumeKg = computeTotalVolume(entry);
   const distanceKm = Number.isFinite(entry.distanceKm) ? entry.distanceKm : null;
   const safeExercises = safeArray<WorkoutHistoryExercise>(entry.exercises);
@@ -222,6 +231,7 @@ export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Local
       imageSrc: resolveExerciseImageSrc(ex.exerciseId),
       muscles: resolveMuscles(ex.exerciseId),
       bestSet: findBestSet(safeSets),
+      sets: safeSets,
       tags,
       tagsSummary: tags.length ? tags.join(" · ") : undefined,
       volume: computeExerciseVolume(ex),
@@ -246,7 +256,7 @@ export function mapWorkoutToShareModel(entry: WorkoutHistoryEntry, locale: Local
     dateISO,
     dateLabel: formatDateLabel(dateISO, locale),
     sportType,
-    sportLabel: sportType,
+    sportLabel,
     durationSec: Number.isFinite(entry.durationSec) ? entry.durationSec : null,
     totalVolumeKg,
     distanceKm,

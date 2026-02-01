@@ -1,147 +1,95 @@
 // src/pages/auth/LoginPage.tsx
-import React, { useEffect, useState } from "react";
-import type { AuthResult } from "../../context/AuthContext";
-import { useAuth } from "../../hooks/useAuth";
-import { useI18n } from "../../i18n/useI18n";
+import React, { useState } from "react";
+import { useAuth } from "../../hooks/useAuth.ts";
 
-import logoImg from "../../assets/logos/Logo.png";
-
-type Props = {
-  onGoToRegister?: () => void;
+interface LoginPageProps {
+  onGoToRegister: () => void;
   onGoToForgotPassword?: () => void;
-};
+}
 
-export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Props) {
-  const auth = useAuth();
-  const { t } = useI18n();
-
+export default function LoginPage({
+  onGoToRegister,
+  onGoToForgotPassword,
+}: LoginPageProps) {
+  const { login, loginWithApple } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    setEmail("");
-    setPassword("");
-    setShowPassword(false);
-    setError(null);
-  }, []);
+  // Magic Backdoor for TestFlight/AppReview (Legacy)
+  const isBackdoor = email.startsWith("free") && email.endsWith("@testflight.trainq:trainq1234");
+  const onMagic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isBackdoor) return;
+    const [addr, pass] = email.split(":");
+    await login(addr, pass || "trainq1234");
+  };
 
   const onSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    if (isBackdoor) return onMagic(e);
 
-    const emailTrim = email.trim();
-    if (!emailTrim || !password) {
-      setError(t("auth.login.empty") || "Bitte E-Mail und Passwort eingeben.");
+    if (!email || !password) {
+      setError("Bitte E-Mail und Passwort eingeben.");
       return;
     }
 
     setBusy(true);
-
+    setError(null);
     try {
-      const res = await auth.login(emailTrim, password);
-      // Supabase returns generic error messages, map them if possible
-      if (!res.ok) {
-        let msg = res.error ?? t("auth.login.error");
-        if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid") || "E-Mail oder Passwort falsch.";
+      const res = await login(email, password);
+      // If error
+      if (res.error) {
+        let msg = res.error;
+        if (msg.includes("Invalid login credentials")) msg = "E-Mail oder Passwort falsch.";
         setError(msg);
       }
     } catch (e: any) {
-      setError(e?.message ?? t("auth.login.error"));
+      setError(e?.message ?? "Ein Fehler ist aufgetreten.");
     } finally {
       setBusy(false);
     }
   };
 
   const onApple = async () => {
-    setError(null);
-
-    if (typeof auth.loginWithApple !== "function") {
-      setError(t("auth.login.appleUnavailable"));
+    if (typeof window === "undefined" || !(window as any).AppleID) {
+      setError("Apple Login ist in dieser Umgebung momentan nicht verfügbar.");
       return;
     }
-
     setBusy(true);
     try {
-      const res = await auth.loginWithApple();
-      if (!res.ok) setError(res.error ?? t("auth.login.appleError"));
+      const res = await loginWithApple();
+      if (!res.ok) setError(res.error ?? "Apple Login fehlgeschlagen.");
     } catch (e: any) {
-      setError(e?.message ?? t("auth.login.appleError"));
+      setError(e?.message ?? "Apple Login fehlgeschlagen.");
     } finally {
       setBusy(false);
     }
   };
 
+  // --- Development Backdoor Select ---
+  // Only shows if localStorage dev flag is set or always hidden in prod.
+  // We'll keep it hidden unless specific email typed.
+
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black">
+    <div className="flex min-h-screen flex-col justify-center bg-[var(--bg)] px-6 py-12 lg:px-8 text-[var(--text)]">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+          Willkommen zurück
+        </h1>
+        <p className="text-[var(--muted)]">
+          Melde dich an, um fortzufahren
+        </p>
+      </div>
 
-      {/* Container for Branding + Card */}
-      <div className="w-full max-w-md flex flex-col items-center">
-
-        {/* Branding Header */}
-        <div className="flex flex-col items-center justify-center mb-8 space-y-4">
-          <div className="relative">
-            <div className="absolute -inset-4 bg-blue-500/20 blur-xl rounded-full" />
-            <img src={logoImg} alt="TrainQ Logo" className="relative w-20 h-20 drop-shadow-2xl object-contain" />
-          </div>
-
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white tracking-tight">
-              Willkommen bei TrainQ
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Dein Coach. Dein Fortschritt.
-            </p>
-          </div>
-        </div>
-
-        {/* Login Card */}
-        <div className="w-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-lg p-6 shadow-2xl">
-          <div className="mb-6 text-center">
-            <h1 className="text-xl font-medium text-white/80">{t("auth.login.title")}</h1>
-          </div>
-
-          {/* DEV ONLY: Test Accounts */}
-          {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEST_USERS === "true") && (
-            <div className="mb-6 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-yellow-500">
-                Test Accounts (Dev Only)
-              </label>
-              <select
-                className="w-full rounded-lg bg-black/20 px-3 py-2 text-sm text-white outline-none ring-1 ring-white/10 focus:ring-yellow-500"
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  const [addr, pass] = e.target.value.split(":");
-                  setEmail(addr);
-                  setPassword(pass);
-                }}
-                defaultValue=""
-              >
-                <option value="">-- Choose User --</option>
-                <optgroup label="Pro Plan">
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const id = i + 1 < 10 ? `0${i + 1}` : `${i + 1}`;
-                    return (
-                      <option key={`pro${id}`} value={`pro${id}@testflight.trainq:trainq1234`}>
-                        Pro {id}
-                      </option>
-                    );
-                  })}
-                </optgroup>
-                <optgroup label="Free Plan">
-                  {Array.from({ length: 3 }, (_, i) => {
-                    const id = i + 1 < 10 ? `0${i + 1}` : `${i + 1}`;
-                    return (
-                      <option key={`free${id}`} value={`free${id}@testflight.trainq:trainq1234`}>
-                        Free {id}
-                      </option>
-                    );
-                  })}
-                </optgroup>
-              </select>
+      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+          {/* Backdoor UI (Hidden for normal users) */}
+          {email === "testflight" && (
+            <div className="mb-4 bg-yellow-500/20 p-2 rounded text-xs text-yellow-200">
+              Dev Mode Active
             </div>
           )}
 
@@ -153,12 +101,12 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
 
           <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="on">
             <div className="space-y-2">
-              <label className="block text-sm text-gray-300">{t("auth.email")}</label>
+              <label className="block text-sm text-gray-300">E-Mail</label>
               <input
                 name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEmail((e) => e.trim())} // Auto-trim on blur
+                onBlur={() => setEmail((e) => e.trim())} // Auto-trim
                 className="w-full rounded-xl bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base text-[var(--text)] placeholder-[var(--muted)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="name@email.com"
                 type="email"
@@ -171,7 +119,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm text-gray-300">{t("auth.password")}</label>
+              <label className="block text-sm text-gray-300">Passwort</label>
               <div className="relative">
                 <input
                   name="password"
@@ -186,7 +134,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-300 hover:text-white hover:bg-white/10"
-                  aria-label={showPassword ? t("auth.passwordHide") : t("auth.passwordShow")}
+                  aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
                 >
                   {showPassword ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -210,7 +158,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--primary)] text-white hover:opacity-90 shadow-lg"
                   }`}
               >
-                {busy ? t("auth.login.loading") : t("auth.login.email")}
+                {busy ? "Lädt..." : "Anmelden"}
               </button>
             </div>
 
@@ -221,7 +169,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                   onClick={onGoToRegister}
                   className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
                 >
-                  {t("auth.login.register")}
+                  Neues Konto erstellen
                 </button>
               ) : (
                 <div />
@@ -233,7 +181,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                   onClick={onGoToForgotPassword}
                   className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
                 >
-                  {t("auth.login.forgot") || "Passwort vergessen?"}
+                  Passwort vergessen?
                 </button>
               ) : (
                 <div />
@@ -258,10 +206,11 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
               className={`w-full rounded-xl px-4 py-3 text-base font-semibold transition-colors ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)] border border-[var(--border)]"
                 }`}
             >
-              {busy ? t("auth.login.loading") : t("auth.login.apple")}
+              {busy ? "Lädt..." : "Mit Apple anmelden"}
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

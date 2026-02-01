@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>TrainQ</string>
+	<string>TrainQ</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,7 +22,17 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationCategoryType</key>
+	<string></string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TrainQ benötigt Zugriff, um Trainingsbilder in die Fotos zu speichern.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TrainQ benötigt Zugriff auf die Fotobibliothek.</string>
+	<key>NSSuportsActivites</key>
+	<true/>
+	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -45,13 +55,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIRequiresFullScreen</key>
+	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>TrainQ benötigt Zugriff, um Trainingsbilder in die Fotos zu speichern.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>TrainQ benötigt Zugriff auf die Fotobibliothek.</string>
-	<key>NSSupportsLiveActivities</key>
 	<true/>
 </dict>
 </plist>

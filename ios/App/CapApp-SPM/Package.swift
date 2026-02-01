@@ -18,6 +18,7 @@ let package = Package(
         .package(name: "CapacitorShare", path: "../../../node_modules/@capacitor/share"),
         .package(name: "CapgoCapacitorSocialLogin", path: "../../../node_modules/@capgo/capacitor-social-login"),
         .package(name: "CapgoNativePurchases", path: "../../../node_modules/@capgo/native-purchases"),
+        .package(name: "CapacitorLiveActivity", path: "../../../node_modules/capacitor-live-activity"),
         .package(name: "CapacitorSecureStoragePlugin", path: "../../../node_modules/capacitor-secure-storage-plugin")
     ],
     targets: [
@@ -32,6 +33,7 @@ let package = Package(
                 .product(name: "CapacitorShare", package: "CapacitorShare"),
                 .product(name: "CapgoCapacitorSocialLogin", package: "CapgoCapacitorSocialLogin"),
                 .product(name: "CapgoNativePurchases", package: "CapgoNativePurchases"),
+                .product(name: "CapacitorLiveActivity", package: "CapacitorLiveActivity"),
                 .product(name: "CapacitorSecureStoragePlugin", package: "CapacitorSecureStoragePlugin")
             ]
         )

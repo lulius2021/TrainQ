@@ -1,9 +1,10 @@
 // src/pages/Dashboard.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import { startOfWeek, parseISO } from "date-fns";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
 import { PageHeader } from "../components/ui/PageHeader";
-import { useI18n } from "../i18n/useI18n";
+// import { useI18n } from "../i18n/useI18n";
 import type {
   UpcomingTraining,
   CalendarEvent,
@@ -43,6 +44,11 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
+import { EVENT_CATEGORIES } from "../constants/events";
+import { WeeklyActivityRing } from "../components/dashboard/WeeklyActivityRing";
+import { loadWorkoutHistory, type WorkoutHistoryEntry } from "../utils/workoutHistory";
+import { AddEventModal } from "../components/calendar/AddEventModal";
+import { BottomSpacer } from "../components/layout/BottomSpacer";
 
 interface DashboardProps {
   upcoming: UpcomingTraining[]; // bleibt (App liefert es), wird hier aber nicht mehr angezeigt
@@ -56,6 +62,8 @@ interface DashboardProps {
   isPro?: boolean;
   onOpenPaywall?: (reason: "plan_shift" | "calendar_7days" | "adaptive_limit") => void;
 }
+
+const simpleId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 // -------------------- Date helpers --------------------
 
@@ -192,48 +200,19 @@ function fallbackMinutesForCompleted(ev: CalendarEvent): number {
 // -------------------- Kategorien (Termine) shared with CalendarPage --------------------
 
 type CategoryDef = { key: string; label: string };
-const STORAGE_KEY_CATEGORIES = "trainq_calendar_categories_v1";
-const BASE_CATEGORIES: CategoryDef[] = [
-  { key: "alltag", label: "Alltag" },
-  { key: "arbeit", label: "Arbeit" },
-  { key: "gesundheit", label: "Gesundheit" },
-  { key: "freizeit", label: "Freizeit" },
-  { key: "sonstiges", label: "Sonstiges" },
-];
 
-function safeParse<T>(raw: string | null, fallback: T): T {
-  try {
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
 
-function dedupCategories(list: CategoryDef[]): CategoryDef[] {
-  const seen = new Set<string>();
-  const out: CategoryDef[] = [];
-  for (const c of list) {
-    const key = String(c?.key ?? "").trim();
-    const label = String(c?.label ?? "").trim();
-    if (!key || !label) continue;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ key, label });
-  }
-  return out;
-}
-
-function slugifyCategoryLabel(label: string): string {
-  const s = String(label ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return `custom_${s || "kategorie"}`;
-}
 
 export const Dashboard: React.FC<DashboardProps> = ({
   upcoming: _upcoming, events, onCreateQuickTraining, onUpdateEvents, isPro: isProProp = false, onOpenPaywall,
 }) => {
-  const { t, formatDate } = useI18n();
+  // const { formatDate } = useI18n(); // Removed
   const today = startOfDay(new Date());
+
+  // Hardcoded German date formatter
+  const formatDate = (date: Date, options?: Intl.DateTimeFormatOptions) => {
+    return date.toLocaleDateString("de-DE", options);
+  };
   const todayISO = dateKey(today);
 
   const { isPro, canUseAdaptive, consumeAdaptive, adaptiveBCRemaining, canUseShift, consumeShift, planShiftRemaining } = useEntitlements();
@@ -250,6 +229,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
   }, []);
 
+  // History for Activity Ring
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadWorkoutHistory();
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refreshHistory = () => setWorkoutHistory(loadWorkoutHistory());
+    // Refresh on focus and when we potentially navigate back from a workout
+    window.addEventListener("focus", refreshHistory);
+    return () => window.removeEventListener("focus", refreshHistory);
+  }, []);
+
   const weeklyGoalMinutes = useMemo(() => {
     const h = (onboarding as any)?.training?.hoursPerWeek;
     return (typeof h === "number" && Number.isFinite(h) && h > 0 ? h : 5) * 60;
@@ -259,65 +252,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return typeof s === "number" && Number.isFinite(s) && s > 0 ? Math.round(s) : 3;
   }, [onboarding]);
 
-  // Categories
-  const [customCategories, setCustomCategories] = useState<CategoryDef[]>(() => {
-    if (typeof window === "undefined") return [];
-    return dedupCategories(safeParse<CategoryDef[]>(getScopedItem(STORAGE_KEY_CATEGORIES), []));
-  });
-  const allCategories = useMemo(() => dedupCategories([...BASE_CATEGORIES, ...customCategories]), [customCategories]);
-  const categoryLabelByKey = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of allCategories) map.set(c.key, c.label);
-    return map;
-  }, [allCategories]);
 
-  // UI State
-  const [isQuickEventModalOpen, setIsQuickEventModalOpen] = useState(false);
-  const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
 
-  // Quick Event
-  const [quickEvent, setQuickEvent] = useState({ title: "", date: todayISO, startTime: "18:00", endTime: "19:00", category: "alltag", description: "" });
-  const handleQuickEventSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!normalizeTitle(quickEvent.title)) return;
-    const payload: NewCalendarEvent = {
-      title: normalizeTitle(quickEvent.title),
-      date: quickEvent.date,
-      startTime: quickEvent.startTime,
-      endTime: quickEvent.endTime,
-      type: "other",
-      category: quickEvent.category,
-    } as any;
+  // Quick Event UI State
+  // Modal State
+  const [modalMode, setModalMode] = useState<'appointment' | 'training' | null>(null);
+
+  const handleSaveEvent = (payload: NewCalendarEvent) => {
     onCreateQuickTraining(payload);
-    setIsQuickEventModalOpen(false);
+    setModalMode(null);
   };
 
   // Quick Training
-  const [newTraining, setNewTraining] = useState({ date: todayISO, startTime: "18:00", endTime: "19:00", trainingType: "gym" as TrainingType, title: "" });
-  const handleCreateTraining = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!normalizeTitle(newTraining.title)) return;
-    const payload: NewCalendarEvent = {
-      title: normalizeTitle(newTraining.title),
-      date: newTraining.date,
-      startTime: newTraining.startTime,
-      endTime: newTraining.endTime,
-      type: "training",
-      trainingType: newTraining.trainingType,
-      trainingStatus: "open",
-    } as any;
-    onCreateQuickTraining(payload);
-    setIsTrainingModalOpen(false);
-  };
+
 
   // Week stats
   const weekStartISO = useMemo(() => dateKey(startOfWeekMonday(new Date())), []);
   const weekEndISO = useMemo(() => { const d = startOfWeekMonday(new Date()); d.setDate(d.getDate() + 7); return dateKey(d); }, []);
-  const doneThisWeek = useMemo(() => {
-    const list = events.filter((e) => isCompletedTraining(e) && e.date >= weekStartISO && e.date < weekEndISO);
-    return { sessions: list.length, minutes: list.reduce((acc, ev) => acc + fallbackMinutesForCompleted(ev), 0) };
-  }, [events, weekStartISO, weekEndISO]);
-  const weekProgress = useMemo(() => Math.min(1, Math.max(0, doneThisWeek.minutes / Math.max(1, weeklyGoalMinutes))), [doneThisWeek.minutes, weeklyGoalMinutes]);
+  /* Old legacy calculation (doneThisWeek/weekProgress) removed in favor of realWorkoutHistory */
+
+  const realWeeklyMinutes = useMemo(() => {
+    const now = new Date();
+    // Monday 00:00 of the current week
+    const startOfCurrentWeek = startOfWeek(now, { weekStartsOn: 1 });
+
+    return workoutHistory.reduce((sum, w) => {
+      const iso = w.endedAt || w.startedAt;
+      if (!iso) return sum;
+
+      const workoutDate = parseISO(iso);
+      if (Number.isNaN(workoutDate.getTime())) return sum;
+
+      if (workoutDate >= startOfCurrentWeek) {
+        return sum + Math.round((w.durationSec || 0) / 60);
+      }
+      return sum;
+    }, 0);
+  }, [workoutHistory]);
+
+
 
   // Events logic
   const resolveSeedForEvent = (event: CalendarEvent): LiveTrainingSeed | null => {
@@ -424,7 +397,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <>
-      <div className="w-full pb-32">
+      <div className="w-full pb-40">
         {/* Header */}
         <PageHeader
           title="Dashboard"
@@ -465,7 +438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Kein Training geplant.
                 </p>
                 <button
-                  onClick={() => setIsTrainingModalOpen(true)}
+                  onClick={() => setModalMode('training')}
                   className="mt-3 text-[17px] text-[var(--primary)] font-medium"
                 >
                   Training planen
@@ -480,7 +453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <h2 className="text-[19px] font-semibold text-[var(--text)] tracking-tight mb-2 px-1">Aktionen</h2>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => setIsTrainingModalOpen(true)}
+              onClick={() => setModalMode('training')}
               className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-white/20 active:scale-[0.98] transition-all cursor-pointer shadow-sm min-h-[90px]"
             >
               <div className="w-8 h-8 rounded-full bg-[#007AFF] flex items-center justify-center text-white shadow-lg shadow-[#007AFF]/20">
@@ -490,7 +463,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
 
             <button
-              onClick={() => setIsQuickEventModalOpen(true)}
+              onClick={() => setModalMode('appointment')}
               className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-white/20 active:scale-[0.98] transition-all cursor-pointer shadow-sm min-h-[90px]"
             >
               <div className="w-8 h-8 rounded-full bg-[#34C759] flex items-center justify-center text-white shadow-lg shadow-[#34C759]/20">
@@ -523,31 +496,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </section>
 
-        {/* Weekly Progress */}
-        <AppCard className="p-3.5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[19px] font-semibold text-[var(--text)] tracking-tight">Diese Woche</h2>
-            <span className="text-[15px] text-[var(--muted)] tabular-nums">
-              {doneThisWeek.minutes} / {Math.max(1, weeklyGoalMinutes)} min
-            </span>
-          </div>
+        {/* Weekly Activity Ring */}
+        <section className="mb-4">
+          <h2 className="text-[19px] font-semibold text-[var(--text)] tracking-tight mb-2 px-1">Diese Woche</h2>
+          <WeeklyActivityRing
+            currentMinutes={Math.round(realWeeklyMinutes)}
+            goalMinutes={weeklyGoalMinutes > 0 ? weeklyGoalMinutes : 150}
+          />
+        </section>
 
-          <div className="h-1.5 w-full bg-[var(--surface2)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[var(--primary)] rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${weekProgress * 100}%` }}
-            />
-          </div>
-          <p className="mt-2 text-[12px] text-[var(--muted)]">
-            {weeklyGoalSessions > 0 ? `${doneThisWeek.sessions} von ${weeklyGoalSessions} Einheiten erledigt.` : "Ziel nicht definiert."}
-          </p>
-        </AppCard>
+        <BottomSpacer />
 
       </div>
 
       {/* Primary Floating Action Button (Clean) - Only if we have a primary training to start */}
       {primaryTraining && primaryTraining.date === todayISO && !primaryTraining.trainingStatus && (
-        <div className="fixed left-0 right-0 z-40 px-5 pointer-events-none bottom-[var(--nav-height)]">
+        <div className="fixed left-0 right-0 z-50 px-5 pointer-events-none bottom-[var(--nav-height)]">
           <AppButton
             onClick={() => resolveSeedForEvent(primaryTraining) ? handlePreviewStart(primaryTraining, resolveSeedForEvent(primaryTraining)!) : openPreviewForEvent(primaryTraining)}
             className="w-full h-[54px] rounded-[14px] text-[17px] shadow-lg"
@@ -579,106 +543,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
       />
 
       {/* Quick Training Modal (Overlay) */}
-      {isTrainingModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Training planen</h3>
-            <form onSubmit={handleCreateTraining} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Titel (z.B. Push A)"
-                value={newTraining.title}
-                onChange={e => setNewTraining(p => ({ ...p, title: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[17px] focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all placeholder-white/50"
-                autoFocus
-              />
-              <div className="flex gap-3">
-                <input
-                  type="date"
-                  value={newTraining.date}
-                  onChange={e => setNewTraining(p => ({ ...p, date: e.target.value }))}
-                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[17px] min-w-0 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
-                />
-                <input
-                  type="time"
-                  value={newTraining.startTime}
-                  onChange={e => setNewTraining(p => ({ ...p, startTime: e.target.value }))}
-                  className="w-24 bg-white/5 border border-white/10 text-white rounded-xl px-2 py-3 text-[17px] text-center focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setNewTraining(p => ({ ...p, trainingType: 'gym' }))} className={`py-3 rounded-xl font-medium transition-all ${newTraining.trainingType === 'gym' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/20' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>Gym</button>
-                <button type="button" onClick={() => setNewTraining(p => ({ ...p, trainingType: 'laufen' }))} className={`py-3 rounded-xl font-medium transition-all ${newTraining.trainingType === 'laufen' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/20' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>Laufen</button>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsTrainingModalOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
-                <button type="submit" className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Speichern</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {modalMode && (
+        <AddEventModal
+          isOpen={!!modalMode}
+          onClose={() => setModalMode(null)}
+          initialDate={todayISO}
+          mode={modalMode}
+          onSave={handleSaveEvent}
+        />
       )}
 
-      {/* Quick Event Modal (Overlay) */}
-      {isQuickEventModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Termin eintragen</h3>
-            <form onSubmit={handleQuickEventSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Titel"
-                value={quickEvent.title}
-                onChange={e => setQuickEvent(p => ({ ...p, title: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[17px] focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all placeholder-white/50"
-                autoFocus
-              />
-              <div className="flex gap-3">
-                <input
-                  type="date"
-                  value={quickEvent.date}
-                  onChange={e => setQuickEvent(p => ({ ...p, date: e.target.value }))}
-                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[17px] min-w-0 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
-                />
-                <input
-                  type="time"
-                  value={quickEvent.startTime}
-                  onChange={e => setQuickEvent(p => ({ ...p, startTime: e.target.value }))}
-                  className="w-24 bg-white/5 border border-white/10 text-white rounded-xl px-2 py-3 text-[17px] text-center focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsQuickEventModalOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
-                <button type="submit" className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Speichern</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Plan Shift Modal */}
-      {shiftOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Plan verschieben</h3>
-            <p className="text-white/70 mb-4">Alle zukünftigen Workouts um 1 Tag nach hinten verschieben?</p>
-            {shiftCandidates.length >= 2 && (
-              <select
-                value={shiftSelectedPlanId}
-                onChange={(e) => setShiftSelectedPlanId(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-3 py-3 mb-4 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
-              >
-                {shiftCandidates.map((p) => (<option key={p.id} value={p.id} className="text-black">{p.label}</option>))}
-                <option value="__ALL__" className="text-black">Alle Pläne</option>
-              </select>
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setShiftOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
-              <button onClick={doShift} className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Verschieben</button>
+      {
+        shiftOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
+              <h3 className="text-xl font-bold text-white mb-4">Plan verschieben</h3>
+              <p className="text-white/70 mb-4">Alle zukünftigen Workouts um 1 Tag nach hinten verschieben?</p>
+              {shiftCandidates.length >= 2 && (
+                <select
+                  value={shiftSelectedPlanId}
+                  onChange={(e) => setShiftSelectedPlanId(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-3 py-3 mb-4 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
+                >
+                  {shiftCandidates.map((p) => (<option key={p.id} value={p.id} className="text-black">{p.label}</option>))}
+                  <option value="__ALL__" className="text-black">Alle Pläne</option>
+                </select>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => setShiftOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
+                <button onClick={doShift} className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Verschieben</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
 
     </>
   );

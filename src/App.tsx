@@ -1,10 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { AuthContextProvider } from "./context/AuthContext";
+import { AuthContextProvider, useAuth } from "./context/AuthContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
 import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 
-// Types explicitly exported to maintain compatibility
 // Types explicitly exported to maintain compatibility
 export type { TabKey } from "./types";
 
@@ -26,37 +25,51 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
     window.location.reload();
   };
 
-  handleResetStorage = () => {
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.reload();
-    } catch (e) {
-      console.error(e);
-      window.location.reload();
-    }
+  handleBackToDashboard = () => {
+    // Hard reset to root without clearing storage to preserve data
+    window.location.href = '/';
+  };
+
+  handleCopyError = () => {
+    const errorMsg = (this.state.error as any)?.message || "Unknown error";
+    // Using a simple alert for feedback as toast might not be available in error boundary
+    navigator.clipboard.writeText(`${errorMsg}\n\nCallstack unavailable in production build.`);
+    alert("Fehlercode in die Zwischenablage kopiert.");
   };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-transparent backdrop-blur-md px-6 text-center text-white">
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
           <h2 className="mb-2 text-xl font-bold">Ups, etwas ist schiefgelaufen.</h2>
-          <p className="mb-6 text-sm text-gray-400 max-w-xs">
-            {(this.state.error as any)?.message || "Ein unerwarteter Fehler ist aufgetreten."}
+          <p className="mb-6 text-sm text-zinc-400 max-w-xs">
+            Keine Sorge, deine Daten sind sicher. Wir bringen dich zurück.
           </p>
+
+          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg max-w-xs w-full">
+            <p className="text-xs font-mono text-red-400 break-words mb-2">
+              {(this.state.error as any)?.message || "Unbekannter Fehler"}
+            </p>
+            <button
+              onClick={this.handleCopyError}
+              className="text-[10px] uppercase tracking-wider font-bold text-red-400/70 hover:text-red-400 underline"
+            >
+              Fehlercode kopieren
+            </button>
+          </div>
+
           <div className="flex flex-col gap-3 w-full max-w-xs">
             <button
               onClick={this.handleReload}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform"
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform shadow-lg shadow-blue-500/20"
             >
-              App neu laden
+              Seite neu laden
             </button>
             <button
-              onClick={this.handleResetStorage}
-              className="w-full rounded-xl bg-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform"
+              onClick={this.handleBackToDashboard}
+              className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform hover:bg-white/10"
             >
-              Daten zurücksetzen (Logout)
+              Zurück zum Dashboard
             </button>
           </div>
         </div>
@@ -64,7 +77,26 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
     }
     return this.props.children;
   }
+
 }
+
+const AppContent: React.FC = () => {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+        <div className="animate-pulse font-bold text-xl">TrainQ lädt...</div>
+      </div>
+    );
+  }
+
+  return (
+    <OnboardingProvider>
+      <AppRouter />
+    </OnboardingProvider>
+  );
+};
 
 export const App: React.FC = () => {
   const seededRef = useRef(false);
@@ -78,12 +110,10 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-transparent font-[SF Pro Display,sans-serif] text-[var(--text)]">
+    <div className="h-screen w-screen overflow-hidden bg-transparent font-[SF Pro Display,sans-serif] text-white">
       <GlobalErrorBoundary>
         <AuthContextProvider>
-          <OnboardingProvider>
-            <AppRouter />
-          </OnboardingProvider>
+          <AppContent />
         </AuthContextProvider>
       </GlobalErrorBoundary>
     </div>

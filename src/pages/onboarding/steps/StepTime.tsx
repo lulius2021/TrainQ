@@ -1,3 +1,4 @@
+// src/pages/onboarding/steps/StepTime.tsx
 import React from 'react';
 import { OnboardingStepLayout } from "../../../components/onboarding/OnboardingStepLayout";
 import { useOnboarding } from "../../../context/OnboardingContext";
@@ -18,19 +19,19 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
 
     return (
         <OnboardingStepLayout
-            title="Dein Zeitbudget"
-            subtitle="Wie viel Zeit hast du realistisch für ein Training?"
+            title="Zeitbudget"
+            subtitle="Wie viel Zeit hast du pro Workout?"
             onContinue={onNext}
             onBack={onBack}
             canContinue={!!data.training.timeBudget}
         >
             <div className="flex flex-wrap gap-4 mt-4">
-                {TIMES.map((t) => {
-                    const isSelected = data.training.timeBudget === t;
+                {TIMES.map((timeVal) => {
+                    const isSelected = data.training.timeBudget === timeVal;
                     return (
                         <button
-                            key={t}
-                            onClick={() => handleSelect(t)}
+                            key={timeVal}
+                            onClick={() => handleSelect(timeVal)}
                             className={`
                         w-[47%] grow py-6 rounded-2xl text-center font-bold text-lg transition-all border
                         ${isSelected
@@ -38,7 +39,7 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
                                     : 'bg-[var(--surface)] text-[var(--muted)] border-white/5 hover:bg-[var(--surface2)] hover:text-[var(--text)]'}
                     `}
                         >
-                            {t}
+                            {timeVal}
                         </button>
                     )
                 })}
@@ -48,7 +49,7 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
                 <div className="mt-8 p-6 bg-[var(--surface)] rounded-2xl border border-white/5 animate-pulse">
                     <h3 className="text-white font-medium mb-2">Perfekt!</h3>
                     <p className="text-[var(--muted)] text-sm leading-relaxed">
-                        Mit <strong>{data.training.timeBudget}</strong> planen wir dir hocheffektive Einheiten, die auch in volle Tage passen.
+                        Mit {data.training.timeBudget} können wir bereits sehr effektive Reize setzen.
                     </p>
                 </div>
             )}

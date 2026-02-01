@@ -11,6 +11,8 @@ import {
   DIFFICULTIES,
   EXERCISE_TYPES,
   METRICS,
+  RUNNING_EXERCISES,
+  CYCLING_EXERCISES,
   filterExercises,
   refreshExerciseLibrary,
   findExerciseByToken,
@@ -29,19 +31,19 @@ import { addAliasOverride } from "../../utils/exerciseAliasesStore";
 import { saveExerciseImage } from "../../utils/exerciseImageStore";
 import { useExerciseImage } from "../../hooks/useExerciseImage";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import ExerciseDetailsModal from "../exercises/ExerciseDetailsModal";
+import { MapPin, Repeat, Activity, Bike } from "lucide-react";
+
+type Category = 'gym' | 'running' | 'cycling' | 'custom';
 
 type Props = {
   open: boolean;
   title?: string;
-  isCardioLibrary?: boolean;
+  category?: Category;
   onClose: () => void;
   existingExerciseIds?: string[];
-
-  // Wenn User auf "Hinzufügen" klickt
   onPick: (exercise: Exercise) => void;
-
-  // Optional: Eigene Übung
   onPickCustom?: () => void;
 };
 
@@ -60,107 +62,6 @@ const DEFAULT_METRICS_BY_TYPE: Record<ExerciseType, Metric[]> = {
   conditioning: ["time", "distance", "pace"],
   mobility: ["time"],
 };
-
-const CARDIO_EXERCISES: Exercise[] = [
-  {
-    id: "cardio_easy_run_30",
-    name: "Lockerer Lauf – 30 Min",
-    nameEn: "Easy Run – 30 min",
-    nameDe: "Lockerer Lauf – 30 Min",
-    aliases: { en: ["Easy Run 30", "Easy Run 30 min"], de: ["Lockerer Lauf 30", "Lauf locker 30 Min"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["bodyweight"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Leicht",
-  },
-  {
-    id: "cardio_tempo_run_20",
-    name: "Tempo-Lauf – 20 Min",
-    nameEn: "Tempo Run – 20 min",
-    nameDe: "Tempo-Lauf – 20 Min",
-    aliases: { en: ["Tempo Run 20", "Tempo Run 20 min"], de: ["Tempo Lauf 20", "Lauf Tempo 20 Min"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["bodyweight"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Mittel",
-  },
-  {
-    id: "cardio_interval_run_10x400",
-    name: "Intervalle – 10×400 m",
-    nameEn: "Intervals – 10×400 m",
-    nameDe: "Intervalle – 10×400 m",
-    aliases: { en: ["Intervals 10x400", "Run Intervals"], de: ["Laufintervalle", "Intervalle 10x400"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["bodyweight"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Schwer",
-  },
-  {
-    id: "cardio_easy_ride_45",
-    name: "Lockere Radausfahrt – 45 Min",
-    nameEn: "Easy Ride – 45 min",
-    nameDe: "Lockere Radausfahrt – 45 Min",
-    aliases: { en: ["Easy Ride 45", "Bike Easy 45"], de: ["Rad locker 45", "Radausfahrt 45"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["cardio_machine"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Leicht",
-  },
-  {
-    id: "cardio_interval_bike_8x2",
-    name: "Bike-Intervalle – 8×2 Min hart",
-    nameEn: "Bike Intervals – 8×2 min hard",
-    nameDe: "Bike-Intervalle – 8×2 Min hart",
-    aliases: { en: ["Bike Intervals 8x2", "Hard Bike Intervals"], de: ["Bike Intervalle", "Rad Intervalle"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["cardio_machine"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Mittel",
-  },
-  {
-    id: "cardio_long_run_60",
-    name: "Langer Lauf – 60 Min",
-    nameEn: "Long Run – 60 min",
-    nameDe: "Langer Lauf – 60 Min",
-    aliases: { en: ["Long Run 60", "Endurance Run"], de: ["Langer Lauf", "Lauf 60 Min"] },
-    primaryMuscles: ["quads"],
-    secondaryMuscles: ["hamstrings", "calves"],
-    equipment: ["bodyweight"],
-    movement: "locomotion",
-    type: "conditioning",
-    metrics: ["time", "distance", "pace"],
-    difficulty: "Schwer",
-  },
-];
-
-function normalize(value: string) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function cardioFilter(list: Exercise[], term: string, lang: "de" | "en"): Exercise[] {
-  const t = normalize(term);
-  if (!t) return list;
-  return list.filter((ex) => normalize(getExerciseDisplayName(ex, lang)).includes(t));
-}
 
 function inferMovement(primaryMuscle: Muscle): Movement {
   if (["chest", "front_delts", "side_delts", "triceps"].includes(primaryMuscle)) return "push";
@@ -185,7 +86,55 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
   );
 }
 
-export default function ExerciseLibraryModal({ open, title, isCardioLibrary = false, onClose, existingExerciseIds, onPick, }: Props) {
+const ExerciseSkeleton = () => (
+  <div className="space-y-3 p-4">
+    {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 p-3">
+        <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl bg-white/10" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
+          <div className="h-3 w-1/4 animate-pulse rounded bg-white/10" />
+        </div>
+        <div className="h-8 w-20 animate-pulse rounded-full bg-white/10" />
+      </div>
+    ))}
+  </div>
+);
+
+const ExerciseRow = React.memo(({
+  ex,
+  isAdded,
+  lang,
+  equipmentLabels,
+  typeLabels,
+  t,
+  onOpenDetails,
+  onAdd
+}: {
+  ex: Exercise;
+  isAdded: boolean;
+  lang: "de" | "en";
+  equipmentLabels: Record<string, string>;
+  typeLabels: Record<string, string>;
+  t: any;
+  onOpenDetails: (ex: Exercise) => void;
+  onAdd: (ex: Exercise) => void;
+}) => (
+  <div className={`flex items-center justify-between gap-3 rounded-2xl p-3 transition-colors ${isAdded ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`} role="button" tabIndex={0} onClick={() => onOpenDetails(ex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenDetails(ex); }}>
+    <div className="flex min-w-0 items-center gap-4">
+      <ExerciseThumbnail exercise={ex} />
+      <div className="min-w-0">
+        <div className="truncate text-base font-semibold text-white">{getExerciseDisplayName(ex, lang)}</div>
+        <div className="truncate text-sm text-gray-400">{(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}{ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}</div>
+      </div>
+    </div>
+    <button type="button" disabled={isAdded} onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed ${isAdded ? "bg-green-500/20 text-green-300" : "bg-brand-primary text-white hover:opacity-90"}`}>
+      {isAdded ? (<span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>{t("training.exerciseLibrary.added")}</span>) : (t("training.exerciseLibrary.add"))}
+    </button>
+  </div>
+), (prev, next) => prev.ex.id === next.ex.id && prev.isAdded === next.isAdded && prev.lang === next.lang);
+
+export default function ExerciseLibraryModal({ open, title, category = 'gym', onClose, existingExerciseIds, onPick, }: Props) {
   const { t, lang } = useI18n();
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
@@ -193,6 +142,18 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const existingSet = useMemo(() => new Set(existingExerciseIds ?? []), [existingExerciseIds]);
   const [localAddedIds, setLocalAddedIds] = useState<Set<string>>(() => new Set(existingExerciseIds ?? []));
+
+  // DEFERRED RENDERING STATE
+  const [isListReady, setIsListReady] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setIsListReady(false);
+      const timer = requestAnimationFrame(() => {
+        setIsListReady(true);
+      });
+      return () => cancelAnimationFrame(timer);
+    }
+  }, [open]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -207,7 +168,6 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const lastModeRef = useRef<boolean>(isCardioLibrary);
 
   const muscleLabels = useMemo(() => ({ chest: t("training.muscle.chest"), back: t("training.muscle.back"), lats: t("training.muscle.lats"), traps: t("training.muscle.traps"), rear_delts: t("training.muscle.rear_delts"), front_delts: t("training.muscle.front_delts"), side_delts: t("training.muscle.side_delts"), biceps: t("training.muscle.biceps"), triceps: t("training.muscle.triceps"), forearms: t("training.muscle.forearms"), quads: t("training.muscle.quads"), hamstrings: t("training.muscle.hamstrings"), glutes: t("training.muscle.glutes"), calves: t("training.muscle.calves"), core: t("training.muscle.core"), obliques: t("training.muscle.obliques"), lower_back: t("training.muscle.lower_back"), hip_flexors: t("training.muscle.hip_flexors"), }), [t]);
   const equipmentLabels = useMemo(() => ({ barbell: t("training.equipment.barbell"), dumbbell: t("training.equipment.dumbbell"), kettlebell: t("training.equipment.kettlebell"), machine: t("training.equipment.machine"), cable: t("training.equipment.cable"), band: t("training.equipment.band"), bodyweight: t("training.equipment.bodyweight"), bench: t("training.equipment.bench"), rack: t("training.equipment.rack"), pullup_bar: t("training.equipment.pullup_bar"), dip_bar: t("training.equipment.dip_bar"), smith_machine: t("training.equipment.smith_machine"), trap_bar: t("training.equipment.trap_bar"), medicine_ball: t("training.equipment.medicine_ball"), cardio_machine: t("training.equipment.cardio_machine"), }), [t]);
@@ -216,14 +176,8 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
 
   useEffect(() => {
     if (!open) return;
-    const modeChanged = lastModeRef.current !== isCardioLibrary;
-    lastModeRef.current = isCardioLibrary;
-    setFilters((prev) => {
-      if (modeChanged) return { ...defaultExerciseFilters, search: "" };
-      return { ...prev, search: "" };
-    });
-    requestAnimationFrame(() => searchRef.current?.focus());
-  }, [open, isCardioLibrary]);
+    setFilters({ ...defaultExerciseFilters, search: "" });
+  }, [open, category]);
 
   useEffect(() => {
     if (!open) return;
@@ -237,34 +191,177 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const prevBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prevBodyOverflow; };
-  }, [open]);
+  // Body Scroll Lock (iOS safe)
+  useBodyScrollLock(open);
 
   useEffect(() => { setCreateMetrics(DEFAULT_METRICS_BY_TYPE[createType]); }, [createType]);
   useEffect(() => { return () => { if (createImagePreview) URL.revokeObjectURL(createImagePreview); }; }, [createImagePreview]);
 
-  const filteredExercises = useMemo(() => isCardioLibrary ? cardioFilter(CARDIO_EXERCISES, filters.search, lang) : filterExercises(EXERCISES, filters), [filters, isCardioLibrary, lang]);
-
-  // Early return removed
+  const filteredExercises = useMemo(() => {
+    if (category === 'running') return RUNNING_EXERCISES;
+    if (category === 'cycling') return CYCLING_EXERCISES;
+    return filterExercises(EXERCISES, filters);
+  }, [filters, category]);
 
   const clearCreateImage = () => { if (createImagePreview) URL.revokeObjectURL(createImagePreview); setCreateImageFile(null); setCreateImagePreview(null); if (createImageInputRef.current) createImageInputRef.current.value = ""; };
   const openCreate = () => { setCreateName(""); setCreateMuscle("chest"); setCreateEquipment("barbell"); setCreateType("strength"); setCreateMetrics(DEFAULT_METRICS_BY_TYPE.strength); setCreateError(null); clearCreateImage(); setShowCreate(true); };
   const closeCreate = () => { setShowCreate(false); setCreateError(null); clearCreateImage(); };
   const toggleMetric = (metric: Metric) => setCreateMetrics((prev) => prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]);
   const handleCreateImageSelect = (file: File | null) => { if (!file) return; if (createImagePreview) URL.revokeObjectURL(createImagePreview); setCreateImageFile(file); setCreateImagePreview(URL.createObjectURL(file)); };
-  const handleCreate = async () => { const name = createName.trim(); if (!name) { setCreateError(t("training.exerciseLibrary.createEmptyName")); return; } const matched = findExerciseByToken(name); if (matched) { addAliasOverride(matched.id, lang, name); refreshExerciseLibrary(); onPick({ ...matched, name: getExerciseDisplayName(matched, lang) }); closeCreate(); return; } const movement = inferMovement(createMuscle); const metrics = createMetrics.length ? createMetrics : DEFAULT_METRICS_BY_TYPE[createType]; let image: ExerciseImage | undefined; if (createImageFile) { try { image = { kind: "user", ...(await saveExerciseImage(createImageFile)) }; } catch { setCreateError(t("training.exerciseLibrary.imageSaveError")); return; } } const created = addCustomExercise({ name, lang, primaryMuscles: [createMuscle], equipment: [createEquipment], movement, type: createType, metrics, image, }); refreshExerciseLibrary(); onPick({ ...created, name: getExerciseDisplayName(created, lang) }); closeCreate(); };
+  const handleCreate = async () => {
+    const name = createName.trim();
+    if (!name) {
+      setCreateError(t("training.exerciseLibrary.createEmptyName"));
+      return;
+    }
+
+    const matched = findExerciseByToken(name);
+    if (matched) {
+      addAliasOverride(matched.id, lang as "en" | "de", name);
+      refreshExerciseLibrary();
+      onPick({ ...matched, name: getExerciseDisplayName(matched, lang) });
+      closeCreate();
+      return;
+    }
+
+    const movement = inferMovement(createMuscle);
+    const metrics = createMetrics.length ? createMetrics : DEFAULT_METRICS_BY_TYPE[createType];
+
+    let image: ExerciseImage | undefined;
+    if (createImageFile) {
+      try {
+        image = { kind: "user", ...(await saveExerciseImage(createImageFile)) };
+      } catch {
+        setCreateError(t("training.exerciseLibrary.imageSaveError"));
+        return;
+      }
+    }
+
+    const created = addCustomExercise({
+      name,
+      lang,
+      primaryMuscles: [createMuscle],
+      equipment: [createEquipment],
+      movement,
+      type: createType,
+      metrics,
+      image,
+    });
+
+    refreshExerciseLibrary();
+    onPick({ ...created, name: getExerciseDisplayName(created, lang) });
+    closeCreate();
+  };
+
   const openDetails = (exercise: Exercise) => { setSelectedExercise(exercise); setDetailsOpen(true); };
   const closeDetails = () => { setDetailsOpen(false); setSelectedExercise(null); };
   const handleAddExercise = (exercise: Exercise) => { const isAdded = existingSet.has(exercise.id) || localAddedIds.has(exercise.id); if (isAdded) return; onPick({ ...exercise, name: getExerciseDisplayName(exercise, lang) }); setLocalAddedIds((prev) => new Set([...prev, exercise.id])); };
 
+  // Helper to get icon for running/cycling cards
+  const getCardIcon = (id: string) => {
+    if (id.includes("run_1") || id.includes("cycle_1")) return <MapPin className="text-brand-primary" size={32} />; // Normal Run/Bike
+    if (id.includes("run_2") || id.includes("cycle_2")) return <Activity className="text-green-400" size={32} />; // Recovery
+    if (id.includes("run_3") || id.includes("cycle_3")) return <Repeat className="text-orange-400" size={32} />; // Intervals
+    return <Activity className="text-gray-400" size={32} />;
+  };
+
+  const getCardBg = (id: string, isAdded: boolean) => {
+    if (isAdded) return "bg-green-500/20 border-green-500/50";
+    if (id.includes("run_1") || id.includes("cycle_1")) return "bg-brand-primary/10 border-brand-primary/20 hover:bg-brand-primary/20";
+    if (id.includes("run_2") || id.includes("cycle_2")) return "bg-green-500/10 border-green-500/20 hover:bg-green-500/20";
+    if (id.includes("run_3") || id.includes("cycle_3")) return "bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20";
+    return "bg-white/5 border-white/10 hover:bg-white/10";
+  };
+
+  const renderCardioView = () => (
+    <div className="grid grid-cols-1 gap-4 p-4">
+      {filteredExercises.map((ex) => {
+        const isAdded = existingSet.has(ex.id) || localAddedIds.has(ex.id);
+        return (
+          <div
+            key={ex.id}
+            onClick={() => handleAddExercise(ex)}
+            className={`relative flex items-center gap-4 rounded-3xl border p-6 transition-all active:scale-[0.98] ${getCardBg(ex.id, isAdded)} cursor-pointer`}
+          >
+            <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-black/20 backdrop-blur-sm`}>
+              {getCardIcon(ex.id)}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-white">{getExerciseDisplayName(ex, lang)}</h3>
+              <p className="text-base text-gray-400 mt-1">{t(`training.difficulty.${ex.difficulty || "Mittel"}` as any)}</p>
+            </div>
+            {isAdded && (
+              <div className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-black">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderGymView = () => (
+    <>
+      <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[#061226]/80 to-transparent">
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
+            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
+          </div>
+          <button type="button" onClick={openCreate} className="shrink-0 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>
+        </div>
+        <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
+            <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
+          </div>
+          <button type="button" onClick={() => setShowMoreFilters((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/5 border border-white/10">{showMoreFilters ? "–" : "+"}</span>
+            {t("training.exerciseLibrary.moreFilters")}
+          </button>
+          {showMoreFilters && (
+            <div className="grid grid-cols-2 gap-2">
+              <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
+              <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto pt-2">
+        {!isListReady ? (
+          <ExerciseSkeleton />
+        ) : filteredExercises.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-gray-400">
+            {t("training.exerciseLibrary.empty")}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredExercises.map((ex) => (
+              <ExerciseRow
+                key={ex.id}
+                ex={ex}
+                isAdded={existingSet.has(ex.id) || localAddedIds.has(ex.id)}
+                lang={lang}
+                equipmentLabels={equipmentLabels}
+                typeLabels={typeLabels}
+                t={t}
+                onOpenDetails={openDetails}
+                onAdd={handleAddExercise}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const MotionDiv = motion.div as any;
+
   const modal = (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -280,7 +377,7 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
           }
           role="dialog"
           aria-modal="true"
-          onPointerDown={(e) => {
+          onPointerDown={(e: any) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
@@ -289,60 +386,20 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
             style={{ maxHeight: keyboardOpen ? `calc(100dvh - ${Math.max(120, keyboardHeight + 120)}px)` : "85vh" }}
           >
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <div className="min-w-0"><div className="truncate text-base font-semibold text-white">{title || "Übungsbibliothek"}</div><div className="truncate text-sm text-gray-400">Übung auswählen</div></div>
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-white">{title || (category === 'running' ? "Lauf auswählen" : category === 'cycling' ? "Radfahrt auswählen" : "Übungsbibliothek")}</div>
+                <div className="truncate text-sm text-gray-400">
+                  {category === 'running' ? "Distanz oder Intervalle" : category === 'cycling' ? "Distanz oder Intervalle" : "Übung auswählen"}
+                </div>
+              </div>
               <button type="button" onClick={onClose} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">{t("common.close")}</button>
             </div>
+
             <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4">
-              <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[#061226]/80 to-transparent">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
-                    <input ref={searchRef} type="text" placeholder={isCardioLibrary ? t("training.exerciseLibrary.searchCardio") : t("training.exerciseLibrary.searchGym")} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
-                  </div>
-                  {!isCardioLibrary && <button type="button" onClick={openCreate} className="shrink-0 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>}
-                </div>
-                {!isCardioLibrary && (
-                  <div className="mt-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
-                      <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
-                    </div>
-                    <button type="button" onClick={() => setShowMoreFilters((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/5 border border-white/10">{showMoreFilters ? "–" : "+"}</span>
-                      {t("training.exerciseLibrary.moreFilters")}
-                    </button>
-                    {showMoreFilters && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
-                        <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 overflow-y-auto pt-2">
-                {filteredExercises.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-gray-400">
-                    {t("training.exerciseLibrary.empty")}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredExercises.map((ex) => {
-                      const isAdded = existingSet.has(ex.id) || localAddedIds.has(ex.id);
-                      return (
-                        <div key={ex.id} className={`flex items-center justify-between gap-3 rounded-2xl p-3 transition-colors ${isAdded ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`} role="button" tabIndex={0} onClick={() => openDetails(ex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openDetails(ex); }}>
-                          <div className="flex min-w-0 items-center gap-4"><ExerciseThumbnail exercise={ex} /><div className="min-w-0"><div className="truncate text-base font-semibold text-white">{getExerciseDisplayName(ex, lang)}</div><div className="truncate text-sm text-gray-400">{(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}{ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}</div></div></div>
-                          <button type="button" disabled={isAdded} onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; handleAddExercise(ex); }} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed ${isAdded ? "bg-green-500/20 text-green-300" : "bg-brand-primary text-white hover:opacity-90"}`}>
-                            {isAdded ? (<span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>{t("training.exerciseLibrary.added")}</span>) : (t("training.exerciseLibrary.add"))}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {category === 'running' || category === 'cycling' ? renderCardioView() : renderGymView()}
               <div className="mt-3 text-xs text-center text-gray-500">{t("training.exerciseLibrary.tip")}</div>
             </div>
+
           </div>
           {showCreate && <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) closeCreate(); }}>
             <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
@@ -365,7 +422,7 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
             </div>
           </div>}
           <ExerciseDetailsModal open={detailsOpen && !!selectedExercise} exercise={selectedExercise} isAdded={!!selectedExercise && (existingSet.has(selectedExercise.id) || localAddedIds.has(selectedExercise.id))} onClose={closeDetails} onAdd={handleAddExercise} />
-        </motion.div>
+        </MotionDiv>
       )
       }
     </AnimatePresence >

@@ -1407,19 +1407,19 @@
     }
   },
   {
-    "id": "ex_squeeze_press_dumbbell",
+    "id": "ex_sqüeze_press_dumbbell",
     "name": {
-      "en": "Dumbbell Squeeze Press",
-      "de": "Kurzhantel Squeeze Press"
+      "en": "Dumbbell Sqüeze Press",
+      "de": "Kurzhantel Sqüeze Press"
     },
     "aliases": {
       "en": [
-        "DB Squeeze Press",
-        "Squeeze Press Dumbbell"
+        "DB Sqüeze Press",
+        "Sqüeze Press Dumbbell"
       ],
       "de": [
-        "KH Squeeze Press",
-        "Squeeze Press Kurzhantel"
+        "KH Sqüeze Press",
+        "Sqüeze Press Kurzhantel"
       ]
     },
     "primaryMuscles": [
@@ -11973,7 +11973,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12004,7 +12004,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12100,7 +12100,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "cable"
@@ -12132,7 +12132,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "cable"
@@ -12164,7 +12164,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "bodyweight"
@@ -12364,18 +12364,18 @@
     ]
   },
   {
-    "id": "ex_toe_touch",
+    "id": "ex_tö_touch",
     "name": {
-      "en": "Toe Touch",
-      "de": "Toe Touch"
+      "en": "Tö Touch",
+      "de": "Tö Touch"
     },
     "aliases": {
       "en": [
-        "Toe Touch Crunch",
-        "Toe Touches"
+        "Tö Touch Crunch",
+        "Tö Touches"
       ],
       "de": [
-        "Toe Touch",
+        "Tö Touch",
         "Zehenspitzen Crunch"
       ]
     },
@@ -12383,7 +12383,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "bodyweight"
@@ -12411,7 +12411,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12473,7 +12473,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12504,7 +12504,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12536,7 +12536,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12568,7 +12568,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12603,7 +12603,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "cable"
@@ -12635,7 +12635,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "cable"
@@ -12667,7 +12667,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "band"
@@ -12912,7 +12912,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12944,7 +12944,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -12976,7 +12976,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -13008,7 +13008,7 @@
       ]
     },
     "primaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "secondaryMuscles": [
       "core"
@@ -13998,7 +13998,7 @@
       "core"
     ],
     "secondaryMuscles": [
-      "obliques"
+      "obliqüs"
     ],
     "equipment": [
       "bodyweight"

@@ -139,6 +139,15 @@ export interface CalendarEvent {
   adaptiveSuggestion?: AdaptiveSuggestion;
 
   /**
+   * Optional: Geplantes Training (adhoc oder from template)
+   * Damit das Dashboard weiß, was ansteht.
+   */
+  workoutData?: {
+    exercises: LiveExercise[];
+    templateId?: string;
+  };
+
+  /**
    * Deload Markierung (UI/Modifier, kein Status)
    */
   deload?: boolean;

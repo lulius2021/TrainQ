@@ -1,6 +1,5 @@
 // src/pages/onboarding/StepWrapper.tsx
 import React from "react";
-import { useI18n } from "../../i18n/useI18n";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 
@@ -45,9 +44,8 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   progressLabel,
   progressValue,
 }) => {
-  const { t } = useI18n();
-  const resolvedNextLabel = nextLabel ?? t("common.next");
-  const resolvedBackLabel = backLabel ?? t("common.back");
+  const resolvedNextLabel = nextLabel ?? "Weiter";
+  const resolvedBackLabel = backLabel ?? "Zurück";
 
   return (
     <div

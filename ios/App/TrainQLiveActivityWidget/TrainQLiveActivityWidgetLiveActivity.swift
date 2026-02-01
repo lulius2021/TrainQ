@@ -2,57 +2,62 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-@main
-struct TrainQLiveActivityWidget: Widget {
-    var body: some WidgetConfiguration {
-        ActivityConfiguration(for: TrainQWorkoutAttributes.self) { context in
-            ZStack {
-                Color.black.opacity(0.8)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("TrainQ Live Activity ✅")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Text(context.state.primaryLine)
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.85))
-                }
-                .padding(16)
-            }
-            .widgetURL(URL(string: context.state.deepLink ?? ""))
-        } dynamicIsland: { context in
-            DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.badge.uppercased())
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.subtitle)
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.state.primaryLine)
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                }
-            } compactLeading: {
-                Text(context.state.badge.uppercased())
-                    .font(.caption2)
-            } compactTrailing: {
-                Text(shortSubtitle(context.state.subtitle))
-                    .font(.caption2)
-            } minimal: {
-                Text(context.state.badge.prefix(1))
-                    .font(.caption2)
-            }
-        }
+struct TrainQAttributes: ActivityAttributes {
+    // KEINE statischen Variablen mehr hier! Das verhindert den Fehler.
+    public struct ContentState: Codable, Hashable {
+        var exerciseName: String
+        var setInfo: String
+        var progressValue: Double
     }
 }
 
-private func shortSubtitle(_ subtitle: String) -> String {
-    let comps = subtitle.split(separator: " ")
-    if comps.count >= 2 { return String(comps[1]) }
-    return subtitle
+@main
+struct TrainQWidgetLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: TrainQAttributes.self) { context in
+            // --- LOCK SCREEN ---
+            HStack {
+                ZStack {
+                    Circle().stroke(Color.gray.opacity(0.3), lineWidth: 4)
+                    Circle()
+                        .trim(from: 0, to: context.state.progressValue)
+                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Image(systemName: "dumbbell.fill").font(.caption).foregroundColor(.white)
+                }
+                .frame(width: 45, height: 45)
+
+                VStack(alignment: .leading) {
+                    Text(context.state.exerciseName).font(.headline).foregroundColor(.white)
+                    Text(context.state.setInfo).font(.caption).foregroundColor(.gray)
+                }
+                Spacer()
+            }
+            .padding()
+            .activityBackgroundTint(Color.black.opacity(0.8))
+
+        } dynamicIsland: { context in
+            // --- DYNAMIC ISLAND ---
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                     Image(systemName: "dumbbell.fill").foregroundColor(.blue)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text("\(Int(context.state.progressValue * 100))%")
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    Text(context.state.exerciseName)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text(context.state.setInfo)
+                }
+            } compactLeading: {
+                Image(systemName: "dumbbell.fill").foregroundColor(.blue)
+            } compactTrailing: {
+                Text("\(Int(context.state.progressValue * 100))%")
+            } minimal: {
+                Image(systemName: "dumbbell.fill").foregroundColor(.blue)
+            }
+        }
+    }
 }

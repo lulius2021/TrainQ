@@ -24,13 +24,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 )}
                 <div>
                     <h1
-                        className="text-[34px] font-bold tracking-tight text-[var(--text)] leading-tight"
+                        className="text-[34px] font-bold tracking-tight text-white leading-tight"
                         style={{ fontFamily: "SF Pro Display, -apple-system, sans-serif", letterSpacing: "-0.02em" }}
                     >
                         {title}
                     </h1>
                     {subtitle && (
-                        <p className="text-[17px] text-[var(--muted)] mt-1 font-medium leading-relaxed">
+                        <p className="text-[17px] text-zinc-400 mt-1 font-medium leading-relaxed">
                             {subtitle}
                         </p>
                     )}

@@ -193,6 +193,96 @@ export const EXERCISE_TYPES: ExerciseType[] = [
 
 export const METRICS: Metric[] = ["weight", "reps", "time", "distance", "pace", "rpe"];
 
+export const RUNNING_EXERCISES: Exercise[] = [
+  {
+    id: "run_1",
+    name: "Lauf",
+    nameEn: "Run",
+    nameDe: "Lauf",
+    aliases: { en: [], de: [] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["bodyweight"],
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Mittel",
+  },
+  {
+    id: "run_2",
+    name: "Recovery Run",
+    nameEn: "Recovery Run",
+    nameDe: "Recovery Run",
+    aliases: { en: [], de: [] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["bodyweight"],
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Leicht",
+  },
+  {
+    id: "run_3",
+    name: "Intervalle",
+    nameEn: "Intervals",
+    nameDe: "Intervalle",
+    aliases: { en: ["Run Intervals"], de: ["Laufintervalle"] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["bodyweight"],
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Schwer",
+  },
+];
+
+export const CYCLING_EXERCISES: Exercise[] = [
+  {
+    id: "cycle_1",
+    name: "Radfahren",
+    nameEn: "Cycling",
+    nameDe: "Radfahren",
+    aliases: { en: ["Bike"], de: ["Fahrrad"] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["cardio_machine"], // or maybe separate outdoor bike?
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Mittel",
+  },
+  {
+    id: "cycle_2",
+    name: "Recovery Radfahren",
+    nameEn: "Recovery Ride",
+    nameDe: "Recovery Radfahren",
+    aliases: { en: ["Recovery Bike"], de: ["Locker Radfahren"] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["cardio_machine"],
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Leicht",
+  },
+  {
+    id: "cycle_3",
+    name: "Intervalle Radfahren",
+    nameEn: "Cycling Intervals",
+    nameDe: "Intervalle Radfahren",
+    aliases: { en: ["Bike Intervals"], de: ["Radintervalle"] },
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["hamstrings", "calves"],
+    equipment: ["cardio_machine"],
+    movement: "locomotion",
+    type: "conditioning",
+    metrics: ["time", "distance", "pace"],
+    difficulty: "Schwer",
+  },
+];
+
 const DEFAULT_LANG = "de";
 const LANG_STORAGE_KEY = "trainq_lang_v1";
 

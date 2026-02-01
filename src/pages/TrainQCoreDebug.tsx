@@ -176,15 +176,26 @@ const WOCHENTAGE: Array<{ label: string; value: WeekdayIndex }> = [
 
 const SPLITS: Array<{ label: string; value: SplitType }> = [
   { label: "Push / Pull", value: "push_pull" },
-  { label: "Upper / Lower", value: "upper_lower" },
+  { label: "Oberkörper / Unterkörper", value: "upper_lower" },
 ];
 
 function erlaubteWorkoutTypes(split: SplitType): WorkoutType[] {
   return split === "push_pull" ? ["Push", "Pull"] : ["Upper", "Lower"];
 }
 
+function translateWorkoutType(type: string): string {
+  if (type === "Upper") return "Oberkörper";
+  if (type === "Lower") return "Unterkörper";
+  return type;
+}
+
+function formatDateDE(isoDate: string): string {
+  if (!isoDate) return "-";
+  return new Date(isoDate).toLocaleDateString("de-DE");
+}
+
 function chipTextForStatus(status: any): string {
-  if (status === "completed") return "Gemacht";
+  if (status === "completed") return "Erledigt";
   if (status === "skipped") return "Übersprungen";
   if (status === "adaptive") return "Adaptiv";
   return "Geplant";
@@ -329,7 +340,7 @@ export default function TrainQCoreDebug() {
       if (!todaysWorkout) throw new Error("Kein Training für heute vorhanden (Seed Today nutzen).");
       return overwriteWorkoutAdaptive(todaysWorkout.id, newType, "Debug: Adaptiv überschrieben");
     });
-    report(`Heute adaptiv überschreiben → ${newType}`, res);
+    report(`Heute adaptiv überschreiben → ${translateWorkoutType(newType)}`, res);
     bump();
   }
 
@@ -398,7 +409,7 @@ export default function TrainQCoreDebug() {
 
   const todayLabel = useMemo(() => {
     if (!todaysWorkout) return "Heute: kein Eintrag (Sonntag/Restday ist normal)";
-    return `Heute: ${todaysWorkout.workoutType} • ${chipTextForStatus(todaysWorkout.status)}`;
+    return `Heute: ${translateWorkoutType(todaysWorkout.workoutType)} • ${chipTextForStatus(todaysWorkout.status)}`;
   }, [todaysWorkout]);
 
   return (
@@ -407,13 +418,13 @@ export default function TrainQCoreDebug() {
         <div>
           <h1 style={styles.title}>TrainQ Core Debug</h1>
           <p style={styles.subtitle}>
-            Setup (Plan/Kalender) → Heute (Adaptiv/Skip) → LiveWorkout (Start/Complete)
+            Einrichtung (Plan/Kalender) → Heute (Adaptiv/Skip) → Live-Training (Start/Abschluss)
           </p>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={styles.badge}>Heute: {todayISO}</div>
           <div style={{ ...styles.subtitle, marginTop: 6 }}>
-            Debug only. Vor Launch entfernen.
+            Nur für Debugging. Vor Launch entfernen.
           </div>
         </div>
       </div>
@@ -469,7 +480,7 @@ export default function TrainQCoreDebug() {
           <span style={{ flex: 1 }} />
 
           <button style={{ ...styles.btn, ...styles.btnDanger }} onClick={onResetAll}>
-            Reset (Core)
+            Zurücksetzen (Core)
           </button>
         </div>
 
@@ -479,8 +490,8 @@ export default function TrainQCoreDebug() {
             <div style={styles.small}>{todayLabel}</div>
             {todaysWorkout?.adaptedAt && (
               <div style={{ ...styles.small, marginTop: 6 }}>
-                Adaptiv: von <strong>{todaysWorkout.adaptedFromWorkoutType ?? "-"}</strong> →{" "}
-                <strong>{todaysWorkout.workoutType}</strong>
+                Adaptiv: von <strong>{translateWorkoutType(todaysWorkout.adaptedFromWorkoutType ?? "-")}</strong> →{" "}
+                <strong>{translateWorkoutType(todaysWorkout.workoutType)}</strong>
               </div>
             )}
             {(todaysWorkout as any)?.historyEntryId && (
@@ -513,7 +524,7 @@ export default function TrainQCoreDebug() {
         {/* Left: Setup */}
         <section style={styles.card}>
           <div style={styles.cardTitleRow}>
-            <h2 style={styles.cardTitle}>Setup: Plan</h2>
+            <h2 style={styles.cardTitle}>Einrichtung: Plan</h2>
             <span style={styles.badge}>
               {activePlan ? `Aktiv: ${activePlan.splitType}` : "Kein aktiver Plan"}
             </span>
@@ -603,7 +614,7 @@ export default function TrainQCoreDebug() {
                 >
                   {erlaubteWorkoutTypes(split).map((t) => (
                     <option key={t} value={t}>
-                      {t}
+                      {translateWorkoutType(t)}
                     </option>
                   ))}
                 </select>
@@ -650,7 +661,7 @@ export default function TrainQCoreDebug() {
                         </span>
                       </div>
                       <div style={styles.small}>
-                        id: {p.id} • start: {p.startDate}
+                        id: {p.id} • start: {formatDateDE(p.startDate)}
                       </div>
                     </div>
                     <div>
@@ -693,7 +704,7 @@ export default function TrainQCoreDebug() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div>
                     <div style={{ fontWeight: 900 }}>
-                      {todaysWorkout.workoutType}{" "}
+                      {translateWorkoutType(todaysWorkout.workoutType)}{" "}
                       <span style={{ opacity: 0.75, fontWeight: 700 }}>
                         ({chipTextForStatus(todaysWorkout.status)})
                       </span>
@@ -748,7 +759,7 @@ export default function TrainQCoreDebug() {
                       disabled={!!activeLiveWorkout}
                       title={activeLiveWorkout ? "Nicht während eines aktiven Workouts" : ""}
                     >
-                      → {t}
+                      → {translateWorkoutType(t)}
                     </button>
                   ))}
                 </div>
@@ -756,7 +767,7 @@ export default function TrainQCoreDebug() {
                 {todaysWorkout.adaptedAt && (
                   <div style={{ ...styles.small, marginTop: 10 }}>
                     Adaptiv gesetzt um {todaysWorkout.adaptedAt} (von{" "}
-                    <strong>{todaysWorkout.adaptedFromWorkoutType ?? "-"}</strong>)
+                    <strong>{translateWorkoutType(todaysWorkout.adaptedFromWorkoutType ?? "-")}</strong>)
                   </div>
                 )}
               </div>
@@ -782,8 +793,8 @@ export default function TrainQCoreDebug() {
                     .sort((a, b) => a.date.localeCompare(b.date))
                     .map((w) => (
                       <tr key={w.id}>
-                        <td style={styles.td}>{w.date}</td>
-                        <td style={styles.td}>{w.workoutType}</td>
+                        <td style={styles.td}>{formatDateDE(w.date)}</td>
+                        <td style={styles.td}>{translateWorkoutType(w.workoutType)}</td>
                         <td style={styles.td}>{chipTextForStatus(w.status)}</td>
                         <td style={{ ...styles.td, opacity: 0.75, fontSize: 12 }}>
                           {w.sourcePlanId ? w.sourcePlanId.slice(0, 10) + "…" : "-"}
@@ -796,7 +807,7 @@ export default function TrainQCoreDebug() {
           </div>
 
           <div style={{ marginTop: 10, ...styles.small }}>
-            Tipp: Für Adaptiv-Tests zuerst „Heute anlegen“, dann „→ Upper/Lower“ klicken.
+            Tipp: Für Adaptiv-Tests zuerst „Heute anlegen“, dann „→ Oberkörper/Unterkörper“ klicken.
           </div>
         </section>
       </div>

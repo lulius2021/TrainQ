@@ -1,3 +1,4 @@
+// src/pages/onboarding/steps/StepFitness.tsx
 import React from 'react';
 import { OnboardingStepLayout } from "../../../components/onboarding/OnboardingStepLayout";
 import { useOnboarding } from "../../../context/OnboardingContext";
@@ -15,13 +16,35 @@ export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
         updateData({ personal: { fitnessLevel: lvl } });
     };
 
+    const getLabel = (lvl: number) => {
+        switch (lvl) {
+            case 1: return "Einsteiger";
+            case 2: return "Anfänger";
+            case 3: return "Fortgeschritten";
+            case 4: return "Erfahren";
+            case 5: return "Profi";
+            default: return "";
+        }
+    }
+
+    const getDesc = (lvl: number) => {
+        switch (lvl) {
+            case 1: return "Ich fange gerade erst an.";
+            case 2: return "Ich trainiere ab und zu.";
+            case 3: return "Ich trainiere regelmäßig seit >6 Monaten.";
+            case 4: return "Training ist Teil meines Lebens (>2 Jahre).";
+            case 5: return "Wettkampfniveau / Sehr erfahren.";
+            default: return "";
+        }
+    }
+
     return (
         <OnboardingStepLayout
-            title="Dein Level"
-            subtitle="Wie schätzt du deine aktuelle Fitness ein?"
+            title="Wie fit bist du?"
+            subtitle="Wähle dein aktuelles Fitness-Level."
             onContinue={onFinish}
             onBack={onBack}
-            continueLabel="Training erstellen"
+            continueLabel="Fertigstellen"
             canContinue={true}
         >
             <div className="flex flex-col items-center justify-center py-8">
@@ -42,18 +65,10 @@ export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
 
                 <div className="text-center animate-in fade-in slide-in-from-bottom-2 duration-300" key={current}>
                     <div className="text-3xl font-bold text-[var(--text)] mb-3">
-                        {current === 1 && "Einsteiger"}
-                        {current === 2 && "Gelegenheits-Sportler"}
-                        {current === 3 && "Aktiv"}
-                        {current === 4 && "Sehr fit"}
-                        {current === 5 && "Athlet"}
+                        {getLabel(current)}
                     </div>
                     <p className="text-[var(--muted)] max-w-xs mx-auto text-base leading-relaxed">
-                        {current === 1 && "Wir starten sanft und bauen eine solide Basis auf."}
-                        {current === 2 && "Wir bringen wieder mehr Regelmäßigkeit und Struktur rein."}
-                        {current === 3 && "Perfekt. Wir bauen darauf auf und steigern die Intensität."}
-                        {current === 4 && "Du bist bereit für fortgeschrittene Techniken und Challenges."}
-                        {current === 5 && "High-Performance Training für maximale Leistung."}
+                        {getDesc(current)}
                     </p>
                 </div>
             </div>

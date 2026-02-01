@@ -36,28 +36,28 @@ export default function AdaptiveTestPage() {
 
             // Log results
             const logs = [
-                `✅ Generated adaptive workout for: ${templateId}`,
-                `📊 Recovery Score: ${adaptiveResult.recoveryScore}%`,
-                `🎯 Recovery Modifier: ${adaptiveResult.recoveryModifier.toFixed(3)}`,
-                `📈 Overload Factor: ${adaptiveResult.overloadFactor.toFixed(3)}`,
-                `🔄 Biometrics Source: ${adaptiveResult.biometricsSource}`,
-                `💪 Exercises: ${adaptiveResult.exercises.length}`,
-                `⚠️ Needs Deload: ${adaptiveResult.needsDeload ? "YES" : "NO"}`,
-                adaptiveResult.deloadReason ? `📝 Deload Reason: ${adaptiveResult.deloadReason}` : "",
+                `✅ Adaptives Training generiert für: ${templateId}`,
+                `📊 Erholungswert: ${adaptiveResult.recoveryScore}%`,
+                `🎯 Erholungsfaktor: ${adaptiveResult.recoveryModifier.toFixed(3)}`,
+                `📈 Overload-Faktor: ${adaptiveResult.overloadFactor.toFixed(3)}`,
+                `🔄 Datenquelle: ${adaptiveResult.biometricsSource}`,
+                `💪 Übungen: ${adaptiveResult.exercises.length}`,
+                `⚠️ Deload notwendig: ${adaptiveResult.needsDeload ? "JA" : "NEIN"}`,
+                adaptiveResult.deloadReason ? `📝 Deload Grund: ${adaptiveResult.deloadReason}` : "",
             ].filter(Boolean);
 
             setTestLogs(logs);
         } catch (error) {
-            setTestLogs([`❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`]);
+            setTestLogs([`❌ Fehler: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`]);
         } finally {
             setLoading(false);
         }
     };
 
     const runStressTest = () => {
-        setTestLogs(["🔬 Running stress test (check console)..."]);
+        setTestLogs(["🔬 Starte Stresstest (siehe Konsole)..."]);
         stressTestAdaptiveEngine();
-        setTestLogs(prev => [...prev, "✅ Stress test complete - check browser console for results"]);
+        setTestLogs(prev => [...prev, "✅ Stresstest abgeschlossen - siehe Browser Konsole"]);
     };
 
     return (
@@ -65,18 +65,18 @@ export default function AdaptiveTestPage() {
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
                 <AppCard>
-                    <h1 className="text-3xl font-bold mb-2">🧠 Adaptive Engine Test Lab</h1>
+                    <h1 className="text-3xl font-bold mb-2">🧠 Adaptive Engine Testlabor</h1>
                     <p className="text-[var(--muted)]">
-                        Test and validate the adaptive workout generation system
+                        Testen und Validieren des adaptiven Trainingssystems
                     </p>
                 </AppCard>
 
                 {/* Controls */}
-                <AppCard title="Test Controls">
+                <AppCard title="Test-Steuerung">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-[var(--muted)] mb-2">
-                                Template
+                                Vorlage
                             </label>
                             <select
                                 value={selectedTemplate}
@@ -85,9 +85,9 @@ export default function AdaptiveTestPage() {
                             >
                                 <option value="push">Push</option>
                                 <option value="pull">Pull</option>
-                                <option value="legs">Legs</option>
-                                <option value="upper">Upper</option>
-                                <option value="lower">Lower</option>
+                                <option value="legs">Legs (Beine)</option>
+                                <option value="upper">Upper (Oberkörper)</option>
+                                <option value="lower">Lower (Unterkörper)</option>
                             </select>
                         </div>
 
@@ -99,14 +99,14 @@ export default function AdaptiveTestPage() {
                                 isLoading={loading}
                                 className="flex-1"
                             >
-                                Generate Workout
+                                Training Generieren
                             </AppButton>
 
                             <AppButton
                                 onClick={runStressTest}
                                 variant="secondary"
                             >
-                                Stress Test
+                                Stresstest
                             </AppButton>
                         </div>
                     </div>
@@ -114,7 +114,7 @@ export default function AdaptiveTestPage() {
 
                 {/* Test Logs */}
                 {testLogs.length > 0 && (
-                    <AppCard title="📋 Test Logs" variant="soft">
+                    <AppCard title="📋 Test Protokoll" variant="soft">
                         <div className="space-y-2 font-mono text-sm max-h-[300px] overflow-y-auto">
                             {testLogs.map((log, i) => (
                                 <div key={i} className="text-[var(--text)]">
@@ -129,25 +129,25 @@ export default function AdaptiveTestPage() {
                 {result && (
                     <div className="space-y-4">
                         {/* Summary */}
-                        <AppCard title="📊 Workout Summary">
+                        <AppCard title="📊 Zusammenfassung">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                 <div className="rounded-xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Recovery Score</div>
+                                    <div className="text-xs text-[var(--muted)] mb-1">Erholungswert</div>
                                     <div className="text-2xl font-bold">{result.recoveryScore}%</div>
                                 </div>
 
                                 <div className="rounded-xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Recovery Modifier</div>
+                                    <div className="text-xs text-[var(--muted)] mb-1">Erholungsfaktor</div>
                                     <div className="text-2xl font-bold">{(result.recoveryModifier * 100).toFixed(1)}%</div>
                                 </div>
 
                                 <div className="rounded-xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Overload Factor</div>
+                                    <div className="text-xs text-[var(--muted)] mb-1">Overload-Faktor</div>
                                     <div className="text-2xl font-bold">{(result.overloadFactor * 100).toFixed(1)}%</div>
                                 </div>
 
                                 <div className="rounded-xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Exercises</div>
+                                    <div className="text-xs text-[var(--muted)] mb-1">Übungen</div>
                                     <div className="text-2xl font-bold">{result.exercises.length}</div>
                                 </div>
                             </div>
@@ -161,7 +161,7 @@ export default function AdaptiveTestPage() {
                         </AppCard>
 
                         {/* Exercises */}
-                        <AppCard title="💪 Generated Exercises">
+                        <AppCard title="💪 Generierte Übungen">
                             <div className="space-y-4">
                                 {result.exercises.map((exercise, idx) => (
                                     <AppCard
@@ -174,7 +174,7 @@ export default function AdaptiveTestPage() {
                                             <div>
                                                 <div className="font-semibold text-lg">{exercise.name}</div>
                                                 <div className="text-sm text-[var(--muted)]">
-                                                    {exercise.sets.length} sets × {exercise.restSeconds}s rest
+                                                    {exercise.sets.length} Sätze × {exercise.restSeconds}s Pause
                                                 </div>
                                             </div>
                                             <div className="text-sm text-[var(--muted)]">#{idx + 1}</div>
@@ -186,14 +186,14 @@ export default function AdaptiveTestPage() {
                                                     key={set.id}
                                                     className="flex items-center gap-4 rounded-lg bg-[var(--bg)] p-3 text-sm"
                                                 >
-                                                    <div className="w-12 text-[var(--muted)]">Set {setIdx + 1}</div>
+                                                    <div className="w-12 text-[var(--muted)]">Satz {setIdx + 1}</div>
                                                     <div className="flex-1 grid grid-cols-3 gap-4">
                                                         <div>
-                                                            <span className="text-[var(--muted)]">Reps: </span>
+                                                            <span className="text-[var(--muted)]">Wdh: </span>
                                                             <span className="font-semibold">{set.reps}</span>
                                                         </div>
                                                         <div>
-                                                            <span className="text-[var(--muted)]">Weight: </span>
+                                                            <span className="text-[var(--muted)]">Gewicht: </span>
                                                             <span className="font-semibold">{set.weight}kg</span>
                                                         </div>
                                                         <div className="text-xs text-[var(--muted)] truncate">
@@ -211,26 +211,26 @@ export default function AdaptiveTestPage() {
                 )}
 
                 {/* Documentation */}
-                <AppCard title="📖 Test Scenarios">
+                <AppCard title="📖 Testszenarien">
                     <div className="space-y-3 text-sm text-[var(--muted)]">
                         <div className="rounded-xl bg-[var(--surface2)] p-3">
-                            <div className="font-semibold text-[var(--text)] mb-1">✅ Normal Flow</div>
-                            <p>Generate workout with current time-based recovery simulation</p>
+                            <div className="font-semibold text-[var(--text)] mb-1">✅ Normaler Ablauf</div>
+                            <p>Generiert ein Training mit aktueller zeitzonenbasierter Erholungssimulation</p>
                         </div>
 
                         <div className="rounded-xl bg-[var(--surface2)] p-3">
-                            <div className="font-semibold text-[var(--text)] mb-1">🔬 Stress Test</div>
-                            <p>Simulates 100 different recovery scores (0-100%) and logs weight calculations</p>
+                            <div className="font-semibold text-[var(--text)] mb-1">🔬 Stresstest</div>
+                            <p>Simuliert 100 verschiedene Erholungswerte (0-100%) und protokolliert die Gewichtsberechnungen</p>
                         </div>
 
                         <div className="rounded-xl bg-[var(--surface2)] p-3">
-                            <div className="font-semibold text-[var(--text)] mb-1">⚠️ Deload Detection</div>
-                            <p>Automatically triggers after 3 consecutive failures (simulated in real usage)</p>
+                            <div className="font-semibold text-[var(--text)] mb-1">⚠️ Deload Erkennung</div>
+                            <p>Löst automatisch aus nach 3 aufeinanderfolgenden Fehlversuchen (simuliert in echter Nutzung)</p>
                         </div>
 
                         <div className="rounded-xl bg-[var(--surface2)] p-3">
-                            <div className="font-semibold text-[var(--text)] mb-1">🔄 Fallback Logic</div>
-                            <p>Uses 7-day average when Garmin API fails (5% random failure rate)</p>
+                            <div className="font-semibold text-[var(--text)] mb-1">🔄 Fallback Logik</div>
+                            <p>Nutzt 7-Tage Durchschnitt wenn Garmin API fehlschlägt (5% Zufallsfehlerquote)</p>
                         </div>
                     </div>
                 </AppCard>

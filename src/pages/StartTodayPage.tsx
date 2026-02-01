@@ -13,18 +13,18 @@ interface StartTodayPageProps {
     onPlanTraining: () => void;
 }
 
-function formatSportLabel(type: TrainingType, t: (key: any) => string): string {
-    if (type === "laufen") return t("training.sport.run");
-    if (type === "radfahren") return t("training.sport.bike");
-    if (type === "custom") return t("plan.sport.custom");
-    return t("training.sport.gym");
+function formatSportLabel(type: TrainingType): string {
+    if (type === "laufen") return "Laufen";
+    if (type === "radfahren") return "Radfahren";
+    if (type === "custom") return "Custom";
+    return "Gym";
 }
 
-function buildTemplateSummary(template: TrainingTemplateLite, t: (key: any, vars?: any) => string): string {
+function buildTemplateSummary(template: TrainingTemplateLite): string {
     const exercises = template.exercises?.length ?? 0;
     const sets = template.exercises?.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0) ?? 0;
-    if (exercises === 0) return t("today.templates.summaryEmpty");
-    return t("today.templates.summary", { exercises, sets });
+    if (exercises === 0) return "Keine Übungen";
+    return `${exercises} Übungen, ${sets} Sätze`;
 }
 
 function TrashIcon({ className }: { className?: string }) {
@@ -38,7 +38,7 @@ function TrashIcon({ className }: { className?: string }) {
 }
 
 export default function StartTodayPage({ events, onPlanTraining }: StartTodayPageProps) {
-    const { t, formatDate } = useI18n();
+    const { formatDate } = useI18n();
     const { sessions, status, primarySession } = useTodaysSessions(events);
 
     const [templates, setTemplates] = useState<TrainingTemplateLite[]>([]);
@@ -97,9 +97,9 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
      */
 
     return (
-        <div className="w-full h-full pb-[var(--nav-height)]">
+        <div className="w-full h-full pb-40">
             <PageHeader
-                title={t("today.title")}
+                title="Heute"
                 className="pb-2"
             />
 
@@ -109,22 +109,22 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 </div>
 
                 <section className="space-y-4">
-                    <h2 className="text-xl font-semibold text-[var(--text)]">{t("today.section.planned")}</h2>
+                    <h2 className="text-xl font-semibold text-[var(--text)]">Geplantes Training</h2>
 
                     {status === "none" && (
                         <AppCard variant="glass" className="p-8 text-center flex flex-col items-center justify-center min-h-[160px]">
-                            <h3 className="text-lg font-semibold text-[var(--text)]">{t("today.empty.title")}</h3>
-                            <p className="text-base text-[var(--muted)] mt-2">{t("today.empty.subtitle")}</p>
+                            <h3 className="text-lg font-semibold text-[var(--text)]">Kein Training geplant</h3>
+                            <p className="text-base text-[var(--muted)] mt-2">Genieße deinen Ruhetag oder starte ein spontanes Training.</p>
                         </AppCard>
                     )}
 
                     {status === "single" && primarySession && (
                         <AppCard variant="glass" className="p-0 overflow-hidden relative group">
                             <div className="p-6 space-y-1">
-                                <h3 className="text-2xl font-bold text-[var(--text)]">{primarySession.title || t("today.untitled")}</h3>
+                                <h3 className="text-2xl font-bold text-[var(--text)]">{primarySession.title || "Unbenanntes Training"}</h3>
                                 <p className="text-base text-[var(--muted)]">
                                     {primarySession.startAt ? `${primarySession.startAt} · ` : ""}
-                                    {formatSportLabel(primarySession.sportType, t)}
+                                    {formatSportLabel(primarySession.sportType)}
                                 </p>
                             </div>
                             <div className="px-6 pb-6">
@@ -135,7 +135,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     size="lg"
                                     className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all shadow-lg shadow-blue-500/20"
                                 >
-                                    {t("today.startPrimary")}
+                                    Training starten
                                 </AppButton>
                             </div>
                         </AppCard>
@@ -146,10 +146,10 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             {sessions.map((session) => (
                                 <AppCard key={session.id} variant="glass" className="p-4 flex items-center justify-between gap-4">
                                     <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold truncate text-[var(--text)]">{session.title || t("today.untitled")}</h3>
+                                        <h3 className="text-lg font-semibold truncate text-[var(--text)]">{session.title || "Unbenanntes Training"}</h3>
                                         <p className="text-sm text-[var(--muted)]">
                                             {session.startAt ? `${session.startAt} · ` : ""}
-                                            {formatSportLabel(session.sportType, t)}
+                                            {formatSportLabel(session.sportType)}
                                         </p>
                                     </div>
                                     <AppButton
@@ -158,7 +158,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                         size="sm"
                                         className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all"
                                     >
-                                        {t("today.start")}
+                                        Starten
                                     </AppButton>
                                 </AppCard>
                             ))}
@@ -168,7 +168,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
 
                 <section className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-[var(--text)]">{t("today.templates.title")}</h2>
+                        <h2 className="text-xl font-semibold text-[var(--text)]">Meine Vorlagen</h2>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {templates.map((template) => (
@@ -181,8 +181,8 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 </button>
                                 <div>
                                     <h3 className="text-lg font-semibold text-[var(--text)] line-clamp-1 pr-8">{template.title}</h3>
-                                    <p className="text-sm text-[var(--muted)] mt-1">{formatSportLabel(template.sportType, t)}</p>
-                                    <p className="text-xs text-[var(--muted)] mt-1 opacity-80">{buildTemplateSummary(template, t)}</p>
+                                    <p className="text-sm text-[var(--muted)] mt-1">{formatSportLabel(template.sportType)}</p>
+                                    <p className="text-xs text-[var(--muted)] mt-1 opacity-80">{buildTemplateSummary(template)}</p>
                                 </div>
                                 <AppButton
                                     onClick={() => startTrainingTemplate(template)}
@@ -190,7 +190,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     fullWidth
                                     className="mt-4"
                                 >
-                                    {t("today.templates.start")}
+                                    Starten
                                 </AppButton>
                             </AppCard>
                         ))}
@@ -200,7 +200,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             className="rounded-2xl p-5 flex flex-col items-center justify-center min-h-[140px] bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 text-[var(--muted)] transition-all active:scale-95"
                         >
                             <span className="text-2xl mb-2">+</span>
-                            <span className="font-medium">{t("today.templates.create")}</span>
+                            <span className="font-medium">Neue Vorlage</span>
                         </button>
                     </div>
                 </section>
@@ -208,33 +208,33 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 {isCreateOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={closeCreate}>
                         <AppCard variant="glass" className="w-full max-w-md p-6 space-y-5" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                            <h3 className="text-xl font-bold text-[var(--text)]">{t("today.templates.createTitle")}</h3>
+                            <h3 className="text-xl font-bold text-[var(--text)]">Neue Vorlage erstellen</h3>
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-[var(--muted)]">{t("today.templates.fieldTitle")}</label>
+                                <label className="block text-sm font-medium text-[var(--muted)]">Titel der Vorlage</label>
                                 <input
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
                                     placeholder="Mein Training..."
                                     className={`w-full rounded-xl px-3 py-3 text-base bg-[var(--surface2)] border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-[var(--border)]"} text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)]`}
                                 />
-                                {attemptedSave && !newTitle.trim() && <p className="text-sm text-red-500">{t("today.templates.titleRequired")}</p>}
+                                {attemptedSave && !newTitle.trim() && <p className="text-sm text-red-500">Bitte gib einen Titel ein.</p>}
                             </div>
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-[var(--muted)]">{t("today.templates.fieldSport")}</label>
+                                <label className="block text-sm font-medium text-[var(--muted)]">Sportart</label>
                                 <select
                                     value={newSportType}
                                     onChange={(e) => setNewSportType(e.target.value as TrainingType)}
                                     className="w-full rounded-xl px-3 py-3 text-base bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)] appearance-none"
                                 >
-                                    <option value="gym">{t("training.sport.gym")}</option>
-                                    <option value="laufen">{t("training.sport.run")}</option>
-                                    <option value="radfahren">{t("training.sport.bike")}</option>
-                                    <option value="custom">{t("plan.sport.custom")}</option>
+                                    <option value="gym">Gym</option>
+                                    <option value="laufen">Laufen</option>
+                                    <option value="radfahren">Radfahren</option>
+                                    <option value="custom">Custom</option>
                                 </select>
                             </div>
                             <div className="flex items-center gap-3 pt-4">
                                 <AppButton onClick={closeCreate} variant="ghost" fullWidth>
-                                    {t("common.cancel")}
+                                    Abbrechen
                                 </AppButton>
                                 <AppButton
                                     onClick={handleSaveTemplate}
@@ -242,7 +242,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     fullWidth
                                     className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all"
                                 >
-                                    {t("common.save")}
+                                    Speichern
                                 </AppButton>
                             </div>
                         </AppCard>

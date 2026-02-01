@@ -8,6 +8,7 @@ type Props = {
   open: boolean;
   exercise: Exercise | null;
   isAdded?: boolean;
+  readOnly?: boolean;
   onClose: () => void;
   onAdd: (exercise: Exercise) => void;
 };
@@ -15,11 +16,12 @@ type Props = {
 type ContentProps = {
   exercise: Exercise;
   isAdded: boolean;
+  readOnly?: boolean;
   onClose: () => void;
   onAdd: (exercise: Exercise) => void;
 };
 
-function ExerciseDetailsContent({ exercise, isAdded, onClose, onAdd }: ContentProps) {
+function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }: ContentProps) {
   const { t } = useI18n();
   const src = useExerciseImage(exercise);
 
@@ -114,7 +116,7 @@ function ExerciseDetailsContent({ exercise, isAdded, onClose, onAdd }: ContentPr
     </div>
   );
 
-  const footer = (
+  const footer = readOnly ? undefined : (
     <div className="px-4 py-3">
       <button
         type="button"
@@ -144,8 +146,8 @@ function ExerciseDetailsContent({ exercise, isAdded, onClose, onAdd }: ContentPr
       height="80dvh"
       maxHeight="80dvh"
       zIndex={10020}
-      sheetStyle={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      backdropClassName="bg-[#1c1c1e]"
+      sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
+      backdropClassName="bg-black/80"
       variant="docked"
     >
       <div className="space-y-4 px-4 pb-4" style={{ color: "var(--text)" }}>
@@ -254,7 +256,7 @@ function ExerciseDetailsContent({ exercise, isAdded, onClose, onAdd }: ContentPr
   );
 }
 
-export default function ExerciseDetailsModal({ open, exercise, isAdded = false, onClose, onAdd }: Props) {
+export default function ExerciseDetailsModal({ open, exercise, isAdded = false, readOnly = false, onClose, onAdd }: Props) {
   useEffect(() => {
     if (!open || !exercise) return;
     const onKey = (e: KeyboardEvent) => {
@@ -270,5 +272,5 @@ export default function ExerciseDetailsModal({ open, exercise, isAdded = false, 
 
   if (!open || !exercise) return null;
 
-  return <ExerciseDetailsContent exercise={exercise} isAdded={isAdded} onClose={onClose} onAdd={onAdd} />;
+  return <ExerciseDetailsContent exercise={exercise} isAdded={isAdded} readOnly={readOnly} onClose={onClose} onAdd={onAdd} />;
 }

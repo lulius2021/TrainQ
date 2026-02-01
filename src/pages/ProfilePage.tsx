@@ -7,6 +7,8 @@ import {
   clearWorkoutHistory,
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
+import { WorkoutHistoryOverlay } from "../components/profile/WorkoutHistoryOverlay";
+import { History } from "lucide-react";
 
 import {
   readOnboardingDataFromStorage,
@@ -18,12 +20,18 @@ import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
 import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
 import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/shareProfile";
-import { useI18n } from "../i18n/useI18n";
+
 
 // WICHTIG: Datei heißt bei dir "SettingPage.tsx" (ohne s)
 import SettingPage from "./SettingPage";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import { useStatistics, type TimeRange } from "../hooks/useStatistics";
+import { StatsChart } from "../components/stats/StatsChart";
+import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
+import { MuscleSplitChart } from "../components/stats/MuscleSplitChart";
+import { ShareableStatCard } from "../components/stats/ShareableStatCard";
+import { BottomSpacer } from "../components/layout/BottomSpacer";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -131,7 +139,7 @@ import MonthlyRecapModal from "../components/profile/MonthlyRecapModal";
 const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
   const { user, logout } = useAuth();
   const { isPro } = useEntitlements(user?.id);
-  const { t } = useI18n();
+
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -140,6 +148,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
+
+  const [timeRange, setTimeRange] = useState<TimeRange>("1W");
+  const stats = useStatistics(workouts, timeRange);
 
   const refreshOnboarding = useCallback(() => setOnboarding(readOnboardingDataFromStorage()), []);
   const refreshWorkouts = useCallback(() => setWorkouts(loadWorkoutHistory()), []);
@@ -335,6 +346,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [statsOpen, setStatsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Close modals with ESC
   useEffect(() => {
@@ -492,7 +504,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   return (
     <>
       <div className="w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-[var(--nav-height)] space-y-6">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-40 space-y-6">
           <section className="mt-2 space-y-4">
             <div className="flex items-center justify-between px-1">
               <h1 className="text-2xl font-bold text-[var(--text)]">Profil</h1>
@@ -502,8 +514,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onClick={handleShareProfile}
                   variant="ghost"
                   className="rounded-full !p-0 w-10 h-10"
-                  title={t("profile.share")}
-                  aria-label={t("profile.share")}
+                  title="Profil teilen"
+                  aria-label="Profil teilen"
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-[var(--muted)]">
                     <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -514,8 +526,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   onClick={() => setSettingsOpen(true)}
                   variant="ghost"
                   className="rounded-full !p-0 w-10 h-10"
-                  title={t("settings.title")}
-                  aria-label={t("settings.title")}
+                  title="Einstellungen"
+                  aria-label="Einstellungen"
                 >
                   <div className="flex flex-col gap-1.5 px-2">
                     <span className="block h-0.5 w-5 rounded bg-[var(--muted)]" />
@@ -563,7 +575,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                     {isPro ? (
                       <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[var(--primary)]">Pro</span>
                     ) : (
-                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title={t("profile.upgradePro")}>
+                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title="Upgrade auf Pro">
                         Free
                       </button>
                     )}
@@ -578,7 +590,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center self-end sm:self-center">
                 <AppButton onClick={openEdit} variant="secondary" size="sm">
-                  {t("profile.edit")}
+                  Bearbeiten
                 </AppButton>
               </div>
             </AppCard>
@@ -608,60 +620,104 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             )}
 
             {/* Statistics card */}
-            <AppCard variant="glass">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-[var(--text)]">Statistiken</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">Monatliche Häufigkeit und Wochen-Minuten.</p>
+            {/* Statistics Section */}
+            <div className="space-y-4">
+              {/* Heatmap Top */}
+              <ShareableStatCard titleForFile={`trainq-heatmap-${new Date().toISOString().split('T')[0]}`}>
+                <ConsistencyHeatmap workouts={workouts} />
+              </ShareableStatCard>
+
+              <div className="flex items-center justify-between px-1 mt-6">
+                <h3 className="text-lg font-semibold text-[var(--text)]">Dein Fortschritt</h3>
+                <div className="flex items-center p-0.5 bg-[var(--surface2)] rounded-lg border border-[var(--border)]">
+                  {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
+                    <button
+                      key={tr}
+                      onClick={() => setTimeRange(tr)}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${timeRange === tr
+                        ? "bg-[var(--primary)] text-[#061226] shadow-sm"
+                        : "text-[var(--muted)] hover:text-[var(--text)]"
+                        }`}
+                    >
+                      {tr}
+                    </button>
+                  ))}
                 </div>
-                <AppButton onClick={() => setStatsOpen(true)} variant="secondary" size="sm">
-                  {t("profile.view")}
-                </AppButton>
               </div>
-            </AppCard>
 
-            {/* Workout history list */}
-            <AppCard variant="glass" className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-[var(--text)]">Gemachte Trainings</h2>
-                <span className="text-sm text-[var(--muted)]">
-                  {workouts.length} Beitrag{workouts.length === 1 ? "" : "e"}
-                </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ShareableStatCard titleForFile="trainq-volume">
+                  <StatsChart
+                    title="Trainingslast"
+                    valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
+                    unit="kg"
+                    data={stats.volumeData}
+                    type="area"
+                    color="#007AFF"
+                  />
+                </ShareableStatCard>
+
+                <ShareableStatCard titleForFile="trainq-duration">
+                  <StatsChart
+                    title="Zeit im Training"
+                    valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
+                    unit="min"
+                    data={stats.durationData}
+                    type="bar"
+                    color="#F59E0B"
+                  />
+                </ShareableStatCard>
+
+                {stats.totals.distance > 0 && (
+                  <ShareableStatCard titleForFile="trainq-distance">
+                    <StatsChart
+                      title="Distanz"
+                      valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
+                      unit="km"
+                      data={stats.distanceData}
+                      type="area"
+                      color="#10B981"
+                    />
+                  </ShareableStatCard>
+                )}
+
+                <ShareableStatCard titleForFile="trainq-sports">
+                  <StatsChart
+                    title="Sportarten & Fokus"
+                    // valueDisplay={stats.sportSplitData.length + " Sports"}
+                    type="pie"
+                    data={stats.sportSplitData}
+                    unit="x"
+                  />
+                </ShareableStatCard>
+
+                {/* Muscle Split (Radar) */}
+                <ShareableStatCard titleForFile="trainq-muscle-balance">
+                  <MuscleSplitChart workouts={workouts} />
+                </ShareableStatCard>
               </div>
+            </div>
 
-              {workouts.length === 0 && (
-                <div className="rounded-xl p-3 text-sm bg-[var(--surface)] border-[1.5px] border-[var(--border)] text-[var(--muted)]">
-                  Noch keine Beiträge. Beende ein Training im Live-Modus, dann erscheint hier genau 1 Eintrag pro Training.
+            {/* Workout history list TRIGGER */}
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-white/5 rounded-lg text-white/70 group-hover:text-white transition-colors">
+                  <History className="w-5 h-5" />
                 </div>
-              )}
-
-              {workouts.length > 0 && (
-                <div className="space-y-3">
-                  {workouts.slice(0, 30).map((w) => {
-                    const sport = normalizeSport(w.sport);
-                    const exCount = (w.exercises ?? []).length;
-                    const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
-                    const mins = durationMinutes(w);
-                    return (
-                      <div key={w.id} className="rounded-xl p-3 bg-[var(--surface)] border-[1.5px] border-[var(--border)]">
-                        <p className="text-sm text-[var(--muted)]">{date} • {mins} min</p>
-                        <h4 className="mt-1 text-base font-semibold truncate text-[var(--text)]">{w.title ?? "Training"}</h4>
-                        <p className="mt-1 text-sm text-[var(--muted)]">{exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}</p>
-                        <div className="mt-3 flex items-center gap-2">
-                          <AppButton onClick={() => handleShareImage(w)} variant="ghost" size="sm" className="rounded-full !px-3 !py-1.5 h-auto text-xs border border-[var(--border)] bg-[var(--surface2)] hover:bg-[var(--surface)]" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
-                            <span className="inline-flex items-center gap-1.5 text-[var(--text)]">
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                              Export
-                            </span>
-                          </AppButton>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="text-left">
+                  <div className="text-white font-medium">Alle Trainings anzeigen</div>
+                  <div className="text-xs text-white/40">{workouts.length} gesamt</div>
                 </div>
-              )}
-            </AppCard>
+              </div>
+              <div className="text-white/20 group-hover:text-white/50 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+              </div>
+            </button>
           </section>
+          <BottomSpacer />
         </div>
       </div>
 
@@ -672,6 +728,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         month={lastMonthIndex}
         workouts={workouts}
       />
+
+      {isHistoryOpen && (
+        <WorkoutHistoryOverlay
+          workouts={workouts}
+          onClose={() => setIsHistoryOpen(false)}
+          onShare={handleShareImage}
+        />
+      )}
 
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
@@ -689,11 +753,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               <div className="flex flex-col gap-2">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
                 <AppButton onClick={onPickAvatar} className="bg-white/10 border border-white/20 text-white hover:bg-white/20" size="sm">
-                  {t("profile.avatarSelect")}
+                  Bild wählen
                 </AppButton>
                 {avatarDataUrl && (
                   <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20" size="sm">
-                    {t("profile.avatarRemove")}
+                    Bild entfernen
                   </AppButton>
                 )}
               </div>
@@ -702,11 +766,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-white/60">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder={t("profile.namePlaceholder")} />
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Dein Name" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-white/60">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder={t("profile.bioPlaceholder")} />
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder="Erzähle etwas über dein Training..." />
               </div>
             </div>
 
@@ -784,7 +848,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl">
             <div className="h-full flex flex-col">
               <div className="flex-1 overflow-y-auto">
-                <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar} onOpenPaywall={openPaywall} />
+                <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar ?? (() => { })} onOpenPaywall={openPaywall} onOpenGoals={() => { }} />
               </div>
 
               {/* Quick actions footer */}
@@ -811,7 +875,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   variant="ghost"
                   className="mt-3 w-full"
                 >
-                  {t("settings.account.logout")}
+                  Abmelden
                 </AppButton>
               </div>
             </div>

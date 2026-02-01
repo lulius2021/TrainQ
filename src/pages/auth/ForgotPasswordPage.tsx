@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { AuthInput } from "../../components/auth/AuthInput.tsx";
 import { AuthButton } from "../../components/auth/AuthButton.tsx";
 import { useAuth } from "../../hooks/useAuth.ts";
-import { useI18n } from "../../i18n/useI18n";
 
 interface ForgotPasswordPageProps {
   onGoBackToLogin: () => void;
@@ -13,7 +12,6 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   onGoBackToLogin,
 }) => {
   const { requestPasswordReset } = useAuth();
-  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -27,7 +25,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
       setSubmitting(false);
       return;
     }
-    setInfo(t("auth.forgot.sent"));
+    setInfo("E-Mail gesendet!");
     setSubmitting(false);
   };
 
@@ -35,15 +33,15 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-white px-4">
       <div className="w-full max-w-sm space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">{t("auth.forgot.title")}</h1>
+          <h1 className="text-2xl font-semibold mb-1">Passwort vergessen</h1>
           <p className="text-sm text-gray-400">
-            {t("auth.forgot.subtitle")}
+            Gib deine E-Mail ein, um dein Passwort zurückzusetzen.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput
-            label={t("auth.email")}
+            label="E-Mail"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -51,7 +49,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
           />
 
           <AuthButton type="submit" disabled={submitting}>
-            {submitting ? t("auth.forgot.loading") : t("auth.forgot.submit")}
+            {submitting ? "Lädt..." : "Link senden"}
           </AuthButton>
         </form>
 
@@ -63,7 +61,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
             onClick={onGoBackToLogin}
             className="text-blue-400 hover:text-blue-300"
           >
-            {t("auth.forgot.back")}
+            Zurück zum Login
           </button>
         </div>
       </div>

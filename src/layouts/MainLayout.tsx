@@ -18,8 +18,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     floatingWidget
 }) => {
     return (
-        <div className="relative flex h-full w-full flex-col overflow-hidden font-[SF Pro Display,sans-serif]"
-            style={{ background: "transparent", color: "var(--text)" }}>
+        <div className="relative flex h-full w-full flex-col overflow-hidden font-[SF Pro Display,sans-serif] bg-transparent text-white">
             {/* Main Content Area */}
             <main
                 className="flex-1 overflow-y-auto overflow-x-hidden w-full pt-[env(safe-area-inset-top)] pb-[120px]"
