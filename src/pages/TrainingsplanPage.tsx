@@ -1657,18 +1657,20 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         {/* ✅ Startdatum + Dauer kompakt, Hinweis klein, Vorlagen als Row */}
         <AppCard variant="glass" className="p-4 text-base">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
+            <div className="w-full px-4">
               <label className="text-sm text-zinc-400">Startdatum</label>
-              <input
-                type="date"
-                value={planStartISO}
-                onChange={(e) => {
-                  setWeeklySaved(false);
-                  setRoutineSaved(false);
-                  setPlanStartISO(e.target.value);
-                }}
-                className="mt-2 w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2.5 text-base text-white outline-none focus:ring-1 focus:ring-blue-500"
-              />
+              <div className="mt-2">
+                <input
+                  type="date"
+                  value={planStartISO}
+                  onChange={(e) => {
+                    setWeeklySaved(false);
+                    setRoutineSaved(false);
+                    setPlanStartISO(e.target.value);
+                  }}
+                  className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2.5 text-base text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             <div>

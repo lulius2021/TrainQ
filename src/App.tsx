@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AuthContextProvider, useAuth } from "./context/AuthContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 
