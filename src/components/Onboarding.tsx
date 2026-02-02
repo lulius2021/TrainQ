@@ -156,7 +156,7 @@ export const Onboarding: React.FC = () => {
                                 step="5"
                                 value={timePerWorkout}
                                 onChange={(e) => setTimePerWorkout(Number(e.target.value))}
-                                className="w-full h-2 bg-[var(--surface2)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)] outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
+                                className="w-full h-2 bg-[var(--surface2)] rounded-2xl appearance-none cursor-pointer accent-[var(--primary)] outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
                             />
                             <div className="w-full flex justify-between text-xs text-gray-500 font-mono uppercase mt-4 tracking-widest font-bold">
                                 <span>Quick (15m)</span>

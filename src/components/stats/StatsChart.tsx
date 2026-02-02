@@ -49,7 +49,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-[#1C1C1E] border border-white/10 rounded-xl px-3 py-2 shadow-xl">
+                <div className="bg-[#1C1C1E] border border-white/10 rounded-3xl px-3 py-2 shadow-xl">
                     <p className="text-white/60 text-xs mb-1">{label}</p>
                     <p className="text-white font-semibold text-sm">
                         {payload[0].value.toLocaleString("de-DE")} {unit}
@@ -61,7 +61,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
     };
 
     return (
-        <div className="w-full bg-zinc-800/80 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col items-start gap-4 shadow-xl">
+        <div className="w-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 border border-white/5 backdrop-blur-md rounded-3xl p-6 flex flex-col items-start gap-4 shadow-xl">
             <div className="w-full flex items-end justify-between px-1">
                 <div className="flex flex-col">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">{title}</h3>
@@ -143,7 +143,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
                                             const item = payload[0].payload;
                                             // Custom tooltip for Pie
                                             return (
-                                                <div className="bg-[#18181b] border border-white/10 rounded-xl px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
+                                                <div className="bg-[#18181b] border border-white/10 rounded-3xl px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
                                                     <p className="text-white font-bold text-sm mb-0.5">{item.name}</p>
                                                     <p className="text-zinc-400 text-xs font-mono">{item.value} {unit}</p>
                                                 </div>

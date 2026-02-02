@@ -83,7 +83,7 @@ export default function AdaptivePlanCard({
                 {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                     {/* Duration */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
+                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
                         <div className="flex items-center gap-2 mb-1">
                             <svg
                                 className="w-4 h-4 text-white/70"
@@ -108,7 +108,7 @@ export default function AdaptivePlanCard({
                     </div>
 
                     {/* Exercises */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
+                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
                         <div className="flex items-center gap-2 mb-1">
                             <svg
                                 className="w-4 h-4 text-white/70"
@@ -133,7 +133,7 @@ export default function AdaptivePlanCard({
                     </div>
 
                     {/* Sets */}
-                    <div className="rounded-xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
+                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
                         <div className="flex items-center gap-2 mb-1">
                             <svg
                                 className="w-4 h-4 text-white/70"
@@ -159,7 +159,7 @@ export default function AdaptivePlanCard({
                 </div>
 
                 {/* Intensity Hint */}
-                <div className="rounded-xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
+                <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
                     <div className="flex items-start gap-2">
                         <svg
                             className="w-5 h-5 text-white/70 flex-shrink-0 mt-0.5"
@@ -187,7 +187,7 @@ export default function AdaptivePlanCard({
 
                 {/* Reasons (Why this plan?) */}
                 {suggestion.reasons && suggestion.reasons.length > 0 && (
-                    <div className="rounded-xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
+                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
                         <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
                             {t("adaptive.why")}
                         </p>
@@ -208,7 +208,7 @@ export default function AdaptivePlanCard({
                 <button
                     onClick={onSelect}
                     disabled={disabled || isBlocked}
-                    className={`w-full py-3.5 rounded-xl text-base font-bold text-white transition-all ${disabled || isBlocked
+                    className={`w-full py-3.5 rounded-3xl text-base font-bold text-white transition-all ${disabled || isBlocked
                         ? "opacity-40 cursor-not-allowed"
                         : "hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                         }`}

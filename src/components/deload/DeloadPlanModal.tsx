@@ -59,7 +59,7 @@ export default function DeloadPlanModal({
       <div className="w-full max-w-lg rounded-[24px] border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl text-[var(--text)] p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="text-base font-semibold">{onDiscard ? "Deload anpassen" : "Deload planen"}</div>
-          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-white/60 hover:text-white">
+          <button type="button" onClick={onClose} className="rounded-2xl px-2 py-1 text-sm text-white/60 hover:text-white">
             ✕
           </button>
         </div>
@@ -68,7 +68,7 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={() => setWeekChoice("current")}
-            className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors"
+            className="rounded-3xl px-4 py-2 text-xs font-semibold transition-colors"
             style={{
               background: weekChoice === "current" ? "#007AFF" : "rgba(255,255,255,0.08)",
               color: "white",
@@ -79,7 +79,7 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={() => setWeekChoice("next")}
-            className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors"
+            className="rounded-3xl px-4 py-2 text-xs font-semibold transition-colors"
             style={{
               background: weekChoice === "next" ? "#007AFF" : "rgba(255,255,255,0.08)",
               color: "white",
@@ -164,7 +164,7 @@ export default function DeloadPlanModal({
             <button
               type="button"
               onClick={onDiscard}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
+              className="rounded-3xl px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
             >
               Deload verwerfen
             </button>
@@ -172,14 +172,14 @@ export default function DeloadPlanModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20"
+            className="rounded-3xl px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20"
           >
             Abbrechen
           </button>
           <button
             type="button"
             onClick={() => onConfirm(startISO, endISO, rules)}
-            className="rounded-xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] hover:opacity-90 transition-colors"
+            className="rounded-3xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] hover:opacity-90 transition-colors"
           >
             {onDiscard ? "Deload anpassen" : "Deload planen"}
           </button>

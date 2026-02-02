@@ -236,7 +236,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
         <button
           type="button"
           onClick={() => void skipRest()}
-          className="w-full rounded-xl py-2 text-sm font-semibold text-gray-300 hover:bg-white/5"
+          className="w-full rounded-3xl py-2 text-sm font-semibold text-gray-300 hover:bg-white/5"
           title={t("training.rest.skipTitle")}
         >
           {t("training.rest.skip")}

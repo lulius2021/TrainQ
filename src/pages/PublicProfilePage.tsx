@@ -51,7 +51,7 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
         <button
           type="button"
           onClick={onBack}
-          className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10"
+          className="rounded-3xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10"
         >
           Zurück
         </button>

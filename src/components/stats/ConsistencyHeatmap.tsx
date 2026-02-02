@@ -4,7 +4,8 @@ import {
     eachDayOfInterval,
     isSameDay,
     format,
-    parseISO
+    parseISO,
+    startOfWeek
 } from "date-fns";
 import { de } from "date-fns/locale";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
@@ -14,11 +15,28 @@ interface ConsistencyHeatmapProps {
 }
 
 export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts }) => {
-    // Generate last 365 days
+    // Determine the start date dynamically
     const today = new Date();
-    const startDate = subDays(today, 364); // 365 days total including today
+
+    const startDate = useMemo(() => {
+        if (workouts.length === 0) {
+            return subDays(today, 90); // Fallback: ~3 months if no data
+        }
+
+        // Find the earliest workout
+        // Sort effectively to find min date
+        const sorted = [...workouts].sort((a, b) => {
+            return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+        });
+        const firstWorkout = sorted[0];
+
+        // Start of the week of the first workout (Monday start)
+        return startOfWeek(parseISO(firstWorkout.startedAt), { weekStartsOn: 1 });
+    }, [workouts]);
 
     const days = useMemo(() => {
+        // Ensure we don't crash if startDate > today (unlikely but possible with weird data)
+        if (startDate > today) return [today];
         return eachDayOfInterval({ start: startDate, end: today });
     }, [startDate, today]);
 
@@ -41,7 +59,7 @@ export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-sm font-medium text-[var(--muted)]">Consistency is Key</h3>
-                    <p className="text-2xl font-bold text-[var(--text)] mt-1">{totalWorkouts} Workouts <span className="text-sm font-normal text-[var(--muted)]">im letzten Jahr</span></p>
+                    <p className="text-2xl font-bold text-[var(--text)] mt-1">{totalWorkouts} Workouts <span className="text-sm font-normal text-[var(--muted)]">seit Beginn</span></p>
                 </div>
             </div>
 

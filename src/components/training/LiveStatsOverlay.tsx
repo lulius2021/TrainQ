@@ -129,7 +129,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                 <div className="grid grid-cols-2 gap-3">
                     <StatBox
                         label="Volumen"
-                        value={`${(stats.currentVolume / 1000).toFixed(1)}t`}
+                        value={`${(stats.currentVolume / 1000).toFixed(3)}t`}
                         icon={<Dumbbell size={16} className="text-blue-400" />}
                         subtext="Total Load"
                     />

@@ -119,7 +119,7 @@ export default function TrainQCoreDebug() {
 
           <button
             onClick={reload}
-            className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-xs text-white/80 hover:bg-white/5"
+            className="rounded-3xl bg-black/30 border border-white/10 px-3 py-2 text-xs text-white/80 hover:bg-white/5"
           >
             Neu laden
           </button>
@@ -145,13 +145,13 @@ export default function TrainQCoreDebug() {
             <div className="flex gap-2">
               <button
                 onClick={createDefaultPlan}
-                className="rounded-xl bg-brand-primary hover:bg-brand-primary/90 px-3 py-2 text-xs font-bold text-black"
+                className="rounded-3xl bg-brand-primary hover:bg-brand-primary/90 px-3 py-2 text-xs font-bold text-black"
               >
                 Default Plan erstellen
               </button>
               <button
                 onClick={generateNext28Days}
-                className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-xs text-white/80 hover:bg-white/5"
+                className="rounded-3xl bg-black/30 border border-white/10 px-3 py-2 text-xs text-white/80 hover:bg-white/5"
               >
                 Kalender +28 Tage
               </button>
@@ -213,7 +213,7 @@ export default function TrainQCoreDebug() {
               onClick={openAdaptive}
               disabled={!todayWorkout}
               className={[
-                "rounded-xl px-3 py-2 text-xs font-extrabold transition",
+                "rounded-3xl px-3 py-2 text-xs font-extrabold transition",
                 todayWorkout
                   ? "bg-emerald-500 hover:bg-emerald-400 text-black"
                   : "bg-white/10 text-white/40 cursor-not-allowed",

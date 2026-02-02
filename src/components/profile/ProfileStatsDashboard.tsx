@@ -81,8 +81,8 @@ function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyVal
         const height = Math.max(2, (s.value / max) * 100);
         return (
           <div key={label} className="flex flex-1 flex-col items-center gap-2">
-            <div className="w-full bg-white/10 rounded-lg" style={{ height: `${height}%`, minHeight: '4px' }}>
-              <div className="h-full w-full rounded-lg bg-[var(--primary)]" style={{ boxShadow: "0 0 12px 0px var(--primarySoft)" }} />
+            <div className="w-full bg-white/10 rounded-2xl" style={{ height: `${height}%`, minHeight: '4px' }}>
+              <div className="h-full w-full rounded-2xl bg-[var(--primary)]" style={{ boxShadow: "0 0 12px 0px var(--primarySoft)" }} />
             </div>
             <span className="text-xs text-gray-400 tabular-nums">{labelFormatter(label)}</span>
           </div>

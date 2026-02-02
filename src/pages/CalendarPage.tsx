@@ -630,7 +630,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <AppButton
                 onClick={goPrev}
                 variant="ghost"
-                className="h-10 w-10 !p-0 rounded-xl"
+                className="h-10 w-10 !p-0 rounded-3xl"
               >
                 ‹
               </AppButton>
@@ -640,7 +640,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               <AppButton
                 onClick={goNext}
                 variant="ghost"
-                className="h-10 w-10 !p-0 rounded-xl"
+                className="h-10 w-10 !p-0 rounded-3xl"
               >
                 ›
               </AppButton>
@@ -719,10 +719,10 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     const isFuture = checkDate > now;
 
                     const cellClasses = [
-                      "flex flex-col rounded-xl px-2 py-2 text-left transition relative overflow-hidden",
+                      "flex flex-col rounded-2xl px-2 py-2 text-left transition relative overflow-hidden",
                       isSelected
                         ? "bg-[var(--surface2)] ring-1 ring-[#007AFF] shadow-lg shadow-[#007AFF]/10"
-                        : "bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface2)]",
+                        : "bg-zinc-900 border border-zinc-800 hover:bg-zinc-800/50",
                       !isCurrentMonth ? "opacity-30" : ""
                     ].join(" ");
 
@@ -799,7 +799,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         key={key}
                         type="button"
                         onClick={() => openDayViewFromDate(d, "week")}
-                        className={`flex flex-col h-full rounded-xl p-2 text-left transition bg-[var(--surface)] border hover:bg-[var(--surface2)] min-w-0 ${isToday ? "border-[var(--primary)]/50" : "border-[var(--border)]"}`}
+                        className={`flex flex-col h-full rounded-3xl p-2 text-left transition bg-[var(--surface)] border hover:bg-[var(--surface2)] min-w-0 ${isToday ? "border-[var(--primary)]/50" : "border-[var(--border)]"}`}
                       >
                         <div className="mb-2 flex items-center justify-between min-w-0">
                           <span className="text-sm font-medium leading-tight truncate text-[var(--muted)]">{weekdayShort[idx]}</span>
@@ -811,7 +811,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             const training = isTrainingEvent(ev);
                             const leftBorder = done ? "bg-green-500" : training ? "bg-[var(--primary)]" : "bg-[var(--muted)]";
                             return (
-                              <div key={ev.id} className={`rounded-md px-2 py-1.5 min-w-0 bg-[var(--surface)] border border-[var(--border)] border-l-4 ${leftBorder.replace("bg-", "border-")}`}>
+                              <div key={ev.id} className={`rounded-md px-2 py-1.5 min-w-0 bg-zinc-900 border border-zinc-800 border-l-[3px] shadow-sm ${leftBorder.replace("bg-", "border-")}`}>
                                 <p className="text-xs font-semibold truncate text-[var(--text)]">{normalizeTitle(ev.title)}</p>
                                 <p className="text-xs text-[var(--muted)]">{ev.startTime}</p>
                               </div>
@@ -864,7 +864,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     if (scheduled === 0) return null;
 
                     return (
-                      <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-white/10 px-4 py-3">
+                      <div className="flex items-center justify-between rounded-3xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-zinc-800 px-4 py-3 shadow-sm">
                         <div className="flex flex-col">
                           <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Diese Woche</span>
                           <span className="text-sm font-medium text-white">{completed}/{scheduled} Einheiten erledigt</span>
@@ -876,7 +876,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
                   <div className="space-y-3">
                     {eventsForSelectedDay.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center bg-[var(--surface)]">
+                      <div className="rounded-3xl border border-dashed border-[var(--border)] p-8 text-center bg-[var(--surface)]">
                         <p className="text-base text-[var(--muted)]">Keine Einträge für diesen Tag</p>
                         <button onClick={() => handleOpenAddEvent("training")} className="mt-2 text-sm text-[#007AFF] font-medium hover:underline">Training hinzufügen</button>
                       </div>
@@ -921,7 +921,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         return (
                           <div
                             key={ev.id}
-                            className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-[0.99] cursor-pointer"
+                            className="group relative overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                             onClick={() => (isTraining ? openTrainingPreview(ev) : openInfoSheet(ev))}
                           >
                             {/* Context Indicators */}
@@ -965,7 +965,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           {/* FAB mit Plus-Menü - Global Fixed */}
           <div className="fixed bottom-[110px] right-4 z-50 flex flex-col items-end gap-3 pointer-events-none">
             {isPlusMenuOpen && (
-              <div className="pointer-events-auto mb-2 min-w-[180px] overflow-hidden rounded-2xl border-[1.5px] border-[var(--border)] bg-[var(--surface2)] shadow-2xl backdrop-blur-xl">
+              <div className="pointer-events-auto mb-2 min-w-[180px] overflow-hidden rounded-2xl border border-zinc-800 bg-[var(--surface2)] shadow-2xl backdrop-blur-xl">
                 <button type="button" onClick={() => { setIsPlusMenuOpen(false); handleOpenAddEvent("appointment"); }} className="w-full px-4 py-3 text-left text-base text-[var(--text)] hover:bg-[var(--surface)] active:bg-[var(--surface)] transition-colors">
                   Termin anlegen
                 </button>

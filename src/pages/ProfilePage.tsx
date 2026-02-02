@@ -629,14 +629,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
               <div className="flex items-center justify-between px-1 mt-6">
                 <h3 className="text-lg font-semibold text-[var(--text)]">Dein Fortschritt</h3>
-                <div className="flex items-center p-0.5 bg-[var(--surface2)] rounded-lg border border-[var(--border)]">
+                <div className="flex items-center p-1 bg-zinc-950 rounded-lg border border-zinc-800">
                   {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
                     <button
                       key={tr}
                       onClick={() => setTimeRange(tr)}
                       className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${timeRange === tr
-                        ? "bg-[var(--primary)] text-[#061226] shadow-sm"
-                        : "text-[var(--muted)] hover:text-[var(--text)]"
+                        ? "bg-zinc-700 text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200 bg-transparent"
                         }`}
                     >
                       {tr}
@@ -701,10 +701,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             {/* Workout history list TRIGGER */}
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="w-full bg-zinc-800 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
+              className="w-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
             >
               <div className="flex items-center gap-4">
-                <div className="p-2 bg-white/5 rounded-lg text-white/70 group-hover:text-white transition-colors">
+                <div className="p-2 bg-white/5 rounded-2xl text-white/70 group-hover:text-white transition-colors">
                   <History className="w-5 h-5" />
                 </div>
                 <div className="text-left">
@@ -766,11 +766,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-white/60">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Dein Name" />
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Dein Name" />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-white/60">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder="Erzähle etwas über dein Training..." />
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder="Erzähle etwas über dein Training..." />
               </div>
             </div>
 
@@ -780,43 +780,43 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-white/60">Alter</label>
-                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-white/60">Größe (cm)</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-white/60">Gewicht (kg)</label>
-                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-white/60">Stunden/Woche</label>
-                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="h" />
+                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="h" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-white/60">Einheiten/Woche</label>
-                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="#" />
+                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="#" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-white/60">Sportarten (CSV)</label>
-                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Laufen, Gym..." />
+                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Laufen, Gym..." />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-white/60">Ziele (CSV)</label>
-                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Marathon, Kraft..." />
+                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Marathon, Kraft..." />
               </div>
             </div>
 
             <div className="pt-6">
               <button
                 onClick={saveProfileEdits}
-                className="w-full bg-[#007AFF] hover:bg-[#0066CC] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
+                className="w-full bg-[#007AFF] hover:bg-[#0066CC] text-white font-bold py-4 rounded-3xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
               >
                 Speichern
               </button>

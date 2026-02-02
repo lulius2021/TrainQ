@@ -126,7 +126,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Sterne */}
-        <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+        <div className="rounded-3xl border border-white/10 bg-black/25 p-3">
           <label className="block text-[12px] text-white/75 mb-2">{t("feedback.ratingLabel")}</label>
           <div className="flex items-center">
             {[1, 2, 3, 4, 5].map((v) => (
@@ -141,7 +141,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           <textarea
             value={feedbackMessage}
             onChange={(e) => setFeedbackMessage(e.target.value)}
-            className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
+            className="w-full rounded-3xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
             placeholder={t("feedback.positivePlaceholder")}
           />
         </div>
@@ -152,7 +152,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
+            className="w-full rounded-3xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25 min-h-[90px]"
             placeholder={t("feedback.problemPlaceholder")}
           />
         </div>
@@ -164,7 +164,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
+              className="w-full rounded-3xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
               placeholder={t("feedback.namePlaceholder")}
             />
           </div>
@@ -175,7 +175,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
+              className="w-full rounded-3xl bg-black/30 border border-white/15 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
               placeholder={t("feedback.emailPlaceholder")}
               autoCapitalize="none"
               autoCorrect="off"
@@ -185,12 +185,12 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
 
         {/* Meldungen */}
         {errorMessage && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-100">
+          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-100">
             {errorMessage}
           </div>
         )}
         {successMessage && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
             {successMessage}
           </div>
         )}
@@ -200,7 +200,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-white/15 bg-black/30 text-sm text-white/80 hover:bg-white/5"
+            className="px-4 py-2 rounded-3xl border border-white/15 bg-black/30 text-sm text-white/80 hover:bg-white/5"
           >
             {t("common.cancel")}
           </button>
@@ -208,7 +208,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           <button
             type="submit"
             disabled={isSending}
-            className="px-5 py-2 rounded-xl bg-brand-primary text-sm font-semibold text-black hover:bg-brand-primary/90 disabled:opacity-60"
+            className="px-5 py-2 rounded-3xl bg-brand-primary text-sm font-semibold text-black hover:bg-brand-primary/90 disabled:opacity-60"
           >
             {isSending ? t("feedback.sending") : t("feedback.send")}
           </button>

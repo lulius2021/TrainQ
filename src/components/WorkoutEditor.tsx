@@ -167,7 +167,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl p-4 text-left"
+      className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl p-4 text-left"
     >
       <h2 className="text-lg font-semibold mb-1">{t("workoutEditor.title")}</h2>
 
@@ -261,7 +261,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             {exercises.map((ex) => (
               <div
                 key={ex.id}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface2)] p-3 space-y-2"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface2)] p-3 space-y-2"
               >
                 <div className="flex items-center justify-between gap-2">
                   <input

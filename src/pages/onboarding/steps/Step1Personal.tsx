@@ -162,7 +162,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="Jahre"
               value={local.age ?? ""}
               onChange={(e) => handleChangeNumber("age", e.target.value)}
-              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
 
@@ -177,7 +177,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="cm"
               value={local.height ?? ""}
               onChange={(e) => handleChangeNumber("height", e.target.value)}
-              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
 
@@ -192,7 +192,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="kg"
               value={local.weight ?? ""}
               onChange={(e) => handleChangeNumber("weight", e.target.value)}
-              className="w-full rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
             />
           </div>
         </div>

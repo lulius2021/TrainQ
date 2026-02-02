@@ -95,7 +95,7 @@ const SwipeableSetRow = ({
       className="relative"
     >
       {/* Background Layer (Delete Reveal) */}
-      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-xl flex items-center justify-end px-4 z-0">
+      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-3xl flex items-center justify-end px-4 z-0">
         <div className="flex items-center gap-2 font-bold text-white">
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -112,7 +112,7 @@ const SwipeableSetRow = ({
         onDragEnd={handleDragEnd as any}
         animate={controls}
         style={{ touchAction: "pan-y" }}
-        className="relative z-10 bg-[#1c1c1e] rounded-xl overflow-hidden shadow-sm"
+        className="relative z-10 bg-[#1c1c1e] rounded-3xl overflow-hidden shadow-sm"
       >
         <div className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center bg-[#1c1c1e]">
           {/* 1. Set Index (Type Selector) */}
@@ -138,7 +138,7 @@ const SwipeableSetRow = ({
             onFocus={() => onWeightFocus?.(set.id, set.weight)}
             onBlur={() => onWeightBlur?.()}
             onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            className={`h-10 w-full rounded-3xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
               }`}
           />
 
@@ -149,7 +149,7 @@ const SwipeableSetRow = ({
             placeholder={fmtPlaceholderNumber(last?.reps, "-")}
             onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
             onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            className={`h-10 w-full rounded-3xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
               }`}
             inputMode="numeric"
           />
@@ -158,7 +158,7 @@ const SwipeableSetRow = ({
           <div className="flex items-center justify-center w-full h-10">
             {isTimerRunning && restRemainingSec !== undefined ? (
               <div
-                className="h-10 w-14 flex items-center justify-center rounded-xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
+                className="h-10 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
                 onPointerDownCapture={(e) => e.stopPropagation()}
                 onClick={() => onToggleSet(set.id)}
               >
@@ -171,7 +171,7 @@ const SwipeableSetRow = ({
                 type="button"
                 onClick={() => onToggleSet(set.id)}
                 onPointerDownCapture={(e) => e.stopPropagation()}
-                className={`h-10 w-14 rounded-xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
+                className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
                   ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
                   : "bg-[#2c2c2e] border-transparent hover:border-[#007AFF]"
                   }`}
@@ -260,7 +260,7 @@ export default function ExerciseEditor({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleTimerClick(); }}
-            className="h-9 px-3 flex items-center justify-center rounded-lg bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium gap-1.5"
+            className="h-9 px-3 flex items-center justify-center rounded-2xl bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium gap-1.5"
           >
             <span>⏱️</span>
             <span>{exercise.restSeconds ? `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}` : "2:00"}</span>
@@ -270,7 +270,7 @@ export default function ExerciseEditor({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="h-9 w-9 flex items-center justify-center rounded-lg bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-2xl bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
             title="Übung entfernen"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -324,7 +324,7 @@ export default function ExerciseEditor({
         <button
           type="button"
           onClick={onAddSet}
-          className="w-full h-10 flex items-center justify-center rounded-xl bg-white/5 text-white/30 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          className="w-full h-10 flex items-center justify-center rounded-3xl bg-white/5 text-white/30 hover:bg-white/10 hover:text-white transition-all active:scale-95"
           aria-label={addSetLabel}
         >
           <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

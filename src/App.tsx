@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AuthContextProvider, useAuth } from "./context/AuthContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
-import { ThemeProvider } from "./context/ThemeContext";
+
 import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 
@@ -47,7 +47,7 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
             Keine Sorge, deine Daten sind sicher. Wir bringen dich zurück.
           </p>
 
-          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg max-w-xs w-full">
+          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-xs w-full">
             <p className="text-xs font-mono text-red-400 break-words mb-2">
               {(this.state.error as any)?.message || "Unbekannter Fehler"}
             </p>
@@ -62,13 +62,13 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
           <div className="flex flex-col gap-3 w-full max-w-xs">
             <button
               onClick={this.handleReload}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform shadow-lg shadow-blue-500/20"
+              className="w-full rounded-3xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform shadow-lg shadow-blue-500/20"
             >
               Seite neu laden
             </button>
             <button
               onClick={this.handleBackToDashboard}
-              className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform hover:bg-white/10"
+              className="w-full rounded-3xl bg-white/5 border border-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform hover:bg-white/10"
             >
               Zurück zum Dashboard
             </button>
@@ -113,11 +113,9 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen w-screen overflow-hidden bg-transparent font-[SF Pro Display,sans-serif] text-white">
       <GlobalErrorBoundary>
-        <ThemeProvider>
-          <AuthContextProvider>
-            <AppContent />
-          </AuthContextProvider>
-        </ThemeProvider>
+        <AuthContextProvider>
+          <AppContent />
+        </AuthContextProvider>
       </GlobalErrorBoundary>
     </div>
   );

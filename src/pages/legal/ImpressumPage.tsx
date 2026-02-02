@@ -20,7 +20,7 @@ export default function ImpressumPage() {
 
                 <h1 className="text-3xl font-bold">Impressum</h1>
 
-                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)]">
                     <p>Angaben gemäß § 5 DDG</p>
 
                     <div>

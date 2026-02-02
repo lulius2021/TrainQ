@@ -32,11 +32,11 @@ export const LiveStatsPanel: React.FC<Props> = ({ workout, onOpenOverlay }) => {
     if (!workout) return null;
 
     return (
-        <div className="z-40 border-b border-white/5 bg-black/40 backdrop-blur-md transition-all duration-300 rounded-b-2xl">
+        <div className="w-full border-t border-white/5 transition-all duration-300">
             {/* HUD BAR -> Opens Overlay */}
             <button
                 onClick={onOpenOverlay}
-                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 active:bg-white/5"
+                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-zinc-400 active:bg-white/5"
             >
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5 text-blue-400">
@@ -45,7 +45,7 @@ export const LiveStatsPanel: React.FC<Props> = ({ workout, onOpenOverlay }) => {
                     </div>
                     <div className="flex items-center gap-1.5 text-emerald-400">
                         <Dumbbell size={14} className="fill-emerald-400/20" />
-                        <span className="tabular-nums">{(stats.totalVolume / 1000).toFixed(1)}t</span>
+                        <span className="tabular-nums">{(stats.totalVolume / 1000).toFixed(3)}t</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-zinc-500">

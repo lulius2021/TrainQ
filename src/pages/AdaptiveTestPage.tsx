@@ -81,7 +81,7 @@ export default function AdaptiveTestPage() {
                             <select
                                 value={selectedTemplate}
                                 onChange={(e) => setSelectedTemplate(e.target.value)}
-                                className="w-full h-12 rounded-xl bg-[var(--surface2)] border-none px-4 text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                className="w-full h-12 rounded-3xl bg-[var(--surface2)] border-none px-4 text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
                             >
                                 <option value="push">Push</option>
                                 <option value="pull">Pull</option>
@@ -131,22 +131,22 @@ export default function AdaptiveTestPage() {
                         {/* Summary */}
                         <AppCard title="📊 Zusammenfassung">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                <div className="rounded-xl bg-[var(--surface2)] p-3">
+                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
                                     <div className="text-xs text-[var(--muted)] mb-1">Erholungswert</div>
                                     <div className="text-2xl font-bold">{result.recoveryScore}%</div>
                                 </div>
 
-                                <div className="rounded-xl bg-[var(--surface2)] p-3">
+                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
                                     <div className="text-xs text-[var(--muted)] mb-1">Erholungsfaktor</div>
                                     <div className="text-2xl font-bold">{(result.recoveryModifier * 100).toFixed(1)}%</div>
                                 </div>
 
-                                <div className="rounded-xl bg-[var(--surface2)] p-3">
+                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
                                     <div className="text-xs text-[var(--muted)] mb-1">Overload-Faktor</div>
                                     <div className="text-2xl font-bold">{(result.overloadFactor * 100).toFixed(1)}%</div>
                                 </div>
 
-                                <div className="rounded-xl bg-[var(--surface2)] p-3">
+                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
                                     <div className="text-xs text-[var(--muted)] mb-1">Übungen</div>
                                     <div className="text-2xl font-bold">{result.exercises.length}</div>
                                 </div>
@@ -184,7 +184,7 @@ export default function AdaptiveTestPage() {
                                             {exercise.sets.map((set, setIdx) => (
                                                 <div
                                                     key={set.id}
-                                                    className="flex items-center gap-4 rounded-lg bg-[var(--bg)] p-3 text-sm"
+                                                    className="flex items-center gap-4 rounded-2xl bg-[var(--bg)] p-3 text-sm"
                                                 >
                                                     <div className="w-12 text-[var(--muted)]">Satz {setIdx + 1}</div>
                                                     <div className="flex-1 grid grid-cols-3 gap-4">
@@ -213,22 +213,22 @@ export default function AdaptiveTestPage() {
                 {/* Documentation */}
                 <AppCard title="📖 Testszenarien">
                     <div className="space-y-3 text-sm text-[var(--muted)]">
-                        <div className="rounded-xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">✅ Normaler Ablauf</div>
                             <p>Generiert ein Training mit aktueller zeitzonenbasierter Erholungssimulation</p>
                         </div>
 
-                        <div className="rounded-xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">🔬 Stresstest</div>
                             <p>Simuliert 100 verschiedene Erholungswerte (0-100%) und protokolliert die Gewichtsberechnungen</p>
                         </div>
 
-                        <div className="rounded-xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">⚠️ Deload Erkennung</div>
                             <p>Löst automatisch aus nach 3 aufeinanderfolgenden Fehlversuchen (simuliert in echter Nutzung)</p>
                         </div>
 
-                        <div className="rounded-xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">🔄 Fallback Logik</div>
                             <p>Nutzt 7-Tage Durchschnitt wenn Garmin API fehlschlägt (5% Zufallsfehlerquote)</p>
                         </div>

@@ -75,7 +75,7 @@ export default function StoryExportPicker({ templates, activeId, onChange, local
               onClick={() => onChange(tpl.id)}
             >
               <div
-                className="rounded-xl overflow-hidden"
+                className="rounded-3xl overflow-hidden"
                 style={{ width: CARD_W - 24, height: CARD_H - 60, background: "rgba(2,6,23,0.9)" }}
               >
                 <div

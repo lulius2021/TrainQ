@@ -4,28 +4,15 @@
 
 @layer base {
 
-    :root {
-        --border: #27272a;
-        /* zinc-800 */
-        --surface: #18181b;
-        /* zinc-900 */
-        --surface2: #27272a;
-        /* zinc-800 */
-        --text: #ffffff;
-        --muted: #a1a1aa;
-        /* zinc-400 */
-        --primary: #2563eb;
-        /* blue-600 */
-    }
-
-    /* GLOBAL RESET */
-
+    /* GLOBAL RESET & HARDCODED DARK THEME */
     *,
     ::before,
     ::after {
         border-width: 0px;
         border-style: solid;
+        /* Default dark border */
         border-color: #27272a;
+        /* Zinc-800 */
     }
 
     html,
@@ -37,8 +24,9 @@
         padding: 0;
         overflow: hidden;
 
-        /* CHANGED: Background is now Dark Gray (Zinc-900) instead of Black */
+        /* HARDCODED DARK BACKGROUND & WHITE TEXT */
         background-color: #18181b !important;
+        /* Zinc-900 */
         color: #ffffff !important;
     }
 

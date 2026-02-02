@@ -565,15 +565,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <select
                   value={shiftSelectedPlanId}
                   onChange={(e) => setShiftSelectedPlanId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-3 py-3 mb-4 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-3xl px-3 py-3 mb-4 focus:outline-none focus:border-[#007AFF]/50 focus:bg-white/10 transition-all"
                 >
                   {shiftCandidates.map((p) => (<option key={p.id} value={p.id} className="text-black">{p.label}</option>))}
                   <option value="__ALL__" className="text-black">Alle Pläne</option>
                 </select>
               )}
               <div className="flex gap-3">
-                <button onClick={() => setShiftOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
-                <button onClick={doShift} className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Verschieben</button>
+                <button onClick={() => setShiftOpen(false)} className="flex-1 bg-white/10 text-white py-3 rounded-3xl font-semibold hover:bg-white/20 transition-all">Abbrechen</button>
+                <button onClick={doShift} className="flex-1 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white py-3 rounded-3xl font-semibold shadow-lg shadow-[#007AFF]/20 transition-all">Verschieben</button>
               </div>
             </div>
           </div>

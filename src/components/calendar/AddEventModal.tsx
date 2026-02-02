@@ -243,10 +243,9 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                                     key={cat.id}
                                                     onClick={() => setCategory(cat.id)}
                                                     className={`
-                                                        px-4 py-2 rounded-full text-sm font-medium transition-all border
                                                         ${isSelected
                                                             ? `${cat.color} ${cat.border} text-white shadow-lg`
-                                                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'}
+                                                            : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'}
                                                     `}
                                                 >
                                                     {cat.label}
@@ -264,7 +263,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                         placeholder="Termin Name (z.B. Zahnarzt)"
                                         value={title}
                                         onChange={e => setTitle(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[17px] focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all placeholder-white/50"
+                                        className="w-full bg-white/5 border border-white/10 text-white rounded-3xl px-4 py-3 text-[17px] focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all placeholder-white/50"
                                     />
                                 </div>
 
@@ -276,7 +275,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                         onChange={e => setDescription(e.target.value)}
                                         placeholder="Notizen zum Termin..."
                                         rows={4}
-                                        className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all placeholder-white/30 resize-none"
+                                        className="w-full bg-white/5 border border-white/10 text-white rounded-3xl px-4 py-3 text-[15px] focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all placeholder-white/30 resize-none"
                                     />
                                 </div>
                             </>
@@ -292,10 +291,10 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             key={cat.id}
                                             onClick={() => handleSetTrainingCategory(cat.id as TrainingCategory)}
                                             className={`
-                                        flex flex-col items-center justify-center p-4 rounded-xl border transition-all h-24
+                                        flex flex-col items-center justify-center p-4 rounded-3xl border transition-all h-24
                                         ${trainingCategory === cat.id
                                                     ? `${cat.color} border-transparent text-white ring-2 ring-white/20 shadow-lg`
-                                                    : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:bg-zinc-800'}
+                                                    : 'bg-zinc-800 border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-zinc-400 hover:bg-zinc-700'}
                                       `}
                                         >
                                             <cat.icon className="mb-2 w-6 h-6" />
@@ -312,7 +311,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             value={title}
                                             onChange={e => setTitle(e.target.value)}
                                             placeholder={getPlaceholderTitle()}
-                                            className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 text-[16px] focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all placeholder-white/30"
+                                            className="w-full bg-white/5 border border-white/10 text-white rounded-3xl px-4 py-3.5 text-[16px] focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all placeholder-white/30"
                                         />
                                     </div>
                                     <div>
@@ -321,7 +320,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             type="time"
                                             value={startTime}
                                             onChange={e => setStartTime(e.target.value)}
-                                            className="bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 text-[16px] text-center focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all"
+                                            className="bg-white/5 border border-white/10 text-white rounded-3xl px-4 py-3.5 text-[16px] text-center focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -338,13 +337,13 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                         {builtExercises.map((ex, idx) => (
                                             <div key={ex.id || idx} className="flex justify-between items-center p-3.5 bg-white/5 rounded-2xl border border-white/10 group">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-lg">
+                                                    <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-lg">
                                                         {trainingCategory === 'gym' ? '🏋️' : trainingCategory === 'running' ? '🏃' : trainingCategory === 'cycling' ? '🚴' : '✨'}
                                                     </div>
                                                     <div>
                                                         <div className="text-white font-medium">{ex.name}</div>
                                                         <div className="flex items-center gap-2 mt-1.5">
-                                                            <div className="flex items-center bg-white/10 rounded-lg px-2 py-1 gap-1.5">
+                                                            <div className="flex items-center bg-white/10 rounded-2xl px-2 py-1 gap-1.5">
                                                                 <input
                                                                     type="number"
                                                                     min={1} max={10}
@@ -355,7 +354,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                                                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Sets</span>
                                                             </div>
                                                             <div className="text-white/30 text-[10px]">x</div>
-                                                            <div className="flex items-center bg-white/10 rounded-lg px-2 py-1 gap-1.5">
+                                                            <div className="flex items-center bg-white/10 rounded-2xl px-2 py-1 gap-1.5">
                                                                 <input
                                                                     type="number"
                                                                     min={1} max={99}
@@ -411,20 +410,20 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                     type="date"
                                     value={date}
                                     onChange={e => setDate(e.target.value)}
-                                    className="bg-zinc-800 border border-white/10 text-white rounded-xl px-3 py-3 text-[15px] focus:outline-none focus:border-white/20 transition-all font-mono"
+                                    className="bg-white/5 border border-white/10 focus:bg-white/10 focus:border-blue-500/50 text-white rounded-3xl px-3 py-3 text-[15px] focus:outline-none transition-all font-mono"
                                 />
                                 <div className="flex gap-2">
                                     <input
                                         type="time"
                                         value={startTime}
                                         onChange={e => setStartTime(e.target.value)}
-                                        className="flex-1 bg-zinc-800 border border-white/10 text-white rounded-xl px-2 py-3 text-[15px] text-center focus:outline-none focus:border-white/20 transition-all font-mono"
+                                        className="flex-1 bg-white/5 border border-white/10 focus:bg-white/10 focus:border-blue-500/50 text-white rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
                                     />
                                     <input
                                         type="time"
                                         value={endTime}
                                         onChange={e => setEndTime(e.target.value)}
-                                        className="flex-1 bg-zinc-800 border border-white/10 text-white rounded-xl px-2 py-3 text-[15px] text-center focus:outline-none focus:border-white/20 transition-all font-mono"
+                                        className="flex-1 bg-white/5 border border-white/10 focus:bg-white/10 focus:border-blue-500/50 text-white rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
                                     />
                                 </div>
                             </div>
@@ -438,7 +437,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     </div>
 
                 </div>
-            </div>
+            </div >
 
             <ExerciseLibraryModal
                 open={isExerciseLibraryOpen}

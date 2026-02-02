@@ -67,7 +67,7 @@ export function AdaptiveInfoBadge({
             <button
                 type="button"
                 onClick={() => setShowDetails(!showDetails)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${getBadgeColor()} hover:opacity-80`}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl border text-xs font-medium transition-all ${getBadgeColor()} hover:opacity-80`}
                 title="Click for details"
             >
                 <span>{getIcon()}</span>
@@ -78,7 +78,7 @@ export function AdaptiveInfoBadge({
             </button>
 
             {showDetails && details && (
-                <div className="absolute top-full left-0 mt-2 w-64 p-3 rounded-lg border border-white/20 bg-black/90 backdrop-blur-sm shadow-xl z-50 text-xs text-gray-300">
+                <div className="absolute top-full left-0 mt-2 w-64 p-3 rounded-2xl border border-white/20 bg-black/90 backdrop-blur-sm shadow-xl z-50 text-xs text-gray-300">
                     <div className="flex items-start justify-between gap-2 mb-2">
                         <span className="font-semibold text-white">Strategy Details</span>
                         <button

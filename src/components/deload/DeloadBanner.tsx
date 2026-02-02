@@ -18,14 +18,14 @@ export default function DeloadBanner({ onPlan, onDismiss }: Props) {
         <button
           type="button"
           onClick={onPlan}
-          className="rounded-xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] active:scale-95 transition-transform"
+          className="rounded-3xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] active:scale-95 transition-transform"
         >
           Train
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-xl px-4 py-2 text-xs font-semibold text-[#007AFF] border border-[#007AFF]/30 active:scale-95 transition-transform"
+          className="rounded-3xl px-4 py-2 text-xs font-semibold text-[#007AFF] border border-[#007AFF]/30 active:scale-95 transition-transform"
         >
           Später
         </button>

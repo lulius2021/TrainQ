@@ -234,18 +234,36 @@ export default function LiveTrainingPage({
   }, [workout?.startedAt]);
 
   const quickStats = useMemo(() => {
+    if (!workout) return { sets: 0, volume: 0 };
+
     let sets = 0;
-    let volume = 0;
-    workout?.exercises.forEach((ex) => {
-      ex.sets.forEach((s) => {
-        if (s.completed) {
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+
+    const volume = exercises.reduce((total, exercise) => {
+      // Sum up volume for this specific exercise
+      const exerciseVolume = (exercise.sets || []).reduce((setTotal, set) => {
+        if (set.completed) {
           sets++;
-          const w = s.weight || 0;
-          const r = s.reps || 0;
-          volume += w * r;
+
+          // 1. SAFELY PARSE INPUTS (Handle "10.5", "10,5", and empty strings)
+          const rawWeight = String(set.weight ?? "0").replace(',', '.');
+          const rawReps = String(set.reps ?? "0").replace(',', '.');
+
+          const weight = parseFloat(rawWeight);
+          const reps = parseFloat(rawReps);
+
+          // 2. VALIDATION: Only count valid numbers.
+          const validWeight = Number.isFinite(weight) ? weight : 0;
+          const validReps = Number.isFinite(reps) ? reps : 0;
+
+          return setTotal + (validWeight * validReps);
         }
-      });
-    });
+        return setTotal;
+      }, 0);
+
+      return total + exerciseVolume;
+    }, 0);
+
     return { sets, volume };
   }, [workout]);
 
@@ -468,23 +486,9 @@ export default function LiveTrainingPage({
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
 
-  // ✅ Volumen/Zeit-Berechnung (Hooks dürfen nicht hinter Early-Returns liegen)
-  const totalVolume = useMemo(() => {
-    if (!workout) return 0;
-    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
-    return exercises.reduce((acc, ex) => {
-      return (
-        acc +
-        (ex.sets || []).reduce((setAcc, set) => {
-          // NUR wenn abgehakt, zähle dazu
-          if (!set.completed) return setAcc;
-          const reps = typeof set.reps === "number" ? set.reps : 0;
-          const weight = typeof set.weight === "number" ? set.weight : 0;
-          return setAcc + reps * weight;
-        }, 0)
-      );
-    }, 0);
-  }, [workout]);
+
+
+
 
   const totalSets = useMemo(() => {
     if (!workout) return 0;
@@ -831,6 +835,27 @@ export default function LiveTrainingPage({
     delete exerciseRefs.current[exerciseId];
   };
 
+  // ✅ MEMOIZED PROPS FOR LIBRARY MODAL (Moved here to have access to dependencies)
+  const addExerciseDirectRef = useRef(addExerciseDirect);
+  useEffect(() => { addExerciseDirectRef.current = addExerciseDirect; }, [addExerciseDirect]);
+
+  const libraryCategory = useMemo(() => {
+    return workout?.sport === "Laufen" ? "running" : workout?.sport === "Radfahren" ? "cycling" : "gym";
+  }, [workout?.sport]);
+
+  const existingExerciseIds = useMemo(() => {
+    return (overlayData?.exercises ?? []).map(e => e.exerciseId).filter(Boolean) as string[];
+  }, [overlayData?.exercises]);
+
+  const handleCloseLibrary = useCallback(() => setLibraryOpen(false), []);
+
+  const handlePickExercise = useCallback((ex: any) => {
+    if (addExerciseDirectRef.current) {
+      addExerciseDirectRef.current({ exerciseId: ex.id, name: ex.name });
+    }
+    setLibraryOpen(false);
+  }, []);
+
   const moveExercise = (exerciseId: string, direction: "up" | "down") => {
     if (!workout) return;
     const idx = workout.exercises.findIndex((e) => e.id === exerciseId);
@@ -1104,8 +1129,8 @@ export default function LiveTrainingPage({
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
   const mainPadTop = activeRest
-    ? "calc(env(safe-area-inset-top) + 110px)"
-    : "calc(env(safe-area-inset-top) + 72px)";
+    ? "calc(env(safe-area-inset-top) + 150px)"
+    : "calc(env(safe-area-inset-top) + 112px)";
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
@@ -1121,8 +1146,8 @@ export default function LiveTrainingPage({
         <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
           {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
           {/* ✅ FIXED HEADER - using PageHeader for consistency */}
-          <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10">
-            <div className="px-4 pb-2" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
+          <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10 flex flex-col gap-0">
+            <div className="px-4 pb-0" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
               <PageHeader
                 title={elapsedText}
                 className="py-0 pb-2"
@@ -1137,8 +1162,9 @@ export default function LiveTrainingPage({
                   </AppButton>
                 }
               />
-              {/* <RestTimerBar> removed, moving logic to ExerciseEditor */}
             </div>
+            {/* ✅ INTEGRATED STATS PANEL */}
+            <LiveStatsPanel workout={workout} onOpenOverlay={() => setStatsOpen(true)} />
           </div>
 
           {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
@@ -1148,10 +1174,7 @@ export default function LiveTrainingPage({
             style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
           >
             <div className="py-4 max-w-5xl mx-auto w-full">
-              {/* ✅ HUD / STATS PANEL */}
-              <div className="-mx-4 mb-4 sticky -top-4 z-40">
-                <LiveStatsPanel workout={workout} onOpenOverlay={() => setStatsOpen(true)} />
-              </div>
+
 
               {exercises.length === 0 ? (
                 <AppCard variant="soft" className="p-5 text-center">
@@ -1201,15 +1224,15 @@ export default function LiveTrainingPage({
             <div className="mx-auto w-full max-w-5xl">
               <div className="mb-2">
                 {/* QUICK STATS ROW */}
-                <div className="bg-zinc-800/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800">
+                <div className="bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 rounded-3xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                   {/* 1. ZEIT */}
-                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 h-10">
+                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Zeit</span>
                     <span className="text-white font-mono text-lg leading-none mt-1">{formatQuickDuration(elapsedMs)}</span>
                   </div>
 
                   {/* 2. SÄTZE */}
-                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 h-10">
+                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Sätze</span>
                     <span className="text-blue-400 font-bold text-lg leading-none mt-1">{quickStats.sets}</span>
                   </div>
@@ -1217,7 +1240,7 @@ export default function LiveTrainingPage({
                   {/* 3. VOLUMEN */}
                   <div className="flex flex-col items-center justify-center h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Volumen</span>
-                    <span className="text-emerald-400 font-bold text-lg leading-none mt-1">{(quickStats.volume / 1000).toFixed(1)}t</span>
+                    <span className="text-emerald-400 font-bold text-lg leading-none mt-1">{(quickStats.volume / 1000).toFixed(3)}t</span>
                   </div>
                 </div>
               </div>
@@ -1234,13 +1257,10 @@ export default function LiveTrainingPage({
 
           <ExerciseLibraryModal
             open={libraryOpen}
-            onClose={() => setLibraryOpen(false)}
-            category={workout?.sport === "Laufen" ? "running" : workout?.sport === "Radfahren" ? "cycling" : "gym"}
-            onPick={(ex) => {
-              addExerciseDirect({ exerciseId: ex.id, name: ex.name });
-              setLibraryOpen(false);
-            }}
-            existingExerciseIds={exercises.map(e => e.exerciseId).filter(Boolean) as string[]}
+            onClose={handleCloseLibrary}
+            category={libraryCategory}
+            onPick={handlePickExercise}
+            existingExerciseIds={existingExerciseIds}
           />
 
           {workout && (
@@ -1305,7 +1325,7 @@ export default function LiveTrainingPage({
                   <button
                     key={sec}
                     onClick={() => handleSetRestTime(sec)}
-                    className={`h-12 rounded-xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
+                    className={`h-12 rounded-3xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
                       ? "bg-[#007AFF] text-white"
                       : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
                       }`}

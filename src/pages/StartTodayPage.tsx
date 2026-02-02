@@ -133,7 +133,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     variant="primary"
                                     fullWidth
                                     size="lg"
-                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all shadow-lg shadow-blue-500/20"
+                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all shadow-lg shadow-blue-500/20"
                                 >
                                     Training starten
                                 </AppButton>
@@ -156,7 +156,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                         onClick={() => startSession(session)}
                                         variant="primary"
                                         size="sm"
-                                        className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all"
+                                        className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all"
                                     >
                                         Starten
                                     </AppButton>
@@ -215,7 +215,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
                                     placeholder="Mein Training..."
-                                    className={`w-full rounded-xl px-3 py-3 text-base bg-[var(--surface2)] border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-[var(--border)]"} text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)]`}
+                                    className={`w-full rounded-3xl px-3 py-3 text-base bg-[var(--surface2)] border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-[var(--border)]"} text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)]`}
                                 />
                                 {attemptedSave && !newTitle.trim() && <p className="text-sm text-red-500">Bitte gib einen Titel ein.</p>}
                             </div>
@@ -224,7 +224,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 <select
                                     value={newSportType}
                                     onChange={(e) => setNewSportType(e.target.value as TrainingType)}
-                                    className="w-full rounded-xl px-3 py-3 text-base bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)] appearance-none"
+                                    className="w-full rounded-3xl px-3 py-3 text-base bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)] appearance-none"
                                 >
                                     <option value="gym">Gym</option>
                                     <option value="laufen">Laufen</option>
@@ -240,7 +240,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     onClick={handleSaveTemplate}
                                     variant="primary"
                                     fullWidth
-                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-xl hover:!brightness-110 active:!scale-95 transition-all"
+                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all"
                                 >
                                     Speichern
                                 </AppButton>
@@ -257,13 +257,13 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={() => setTemplateToDelete(null)}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
+                                    className="flex-1 px-4 py-3 rounded-3xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
                                 >
                                     Abbrechen
                                 </button>
                                 <button
                                     onClick={handleDeleteTemplate}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-500 font-medium transition-colors"
+                                    className="flex-1 px-4 py-3 rounded-3xl bg-red-500/20 hover:bg-red-500/30 text-red-500 font-medium transition-colors"
                                 >
                                     Löschen
                                 </button>

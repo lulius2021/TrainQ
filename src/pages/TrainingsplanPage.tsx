@@ -680,7 +680,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="Name der Vorlage (optional)"
-                className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
+                className="w-full bg-white/5 border border-white/10 p-4 rounded-3xl text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
               />
               {/* Save as Template Quick Action */}
               <div className="flex justify-end mt-2">
@@ -694,7 +694,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-xl">
+            <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-3xl">
               <span className="text-white/80 font-medium text-sm">Vorlage laden</span>
               <div className="relative">
                 <select
@@ -721,7 +721,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
           <div className="grid grid-cols-2 gap-3 mb-8">
             <button
               onClick={() => setLibraryOpen(true)}
-              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
+              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-3xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -731,7 +731,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
             <button
               onClick={handleAddCustomExercise}
-              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
+              className="h-20 flex flex-col items-center justify-center bg-[#007AFF]/10 border border-[#007AFF]/30 rounded-3xl hover:bg-[#007AFF]/20 transition-all active:scale-[0.98]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -747,14 +747,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             </h3>
 
             {draft.exercises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl bg-white/5 border border-white/5">
+              <div className="flex flex-col items-center justify-center py-12 text-center rounded-3xl bg-white/5 border border-white/5">
                 <span className="text-white/20 mb-3 text-3xl">🏋️</span>
                 <p className="text-white/40 font-medium text-sm">Keine Übungen. Füge welche hinzu!</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {draft.exercises.map((ex) => (
-                  <div key={ex.id} className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                  <div key={ex.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <input
                         type="text"
@@ -794,7 +794,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               min={1}
                               value={set.reps ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
-                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
                               placeholder="0"
                             />
 
@@ -803,7 +803,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               min={0}
                               value={set.weight ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
-                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
                               placeholder="0"
                             />
 
@@ -811,7 +811,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               type="text"
                               value={set.notes ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "notes", e.target.value)}
-                              className="w-full rounded-lg bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors"
+                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors"
                               placeholder="-"
                             />
                           </div>
@@ -832,7 +832,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleAddSet(ex.id)}
-                      className="mt-3 w-full py-2 rounded-lg bg-white/5 border border-white/5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors flex items-center justify-center gap-1"
+                      className="mt-3 w-full py-2 rounded-2xl bg-white/5 border border-white/5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors flex items-center justify-center gap-1"
                     >
                       + {isCardioLibrary ? "Intervall hinzufügen" : "Satz hinzufügen"}
                     </button>
@@ -880,7 +880,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
       <AppCard variant="glass" className="w-full max-w-2xl overflow-hidden !rounded-2xl !p-0 shadow-xl">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white">{state.title}</div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
@@ -894,7 +894,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
           {state.exercises.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-800 p-4 text-sm text-zinc-400">
+            <div className="rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-4 text-sm text-zinc-400">
               Keine Übungen
             </div>
           ) : (
@@ -905,7 +905,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                 const last = normalizeLastSummary(lastRaw);
 
                 return (
-                  <div key={ex.id} className="rounded-xl border border-zinc-800 bg-zinc-800 p-3">
+                  <div key={ex.id} className="rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-white">{ex.name}</div>
@@ -931,14 +931,14 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                         )}
                       </div>
 
-                      <div className="shrink-0 rounded-full border border-zinc-800 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">
+                      <div className="shrink-0 rounded-full border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-2 py-0.5 text-[11px] text-zinc-400">
                         {ex.sets.length} {state.isCardio ? "Abschn." : "Sätze"}
                       </div>
                     </div>
 
                     <div className="mt-2 space-y-1">
                       {ex.sets.map((s, idx) => (
-                        <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px]">
+                        <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-[11px]">
                           <div className="text-zinc-400">{idx + 1}</div>
                           <div className="text-white">
                             {state.isCardio ? "Dauer" : "Wdh"}: <span className="text-white">{s.reps ?? "—"}</span>
@@ -957,7 +957,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
           <AppButton onClick={onClose} variant="secondary" className="text-sm">
             Schließen
           </AppButton>
@@ -1639,7 +1639,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       <div className="mx-auto max-w-5xl space-y-4 px-4">
         {/* Tabs */}
-        <div className="flex gap-2 rounded-full bg-zinc-800 p-1 text-base">
+        <div className="flex gap-2 rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-1 text-base">
           <button
             onClick={() => setActiveTab("weekly")}
             className={`flex-1 rounded-full px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-blue-600 text-white shadow" : "text-zinc-400 hover:bg-zinc-900"}`}
@@ -1668,7 +1668,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     setRoutineSaved(false);
                     setPlanStartISO(e.target.value);
                   }}
-                  className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2.5 text-base text-white outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base text-white outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -1721,14 +1721,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           </div>
 
           {!effectiveIsPro && (
-            <div className="mt-4 flex items-center gap-3 rounded-xl bg-zinc-800 border border-zinc-800 px-3 py-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-sm text-white">
+            <div className="mt-4 flex items-center gap-3 rounded-3xl bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl text-sm text-white">
                 i
               </span>
               <div className="flex-1 text-sm text-zinc-400">
                 Kostenloses Limit beachten
               </div>
-              <span className="rounded-full px-2 py-1 text-sm font-semibold bg-zinc-900 border border-zinc-800 text-white">
+              <span className="rounded-full px-2 py-1 text-sm font-semibold bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white">
                 {Number.isFinite(calendar7DaysRemaining as number)
                   ? (calendar7DaysRemaining as number)
                   : FREE_LIMITS.calendar7DaysPerMonth} Tage übrig
@@ -1786,7 +1786,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       <div className="flex items-center gap-2">
                         {hasTime && (
-                          <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white">
+                          <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
                             {day.startTime}
                           </span>
                         )}
@@ -1800,7 +1800,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         value={isRest ? "Ruhetag" : day.focus}
                         disabled={isRest}
                         onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
-                        className={`mt-1 w-full rounded-xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-blue-500 ${isRest ? "bg-zinc-900 border border-zinc-800 text-zinc-400" : "bg-zinc-900 border border-zinc-800 text-white"}`}
+                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-blue-500 ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-zinc-400" : "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"}`}
                       />
                       {!isRest && (
                         <div className="mt-2 text-sm text-zinc-400">Füge Übungen hinzu, um diesen Tag zu planen.</div>
@@ -1818,7 +1818,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </AppButton>
                     ) : (
                       <>
-                        <div className="w-full flex justify-between items-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                        <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3">
                           <span className="text-base text-white font-medium">Sportart</span>
                           <select
                             value={day.sport}
@@ -1837,12 +1837,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openWeeklyTraining(day)}
-                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
                           {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
                         </button>
 
-                        <details className="rounded-xl bg-zinc-900 border border-zinc-800 p-3">
+                        <details className="rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3">
                           <summary className="cursor-pointer text-base font-medium text-white">
                             Details
                           </summary>
@@ -1851,13 +1851,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                               <div className="text-sm text-zinc-400">Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white">
+                                  <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
                                     {day.startTime}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
-                                    className="rounded-full bg-zinc-900 px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
+                                    className="rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
                                     title="Startzeit entfernen"
                                   >
                                     ✕
@@ -1867,7 +1867,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 <button
                                   type="button"
                                   onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())}
-                                  className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white hover:bg-zinc-900"
+                                  className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white hover:bg-zinc-900"
                                 >
                                   Startzeit hinzufügen
                                 </button>
@@ -1897,7 +1897,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => setWeeklyPreviewOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-2 text-base font-medium text-white hover:bg-zinc-800"
+                className="inline-flex items-center justify-center rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-2 text-base font-medium text-white hover:bg-zinc-800"
               >
                 Vorschau
               </button>
@@ -1907,7 +1907,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString("de-DE")})`);
                   setWeeklySaveDialogOpen(true);
                 }}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-base font-medium text-white shadow hover:opacity-90 active:opacity-80"
+                className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-4 py-2 text-base font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
                 Wochenplan speichern
               </button>
@@ -1939,7 +1939,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const hasTime = !!block.startTime?.trim();
 
                 return (
-                  <div key={block.id} className="rounded-[24px] border-[1.5px] border-zinc-800 bg-zinc-900 p-4 space-y-4 backdrop-blur-xl">
+                  <div key={block.id} className="rounded-[24px] border-[1.5px] border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-4 space-y-4 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
                         <div className="text-lg font-semibold text-white">
@@ -1956,7 +1956,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       <div className="flex items-center gap-2">
                         {hasTime && (
-                          <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white">
+                          <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
                             {block.startTime}
                           </span>
                         )}
@@ -1970,7 +1970,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         value={isRest ? "Ruhetag" : block.label}
                         disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
-                        className={`mt-1 w-full rounded-xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "bg-zinc-900 border-zinc-800 text-zinc-400" : "bg-zinc-900 border-zinc-800 text-white"}`}
+                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-zinc-400" : "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"}`}
                       />
                       {!isRest && (
                         <div className="mt-2 text-sm text-zinc-400">Füge Übungen hinzu, um diesen Tag zu planen.</div>
@@ -1978,7 +1978,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     {!isRest && (
-                      <div className="w-full flex justify-between items-center bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                      <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3">
                         <span className="text-base text-white font-medium">Sportart</span>
                         <select
                           value={block.sport}
@@ -1998,7 +1998,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       <button
                         type="button"
                         onClick={() => handleRoutineBlockChange(block.id, "sport", "Gym")}
-                        className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2.5 text-base font-semibold text-white hover:bg-zinc-800"
+                        className="w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base font-semibold text-white hover:bg-zinc-800"
                       >
                         Ruhetag entfernen
                       </button>
@@ -2007,26 +2007,26 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openRoutineTraining(block)}
-                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
                         >
 
                           {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
                         </button>
 
-                        <details className="rounded-xl bg-zinc-900 border border-zinc-800 p-3">
+                        <details className="rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3">
                           <summary className="cursor-pointer text-base font-medium text-white">Details</summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
                               <div className="text-sm text-zinc-400">Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white">
+                                  <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
                                     {block.startTime}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
-                                    className="rounded-full bg-zinc-900 px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
+                                    className="rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
                                     title="Startzeit entfernen"
                                   >
                                     ✕
@@ -2036,7 +2036,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 <button
                                   type="button"
                                   onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())}
-                                  className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-white hover:bg-zinc-900"
+                                  className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white hover:bg-zinc-900"
                                 >
                                   Startzeit hinzufügen
                                 </button>
@@ -2055,7 +2055,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={handleAddRoutineBlock}
-                className="inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-800 px-4 py-2 text-sm font-medium text-white hover:opacity-95"
+                className="inline-flex items-center justify-center rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium text-white hover:opacity-95"
               >
                 + Tag hinzufügen
               </button>
@@ -2063,7 +2063,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => setRoutinePreviewOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-800 px-4 py-2 text-sm font-medium text-white hover:opacity-95"
+                className="inline-flex items-center justify-center rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium text-white hover:opacity-95"
               >
                 Vorschau
               </button>
@@ -2073,7 +2073,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   setRoutineTemplateName(`Routine-Zyklus (${new Date().toLocaleDateString("de-DE")})`);
                   setRoutineSaveDialogOpen(true);
                 }}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 active:opacity-80"
+                className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
                 Routine speichern
               </button>
@@ -2123,7 +2123,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {weeklyPreviewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
               <h3 className="text-sm font-semibold text-white">Wochenvorschau</h3>
               <AppButton
                 variant="ghost"
@@ -2140,11 +2140,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   const day = normalizeWeeklyDay(raw as any, idx + 1);
                   const isRest = isRestSport(day.sport);
                   return (
-                    <AppCard key={day.id} variant="soft" className="p-3 !bg-zinc-800 !border-zinc-800">
+                    <AppCard key={day.id} variant="soft" className="p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-white">Tag {day.id}</span>
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "bg-zinc-900 text-zinc-400" : "bg-green-500/10 text-green-500"
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl text-zinc-400" : "bg-green-500/10 text-green-500"
                             }`}
                         >
                           {isRest ? "Ruhetag" : day.sport}
@@ -2167,7 +2167,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {routinePreviewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
               <h3 className="text-sm font-semibold text-white">Routinevorschau</h3>
               <AppButton
                 variant="ghost"
@@ -2184,7 +2184,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   const block = normalizeRoutineBlock(item.block as any, index + 1);
                   const isRest = block.type === "Rest" || isRestSport(block.sport);
                   return (
-                    <AppCard key={index} variant="soft" className="p-3 !bg-zinc-800 !border-zinc-800">
+                    <AppCard key={index} variant="soft" className="p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-semibold text-white">{item.label}</span>
                         <span className="text-[10px] text-zinc-400">{isRest ? "Ruhetag" : block.sport}</span>
@@ -2206,7 +2206,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {workoutTemplatesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
               <h3 className="text-sm font-semibold text-white">Deine Trainingsvorlagen</h3>
               <AppButton
                 variant="ghost"
@@ -2231,7 +2231,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       <AppCard
                         key={tpl.id}
                         variant="soft"
-                        className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 !border-zinc-800"
+                        className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                       >
                         <div className="min-w-0 text-sm text-white">
                           <div className="truncate font-medium">{tpl.name}</div>
@@ -2263,7 +2263,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {weeklyTemplatesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
               <h3 className="text-sm font-semibold text-white">Deine Wochenpläne</h3>
               <AppButton
                 variant="ghost"
@@ -2283,7 +2283,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     <AppCard
                       key={tpl.id}
                       variant="soft"
-                      className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 !border-zinc-800"
+                      className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     >
                       <div className="text-sm text-white">
                         <div className="font-medium">{tpl.name}</div>
@@ -2312,7 +2312,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       {routineTemplatesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
               <h3 className="text-sm font-semibold text-white">Deine Routinen</h3>
               <AppButton
                 variant="ghost"
@@ -2332,7 +2332,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     <AppCard
                       key={tpl.id}
                       variant="soft"
-                      className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 !border-zinc-800"
+                      className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     >
                       <div className="text-sm text-white">
                         <div className="font-medium">{tpl.name}</div>
@@ -2370,7 +2370,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 type="text"
                 value={weeklyTemplateName}
                 onChange={(e) => setWeeklyTemplateName(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div className="mt-6 flex justify-end gap-3">
@@ -2402,7 +2402,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 type="text"
                 value={routineTemplateName}
                 onChange={(e) => setRoutineTemplateName(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div className="mt-6 flex justify-end gap-3">

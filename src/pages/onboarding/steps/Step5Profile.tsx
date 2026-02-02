@@ -98,7 +98,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
               placeholder="@deinname"
               value={profile.username}
               onChange={(e) => setProfileSafe((prev) => ({ ...prev, username: e.target.value }))}
-              className="w-full rounded-xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
               autoCapitalize="none"
               autoCorrect="off"
             />

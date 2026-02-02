@@ -147,7 +147,7 @@ export default function MinimizedLiveTrainingDock({
                 onResume(next);
               }}
               className="
-                h-9 rounded-xl px-3 text-[12px] font-semibold
+                h-9 rounded-3xl px-3 text-[12px] font-semibold
                 bg-brand-primary text-black hover:bg-brand-primary/90
               "
               title={t("live.resumeTitle")}
@@ -164,7 +164,7 @@ export default function MinimizedLiveTrainingDock({
                 onAborted?.(active);
               }}
               className="
-                h-9 rounded-xl px-3 text-[12px]
+                h-9 rounded-3xl px-3 text-[12px]
                 border border-black/10 bg-black/5 text-slate-800 hover:bg-black/10
                 dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10
               "
@@ -182,7 +182,7 @@ export default function MinimizedLiveTrainingDock({
                 onFinished?.(done as any);
               }}
               className="
-                h-9 rounded-xl px-3 text-[12px] font-semibold
+                h-9 rounded-3xl px-3 text-[12px] font-semibold
                 border border-black/10 bg-black/5 text-slate-900 hover:bg-black/10
                 dark:border-white/15 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10
               "

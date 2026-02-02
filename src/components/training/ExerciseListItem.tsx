@@ -34,7 +34,7 @@ export default function ExerciseListItem({
           <input
             value={exercise.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm"
+            className="w-full rounded-2xl bg-black/40 border border-white/15 px-3 py-2 text-sm"
             placeholder={t("training.exercise.placeholder")}
           />
 
@@ -54,7 +54,7 @@ export default function ExerciseListItem({
 
         <button
           onClick={onRemove}
-          className="rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1 text-[11px] text-red-200"
+          className="rounded-2xl bg-red-500/10 border border-red-500/30 px-3 py-1 text-[11px] text-red-200"
         >
           {t("common.remove")}
         </button>
@@ -68,7 +68,7 @@ export default function ExerciseListItem({
           onChange={(e) =>
             onChange({ restSeconds: Number(e.target.value) })
           }
-          className="rounded-lg bg-black/40 border border-white/15 px-2 py-1 text-xs"
+          className="rounded-2xl bg-black/40 border border-white/15 px-2 py-1 text-xs"
         >
           {[30, 45, 60, 90, 120, 180, 300].map((s) => (
             <option key={s} value={s}>
@@ -83,7 +83,7 @@ export default function ExerciseListItem({
         {exercise.sets.map((set, idx) => (
           <div
             key={set.id}
-            className="flex items-center gap-2 rounded-lg bg-black/40 border border-white/10 p-2"
+            className="flex items-center gap-2 rounded-2xl bg-black/40 border border-white/10 p-2"
           >
             <span className="w-6 text-xs text-white/40">
               {idx + 1}

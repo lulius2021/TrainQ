@@ -18,7 +18,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     disabled,
     ...props
 }) => {
-    const baseStyles = "relative inline-flex items-center justify-center font-semibold transition-transform active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-xl";
+    const baseStyles = "relative inline-flex items-center justify-center font-semibold transition-transform active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-3xl";
 
     const variants = {
         primary: "bg-blue-600/90 text-white shadow-lg shadow-blue-500/20 backdrop-blur-xl border border-white/10 hover:opacity-90 active:scale-[0.98]",

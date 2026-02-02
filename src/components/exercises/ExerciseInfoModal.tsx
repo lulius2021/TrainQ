@@ -62,7 +62,7 @@ export default function ExerciseInfoModal({ isOpen, onClose, exercise }: Exercis
                     <div className="overflow-y-auto flex-1 bg-zinc-950 overscroll-contain">
 
                         {/* Image Section */}
-                        <div className="w-full aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden shrink-0">
+                        <div className="w-full aspect-video bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl flex items-center justify-center relative overflow-hidden shrink-0">
                             {imageUrl ? (
                                 <img
                                     src={imageUrl}
@@ -96,7 +96,7 @@ export default function ExerciseInfoModal({ isOpen, onClose, exercise }: Exercis
                                 <h4 className="text-sm font-bold text-zinc-500 uppercase mt-6 mb-2 tracking-wider">
                                     Anleitung
                                 </h4>
-                                <div className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-base">
+                                <div className="text-zinc-400 leading-relaxed whitespace-pre-wrap text-base">
                                     {instructions ? (
                                         instructions
                                     ) : (

@@ -117,16 +117,16 @@ export const MuscleSplitChart: React.FC<MuscleSplitChartProps> = ({ workouts }) 
     const maxVal = Math.max(...data.map(d => d.A), 5); // at least 5 to avoid flat charts
 
     return (
-        <div className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 flex flex-col items-center justify-center relative shadow-sm h-[320px]">
-            <h3 className="absolute top-5 left-5 text-sm font-medium text-[var(--muted)]">Muscle Balance</h3>
+        <div className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col items-center justify-center relative shadow-sm h-[320px]">
+            <h3 className="absolute top-5 left-5 text-sm font-medium text-zinc-500">Muscle Balance</h3>
 
             <div className="w-full h-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
-                        <PolarGrid stroke="var(--border)" />
+                        <PolarGrid stroke="#3f3f46" />
                         <PolarAngleAxis
                             dataKey="subject"
-                            tick={{ fill: "var(--text)", fontSize: 13, fontWeight: 500 }}
+                            tick={{ fill: "#ffffff", fontSize: 13, fontWeight: 500 }}
                         />
                         <PolarRadiusAxis angle={30} domain={[0, maxVal]} tick={false} axisLine={false} />
                         <Radar
@@ -143,7 +143,7 @@ export const MuscleSplitChart: React.FC<MuscleSplitChartProps> = ({ workouts }) 
                                 if (active && payload && payload.length) {
                                     const d = payload[0].payload;
                                     return (
-                                        <div className="bg-[#1c1c1e] border border-white/10 rounded-xl px-3 py-2 shadow-xl">
+                                        <div className="bg-[#1c1c1e] border border-white/10 rounded-3xl px-3 py-2 shadow-xl">
                                             <p className="text-white font-semibold text-sm">{d.subject}</p>
                                             <p className="text-white/60 text-xs">
                                                 {d.subject === 'Cardio' ? `${d.A} Points` : `${d.A} Sets`}

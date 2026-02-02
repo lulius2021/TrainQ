@@ -35,7 +35,7 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
       >
         {p.isPrimary ? (
           <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center"
+            className="h-12 w-12 rounded-3xl flex items-center justify-center"
             style={{ background: "var(--primary)" }}
           >
             {p.renderIcon?.(active)}

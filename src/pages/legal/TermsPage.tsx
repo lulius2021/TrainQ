@@ -20,7 +20,7 @@ export default function TermsPage() {
 
                 <h1 className="text-3xl font-bold">Nutzungsbedingungen</h1>
 
-                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)]">
                     <p>Willkommen bei TrainQ! Durch die Nutzung unserer App stimmst du den folgenden Bedingungen zu.</p>
                     <p>
                         Diese App dient der Unterstützung deines Trainings. Wir übernehmen keine Haftung für Verletzungen

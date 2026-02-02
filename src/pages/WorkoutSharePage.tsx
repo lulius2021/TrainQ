@@ -164,7 +164,7 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
           </div>
         </div>
 
-        <div className={`bg-zinc-800/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
+        <div className={`bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
           <p className={`text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
             Großartige Ausdauerleistung! <br />
             <span className={`text-blue-400 font-bold inline-block mt-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>Keep it up! ⚡️</span>
@@ -190,7 +190,7 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
         </div>
       </div>
 
-      <div className={`bg-zinc-800/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
+      <div className={`bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
         <p className={`text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
           Das ist schwerer als ein <br />
           <span className={`text-blue-400 font-bold inline-block mt-1 transform -rotate-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>T-Rex 🦖</span>
@@ -233,7 +233,7 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
       <div className={`relative ${isExportMode ? 'mb-20' : 'mb-10'}`}>
         <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full" />
         <Flame size={isExportMode ? 160 : 80} className="text-orange-500 fill-orange-500/20 relative z-10" />
-        <div className={`absolute bg-zinc-800 text-white font-bold rounded-full border border-zinc-800 z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`}>
+        <div className={`absolute bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl text-white font-bold rounded-full border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`}>
           {displayCount}x
         </div>
       </div>
@@ -250,7 +250,7 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
 
           return (
             <div key={i} className="flex flex-col items-center gap-3">
-              <div className={`rounded-full flex items-center justify-center border-2 transition-all ${isExportMode ? 'w-20 h-20 border-4' : 'w-9 h-9'} ${active ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/30' : 'bg-transparent border-zinc-800'}`}>
+              <div className={`rounded-full flex items-center justify-center border-2 transition-all ${isExportMode ? 'w-20 h-20 border-4' : 'w-9 h-9'} ${active ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/30' : 'bg-transparent border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'}`}>
                 {active && <Check size={isExportMode ? 40 : 16} className="text-white" strokeWidth={3} />}
               </div>
               <span className={`font-bold uppercase tracking-wider ${isExportMode ? 'text-2xl' : 'text-[10px]'} ${isToday ? 'text-white' : 'text-zinc-600'}`}>
@@ -286,7 +286,7 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
           <div className={`flex items-center font-semibold text-zinc-400 uppercase tracking-wider ${isExportMode ? 'gap-8 text-3xl' : 'gap-3 text-xs'}`}>
             <span>{dateStr}</span>
             <span className={`rounded-full bg-zinc-700 ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} />
-            <span className="text-zinc-300">{durationMin} Min</span>
+            <span className="text-zinc-400">{durationMin} Min</span>
             <span className={`rounded-full bg-zinc-700 ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} />
             <span className="text-blue-400">
               {volume > 0 ? `${(volume / 1000).toFixed(1)}t` : (workout.distance ? `${workout.distance}km` : 'Cardio')}
@@ -312,7 +312,7 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
         <div className="flex flex-col gap-1">
           <div className={`flex items-center ${isExportMode ? 'gap-4' : 'gap-1.5'}`}>
             <div className={`bg-blue-500 rounded-full animate-pulse ${isExportMode ? 'w-4 h-4' : 'w-1.5 h-1.5'}`} />
-            <span className={`font-bold text-zinc-300 ${isExportMode ? 'text-3xl' : 'text-xs'}`}>TrainQ Pro</span>
+            <span className={`font-bold text-zinc-400 ${isExportMode ? 'text-3xl' : 'text-xs'}`}>TrainQ Pro</span>
           </div>
         </div>
         <div className={`text-zinc-600 font-medium tracking-wide ${isExportMode ? 'text-3xl' : 'text-[10px]'}`}>trainq.app</div>
@@ -423,16 +423,16 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       {/* VISIBLE UI */}
       <div className="absolute top-0 left-0 right-0 p-4 pt-[calc(env(safe-area-inset-top)+12px)] flex justify-between items-center z-50">
         <span className="font-bold text-lg tracking-tight pl-2">Workout teilen</span>
-        <button onClick={onDone} className="bg-zinc-800/80 p-2 rounded-full hover:bg-zinc-700 transition backdrop-blur-md">
-          <X size={20} className="text-zinc-300" />
+        <button onClick={onDone} className="bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 p-2 rounded-full hover:bg-zinc-700 transition backdrop-blur-md">
+          <X size={20} className="text-zinc-400" />
         </button>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center relative w-full overflow-hidden mt-8">
-        <button onClick={prevT} className="absolute left-4 md:left-12 z-40 bg-zinc-800/50 p-3 rounded-full backdrop-blur-md text-white/70 hover:text-white hover:bg-zinc-700/50 transition">
+        <button onClick={prevT} className="absolute left-4 md:left-12 z-40 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 p-3 rounded-full backdrop-blur-md text-white/70 hover:text-white hover:bg-zinc-700/50 transition">
           <ChevronLeft size={24} />
         </button>
-        <button onClick={nextT} className="absolute right-4 md:right-12 z-40 bg-zinc-800/50 p-3 rounded-full backdrop-blur-md text-white/70 hover:text-white hover:bg-zinc-700/50 transition">
+        <button onClick={nextT} className="absolute right-4 md:right-12 z-40 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 p-3 rounded-full backdrop-blur-md text-white/70 hover:text-white hover:bg-zinc-700/50 transition">
           <ChevronRight size={24} />
         </button>
 
@@ -451,7 +451,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       <div className="flex-none w-full bg-[#121214] border-t border-white/5 rounded-t-[32px] px-6 pt-6 pb-24 flex flex-col items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
         <div className="flex gap-2.5 mb-8">
           {TEMPLATES.map((t, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === templateIndex ? 'w-8 bg-blue-500 shadow-blue-500/50 shadow-sm' : 'w-1.5 bg-zinc-800'}`} />
+            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === templateIndex ? 'w-8 bg-blue-500 shadow-blue-500/50 shadow-sm' : 'w-1.5 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl'}`} />
           ))}
         </div>
 
@@ -459,7 +459,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
           <button
             onClick={() => handleExport('save')}
             disabled={isExporting}
-            className="flex-1 bg-zinc-800 text-zinc-200 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition hover:bg-zinc-750"
+            className="flex-1 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl text-zinc-200 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition hover:bg-zinc-750"
           >
             <Download size={18} />
             Speichern

@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User as UserIcon,
     Star,
     Globe,
     Scale,
-    Moon,
+
     LifeBuoy,
     Shield,
     ChevronRight,
@@ -56,7 +56,7 @@ const SettingsRow: React.FC<SettingsRowProps> = ({
             className="w-full flex items-center justify-between p-4 bg-[#1c1c1e] active:bg-[#2c2c2e] transition-colors border-b border-white/5 last:border-0 h-14 group"
         >
             <div className="flex items-center">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-4 ${iconColor} shadow-lg`}>
+                <div className={`w-8 h-8 rounded-2xl flex items-center justify-center mr-4 ${iconColor} shadow-lg`}>
                     <Icon size={18} className="text-white" />
                 </div>
                 <span className={`font-medium text-[17px] ${isDestructive ? 'text-red-500' : 'text-white'}`}>
@@ -151,7 +151,7 @@ const SettingsModal = ({
 
 // 4. Toggle Switch Component
 const ToggleSwitch = ({ checked, onChange, label, icon: Icon }: { checked: boolean; onChange: (v: boolean) => void; label: string; icon?: React.ElementType }) => (
-    <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-2xl border border-white/5">
+    <div className="flex items-center justify-between p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
         <div className="flex items-center gap-3">
             {Icon && <Icon size={20} className="text-zinc-400" />}
             <span className="text-base font-medium text-white">{label}</span>
@@ -175,7 +175,7 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", suffix
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                className="w-full bg-[#1c1c1e] border border-white/10 rounded-2xl p-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
             />
             {suffix && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
@@ -200,9 +200,9 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                     <button
                         key={opt.code}
                         onClick={() => { setLang(opt.code as any); onClose(); }}
-                        className={`flex items-center justify-between p-4 rounded-2xl transition-all border border-transparent ${lang === opt.code
+                        className={`flex items-center justify-between p-4 rounded-2xl transition-all border ${lang === opt.code
                             ? "bg-blue-600 text-white font-bold border-blue-400/30"
-                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-800 border-white/5"
+                            : "bg-[#1c1c1e] border-white/5 text-zinc-400 hover:bg-white/5"
                             }`}
                     >
                         <span className="flex items-center gap-2" dangerouslySetInnerHTML={{ __html: opt.label }} />
@@ -266,7 +266,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     // -- Preferences State --
     const [hapticEnabled, setHapticEnabled] = useState(true);
     // const [darkModeForce, setDarkModeForce] = useState(true); // Replaced by global theme
-    const { theme, toggleTheme } = useTheme();
+    // const { theme, toggleTheme } = useTheme();
     const [soundEnabled, setSoundEnabled] = useState(true);
 
     // Initial Load
@@ -384,7 +384,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                 {/* SECTION 4: DANGER ZONE */}
                 <div className="mt-8 px-2 space-y-4">
-                    <button onClick={handleSeedData} className="w-full p-4 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20 text-sm font-medium hover:bg-blue-500/20 transition-colors">
+                    <button onClick={handleSeedData} className="w-full p-4 bg-blue-500/10 text-blue-400 rounded-3xl border border-blue-500/20 text-sm font-medium hover:bg-blue-500/20 transition-colors">
                         🛠️ Generate Demo Data (Review)
                     </button>
                     <button onClick={handleLogout} className="w-full h-14 bg-[#1c1c1e] active:bg-[#2c2c2e] rounded-2xl border border-white/5 flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg">
@@ -425,7 +425,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             {/* SUBSCRIPTION MODAL */}
             <SettingsModal isOpen={activeModal === 'subscription'} onClose={() => setActiveModal(null)} title={t("settings.pro.title")}>
                 <div className="flex flex-col items-center text-center space-y-6 pt-6">
-                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl ${isPro ? 'bg-amber-500' : 'bg-zinc-800'}`}>
+                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl ${isPro ? 'bg-amber-500' : 'bg-[#1c1c1e] border border-white/10'}`}>
                         <Star size={40} className="text-white" fill={isPro ? "white" : "none"} />
                     </div>
                     <div>
@@ -440,7 +440,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     {!isPro && (
                         <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
                             <h4 className="font-bold text-amber-400 mb-2">Pro Vorteile:</h4>
-                            <ul className="space-y-2 text-sm text-zinc-300">
+                            <ul className="space-y-2 text-sm text-zinc-400">
                                 <li className="flex gap-2"><span>✨</span> Unbegrenzter Verlauf</li>
                                 <li className="flex gap-2"><span>📈</span> Erweiterte Statistiken</li>
                                 <li className="flex gap-2"><span>🤖</span> KI-Trainingspläne</li>
@@ -450,7 +450,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                     <button
                         onClick={() => { setActiveModal(null); onOpenPaywall(); }}
-                        className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
+                        className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-[#1c1c1e] text-white border border-white/10' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
                     >
                         {isPro ? "Abo verwalten" : "Jetzt Upgraden"}
                     </button>
@@ -462,16 +462,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             {/* PREFERENCES MODAL */}
             <SettingsModal isOpen={activeModal === 'preferences'} onClose={() => setActiveModal(null)} title="App Einstellungen">
                 <div className="space-y-4">
-                    <div className="px-1 py-2">
-                        <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Erscheinungsbild</h3>
-                        <ToggleSwitch
-                            label="Dunkelmodus"
-                            checked={theme === 'dark'}
-                            onChange={toggleTheme}
-                            icon={Moon}
-                        />
-                        <p className="text-xs text-zinc-500 mt-2 px-2">TrainQ ist für Dark Mode optimiert. Deaktivieren führt zum System-Standard (nicht empfohlen).</p>
-                    </div>
+
 
                     <div className="px-1 py-2 border-t border-white/5 pt-6">
                         <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Interaktion</h3>
@@ -493,7 +484,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                     <div className="px-1 py-2 border-t border-white/5 pt-6">
                         <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Einheiten</h3>
-                        <div className="p-4 bg-zinc-800 rounded-2xl border border-white/5 flex justify-between items-center opacity-70">
+                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl flex justify-between items-center opacity-70">
                             <span className="text-white">Gewichtseinheit</span>
                             <span className="text-zinc-400 font-mono">KG (Metrisch)</span>
                         </div>
@@ -507,7 +498,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <div className="space-y-3">
                         <h3 className="text-lg font-bold text-white">Support</h3>
                         <p className="text-zinc-400 text-sm">Probleme oder Feedback? Wir helfen gerne weiter.</p>
-                        <a href="mailto:support@trainq.app" className="block w-full text-center py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-colors">
+                        <a href="mailto:support@trainq.app" className="block w-full text-center py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-3xl text-white font-medium transition-colors">
                             support@trainq.app
                         </a>
                     </div>
@@ -515,7 +506,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <div className="border-t border-white/5 pt-6 space-y-4">
                         <h3 className="text-lg font-bold text-white">Rechtliches</h3>
                         <div className="space-y-2">
-                            <div className="p-4 bg-zinc-800 rounded-xl border border-white/5">
+                            <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
                                 <h4 className="font-bold text-white mb-1">Impressum</h4>
                                 <p className="text-xs text-zinc-500">
                                     TrainQ Inc.<br />
@@ -524,7 +515,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                     Vertreten durch: Julius
                                 </p>
                             </div>
-                            <div className="p-4 bg-zinc-800 rounded-xl border border-white/5">
+                            <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
                                 <h4 className="font-bold text-white mb-1">Datenschutz</h4>
                                 <p className="text-xs text-zinc-500 mb-3">
                                     Wir speichern Daten lokal auf deinem Gerät. Backups erfolgen verschlüsselt in der Cloud.

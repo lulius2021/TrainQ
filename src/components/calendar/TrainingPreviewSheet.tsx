@@ -491,7 +491,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
               <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3" style={{ WebkitOverflowScrolling: "touch" }}>
                 <div className="space-y-4">
-                  <div className="rounded-xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                  <div className="rounded-3xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
                         {t("calendar.preview.scope")}
@@ -510,7 +510,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
                   <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
                     {draftExercises.length === 0 ? (
-                      <div className="rounded-xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                      <div className="rounded-3xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
                         {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
                       </div>
                     ) : (

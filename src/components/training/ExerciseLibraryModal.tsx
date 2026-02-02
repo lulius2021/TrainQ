@@ -76,11 +76,11 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
   const src = useExerciseImage(exercise);
 
   if (src) {
-    return <img src={src} alt="" className="h-12 w-12 rounded-xl object-cover" loading="lazy" decoding="async" />;
+    return <img src={src} alt="" className="h-12 w-12 rounded-3xl object-cover" loading="lazy" decoding="async" />;
   }
 
   return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5" aria-hidden="true">
+    <div className="flex h-12 w-12 items-center justify-center rounded-3xl border border-white/10 bg-white/5" aria-hidden="true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-500"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </div>
   );
@@ -90,7 +90,7 @@ const ExerciseSkeleton = () => (
   <div className="space-y-3 p-4">
     {[1, 2, 3, 4, 5, 6].map((i) => (
       <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 p-3">
-        <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl bg-white/10" />
+        <div className="h-12 w-12 shrink-0 animate-pulse rounded-3xl bg-white/10" />
         <div className="flex-1 space-y-2">
           <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
           <div className="h-3 w-1/4 animate-pulse rounded bg-white/10" />
@@ -134,7 +134,7 @@ const ExerciseRow = React.memo(({
   </div>
 ), (prev, next) => prev.ex.id === next.ex.id && prev.isAdded === next.isAdded && prev.lang === next.lang);
 
-export default function ExerciseLibraryModal({ open, title, category = 'gym', onClose, existingExerciseIds, onPick, }: Props) {
+const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, title, category = 'gym', onClose, existingExerciseIds, onPick, }: Props) {
   const { t, lang } = useI18n();
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
@@ -147,11 +147,16 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
   const [isListReady, setIsListReady] = useState(false);
   useEffect(() => {
     if (open) {
+      // If we are opening, ensure we start with "not ready" -> render skeleton -> then render list
+      // This prevents main thread blocking on the open animation frame
       setIsListReady(false);
       const timer = requestAnimationFrame(() => {
         setIsListReady(true);
       });
       return () => cancelAnimationFrame(timer);
+    } else {
+      // Immediately reset when closed, so next open starts clean
+      setIsListReady(false);
     }
   }, [open]);
 
@@ -307,14 +312,14 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
         <div className="flex items-center justify-between gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
-            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
+            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
           </div>
-          <button type="button" onClick={openCreate} className="shrink-0 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>
+          <button type="button" onClick={openCreate} className="shrink-0 rounded-3xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>
         </div>
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
-            <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
+            <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
+            <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
           </div>
           <button type="button" onClick={() => setShowMoreFilters((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/5 border border-white/10">{showMoreFilters ? "–" : "+"}</span>
@@ -322,8 +327,8 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
           </button>
           {showMoreFilters && (
             <div className="grid grid-cols-2 gap-2">
-              <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
-              <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
+              <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
+              <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
             </div>
           )}
         </div>
@@ -392,7 +397,7 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
                   {category === 'running' ? "Distanz oder Intervalle" : category === 'cycling' ? "Distanz oder Intervalle" : "Übung auswählen"}
                 </div>
               </div>
-              <button type="button" onClick={onClose} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">{t("common.close")}</button>
+              <button type="button" onClick={onClose} className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">{t("common.close")}</button>
             </div>
 
             <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4">
@@ -405,18 +410,18 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
             <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
               <div className="flex items-center justify-between pb-3"><h3 className="text-lg font-semibold text-white">{t("training.exerciseLibrary.createTitle")}</h3><button type="button" className="text-gray-400 hover:text-white" onClick={closeCreate}>✕</button></div>
               <div className="mt-3 space-y-4">
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary" /></div>
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-gray-500"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm disabled:opacity-50 text-white hover:bg-white/20" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
+                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary" /></div>
+                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-gray-500"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm disabled:opacity-50 text-white hover:bg-white/20" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
-                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
+                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
+                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
                 </div>
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
+                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
                 <div><div className="text-sm text-gray-400">{t("training.exerciseLibrary.createMetricsLabel")}</div><div className="mt-2 flex flex-wrap gap-2">{METRICS.map((metric) => <button key={metric} type="button" onClick={() => toggleMetric(metric)} className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${createMetrics.includes(metric) ? 'bg-brand-primary text-white border-brand-primary' : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'}`}>{metricLabels[metric]}</button>)}</div></div>
-                {createError && <div className="rounded-xl border border-red-500/30 bg-red-500/20 px-3 py-2 text-sm text-red-300">{createError}</div>}
+                {createError && <div className="rounded-3xl border border-red-500/30 bg-red-500/20 px-3 py-2 text-sm text-red-300">{createError}</div>}
                 <div className="flex items-center justify-end gap-3 pt-2">
-                  <button type="button" className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
-                  <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90" onClick={handleCreate}>{t("training.exerciseLibrary.createSave")}</button>
+                  <button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
+                  <button type="button" className="rounded-3xl px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90" onClick={handleCreate}>{t("training.exerciseLibrary.createSave")}</button>
                 </div>
               </div>
             </div>
@@ -430,4 +435,6 @@ export default function ExerciseLibraryModal({ open, title, category = 'gym', on
 
   if (typeof document === "undefined") return modal;
   return createPortal(modal, document.body);
-}
+});
+
+export default ExerciseLibraryModal;

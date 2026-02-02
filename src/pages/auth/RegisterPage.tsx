@@ -58,7 +58,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
           <form className="space-y-6" onSubmit={handleRegister}>
             {error && (
-              <div className="p-3 text-sm text-red-200 bg-red-900/40 border border-red-500/50 rounded-lg">
+              <div className="p-3 text-sm text-red-200 bg-red-900/40 border border-red-500/50 rounded-2xl">
                 {error}
               </div>
             )}
