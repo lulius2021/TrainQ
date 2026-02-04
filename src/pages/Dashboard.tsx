@@ -14,46 +14,62 @@ const DashboardPage = () => {
   const [showAdaptivModal, setShowAdaptivModal] = useState(false);
   const today = new Date();
 
-  // --- COMPONENT: ADAPTIV MODAL ---
+  // --- COMPONENT: ADAPTIV MODAL (CENTERED) ---
   const AdaptivModal = () => {
     if (!showAdaptivModal) return null;
 
     return (
-      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center px-4 pb-4 sm:p-0">
+      // Changed items-end -> items-center to center content vertically
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+
+        {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
           onClick={() => setShowAdaptivModal(false)}
         />
-        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom-10 duration-200">
+
+        {/* Modal Card */}
+        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+
+          {/* Header */}
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="text-purple-500" size={20} />
               Adaptives Training
             </h2>
-            <button onClick={() => setShowAdaptivModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
+            <button
+              onClick={() => setShowAdaptivModal(false)}
+              className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+            >
               <X size={18} />
             </button>
           </div>
 
           <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase">Zeit heute</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button className="py-3 bg-zinc-800 rounded-xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600">Kurz</button>
-                <button className="py-3 bg-blue-600 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
+            {/* Section 1 */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">Kurz</button>
+                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20 active:scale-95 transition-transform">Normal</button>
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase">Energie</label>
+
+            {/* Section 2 */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
               <div className="grid grid-cols-3 gap-2">
-                <button className="py-3 bg-zinc-800 rounded-xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600">Low</button>
-                <button className="py-3 bg-blue-600 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
-                <button className="py-3 bg-zinc-800 rounded-xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600">High</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">Low</button>
+                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20 active:scale-95 transition-transform">Ok</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">High</button>
               </div>
             </div>
           </div>
 
-          <button onClick={() => setShowAdaptivModal(false)} className="w-full mt-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 transition-colors">
+          <button
+            onClick={() => setShowAdaptivModal(false)}
+            className="w-full mt-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all"
+          >
             Anwenden
           </button>
         </div>
@@ -65,12 +81,7 @@ const DashboardPage = () => {
     <div className="min-h-screen bg-zinc-900 text-white pb-32">
       <AdaptivModal />
 
-      {/* HEADER FIXED: 
-          1. sticky top-0
-          2. z-50 (to stay above content)
-          3. bg-zinc-900/95 (higher opacity to prevent text bleeding)
-          4. Reduced padding (pb-3)
-      */}
+      {/* HEADER */}
       <div className="sticky top-0 z-50 pt-safe px-6 pb-3 bg-zinc-900/95 backdrop-blur-xl border-b border-white/5 shadow-sm shadow-black/20">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-zinc-500 font-medium text-sm mt-0.5">
@@ -78,9 +89,6 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      {/* CONTENT: 
-          Reduced top padding (pt-2) to bring content closer to header
-      */}
       <div className="p-4 pt-2 space-y-6">
 
         {/* NÄCHSTES TRAINING */}
