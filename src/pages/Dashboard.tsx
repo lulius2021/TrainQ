@@ -5,71 +5,55 @@ import {
   Sparkles,
   RefreshCw,
   ChevronRight,
-  X
+  X,
+  Dumbbell,
+  ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const DashboardPage = () => {
   const [showAdaptivModal, setShowAdaptivModal] = useState(false);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showShiftModal, setShowShiftModal] = useState(false);
+
   const today = new Date();
 
-  // --- COMPONENT: ADAPTIV MODAL (CENTERED) ---
+  // --- 1. ADAPTIV MODAL ---
   const AdaptivModal = () => {
     if (!showAdaptivModal) return null;
-
     return (
-      // Changed items-end -> items-center to center content vertically
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
-          onClick={() => setShowAdaptivModal(false)}
-        />
-
-        {/* Modal Card */}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowAdaptivModal(false)} />
         <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-
-          {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="text-purple-500" size={20} />
-              Adaptives Training
+              Adaptiv Check
             </h2>
-            <button
-              onClick={() => setShowAdaptivModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-            >
+            <button onClick={() => setShowAdaptivModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
               <X size={18} />
             </button>
           </div>
-
           <div className="space-y-6">
-            {/* Section 1 */}
             <div className="space-y-3">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
               <div className="grid grid-cols-2 gap-3">
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">Kurz</button>
-                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20 active:scale-95 transition-transform">Normal</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Kurz</button>
+                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
               </div>
             </div>
-
-            {/* Section 2 */}
             <div className="space-y-3">
               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
               <div className="grid grid-cols-3 gap-2">
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">Low</button>
-                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20 active:scale-95 transition-transform">Ok</button>
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 border border-transparent hover:border-zinc-600 transition-all active:scale-95">High</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Low</button>
+                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">High</button>
               </div>
             </div>
           </div>
-
-          <button
-            onClick={() => setShowAdaptivModal(false)}
-            className="w-full mt-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all"
-          >
+          <button onClick={() => setShowAdaptivModal(false)} className="w-full mt-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all">
             Anwenden
           </button>
         </div>
@@ -77,9 +61,120 @@ const DashboardPage = () => {
     );
   };
 
+  // --- 2. WORKOUT PLANEN MODAL ---
+  const WorkoutModal = () => {
+    if (!showWorkoutModal) return null;
+    const workouts = ['Push Day', 'Pull Day', 'Beine', 'Ganzkörper', 'Cardio'];
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowWorkoutModal(false)} />
+        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Plus className="text-blue-500" size={20} />
+              Training planen
+            </h2>
+            <button onClick={() => setShowWorkoutModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {workouts.map((w, i) => (
+              <button key={i} onClick={() => setShowWorkoutModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between group hover:bg-zinc-700 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-blue-500">
+                    <Dumbbell size={16} />
+                  </div>
+                  <span className="font-bold text-zinc-200">{w}</span>
+                </div>
+                <Plus size={18} className="text-zinc-500 group-hover:text-white" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- 3. TERMIN MODAL ---
+  const EventModal = () => {
+    if (!showEventModal) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowEventModal(false)} />
+        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Calendar className="text-emerald-500" size={20} />
+              Termin
+            </h2>
+            <button onClick={() => setShowEventModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Titel</label>
+              <input type="text" placeholder="z.B. Physio" className="w-full bg-zinc-800 border-none rounded-2xl p-4 text-white placeholder-zinc-500 focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Uhrzeit</label>
+              <input type="time" defaultValue="09:00" className="w-full bg-zinc-800 border-none rounded-2xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none appearance-none" />
+            </div>
+          </div>
+          <button onClick={() => setShowEventModal(false)} className="w-full mt-8 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-500 active:scale-[0.98] transition-all">
+            Hinzufügen
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- 4. VERSCHIEBEN MODAL ---
+  const ShiftModal = () => {
+    if (!showShiftModal) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowShiftModal(false)} />
+        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <RefreshCw className="text-cyan-500" size={20} />
+              Plan verschieben
+            </h2>
+            <button onClick={() => setShowShiftModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+          <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+            Verschiebt alle geplanten Einheiten in der Zukunft.
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+              <span className="font-bold text-zinc-200">+ 1 Tag</span>
+              <ArrowRight size={16} className="text-zinc-500" />
+            </button>
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+              <span className="font-bold text-zinc-200">+ 2 Tage</span>
+              <ArrowRight size={16} className="text-zinc-500" />
+            </button>
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+              <span className="font-bold text-zinc-200">+ 1 Woche</span>
+              <ArrowRight size={16} className="text-zinc-500" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-zinc-900 text-white pb-32">
+      {/* RENDER ALL MODALS */}
       <AdaptivModal />
+      <WorkoutModal />
+      <EventModal />
+      <ShiftModal />
 
       {/* HEADER */}
       <div className="sticky top-0 z-50 pt-safe px-6 pb-3 bg-zinc-900/95 backdrop-blur-xl border-b border-white/5 shadow-sm shadow-black/20">
@@ -108,21 +203,29 @@ const DashboardPage = () => {
           <h3 className="text-sm font-bold text-white mb-3 pl-1">Aktionen</h3>
           <div className="grid grid-cols-2 gap-3">
 
-            <button className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50">
+            {/* BUTTON: TRAINING PLANEN */}
+            <button
+              onClick={() => setShowWorkoutModal(true)}
+              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
+            >
               <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
                 <Plus size={20} strokeWidth={3} />
               </div>
               <span className="text-sm font-medium text-zinc-300">Training planen</span>
             </button>
 
-            <button className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50">
+            {/* BUTTON: TERMIN EINTRAGEN */}
+            <button
+              onClick={() => setShowEventModal(true)}
+              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
+            >
               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                 <Calendar size={20} />
               </div>
               <span className="text-sm font-medium text-zinc-300">Termin eintragen</span>
             </button>
 
-            {/* ADAPTIV */}
+            {/* BUTTON: ADAPTIV */}
             <button
               onClick={() => setShowAdaptivModal(true)}
               className="relative bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform group border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
@@ -134,7 +237,11 @@ const DashboardPage = () => {
               <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">Adaptiv</span>
             </button>
 
-            <button className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50">
+            {/* BUTTON: PLAN VERSCHIEBEN */}
+            <button
+              onClick={() => setShowShiftModal(true)}
+              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
+            >
               <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-500">
                 <RefreshCw size={20} />
               </div>
