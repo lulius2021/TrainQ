@@ -12,8 +12,6 @@ import {
   Check,
   Play
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
 
 const DashboardPage = () => {
   // MODAL STATES
@@ -25,8 +23,6 @@ const DashboardPage = () => {
   // ADAPTIV LOGIC STATE
   const [adaptivStep, setAdaptivStep] = useState<'input' | 'result'>('input');
 
-  const today = new Date();
-
   // --- MOCK DATA: GENERATED WORKOUT ---
   const GENERATED_WORKOUT = [
     { name: 'Bankdrücken', sets: 3, reps: '8-10', weight: '80kg' },
@@ -35,13 +31,13 @@ const DashboardPage = () => {
     { name: 'Trizeps Pushdown', sets: 3, reps: '12-15', weight: '25kg' },
   ];
 
-  // --- 1. ADAPTIV MODAL (FULL LOGIC) ---
+  // --- 1. ADAPTIV MODAL ---
   const AdaptivModal = () => {
     if (!showAdaptivModal) return null;
 
     const handleClose = () => {
       setShowAdaptivModal(false);
-      setTimeout(() => setAdaptivStep('input'), 300); // Reset after close
+      setTimeout(() => setAdaptivStep('input'), 300);
     };
 
     return (
@@ -50,7 +46,6 @@ const DashboardPage = () => {
 
         <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
 
-          {/* HEADER */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="text-purple-500" size={20} />
@@ -61,10 +56,8 @@ const DashboardPage = () => {
             </button>
           </div>
 
-          {/* STEP 1: INPUT QUESTIONS */}
           {adaptivStep === 'input' && (
             <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-              {/* Question 1 */}
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -72,8 +65,6 @@ const DashboardPage = () => {
                   <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
                 </div>
               </div>
-
-              {/* Question 2 */}
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -82,8 +73,6 @@ const DashboardPage = () => {
                   <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">High</button>
                 </div>
               </div>
-
-              {/* Question 3 */}
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Stress</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -91,7 +80,6 @@ const DashboardPage = () => {
                   <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
                 </div>
               </div>
-
               <button
                 onClick={() => setAdaptivStep('result')}
                 className="w-full mt-4 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
@@ -102,15 +90,13 @@ const DashboardPage = () => {
             </div>
           )}
 
-          {/* STEP 2: RESULT (THE WORKOUT) */}
           {adaptivStep === 'result' && (
             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
                 <p className="text-xs text-purple-300 leading-relaxed">
-                  Basierend auf deiner Energie haben wir das Volumen leicht reduziert, aber die Intensität hoch gehalten.
+                  Basierend auf deiner Energie haben wir das Volumen leicht reduziert.
                 </p>
               </div>
-
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                 {GENERATED_WORKOUT.map((ex, i) => (
                   <div key={i} className="bg-zinc-800/50 p-3 rounded-2xl flex items-center justify-between border border-zinc-800">
@@ -124,7 +110,6 @@ const DashboardPage = () => {
                   </div>
                 ))}
               </div>
-
               <div className="pt-2">
                 <button
                   onClick={handleClose}
@@ -136,7 +121,6 @@ const DashboardPage = () => {
               </div>
             </div>
           )}
-
         </div>
       </div>
     );
@@ -257,14 +241,12 @@ const DashboardPage = () => {
       <EventModal />
       <ShiftModal />
 
-      <div className="sticky top-0 z-50 pt-safe px-6 pb-3 bg-zinc-900/95 backdrop-blur-xl border-b border-white/5 shadow-sm shadow-black/20">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-zinc-500 font-medium text-sm mt-0.5">
-          {format(today, 'EEEE, d. MMMM', { locale: de })}
-        </p>
+      {/* STATIC HEADER (SCROLLS WITH CONTENT) */}
+      <div className="pt-safe px-6 pt-2 pb-2">
+        <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
       </div>
 
-      <div className="p-4 pt-2 space-y-6">
+      <div className="p-4 pt-0 space-y-6">
 
         {/* NÄCHSTES TRAINING */}
         <div>
