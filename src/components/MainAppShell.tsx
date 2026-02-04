@@ -703,22 +703,11 @@ const MainAppShell: React.FC = () => {
             )}
 
             {isTabRoute && activeTab === "dashboard" && (
-                <Dashboard
-                    events={events}
-                    upcoming={upcomingTrainings}
-                    onCreateQuickTraining={handleCreateQuickTraining}
-                    onUpdateEvents={setEvents}
-                    isPro={isPro}
-                    onOpenPaywall={(reason) => {
-                        setPaywallReason(reason);
-                        setPaywallOpen(true);
-                    }}
-                    onOpenWorkoutShare={openWorkoutShare}
-                />
+                <Dashboard />
             )}
 
             {isTabRoute && activeTab === "calendar" && (
-                <CalendarPage events={events} onAddEvent={handleAddEvent} onDeleteEvent={handleDeleteEvent} onUpdateEvents={setEvents} isPro={isPro} />
+                <CalendarPage />
             )}
 
             {isTabRoute && activeTab === "today" && (

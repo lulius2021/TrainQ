@@ -17,17 +17,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     showNavBar = true,
     floatingWidget
 }) => {
+    const isCalendar = activeTab === "calendar";
+
     return (
         <div className="relative flex h-full w-full flex-col overflow-hidden font-[SF Pro Display,sans-serif] bg-transparent text-white">
             {/* Main Content Area */}
             <main
-                className="flex-1 overflow-y-auto overflow-x-hidden w-full pt-[env(safe-area-inset-top)] pb-[120px]"
+                className={`flex-1 overflow-y-auto overflow-x-hidden w-full ${isCalendar ? "pb-0" : "pt-[env(safe-area-inset-top)] pb-[120px]"}`}
                 style={{
                     // Force hardware acceleration for smooth scrolling
                     WebkitOverflowScrolling: "touch",
                 }}
             >
-                <div className="mx-auto w-full max-w-md px-5">
+                <div className={`mx-auto w-full ${isCalendar ? "h-full px-0 max-w-none" : "max-w-md px-5"}`}>
                     {children}
                 </div>
             </main>
