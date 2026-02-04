@@ -7,61 +7,142 @@ import {
   ChevronRight,
   X,
   Dumbbell,
-  ArrowRight
+  Clock,
+  ArrowRight,
+  Check,
+  Play
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const DashboardPage = () => {
+  // MODAL STATES
   const [showAdaptivModal, setShowAdaptivModal] = useState(false);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
 
+  // ADAPTIV LOGIC STATE
+  const [adaptivStep, setAdaptivStep] = useState<'input' | 'result'>('input');
+
   const today = new Date();
 
-  // --- 1. ADAPTIV MODAL ---
+  // --- MOCK DATA: GENERATED WORKOUT ---
+  const GENERATED_WORKOUT = [
+    { name: 'Bankdrücken', sets: 3, reps: '8-10', weight: '80kg' },
+    { name: 'Schrägbank KH', sets: 3, reps: '10-12', weight: '32kg' },
+    { name: 'Seitheben Kabel', sets: 4, reps: '15', weight: '12kg' },
+    { name: 'Trizeps Pushdown', sets: 3, reps: '12-15', weight: '25kg' },
+  ];
+
+  // --- 1. ADAPTIV MODAL (FULL LOGIC) ---
   const AdaptivModal = () => {
     if (!showAdaptivModal) return null;
+
+    const handleClose = () => {
+      setShowAdaptivModal(false);
+      setTimeout(() => setAdaptivStep('input'), 300); // Reset after close
+    };
+
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowAdaptivModal(false)} />
-        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={handleClose} />
+
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+
+          {/* HEADER */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="text-purple-500" size={20} />
-              Adaptiv Check
+              {adaptivStep === 'input' ? 'Adaptiv Check' : 'Dein Plan'}
             </h2>
-            <button onClick={() => setShowAdaptivModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+            <button onClick={handleClose} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
               <X size={18} />
             </button>
           </div>
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Kurz</button>
-                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
+
+          {/* STEP 1: INPUT QUESTIONS */}
+          {adaptivStep === 'input' && (
+            <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
+              {/* Question 1 */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700 transition-colors">Kurz</button>
+                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
+                </div>
+              </div>
+
+              {/* Question 2 */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Low</button>
+                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">High</button>
+                </div>
+              </div>
+
+              {/* Question 3 */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Stress</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Hoch</button>
+                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setAdaptivStep('result')}
+                className="w-full mt-4 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles size={18} className="text-purple-600" />
+                Plan generieren
+              </button>
+            </div>
+          )}
+
+          {/* STEP 2: RESULT (THE WORKOUT) */}
+          {adaptivStep === 'result' && (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
+                <p className="text-xs text-purple-300 leading-relaxed">
+                  Basierend auf deiner Energie haben wir das Volumen leicht reduziert, aber die Intensität hoch gehalten.
+                </p>
+              </div>
+
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                {GENERATED_WORKOUT.map((ex, i) => (
+                  <div key={i} className="bg-zinc-800/50 p-3 rounded-2xl flex items-center justify-between border border-zinc-800">
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{ex.name}</h4>
+                      <span className="text-xs text-zinc-500">{ex.sets} Sätze x {ex.reps} Wh.</span>
+                    </div>
+                    <div className="bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
+                      <span className="text-xs font-bold text-white">{ex.weight}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={handleClose}
+                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-900/30 hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Play size={18} fill="currentColor" />
+                  Training starten
+                </button>
               </div>
             </div>
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Low</button>
-                <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
-                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">High</button>
-              </div>
-            </div>
-          </div>
-          <button onClick={() => setShowAdaptivModal(false)} className="w-full mt-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all">
-            Anwenden
-          </button>
+          )}
+
         </div>
       </div>
     );
   };
 
-  // --- 2. WORKOUT PLANEN MODAL ---
+  // --- 2. WORKOUT MODAL ---
   const WorkoutModal = () => {
     if (!showWorkoutModal) return null;
     const workouts = ['Push Day', 'Pull Day', 'Beine', 'Ganzkörper', 'Cardio'];
@@ -96,7 +177,7 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 3. TERMIN MODAL ---
+  // --- 3. EVENT MODAL ---
   const EventModal = () => {
     if (!showEventModal) return null;
     return (
@@ -130,7 +211,7 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 4. VERSCHIEBEN MODAL ---
+  // --- 4. SHIFT MODAL ---
   const ShiftModal = () => {
     if (!showShiftModal) return null;
     return (
@@ -168,15 +249,14 @@ const DashboardPage = () => {
     );
   };
 
+  // --- MAIN RENDER ---
   return (
     <div className="min-h-screen bg-zinc-900 text-white pb-32">
-      {/* RENDER ALL MODALS */}
       <AdaptivModal />
       <WorkoutModal />
       <EventModal />
       <ShiftModal />
 
-      {/* HEADER */}
       <div className="sticky top-0 z-50 pt-safe px-6 pb-3 bg-zinc-900/95 backdrop-blur-xl border-b border-white/5 shadow-sm shadow-black/20">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-zinc-500 font-medium text-sm mt-0.5">
@@ -198,38 +278,26 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* AKTIONEN */}
+        {/* AKTIONEN GRID */}
         <div>
           <h3 className="text-sm font-bold text-white mb-3 pl-1">Aktionen</h3>
           <div className="grid grid-cols-2 gap-3">
 
-            {/* BUTTON: TRAINING PLANEN */}
-            <button
-              onClick={() => setShowWorkoutModal(true)}
-              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
-            >
+            <button onClick={() => setShowWorkoutModal(true)} className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50">
               <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
                 <Plus size={20} strokeWidth={3} />
               </div>
               <span className="text-sm font-medium text-zinc-300">Training planen</span>
             </button>
 
-            {/* BUTTON: TERMIN EINTRAGEN */}
-            <button
-              onClick={() => setShowEventModal(true)}
-              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
-            >
+            <button onClick={() => setShowEventModal(true)} className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50">
               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                 <Calendar size={20} />
               </div>
               <span className="text-sm font-medium text-zinc-300">Termin eintragen</span>
             </button>
 
-            {/* BUTTON: ADAPTIV */}
-            <button
-              onClick={() => setShowAdaptivModal(true)}
-              className="relative bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform group border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-            >
+            <button onClick={() => setShowAdaptivModal(true)} className="relative bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform group border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.15)]">
               <div className="absolute inset-0 bg-purple-500/5 rounded-3xl" />
               <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/40 animate-pulse-slow">
                 <Sparkles size={20} fill="currentColor" />
@@ -237,11 +305,7 @@ const DashboardPage = () => {
               <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors">Adaptiv</span>
             </button>
 
-            {/* BUTTON: PLAN VERSCHIEBEN */}
-            <button
-              onClick={() => setShowShiftModal(true)}
-              className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50"
-            >
+            <button onClick={() => setShowShiftModal(true)} className="bg-zinc-800 rounded-3xl p-4 flex flex-col items-center gap-3 active:scale-95 transition-transform border border-zinc-700/50 hover:bg-zinc-700/50">
               <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-500">
                 <RefreshCw size={20} />
               </div>
@@ -266,7 +330,6 @@ const DashboardPage = () => {
                 </div>
               </div>
             </div>
-
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-bold text-white">1457</span>
