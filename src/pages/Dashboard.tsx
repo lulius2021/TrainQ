@@ -11,8 +11,15 @@ import {
   ArrowRight,
   Check,
   Play,
-  Type
+  Type,
+  Zap,
+  Activity,
+  BicepsFlexed,
+  Timer,
+  TrendingUp
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 const DashboardPage = () => {
   // MODAL STATES
@@ -21,23 +28,63 @@ const DashboardPage = () => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
 
-  // LOGIC STATES
-  const [adaptivStep, setAdaptivStep] = useState<'input' | 'result'>('input');
+  // ADAPTIV LOGIC STATES
+  const [adaptivStep, setAdaptivStep] = useState<'input' | 'selection' | 'preview'>('input');
+  const [time, setTime] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<string | null>(null);
+  const [soreness, setSoreness] = useState<string | null>(null);
+  const [selectedPlanType, setSelectedPlanType] = useState<'strength' | 'control' | 'endurance' | null>(null);
+
+  // WORKOUT LOGIC STATES
   const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null);
 
-  // --- MOCK DATA ---
-  const GENERATED_WORKOUT = [
-    { name: 'Bankdrücken', sets: 3, reps: '8-10', weight: '80kg' },
-    { name: 'Schrägbank KH', sets: 3, reps: '10-12', weight: '32kg' },
-    { name: 'Seitheben Kabel', sets: 4, reps: '15', weight: '12kg' },
-    { name: 'Trizeps Pushdown', sets: 3, reps: '12-15', weight: '25kg' },
-  ];
+  // --- MOCK DATA: 3 PLAN TYPES ---
+  const PLANS = {
+    strength: {
+      title: 'Maximalkraft',
+      tagline: 'Schwer & Explosiv',
+      icon: TrendingUp,
+      color: 'blue',
+      description: 'Fokus auf neurale Anpassung. Lange Pausen, wenig Wdh.',
+      exercises: [
+        { name: 'Bankdrücken', sets: 5, reps: '3-5', weight: '90kg' },
+        { name: 'Military Press', sets: 4, reps: '4-6', weight: '50kg' },
+        { name: 'Dips (Weighted)', sets: 3, reps: '6-8', weight: '+15kg' }
+      ]
+    },
+    control: {
+      title: 'Hypertrophie',
+      tagline: 'Technik & Gefühl',
+      icon: Dumbbell,
+      color: 'purple',
+      description: 'Klassischer Aufbau. Fokus auf Time under Tension.',
+      exercises: [
+        { name: 'Schrägbank KH', sets: 3, reps: '10-12', weight: '30kg' },
+        { name: 'Cable Flys', sets: 4, reps: '12-15', weight: '15kg' },
+        { name: 'Skullcrushers', sets: 3, reps: '10-12', weight: '25kg' },
+        { name: 'Seitheben', sets: 4, reps: '15-20', weight: '10kg' }
+      ]
+    },
+    endurance: {
+      title: 'Metabolic',
+      tagline: 'Ausdauer & Burn',
+      icon: Zap,
+      color: 'orange',
+      description: 'Hohe Herzfrequenz. Kurze Pausen, Supersätze.',
+      exercises: [
+        { name: 'Liegestütze', sets: 4, reps: 'AMRAP', weight: 'BW' },
+        { name: 'Burpees', sets: 4, reps: '15', weight: 'BW' },
+        { name: 'Battle Ropes', sets: 3, reps: '45s', weight: '-' },
+        { name: 'Mountain Climbers', sets: 3, reps: '60s', weight: '-' }
+      ]
+    }
+  };
 
   const WORKOUT_TYPES = ['Push Day', 'Pull Day', 'Beine', 'Ganzkörper', 'Cardio', 'Mobility'];
 
-  // --- REUSABLE COMPONENTS (For Consistency) ---
+  // --- REUSABLE COMPONENTS ---
   const ModalHeader = ({ title, icon: Icon, color, onClose }: any) => (
-    <div className="flex justify-between items-center mb-6">
+    <div className="flex justify-between items-center mb-6 shrink-0">
       <h2 className="text-lg font-bold text-white flex items-center gap-2">
         <Icon className={color} size={20} />
         {title}
@@ -54,74 +101,185 @@ const DashboardPage = () => {
     </label>
   );
 
-  // --- 1. ADAPTIV MODAL ---
+  // --- 1. ADAPTIV MODAL (UPDATED) ---
   const AdaptivModal = () => {
     if (!showAdaptivModal) return null;
 
     const handleClose = () => {
       setShowAdaptivModal(false);
-      setTimeout(() => setAdaptivStep('input'), 300);
+      setTimeout(() => {
+        setAdaptivStep('input');
+        setTime(null);
+        setRecovery(null);
+        setSoreness(null);
+        setSelectedPlanType(null);
+      }, 300);
+    };
+
+    const handleGenerate = () => {
+      if (time && recovery && soreness) {
+        setAdaptivStep('selection');
+      }
+    };
+
+    const handleSelectPlan = (type: 'strength' | 'control' | 'endurance') => {
+      setSelectedPlanType(type);
+      setAdaptivStep('preview');
     };
 
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={handleClose} />
-        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[85vh]">
 
           <ModalHeader
-            title={adaptivStep === 'input' ? 'Adaptiv Check' : 'Dein Plan'}
+            title={adaptivStep === 'input' ? 'Check-in' : adaptivStep === 'selection' ? 'Wähle Fokus' : 'Dein Plan'}
             icon={Sparkles}
             color="text-purple-500"
             onClose={handleClose}
           />
 
+          {/* STEP 1: INPUTS */}
           {adaptivStep === 'input' && (
-            <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-              <div>
-                <Label>Zeit heute</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Kurz</button>
-                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
+            <div className="space-y-6 overflow-y-auto pb-4 scrollbar-hide">
+              {/* TIME */}
+              <div className="space-y-3">
+                <Label>Zeitfenster heute</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {['30', '45', '60', '90'].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setTime(val)}
+                      className={`py-3 rounded-2xl text-xs font-bold transition-all border
+                           ${time === val
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                          : 'bg-zinc-800 border-transparent text-zinc-400 hover:bg-zinc-750'}`}
+                    >
+                      {val}m
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div>
-                <Label>Energie</Label>
+
+              {/* RECOVERY */}
+              <div className="space-y-3">
+                <Label>Schlaf & Erholung</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Schlecht (<6h)', 'Mittel (6-7h)', 'Gut (7-8h)', 'Prime (8h+)'].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setRecovery(val)}
+                      className={`py-3 px-2 rounded-2xl text-xs font-bold transition-all border
+                           ${recovery === val
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                          : 'bg-zinc-800 border-transparent text-zinc-400 hover:bg-zinc-750'}`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SORENESS */}
+              <div className="space-y-3">
+                <Label>Muskelkater / Schmerz</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Low</button>
-                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">High</button>
+                  {['Stark', 'Leicht', 'Fit'].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setSoreness(val)}
+                      className={`py-3 rounded-2xl text-xs font-bold transition-all border
+                           ${soreness === val
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                          : 'bg-zinc-800 border-transparent text-zinc-400 hover:bg-zinc-750'}`}
+                    >
+                      {val}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div>
-                <Label>Stress</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Hoch</button>
-                  <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
-                </div>
-              </div>
+
               <button
-                onClick={() => setAdaptivStep('result')}
-                className="w-full mt-4 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                disabled={!time || !recovery || !soreness}
+                onClick={handleGenerate}
+                className={`w-full mt-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all
+                   ${(!time || !recovery || !soreness)
+                    ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                    : 'bg-white text-black hover:bg-zinc-200 active:scale-[0.98]'}`}
               >
-                <Sparkles size={18} className="text-purple-600" />
+                <Sparkles size={18} className={(!time || !recovery || !soreness) ? "text-zinc-600" : "text-purple-600"} />
                 Plan generieren
               </button>
             </div>
           )}
 
-          {adaptivStep === 'result' && (
-            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
-                <p className="text-xs text-purple-300 leading-relaxed">
-                  Volumen angepasst. Fokus auf saubere Technik.
-                </p>
+          {/* STEP 2: SELECTION */}
+          {adaptivStep === 'selection' && (
+            <div className="space-y-3 overflow-y-auto pb-2 scrollbar-hide animate-in slide-in-from-right-8 duration-300">
+              <p className="text-xs text-zinc-400 mb-2">Basierend auf deinem Check-in ({time} Min, {soreness}):</p>
+
+              <button onClick={() => handleSelectPlan('strength')} className="w-full bg-zinc-800 border border-zinc-700 hover:border-blue-500/50 p-4 rounded-3xl flex items-center gap-4 text-left group transition-all">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                  <TrendingUp size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Maximalkraft</h3>
+                  <p className="text-xs text-zinc-400">Schweres Gewicht, lange Pausen.</p>
+                </div>
+                <ChevronRight className="ml-auto text-zinc-600" size={20} />
+              </button>
+
+              <button onClick={() => handleSelectPlan('control')} className="w-full bg-zinc-800 border border-zinc-700 hover:border-purple-500/50 p-4 rounded-3xl flex items-center gap-4 text-left group transition-all">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
+                  <Dumbbell size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Hypertrophie</h3>
+                  <p className="text-xs text-zinc-400">Saubere Technik, kontrolliert.</p>
+                </div>
+                <ChevronRight className="ml-auto text-zinc-600" size={20} />
+              </button>
+
+              <button onClick={() => handleSelectPlan('endurance')} className="w-full bg-zinc-800 border border-zinc-700 hover:border-orange-500/50 p-4 rounded-3xl flex items-center gap-4 text-left group transition-all">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                  <Zap size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Metabolic</h3>
+                  <p className="text-xs text-zinc-400">Hohes Tempo, schwitzen.</p>
+                </div>
+                <ChevronRight className="ml-auto text-zinc-600" size={20} />
+              </button>
+            </div>
+          )}
+
+          {/* STEP 3: PREVIEW */}
+          {adaptivStep === 'preview' && selectedPlanType && (
+            <div className="space-y-4 animate-in slide-in-from-right-8 duration-300 flex flex-col h-full">
+              <div className={`border rounded-2xl p-4 flex items-start gap-3
+                  ${selectedPlanType === 'strength' ? 'bg-blue-500/10 border-blue-500/20' :
+                  selectedPlanType === 'control' ? 'bg-purple-500/10 border-purple-500/20' :
+                    'bg-orange-500/10 border-orange-500/20'}`}>
+                <div>
+                  <h3 className={`text-sm font-bold uppercase tracking-wider mb-1
+                        ${selectedPlanType === 'strength' ? 'text-blue-400' :
+                      selectedPlanType === 'control' ? 'text-purple-400' :
+                        'text-orange-400'}`}>
+                    {PLANS[selectedPlanType].tagline}
+                  </h3>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    {PLANS[selectedPlanType].description}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-                {GENERATED_WORKOUT.map((ex, i) => (
+
+              <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                {PLANS[selectedPlanType].exercises.map((ex, i) => (
                   <div key={i} className="bg-zinc-800/50 p-3 rounded-2xl flex items-center justify-between border border-zinc-800">
                     <div>
                       <h4 className="font-bold text-sm text-white">{ex.name}</h4>
-                      <span className="text-xs text-zinc-500">{ex.sets} x {ex.reps}</span>
+                      <span className="text-xs text-zinc-500">{ex.sets} Sets x {ex.reps}</span>
                     </div>
                     <div className="bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
                       <span className="text-xs font-bold text-white">{ex.weight}</span>
@@ -129,23 +287,28 @@ const DashboardPage = () => {
                   </div>
                 ))}
               </div>
-              <div className="pt-2">
+
+              <div className="pt-2 mt-auto">
                 <button
                   onClick={handleClose}
-                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-900/30 hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className={`w-full py-4 font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-white
+                    ${selectedPlanType === 'strength' ? 'bg-blue-600 shadow-blue-900/30 hover:bg-blue-500' :
+                      selectedPlanType === 'control' ? 'bg-purple-600 shadow-purple-900/30 hover:bg-purple-500' :
+                        'bg-orange-600 shadow-orange-900/30 hover:bg-orange-500'}`}
                 >
                   <Play size={18} fill="currentColor" />
-                  Starten
+                  Training starten
                 </button>
               </div>
             </div>
           )}
+
         </div>
       </div>
     );
   };
 
-  // --- 2. WORKOUT MODAL (HIGH FIDELITY) ---
+  // --- 2. WORKOUT MODAL (HIGH FIDELITY - PRESERVED) ---
   const WorkoutModal = () => {
     if (!showWorkoutModal) return null;
     return (
@@ -189,7 +352,7 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 3. EVENT MODAL (HIGH FIDELITY) ---
+  // --- 3. EVENT MODAL (HIGH FIDELITY - PRESERVED) ---
   const EventModal = () => {
     if (!showEventModal) return null;
     return (
@@ -200,7 +363,6 @@ const DashboardPage = () => {
           <ModalHeader title="Neuer Termin" icon={Calendar} color="text-emerald-500" onClose={() => setShowEventModal(false)} />
 
           <div className="space-y-6">
-            {/* Styled Input Fields to match buttons */}
             <div>
               <Label>Titel</Label>
               <div className="flex items-center bg-zinc-800 rounded-2xl px-4 py-3 border border-transparent focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
@@ -251,7 +413,7 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 4. SHIFT MODAL (HIGH FIDELITY) ---
+  // --- 4. SHIFT MODAL (HIGH FIDELITY - PRESERVED) ---
   const ShiftModal = () => {
     if (!showShiftModal) return null;
     return (
@@ -285,6 +447,8 @@ const DashboardPage = () => {
   };
 
   // --- MAIN RENDER ---
+  const today = new Date();
+
   return (
     <div className="min-h-screen bg-zinc-900 text-white pb-32">
       <AdaptivModal />
