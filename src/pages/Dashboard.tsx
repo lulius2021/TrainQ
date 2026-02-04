@@ -10,7 +10,8 @@ import {
   Clock,
   ArrowRight,
   Check,
-  Play
+  Play,
+  Type
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -20,16 +21,38 @@ const DashboardPage = () => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
 
-  // ADAPTIV LOGIC STATE
+  // LOGIC STATES
   const [adaptivStep, setAdaptivStep] = useState<'input' | 'result'>('input');
+  const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null);
 
-  // --- MOCK DATA: GENERATED WORKOUT ---
+  // --- MOCK DATA ---
   const GENERATED_WORKOUT = [
     { name: 'Bankdrücken', sets: 3, reps: '8-10', weight: '80kg' },
     { name: 'Schrägbank KH', sets: 3, reps: '10-12', weight: '32kg' },
     { name: 'Seitheben Kabel', sets: 4, reps: '15', weight: '12kg' },
     { name: 'Trizeps Pushdown', sets: 3, reps: '12-15', weight: '25kg' },
   ];
+
+  const WORKOUT_TYPES = ['Push Day', 'Pull Day', 'Beine', 'Ganzkörper', 'Cardio', 'Mobility'];
+
+  // --- REUSABLE COMPONENTS (For Consistency) ---
+  const ModalHeader = ({ title, icon: Icon, color, onClose }: any) => (
+    <div className="flex justify-between items-center mb-6">
+      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+        <Icon className={color} size={20} />
+        {title}
+      </h2>
+      <button onClick={onClose} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+        <X size={18} />
+      </button>
+    </div>
+  );
+
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1 block mb-2">
+      {children}
+    </label>
+  );
 
   // --- 1. ADAPTIV MODAL ---
   const AdaptivModal = () => {
@@ -43,40 +66,36 @@ const DashboardPage = () => {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={handleClose} />
-
         <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
 
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="text-purple-500" size={20} />
-              {adaptivStep === 'input' ? 'Adaptiv Check' : 'Dein Plan'}
-            </h2>
-            <button onClick={handleClose} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
-              <X size={18} />
-            </button>
-          </div>
+          <ModalHeader
+            title={adaptivStep === 'input' ? 'Adaptiv Check' : 'Dein Plan'}
+            icon={Sparkles}
+            color="text-purple-500"
+            onClose={handleClose}
+          />
 
           {adaptivStep === 'input' && (
             <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Zeit heute</label>
+              <div>
+                <Label>Zeit heute</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700 transition-colors">Kurz</button>
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Kurz</button>
                   <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Energie</label>
+              <div>
+                <Label>Energie</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Low</button>
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Low</button>
                   <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Ok</button>
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">High</button>
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">High</button>
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Stress</label>
+              <div>
+                <Label>Stress</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-700">Hoch</button>
+                  <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Hoch</button>
                   <button className="py-3 bg-blue-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-blue-900/20">Normal</button>
                 </div>
               </div>
@@ -94,7 +113,7 @@ const DashboardPage = () => {
             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
                 <p className="text-xs text-purple-300 leading-relaxed">
-                  Basierend auf deiner Energie haben wir das Volumen leicht reduziert.
+                  Volumen angepasst. Fokus auf saubere Technik.
                 </p>
               </div>
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
@@ -102,7 +121,7 @@ const DashboardPage = () => {
                   <div key={i} className="bg-zinc-800/50 p-3 rounded-2xl flex items-center justify-between border border-zinc-800">
                     <div>
                       <h4 className="font-bold text-sm text-white">{ex.name}</h4>
-                      <span className="text-xs text-zinc-500">{ex.sets} Sätze x {ex.reps} Wh.</span>
+                      <span className="text-xs text-zinc-500">{ex.sets} x {ex.reps}</span>
                     </div>
                     <div className="bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
                       <span className="text-xs font-bold text-white">{ex.weight}</span>
@@ -116,7 +135,7 @@ const DashboardPage = () => {
                   className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-900/30 hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   <Play size={18} fill="currentColor" />
-                  Training starten
+                  Starten
                 </button>
               </div>
             </div>
@@ -126,68 +145,43 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 2. WORKOUT MODAL ---
+  // --- 2. WORKOUT MODAL (HIGH FIDELITY) ---
   const WorkoutModal = () => {
     if (!showWorkoutModal) return null;
-    const workouts = ['Push Day', 'Pull Day', 'Beine', 'Ganzkörper', 'Cardio'];
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowWorkoutModal(false)} />
-        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Plus className="text-blue-500" size={20} />
-              Training planen
-            </h2>
-            <button onClick={() => setShowWorkoutModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
-              <X size={18} />
-            </button>
-          </div>
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-            {workouts.map((w, i) => (
-              <button key={i} onClick={() => setShowWorkoutModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between group hover:bg-zinc-700 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-blue-500">
-                    <Dumbbell size={16} />
-                  </div>
-                  <span className="font-bold text-zinc-200">{w}</span>
-                </div>
-                <Plus size={18} className="text-zinc-500 group-hover:text-white" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
 
-  // --- 3. EVENT MODAL ---
-  const EventModal = () => {
-    if (!showEventModal) return null;
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowEventModal(false)} />
-        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Calendar className="text-emerald-500" size={20} />
-              Termin
-            </h2>
-            <button onClick={() => setShowEventModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
-              <X size={18} />
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Titel</label>
-              <input type="text" placeholder="z.B. Physio" className="w-full bg-zinc-800 border-none rounded-2xl p-4 text-white placeholder-zinc-500 focus:ring-2 focus:ring-emerald-500 outline-none" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Uhrzeit</label>
-              <input type="time" defaultValue="09:00" className="w-full bg-zinc-800 border-none rounded-2xl p-4 text-white focus:ring-2 focus:ring-emerald-500 outline-none appearance-none" />
+          <ModalHeader title="Training wählen" icon={Dumbbell} color="text-blue-500" onClose={() => setShowWorkoutModal(false)} />
+
+          <div className="space-y-6">
+            <div>
+              <Label>Kategorie</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {WORKOUT_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSelectedWorkout(type)}
+                    className={`
+                       py-4 px-3 rounded-2xl text-sm font-bold transition-all border
+                       ${selectedWorkout === type
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                        : 'bg-zinc-800 border-transparent text-zinc-400 hover:bg-zinc-750'
+                      }
+                     `}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <button onClick={() => setShowEventModal(false)} className="w-full mt-8 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-500 active:scale-[0.98] transition-all">
+
+          <button
+            onClick={() => setShowWorkoutModal(false)}
+            className="w-full mt-6 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all"
+          >
             Hinzufügen
           </button>
         </div>
@@ -195,37 +189,94 @@ const DashboardPage = () => {
     );
   };
 
-  // --- 4. SHIFT MODAL ---
+  // --- 3. EVENT MODAL (HIGH FIDELITY) ---
+  const EventModal = () => {
+    if (!showEventModal) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowEventModal(false)} />
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+
+          <ModalHeader title="Neuer Termin" icon={Calendar} color="text-emerald-500" onClose={() => setShowEventModal(false)} />
+
+          <div className="space-y-6">
+            {/* Styled Input Fields to match buttons */}
+            <div>
+              <Label>Titel</Label>
+              <div className="flex items-center bg-zinc-800 rounded-2xl px-4 py-3 border border-transparent focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                <Type size={18} className="text-zinc-500 mr-3" />
+                <input
+                  type="text"
+                  placeholder="z.B. Physio, Check-in..."
+                  className="bg-transparent border-none text-white placeholder-zinc-500 text-sm font-bold w-full focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Uhrzeit & Dauer</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center bg-zinc-800 rounded-2xl px-4 py-3">
+                  <Clock size={18} className="text-zinc-500 mr-2" />
+                  <input
+                    type="time"
+                    defaultValue="09:00"
+                    className="bg-transparent border-none text-white text-sm font-bold w-full focus:outline-none appearance-none"
+                  />
+                </div>
+                <div className="flex items-center justify-center bg-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-zinc-400">
+                  60 Min
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label>Typ</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <button className="py-3 bg-emerald-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-emerald-900/20">Call</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Arzt</button>
+                <button className="py-3 bg-zinc-800 rounded-2xl text-sm font-medium text-zinc-400">Sonst.</button>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowEventModal(false)}
+            className="w-full mt-6 py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 active:scale-[0.98] transition-all"
+          >
+            Speichern
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- 4. SHIFT MODAL (HIGH FIDELITY) ---
   const ShiftModal = () => {
     if (!showShiftModal) return null;
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowShiftModal(false)} />
-        <div className="relative w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <RefreshCw className="text-cyan-500" size={20} />
-              Plan verschieben
-            </h2>
-            <button onClick={() => setShowShiftModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
-              <X size={18} />
-            </button>
-          </div>
-          <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
-            Verschiebt alle geplanten Einheiten in der Zukunft.
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+
+          <ModalHeader title="Plan verschieben" icon={RefreshCw} color="text-cyan-500" onClose={() => setShowShiftModal(false)} />
+
+          <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+            Verschiebt alle zukünftigen Einheiten. Pausentage bleiben erhalten.
           </p>
-          <div className="grid grid-cols-1 gap-3">
-            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+
+          <div className="space-y-3">
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700 group transition-all">
               <span className="font-bold text-zinc-200">+ 1 Tag</span>
-              <ArrowRight size={16} className="text-zinc-500" />
+              <ArrowRight size={18} className="text-zinc-600 group-hover:text-white transition-colors" />
             </button>
-            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700 group transition-all">
               <span className="font-bold text-zinc-200">+ 2 Tage</span>
-              <ArrowRight size={16} className="text-zinc-500" />
+              <ArrowRight size={18} className="text-zinc-600 group-hover:text-white transition-colors" />
             </button>
-            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700">
+            <button onClick={() => setShowShiftModal(false)} className="w-full p-4 bg-zinc-800 rounded-2xl flex items-center justify-between hover:bg-zinc-700 group transition-all">
               <span className="font-bold text-zinc-200">+ 1 Woche</span>
-              <ArrowRight size={16} className="text-zinc-500" />
+              <ArrowRight size={18} className="text-zinc-600 group-hover:text-white transition-colors" />
             </button>
           </div>
         </div>
@@ -241,7 +292,7 @@ const DashboardPage = () => {
       <EventModal />
       <ShiftModal />
 
-      {/* STATIC HEADER (SCROLLS WITH CONTENT) */}
+      {/* HEADER (STATIC) */}
       <div className="pt-safe px-6 pt-2 pb-2">
         <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
       </div>
@@ -260,7 +311,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* AKTIONEN GRID */}
+        {/* AKTIONEN */}
         <div>
           <h3 className="text-sm font-bold text-white mb-3 pl-1">Aktionen</h3>
           <div className="grid grid-cols-2 gap-3">
