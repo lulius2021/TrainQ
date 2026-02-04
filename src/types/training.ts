@@ -218,6 +218,7 @@ export type DropEntry = {
   id: string;
   weight: number | null;
   reps: number | null;
+  completed?: boolean;
 };
 
 export interface LiveSet {

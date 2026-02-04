@@ -387,8 +387,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           }}
         >
           <div
-            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl"
-            style={{ maxHeight: keyboardOpen ? `calc(100dvh - ${Math.max(120, keyboardHeight + 120)}px)` : "85vh" }}
+            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl h-[85lvh] min-h-[80vh] shrink-0"
           >
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <div className="min-w-0">

@@ -22,7 +22,6 @@ export function KeyboardAccessoryBar(props: {
         pointerEvents: "none", // Container blockt nichts
       }}
     >
-      {/* ✅ Kein schwarzer Kasten mehr – nur der Button */}
       <div style={{ pointerEvents: "auto" }}>{rightButton}</div>
     </div>
   );

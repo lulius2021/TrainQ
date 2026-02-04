@@ -256,7 +256,18 @@ export default function LiveTrainingPage({
           const validWeight = Number.isFinite(weight) ? weight : 0;
           const validReps = Number.isFinite(reps) ? reps : 0;
 
-          return setTotal + (validWeight * validReps);
+          let vol = validWeight * validReps;
+
+          // 3. DROPS VOLUME
+          if (Array.isArray(set.drops)) {
+            vol += set.drops.reduce((acc, d) => {
+              const w = typeof d.weight === 'number' ? d.weight : 0;
+              const r = typeof d.reps === 'number' ? d.reps : 0;
+              return acc + (w * r);
+            }, 0);
+          }
+
+          return setTotal + vol;
         }
         return setTotal;
       }, 0);
@@ -267,13 +278,7 @@ export default function LiveTrainingPage({
     return { sets, volume };
   }, [workout]);
 
-  const formatQuickDuration = (ms: number) => {
-    const sec = Math.floor((ms / 1000) % 60);
-    const min = Math.floor((ms / 1000 / 60) % 60);
-    const hrs = Math.floor(ms / 1000 / 3600);
-    if (hrs > 0) return `${hrs}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-    return `${min}:${String(sec).padStart(2, "0")}`;
-  };
+
 
   // --- LIVE ACTIVITY LOGIC (SIMPLIFIED) ---
   const startLiveActivity = async () => {
@@ -670,15 +675,7 @@ export default function LiveTrainingPage({
           if (nextCompleted) {
             Haptics.impact({ style: ImpactStyle.Light }).catch(() => { });
 
-            // Auto-start Timer Logic
-            if (!rest && !isCardioWorkout) {
-              rest = 90; // Default to 90s if unset
-              // We should also persist this default to the exercise so next time it's consistent
-              // Ideally this happens via side-effect or we mutate e copy. 
-              // However, doing state update inside mapper is tricky.
-              // We will just use the value locally for the timer start.
-            }
-
+            // Auto-start Timer Logic (Only if rest is explicitly set)
             if (typeof rest === "number" && rest > 0) {
               setActiveRest({ exerciseId, setId, restSeconds: rest });
             }
@@ -898,23 +895,34 @@ export default function LiveTrainingPage({
       const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
       return {
         ...prev,
-        exercises: prevExercises.map((e) =>
-          e.id === exerciseId
-            ? {
-              ...e,
-              sets: [
-                ...(Array.isArray(e.sets) ? e.sets : []),
-                {
-                  id: newSetId,
-                  completed: false,
-                  reps: cardio ? 10 : undefined,
-                  weight: undefined,
-                  notes: "",
-                } as any,
-              ],
-            }
-            : e
-        ),
+        exercises: prevExercises.map((e) => {
+          if (e.id !== exerciseId) return e;
+
+          const sets = Array.isArray(e.sets) ? e.sets : [];
+
+          // Smart Add: Default to last set's values
+          let defaultWeight = undefined;
+          let defaultReps = cardio ? 10 : undefined;
+
+          if (sets.length > 0) {
+            const lastSet = sets[sets.length - 1];
+            if (typeof lastSet.weight === "number") defaultWeight = lastSet.weight;
+            if (typeof lastSet.reps === "number") defaultReps = lastSet.reps;
+          }
+
+          const newSet: LiveSet = {
+            id: newSetId,
+            completed: false,
+            reps: defaultReps,
+            weight: defaultWeight,
+            notes: "",
+          } as any;
+
+          return {
+            ...e,
+            sets: [...sets, newSet],
+          };
+        }),
       };
     });
   };
@@ -1224,20 +1232,14 @@ export default function LiveTrainingPage({
             <div className="mx-auto w-full max-w-5xl">
               <div className="mb-2">
                 {/* QUICK STATS ROW */}
-                <div className="bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 rounded-3xl p-4 mb-4 grid grid-cols-3 gap-2 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
-                  {/* 1. ZEIT */}
-                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 h-10">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Zeit</span>
-                    <span className="text-white font-mono text-lg leading-none mt-1">{formatQuickDuration(elapsedMs)}</span>
-                  </div>
-
-                  {/* 2. SÄTZE */}
+                <div className="bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 rounded-3xl p-4 mb-4 grid grid-cols-2 gap-2 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  {/* 1. SÄTZE */}
                   <div className="flex flex-col items-center justify-center border-r border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Sätze</span>
                     <span className="text-blue-400 font-bold text-lg leading-none mt-1">{quickStats.sets}</span>
                   </div>
 
-                  {/* 3. VOLUMEN */}
+                  {/* 2. VOLUMEN */}
                   <div className="flex flex-col items-center justify-center h-10">
                     <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Volumen</span>
                     <span className="text-emerald-400 font-bold text-lg leading-none mt-1">{(quickStats.volume / 1000).toFixed(3)}t</span>
@@ -1282,25 +1284,14 @@ export default function LiveTrainingPage({
             visible={keyboardOpen && !plateSheetOpen}
             keyboardHeight={keyboardHeight}
             rightButton={
-              platesEnabled ? (
-                <AppButton
-                  onClick={openPlates}
-                  variant="primary"
-                  size="sm"
-                  className="rounded-full shadow-lg"
-                >
-                  Scheiben
-                </AppButton>
-              ) : (
-                <AppButton
-                  onClick={() => (document.activeElement as HTMLElement)?.blur()}
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
-                >
-                  Fertig
-                </AppButton>
-              )
+              <AppButton
+                onClick={() => (document.activeElement as HTMLElement)?.blur()}
+                variant="secondary"
+                size="sm"
+                className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
+              >
+                Fertig
+              </AppButton>
             }
           />
 
@@ -1321,18 +1312,21 @@ export default function LiveTrainingPage({
             <div className="p-4 pb-8 space-y-4">
               <h3 className="text-center font-bold text-white mb-4">Pausenzeit Einstellung</h3>
               <div className="grid grid-cols-4 gap-3">
-                {[30, 60, 90, 120, 150, 180, 240, 300].map(sec => (
-                  <button
-                    key={sec}
-                    onClick={() => handleSetRestTime(sec)}
-                    className={`h-12 rounded-3xl text-sm font-semibold transition-all ${activeTimerExercise?.restSeconds === sec
-                      ? "bg-[#007AFF] text-white"
-                      : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
-                      }`}
-                  >
-                    {sec < 60 ? `${sec}s` : formatMmSs(sec)}
-                  </button>
-                ))}
+                {[0, 30, 60, 90, 120, 150, 180, 240, 300].map(sec => {
+                  const isSelected = activeTimerExercise?.restSeconds === sec || (sec === 0 && !activeTimerExercise?.restSeconds);
+                  return (
+                    <button
+                      key={sec}
+                      onClick={() => handleSetRestTime(sec)}
+                      className={`h-12 rounded-3xl text-sm font-semibold transition-all ${isSelected
+                        ? "bg-[#007AFF] text-white shadow-[0_0_15px_rgba(0,122,255,0.4)]"
+                        : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
+                        }`}
+                    >
+                      {sec === 0 ? "-" : (sec < 60 ? `${sec}s` : formatMmSs(sec))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </BottomSheet>

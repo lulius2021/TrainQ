@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Dumbbell, Footprints, Bike, Star, X } from "lucide-react";
 import type { CalendarEvent, TrainingType } from "../types/training";
 import { useTodaysSessions } from "../hooks/useTodaysSessions";
 import { useI18n } from "../i18n/useI18n";
@@ -206,46 +207,85 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 </section>
 
                 {isCreateOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={closeCreate}>
-                        <AppCard variant="glass" className="w-full max-w-md p-6 space-y-5" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                            <h3 className="text-xl font-bold text-[var(--text)]">Neue Vorlage erstellen</h3>
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium text-[var(--muted)]">Titel der Vorlage</label>
-                                <input
-                                    value={newTitle}
-                                    onChange={(e) => setNewTitle(e.target.value)}
-                                    placeholder="Mein Training..."
-                                    className={`w-full rounded-3xl px-3 py-3 text-base bg-[var(--surface2)] border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-[var(--border)]"} text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)]`}
-                                />
-                                {attemptedSave && !newTitle.trim() && <p className="text-sm text-red-500">Bitte gib einen Titel ein.</p>}
+                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={closeCreate}>
+                        <div
+                            className="w-full max-w-md bg-zinc-950 rounded-3xl border border-zinc-800 p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 mb-safe"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+
+                            {/* HEADER */}
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-bold text-white">Neue Vorlage erstellen</h2>
+                                <button onClick={closeCreate} className="p-2 bg-zinc-900 rounded-full text-zinc-400 hover:text-white transition-colors">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium text-[var(--muted)]">Sportart</label>
-                                <select
-                                    value={newSportType}
-                                    onChange={(e) => setNewSportType(e.target.value as TrainingType)}
-                                    className="w-full rounded-3xl px-3 py-3 text-base bg-[var(--surface2)] border border-[var(--border)] text-[var(--text)] outline-none focus:ring-1 focus:ring-[var(--primary)] appearance-none"
+
+                            {/* SPORT TYPES GRID */}
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                {[
+                                    { label: 'Gym', value: 'gym', Icon: Dumbbell },
+                                    { label: 'Laufen', value: 'laufen', Icon: Footprints },
+                                    { label: 'Radfahren', value: 'radfahren', Icon: Bike },
+                                    { label: 'Custom', value: 'custom', Icon: Star }
+                                ].map(({ label, value, Icon }) => (
+                                    <button
+                                        key={value}
+                                        onClick={() => setNewSportType(value as TrainingType)}
+                                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${newSportType === value
+                                                ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+                                            }`}
+                                    >
+                                        <Icon size={24} className="mb-2" />
+                                        <span className="text-sm font-medium">{label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* INPUTS */}
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider ml-1 mb-2 block">
+                                        Titel der Vorlage
+                                    </label>
+                                    <input
+                                        value={newTitle}
+                                        onChange={(e) => setNewTitle(e.target.value)}
+                                        placeholder="z.B. Push Day A"
+                                        className={`w-full bg-zinc-900 border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-zinc-800"} text-white rounded-xl h-12 px-4 outline-none focus:border-blue-500 transition-colors`}
+                                    />
+                                    {attemptedSave && !newTitle.trim() && <p className="text-xs text-red-500 mt-1 ml-1">Bitte gib einen Titel ein.</p>}
+                                </div>
+                            </div>
+
+                            {/* EXERCISE PLACEHOLDER (Visual Only) */}
+                            <div className="mb-8">
+                                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider ml-1 mb-2 block">
+                                    Geplante Übungen
+                                </label>
+                                <div className="border-2 border-dashed border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30">
+                                    <span className="text-sm">Noch keine Übungen hinzugefügt</span>
+                                </div>
+                            </div>
+
+                            {/* FOOTER ACTIONS */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <AppButton
+                                    onClick={closeCreate}
+                                    className="!bg-transparent border border-zinc-800 !text-zinc-400 hover:!text-white hover:!bg-zinc-900 !rounded-xl h-12"
                                 >
-                                    <option value="gym">Gym</option>
-                                    <option value="laufen">Laufen</option>
-                                    <option value="radfahren">Radfahren</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-3 pt-4">
-                                <AppButton onClick={closeCreate} variant="ghost" fullWidth>
                                     Abbrechen
                                 </AppButton>
                                 <AppButton
                                     onClick={handleSaveTemplate}
-                                    variant="primary"
-                                    fullWidth
-                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all"
+                                    className="!bg-blue-600 hover:!bg-blue-500 !text-white !rounded-xl h-12 shadow-lg shadow-blue-500/20"
                                 >
-                                    Speichern
+                                    Erstellen
                                 </AppButton>
                             </div>
-                        </AppCard>
+
+                        </div>
                     </div>
                 )}
 

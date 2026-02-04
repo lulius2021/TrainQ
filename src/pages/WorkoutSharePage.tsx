@@ -68,12 +68,12 @@ const TemplateList = ({ workout, isExportMode }: { workout: any, isExportMode?: 
   <div className={`flex flex-col h-full ${isExportMode ? 'pt-8 px-4' : 'pt-4 px-2'}`}>
     <div className={`space-y-${isExportMode ? '6' : '4'}`}>
       {(workout.exercises || []).slice(0, 8).map((ex: any, i: number) => (
-        <div key={i} className="flex items-center justify-between border-b border-white/10 pb-3 last:border-0">
-          <div className="flex items-center gap-3">
-            <span className={`text-blue-500 font-bold ${isExportMode ? 'text-3xl min-w-[3.5rem]' : 'text-xl min-w-[2.5rem]'}`}>
+        <div key={i} className="flex items-start justify-between border-b border-white/10 pb-3 last:border-0">
+          <div className="flex items-start gap-3 py-1">
+            <span className={`text-blue-500 font-bold shrink-0 leading-normal ${isExportMode ? 'text-3xl min-w-[3.5rem]' : 'text-xl min-w-[2.5rem]'}`}>
               {ex.sets?.length || 0}x
             </span>
-            <span className={`text-white font-medium truncate ${isExportMode ? 'text-2xl max-w-[400px]' : 'text-lg max-w-[200px]'}`}>
+            <span className={`text-white font-medium truncate h-auto leading-normal ${isExportMode ? 'text-2xl max-w-[400px] min-h-[2.5rem]' : 'text-lg max-w-[200px] min-h-[1.75rem]'}`}>
               {ex.name}
             </span>
           </div>
