@@ -31,17 +31,29 @@ import {
     isAfter
 } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { getScopedItem } from '../utils/scopedStorage';
+import { getActiveUserId } from '../utils/session';
+import type { CalendarEvent as CoreEvent } from '../types/training';
+import { parseISO } from 'date-fns';
 
+// --- TYPES ---
+import WorkoutPreviewModal from '../components/training/WorkoutPreviewModal';
+import { useLiveTrainingStore } from '../store/useLiveTrainingStore';
+import { persistActiveLiveWorkout } from '../utils/trainingHistory';
 // --- TYPES ---
 type ExerciseType = 'strength' | 'cardio' | 'run' | 'cycle' | 'custom' | 'mobility';
 
-interface CalendarEvent {
+export interface CalendarEvent {
     id: string;
     date: Date;
     title: string;
     type: ExerciseType;
     duration?: number; // minutes
     status: 'completed' | 'planned' | 'skipped';
+    color?: string; // Explicit color override
+    workoutData?: {
+        exercises: any[]; // Using any to avoid huge type deps here, ideally LiveExercise[]
+    };
 }
 
 const INITIAL_EVENTS: CalendarEvent[] = [
@@ -58,6 +70,49 @@ const CalendarPage = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [view, setView] = useState<'day' | 'week' | 'month'>('day'); // Controls the list view below
     const [events, setEvents] = useState<CalendarEvent[]>(INITIAL_EVENTS);
+    const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+
+    // Load Persistent Events
+    useEffect(() => {
+        const userId = getActiveUserId() || "user";
+        const raw = getScopedItem("trainq_calendar_events", userId);
+        if (raw) {
+            try {
+                const coreEvents: CoreEvent[] = JSON.parse(raw);
+                const localEvents: CalendarEvent[] = coreEvents.map(e => {
+                    // Determine Color based on Title/Adaptive Props
+                    let colorOverride = undefined;
+                    const t = e.title.toLowerCase();
+                    if (t.includes("quick")) colorOverride = "bg-yellow-500";
+                    else if (t.includes("power")) colorOverride = "bg-purple-500";
+                    else if (t.includes("focus")) colorOverride = "bg-blue-600";
+
+                    // Map Type
+                    let type: ExerciseType = "custom";
+                    if (e.trainingType === "gym") type = "strength";
+                    else if (e.trainingType === "laufen") type = "run";
+                    else if (e.trainingType === "radfahren") type = "cycle";
+
+                    return {
+                        id: e.id,
+                        date: parseISO(e.date), // "YYYY-MM-DD" -> Date
+                        title: e.title,
+                        type,
+                        duration: e.adaptiveEstimatedMinutes || 45, // Fallback if missing? Or map from logic
+                        status: e.trainingStatus === "completed" ? "completed" : "planned",
+                        color: colorOverride,
+                        workoutData: e.workoutData
+                    };
+                });
+
+                // Merge with INITIAL (or just append)
+                // For MVP: Append to INITIAL_EVENTS
+                setEvents([...INITIAL_EVENTS, ...localEvents]);
+            } catch (err) {
+                console.error("Failed to load calendar events", err);
+            }
+        }
+    }, [view]); // Reload slightly more often or just once? View change is fine trigger for now or basic mount.
 
     // Filter Logic
     const filteredEvents = events.filter(event => {
@@ -93,7 +148,39 @@ const CalendarPage = () => {
         setView('day'); // "Heute-Button: Springt sofort zum aktuellen Datum in die Tagesansicht."
     };
 
-    const getEventColor = (type: ExerciseType) => {
+    const handleStartTraining = (event: CalendarEvent) => {
+        // Construct LiveWorkout
+        // If event came from persistence, it has specific ID we can reuse or link
+        const workoutData = event.workoutData;
+        if (!workoutData || !workoutData.exercises) {
+            console.warn("Cannot start workout without exercises");
+            // Fallback or navigate to 'empty' setup?
+            return;
+        }
+
+        const liveWorkout = {
+            id: crypto.randomUUID(), // New session ID
+            calendarEventId: event.id, // Link to this planned event
+            title: event.title,
+            sport: event.type === "strength" ? "Gym" : event.type === "run" ? "Laufen" : event.type === "cycle" ? "Radfahren" : "Custom",
+            startedAt: new Date().toISOString(),
+            isActive: true,
+            exercises: workoutData.exercises, // Reuse exercises
+            notes: `Started from Calendar: ${event.title}`
+        };
+
+        // Persist & Start
+        // Note: We need to cast as any or import proper type if we want specific typing here
+        persistActiveLiveWorkout(liveWorkout as any);
+        useLiveTrainingStore.getState().startWorkout(liveWorkout as any);
+
+        setSelectedEvent(null);
+        window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: liveWorkout.id } }));
+    };
+
+    const getEventColor = (event: CalendarEvent) => {
+        if (event.color) return event.color;
+        const type = event.type;
         switch (type) {
             case 'strength': return 'bg-blue-500'; // Gym
             case 'run': return 'bg-red-500'; // Run
@@ -216,7 +303,7 @@ const CalendarPage = () => {
                                             {dayEvents.slice(0, 3).map((ev) => (
                                                 <div
                                                     key={ev.id}
-                                                    className={`w-1 h-1 rounded-full ${getEventColor(ev.type)}`}
+                                                    className={`w-1 h-1 rounded-full ${getEventColor(ev)}`}
                                                 />
                                             ))}
                                         </div>
@@ -232,8 +319,8 @@ const CalendarPage = () => {
             <div className="mt-4 px-4 space-y-3">
                 {filteredEvents.length > 0 ? (
                     filteredEvents.map(event => (
-                        <div key={event.id} className="bg-zinc-800/50 rounded-2xl p-4 border border-zinc-700/30 flex items-center gap-4 active:scale-[0.99] transition-transform">
-                            <div className={`w-12 h-12 rounded-full ${getEventColor(event.type).replace('bg-', 'bg-')}/20 flex items-center justify-center ${getEventColor(event.type).replace('bg-', 'text-')}`}>
+                        <div key={event.id} onClick={() => setSelectedEvent(event)} className="bg-zinc-800/50 rounded-2xl p-4 border border-zinc-700/30 flex items-center gap-4 active:scale-[0.99] transition-transform">
+                            <div className={`w-12 h-12 rounded-full ${getEventColor(event).replace('bg-', 'bg-')}/20 flex items-center justify-center ${getEventColor(event).replace('bg-', 'text-')}`}>
                                 {getEventIcon(event.type)}
                             </div>
                             <div className="flex-1">
@@ -265,7 +352,11 @@ const CalendarPage = () => {
             </div>
 
             {/* FAB can go here if needed, but we have header actions */}
-
+            <WorkoutPreviewModal
+                event={selectedEvent}
+                onClose={() => setSelectedEvent(null)}
+                onStart={handleStartTraining}
+            />
         </div>
     );
 };

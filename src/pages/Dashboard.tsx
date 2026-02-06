@@ -9,12 +9,15 @@ import {
   Clock,
   Dumbbell,
   Battery,
-  Play
+  Play,
+  Footprints,
+  Bike
 } from 'lucide-react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { shiftWorkouts } from '../utils/trainingSchedule';
-import { generateAdaptiveOptions, type AdaptiveOption } from '../services/AdaptiveService';
+import { generateAdaptiveOptions, persistAdaptiveWorkout, type AdaptiveOption } from '../services/AdaptiveService';
 import { useLiveTrainingStore } from '../store/useLiveTrainingStore';
 import { persistActiveLiveWorkout } from '../utils/trainingHistory';
 import { getScopedItem, setScopedItem } from '../utils/scopedStorage';
@@ -58,122 +61,127 @@ const DashboardPage = () => {
     const [step, setStep] = useState(1);
 
     // Selection State
-    const [time, setTime] = useState<number>(30);
-    const [focus, setFocus] = useState<string>("Full Body");
+    const [time, setTime] = useState<number>(45);
+    const [sport, setSport] = useState<"Gym" | "Laufen" | "Radfahren">("Gym");
+    const [specialization, setSpecialization] = useState<string | string[]>([]);
     const [energy, setEnergy] = useState<1 | 2 | 3>(2);
 
     // Result
     const [options, setOptions] = useState<AdaptiveOption[]>([]);
 
     useEffect(() => {
-      if (step === 4) {
-        const results = generateAdaptiveOptions(time, focus as any, energy);
+      // Prefill specialization defaults if empty
+      if (step === 3 && specialization.length === 0) {
+        if (sport === "Gym") setSpecialization([]); // Explicitly empty for user to pick
+        // For cardio we enforce user pick too, or set default?
+      }
+    }, [step, sport]);
+
+    useEffect(() => {
+      if (step === 5) {
+        const results = generateAdaptiveOptions(time, sport, specialization, energy);
         setOptions(results);
       }
-    }, [step, time, focus, energy]);
+    }, [step, time, sport, specialization, energy]);
 
-    const handleNext = () => setStep(p => p + 1);
-    const handleBack = () => setStep(p => Math.max(1, p - 1));
-
-    const handleSelectOption = (option: AdaptiveOption) => {
-      // 1. Prepare Data
-      const userId = getActiveUserId() || "user";
-      const eventId = crypto.randomUUID();
-      const now = new Date(); // Start immediately
-
-      // 2. Create Live Workout Object
-      const liveWorkout: LiveWorkout = {
-        id: crypto.randomUUID(),
-        calendarEventId: eventId,
-        title: option.title,
-        sport: "Gym", // Assume Gym for now or deduce
-        startedAt: now.toISOString(),
-        isActive: true,
-        isMinimized: false,
-        exercises: option.exercises,
-        notes: `Adaptiv: ${option.description}`
-      };
-
-      // 3. Create Calendar Event (to persist "Planned/Open")
-      // We set it as already started/active basically
-      const calendarEvent: CalendarEvent = {
-        id: eventId,
-        userId,
-        title: option.title,
-        date: format(now, "yyyy-MM-dd"),
-        startTime: format(now, "HH:mm"),
-        endTime: "",
-        type: "training",
-        trainingType: "gym",
-        trainingStatus: "open", // Or "completed" only after finish? "open" implies planned.
-        description: option.description,
-        workoutData: {
-          exercises: option.exercises
-        },
-        adaptiveAppliedAt: now.toISOString(),
-        adaptiveReasons: [option.intensity + " Intensity", focus + " Focus"]
-      };
-
-      // 4. Save to Storage (Calendar)
-      // Manual append because we are outside MainAppShell's state scope
+    const handleNext = async () => {
       try {
-        const raw = getScopedItem(STORAGE_KEY_EVENTS, userId);
-        const events = raw ? JSON.parse(raw) : [];
-        events.push(calendarEvent);
-        setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId);
-      } catch (e) {
-        console.error("Failed to save adaptive event", e);
+        await Haptics.impact({ style: ImpactStyle.Light });
+      } catch { }
+      setStep(p => p + 1);
+    };
+
+    const handleBack = async () => {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      } catch { }
+      setStep(p => Math.max(1, p - 1));
+    };
+
+    const handleTimeChange = async (val: number) => {
+      setTime(val);
+      // Debounce haptics potentially, but for now simple
+      if (val % 15 === 0) {
+        try { await Haptics.impact({ style: ImpactStyle.Light }); } catch { }
       }
+    };
 
-      // 5. Start Live Workout
-      persistActiveLiveWorkout(liveWorkout); // Helper to save to specific key
-      useLiveTrainingStore.getState().startWorkout(liveWorkout);
+    const handleAction = async (option: AdaptiveOption, action: "import" | "start") => {
+      // Use Service to persist
+      const { eventId, liveWorkout } = persistAdaptiveWorkout(option, sport, action);
 
-      // 6. Navigate
       setShowAdaptivModal(false);
-      // Dispatch navigate event for MainAppShell
-      window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId } }));
+
+      if (action === "start") {
+        // Start Live Workout
+        persistActiveLiveWorkout(liveWorkout);
+        useLiveTrainingStore.getState().startWorkout(liveWorkout);
+        // Navigate
+        window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId } }));
+      } else {
+        // Import only
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    };
+
+    const toggleGymSpec = (muscle: string) => {
+      setSpecialization(prev => {
+        const arr = Array.isArray(prev) ? prev : [];
+        if (arr.includes(muscle)) return arr.filter(m => m !== muscle);
+        return [...arr, muscle];
+      });
     };
 
     const renderContent = () => {
       switch (step) {
-        case 1: // TIME
+        case 1: // TIME SLIDER
           return (
-            <div className="space-y-6 pt-2">
-              <h3 className="text-xl font-bold text-white text-center">Wie viel Zeit hast du?</h3>
-              <div className="grid grid-cols-1 gap-3">
-                {[15, 30, 45, 60].map(m => (
-                  <button
-                    key={m}
-                    onClick={() => { setTime(m); handleNext(); }}
-                    className="p-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all flex items-center justify-between group border border-white/5"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Clock className="text-blue-500" size={24} />
-                      <span className="text-lg font-bold text-white">{m} Min</span>
-                    </div>
-                    <ChevronRight className="text-zinc-600 group-hover:text-white" />
-                  </button>
-                ))}
+            <div className="space-y-8 pt-6 px-2">
+              <h3 className="text-2xl font-black text-white text-center">Wie viel Zeit hast du?</h3>
+
+              <div className="text-center">
+                <div className="text-6xl font-black text-blue-500 mb-2 tracking-tighter">
+                  {time >= 120 ? "120+" : time}
+                  <span className="text-2xl text-zinc-500 font-bold ml-2">min</span>
+                </div>
               </div>
+
+              <div className="px-4">
+                <input
+                  type="range"
+                  min="15"
+                  max="120"
+                  step="5"
+                  value={time}
+                  onChange={(e) => handleTimeChange(parseInt(e.target.value))}
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <div className="flex justify-between text-xs font-bold text-zinc-600 mt-4 uppercase tracking-wider">
+                  <span>15 min</span>
+                  <span>120+ min</span>
+                </div>
+              </div>
+
+              <button onClick={handleNext} className="w-full py-4 bg-white text-black rounded-2xl font-bold text-lg hover:bg-zinc-200 active:scale-95 transition-all">
+                Weiter
+              </button>
             </div>
           );
 
-        case 2: // FOCUS
+        case 2: // SPORT
           return (
             <div className="space-y-6 pt-2">
-              <h3 className="text-xl font-bold text-white text-center">Was ist dein Ziel?</h3>
+              <h3 className="text-xl font-bold text-white text-center">Was trainieren wir?</h3>
               <div className="grid grid-cols-1 gap-3">
                 {[
-                  { l: "Kraft", v: "Strength", i: <Dumbbell /> },
-                  { l: "Ausdauer", v: "Cardio", i: <Play /> }, // Using Play icon as placeholder for Cardio/Motion
-                  { l: "Full Body", v: "Full Body", i: <RefreshCw /> },
-                  { l: "Oberkörper", v: "Upper", i: <div className="font-bold text-lg">UP</div> },
-                  { l: "Unterkörper", v: "Lower", i: <div className="font-bold text-lg">LO</div> }
+                  { l: "Gym", v: "Gym", i: <Dumbbell /> },
+                  { l: "Laufen", v: "Laufen", i: <Footprints /> },
+                  { l: "Radfahren", v: "Radfahren", i: <Bike /> },
                 ].map(item => (
                   <button
                     key={item.v}
-                    onClick={() => { setFocus(item.v); handleNext(); }}
+                    onClick={() => { setSport(item.v as any); handleNext(); }}
                     className="p-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all flex items-center justify-between group border border-white/5"
                   >
                     <div className="flex items-center gap-4">
@@ -187,7 +195,69 @@ const DashboardPage = () => {
             </div>
           );
 
-        case 3: // ENERGY
+        case 3: // SPECIALIZATION
+          if (sport === "Gym") {
+            const muscles = ["chest", "back", "legs", "shoulders", "arms", "core"];
+            const current = Array.isArray(specialization) ? specialization : [];
+
+            return (
+              <div className="space-y-6 pt-2 flex flex-col h-full">
+                <h3 className="text-xl font-bold text-white text-center">Fokus Muskelgruppen</h3>
+                <div className="flex flex-wrap gap-2 justify-center content-start">
+                  {muscles.map(m => (
+                    <button
+                      key={m}
+                      onClick={() => toggleGymSpec(m)}
+                      className={`px-4 py-2 rounded-full border text-sm font-bold transition-all ${current.includes(m) ? "bg-white text-black border-white" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}
+                    >
+                      {m.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-auto">
+                  <button onClick={handleNext} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all">
+                    {current.length === 0 ? "Ganzkörper (Auto)" : "Weiter"}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          if (sport === "Laufen") {
+            const types = ["Recovery Run", "Long Run", "Sprints"];
+            return (
+              <div className="space-y-6 pt-2">
+                <h3 className="text-xl font-bold text-white text-center">Lauf-Typ</h3>
+                <div className="space-y-3">
+                  {types.map(t => (
+                    <button key={t} onClick={() => { setSpecialization(t); handleNext(); }} className="w-full p-4 bg-zinc-800 rounded-xl text-left font-bold text-white border border-white/5 hover:bg-zinc-700 active:scale-95 transition-all">
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+
+          if (sport === "Radfahren") {
+            const types = ["Recovery Ride", "Long Ride", "Intervalle"];
+            return (
+              <div className="space-y-6 pt-2">
+                <h3 className="text-xl font-bold text-white text-center">Ride-Typ</h3>
+                <div className="space-y-3">
+                  {types.map(t => (
+                    <button key={t} onClick={() => { setSpecialization(t); handleNext(); }} className="w-full p-4 bg-zinc-800 rounded-xl text-left font-bold text-white border border-white/5 hover:bg-zinc-700 active:scale-95 transition-all">
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+
+          return <div />;
+
+        case 4: // ENERGY
           return (
             <div className="space-y-6 pt-2">
               <h3 className="text-xl font-bold text-white text-center">Wie viel Energie hast du?</h3>
@@ -213,38 +283,42 @@ const DashboardPage = () => {
             </div>
           );
 
-        case 4: // SELECTION
+        case 5: // SELECTION
           return (
-            <div className="space-y-4 pt-0">
+            <div className="space-y-4 pt-0 h-full flex flex-col">
               <h3 className="text-xl font-bold text-white text-center mb-4">Dein Plan steht.</h3>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-3 flex-1 overflow-y-auto">
                 {options.map((opt) => (
-                  <button
+                  <div
                     key={opt.id}
-                    onClick={() => handleSelectOption(opt)}
-                    className="bg-zinc-800 rounded-2xl p-5 border border-zinc-700/50 hover:bg-zinc-750 active:scale-[0.98] transition-all text-left group relative overflow-hidden"
+                    className="bg-zinc-800 rounded-2xl p-5 border border-zinc-700/50 relative overflow-hidden flex flex-col"
                   >
-                    {/* Background Gradient Hint */}
-                    <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br opacity-10 blur-xl rounded-full translate-x-12 -translate-y-6 ${opt.id.includes("quick") ? "from-yellow-500 to-orange-500" : opt.id.includes("power") ? "from-red-500 to-pink-500" : "from-blue-500 to-cyan-500"}`} />
+                    <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br opacity-10 blur-xl rounded-full translate-x-12 -translate-y-6 ${opt.id.includes("quick") ? "from-yellow-500 to-orange-500" : opt.id.includes("power") ? "from-purple-500 to-violet-500" : "from-blue-500 to-cyan-500"}`} />
 
                     <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${opt.id.includes("quick") ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" : opt.id.includes("power") ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"}`}>
-                          {opt.id.includes("quick") ? "Quick" : opt.id.includes("power") ? "Power" : "Focus"}
-                        </span>
-                        <span className="text-xs font-bold text-zinc-400 flex items-center gap-1">
-                          <Clock size={12} /> {opt.durationMinutes} min
-                        </span>
+                      <div className="flex justify-between mb-2">
+                        <span className={`text-[10px] font-bold uppercase border px-2 py-0.5 rounded ${opt.id.includes("quick") ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" : opt.id.includes("power") ? "bg-purple-500/10 text-purple-500 border-purple-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"}`}>{opt.id.split("_")[1]}</span>
+                        <span className="text-xs font-bold text-zinc-400">{opt.durationMinutes} min</span>
                       </div>
-                      <h4 className="text-lg font-black text-white mb-1 group-hover:text-blue-400 transition-colors">{opt.title}</h4>
-                      <p className="text-sm text-zinc-400 line-clamp-2">{opt.description}</p>
+                      <h4 className="text-lg font-black text-white">{opt.title}</h4>
+                      <p className="text-sm text-zinc-400 mb-4">{opt.description}</p>
 
-                      <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-4 text-xs font-medium text-zinc-500">
-                        <span>{opt.exercises.length} Übungen</span>
-                        <span>{opt.totalSets} Sätze</span>
+                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                        <button
+                          onClick={() => handleAction(opt, "import")}
+                          className="py-2 rounded-lg bg-zinc-700 text-xs font-bold text-white hover:bg-zinc-600 transition-colors"
+                        >
+                          Importieren
+                        </button>
+                        <button
+                          onClick={() => handleAction(opt, "start")}
+                          className={`py-2 rounded-lg text-xs font-bold text-white transition-colors ${opt.id.includes("quick") ? "bg-yellow-600 hover:bg-yellow-500" : opt.id.includes("power") ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+                        >
+                          Starten
+                        </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -255,7 +329,7 @@ const DashboardPage = () => {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowAdaptivModal(false)} />
-        <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200 border border-white/10 min-h-[500px] flex flex-col">
+        <div className="relative w-full max-w-sm bg-[#121214] rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200 border border-white/10 min-h-[550px] max-h-[90vh] flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="text-purple-500" size={18} />
@@ -266,11 +340,11 @@ const DashboardPage = () => {
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden">
             {renderContent()}
           </div>
 
-          {step > 1 && step < 4 && (
+          {step > 1 && step < 5 && (
             <button onClick={handleBack} className="mt-4 text-sm text-zinc-500 font-medium self-center hover:text-white">Zurück</button>
           )}
         </div>
