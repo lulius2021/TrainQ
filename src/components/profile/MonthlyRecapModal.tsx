@@ -102,11 +102,13 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
 
     if (!isOpen) return null;
 
+    const MotionDiv = motion.div as any;
+
     return (
         <AnimatePresence>
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl">
                 {/* @ts-ignore: Framer Motion types conflict with React 18/19 in this setup */}
-                <motion.div
+                <MotionDiv
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -200,7 +202,7 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
                             Schließen
                         </button>
                     </div>
-                </motion.div>
+                </MotionDiv>
             </div>
         </AnimatePresence>
     );

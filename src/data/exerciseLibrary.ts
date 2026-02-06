@@ -469,18 +469,74 @@ export function findExerciseByToken(input: string): Exercise | undefined {
   return EXERCISES.find((ex) => ex.id === id);
 }
 
+// Helper: Normalize string (remove non-alphanumeric, lowercase)
+function normalizeString(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Helper: Levenshtein Distance for fuzzy matching
+function getLevenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
 export function filterExercises(exercises: Exercise[], filters: ExerciseFilters): Exercise[] {
-  const term = filters.search.trim().length > 0 ? normalizeSearchValue(filters.search) : "";
+  const term = filters.search.trim();
+  const normalizedTerm = normalizeString(term);
 
   return (exercises || []).filter((ex) => {
+    // 1. HARD Filter (Muscle/Type/etc.)
     if (filters.muscle !== "alle" && !ex.primaryMuscles.includes(filters.muscle)) return false;
     if (filters.equipment !== "alle" && !ex.equipment.includes(filters.equipment)) return false;
     if (filters.difficulty !== "alle" && ex.difficulty !== filters.difficulty) return false;
     if (filters.type !== "alle" && ex.type !== filters.type) return false;
 
-    if (term) {
-      const index = ex.searchIndex ?? buildSearchIndex(ex);
-      if (!index.includes(term)) return false;
+    // 2. SEARCH Filter (Fuzzy + Strict)
+    if (normalizedTerm.length > 0) {
+      const nameEn = ex.nameEn || "";
+      const nameDe = ex.nameDe || "";
+      const name = ex.name || "";
+
+      const aliases = [
+        ...(ex.aliases?.en || []),
+        ...(ex.aliases?.de || [])
+      ];
+
+      // a) Check normalized inclusion (fast & handles formatting diffs like "Pull-up" vs "Pullup")
+      const candidates = [name, nameEn, nameDe, ...aliases];
+      const strictMatch = candidates.some(c => normalizeString(c).includes(normalizedTerm));
+      if (strictMatch) return true;
+
+      // b) Fuzzy Search (Levenshtein) - only if term is long enough to minimalize false positives
+      if (normalizedTerm.length >= 3) {
+        const fuzzyMatch = candidates.some(c => {
+          const norm = normalizeString(c);
+          // Verify if distance is small relative to length (allow 2 errors max)
+          return getLevenshteinDistance(norm, normalizedTerm) <= 2;
+        });
+        if (fuzzyMatch) return true;
+      }
+
+      return false;
     }
 
     return true;

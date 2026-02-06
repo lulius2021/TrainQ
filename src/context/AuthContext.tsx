@@ -23,12 +23,12 @@ export type AuthUser = {
   onboardingCompleted?: boolean;
 };
 
-export type AuthResult = { ok: boolean; error?: string };
+export type AuthResult = { ok: boolean; error?: string; session?: Session | null; user?: User | null };
 
 export type AuthContextValue = {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<AuthResult>;
-  register: (email: string, password: string) => Promise<AuthResult>;
+  register: (email: string, password: string, data?: { full_name?: string }) => Promise<AuthResult>;
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   loginWithApple: () => Promise<AuthResult>;
   logout: () => void;
@@ -224,7 +224,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Clean inputs to avoid whitespace issues
     const cleanEmail = email.trim();
 
-    const { error } = await client.auth.signInWithPassword({
+    const { error, data } = await client.auth.signInWithPassword({
       email: cleanEmail,
       password
     });
@@ -238,25 +238,26 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { ok: false, error: error.message };
     }
 
-    return { ok: true };
+    return { ok: true, session: data.session, user: data.user };
   }, [getSafeClient]);
 
-  const register = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+  const register = useCallback(async (email: string, password: string, data?: { full_name?: string }): Promise<AuthResult> => {
     const client = getSafeClient();
     if (!client) return { ok: false, error: "Verbindungsfehler: Auth-Dienst nicht verfügbar." };
 
-    const { error } = await client.auth.signUp({
+    const { error, data: authData } = await client.auth.signUp({
       email,
       password,
       options: {
         data: {
           plan: "free", // Default
+          ...data,
         }
       }
     });
 
     if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    return { ok: true, session: authData.session, user: authData.user };
   }, [getSafeClient]);
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {

@@ -37,6 +37,7 @@ const SwipeableItem = ({ children, onDelete, className }: { children: React.Reac
         drag="x"
         dragConstraints={{ left: -100, right: 0 }}
         dragElastic={0.1}
+        // @ts-ignore
         onDragEnd={(_: any, info: any) => {
           if (info.offset.x < -75) {
             controls.start({ x: -500, opacity: 0, transition: { duration: 0.2 } }).then(() => {
@@ -292,6 +293,7 @@ const SwipeableSetRow = ({
     return (
       // @ts-ignore: Framer motion props
       <motion.div
+        // @ts-ignore
         layout
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
@@ -386,6 +388,7 @@ const SwipeableSetRow = ({
   return (
     // @ts-ignore: Framer motion prop types workaround
     <motion.div
+      // @ts-ignore
       layout
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
@@ -406,6 +409,7 @@ const SwipeableSetRow = ({
 
       {/* Foreground Layer (Content) */}
       <motion.div
+        // @ts-ignore
         drag="x"
         dragConstraints={{ left: -100, right: 0 }}
         dragElastic={0.1}
@@ -654,7 +658,13 @@ export default function ExerciseEditor({
             className="h-9 px-3 flex items-center justify-center rounded-2xl bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium gap-1.5"
           >
             <span>⏱️</span>
-            <span>{exercise.restSeconds ? `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}` : "2:00"}</span>
+            <span>
+              {typeof exercise.restSeconds === 'number'
+                ? exercise.restSeconds < 60
+                  ? `${exercise.restSeconds}s`
+                  : `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}`
+                : "2:00"}
+            </span>
           </button>
 
           {/* Remove Button */}

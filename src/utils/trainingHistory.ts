@@ -78,9 +78,11 @@ function normalizeRestSeconds(input: unknown): number | undefined {
   if (!Number.isFinite(n)) return undefined;
 
   const rounded = Math.round(n);
-  if (rounded <= 0) return undefined;
+  // Allow 0s, but not negative
+  if (rounded < 0) return 0;
 
-  return Math.max(10, Math.min(300, rounded));
+  // Max cap 3600 (1h) or 600 (10min) - existing was 300, lets stick to reasonable max
+  return Math.min(600, rounded);
 }
 
 function normalizeSport(s?: SportType | string): SportType {

@@ -15,6 +15,9 @@ export const WeeklyActivityRing: React.FC<WeeklyActivityRingProps> = ({
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
+    // Fix for Framer Motion types
+    const MotionCircle = motion.circle as any;
+
     // Dynamic feedback text
     const feedbackText = useMemo(() => {
         if (percentage === 0) return "Auf geht's!";
@@ -57,7 +60,7 @@ export const WeeklyActivityRing: React.FC<WeeklyActivityRingProps> = ({
                     />
 
                     {/* Progress Circle (Animated) */}
-                    <motion.circle
+                    <MotionCircle
                         cx="40"
                         cy="40"
                         r={radius}

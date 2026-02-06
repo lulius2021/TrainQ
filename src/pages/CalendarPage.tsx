@@ -1,297 +1,292 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Dumbbell,
-  CalendarPlus,
-  ArrowRightLeft
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Dumbbell,
+    Calendar as CalendarIcon,
+    ArrowRightLeft,
+    Search,
+    User,
+    Menu,
+    Footprints,
+    Bike,
+    BicepsFlexed
 } from 'lucide-react';
 import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isToday,
-  addDays,
-  startOfISOWeek,
-  endOfISOWeek
+    format,
+    addMonths,
+    subMonths,
+    startOfMonth,
+    endOfMonth,
+    startOfWeek,
+    endOfWeek,
+    eachDayOfInterval,
+    isSameMonth,
+    isSameDay,
+    isToday,
+    addDays,
+    startOfISOWeek,
+    endOfISOWeek,
+    isAfter
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-// --- MOCK DATA ---
-const EVENTS = [
-  { id: '1', title: 'Push Day A', date: new Date(), type: 'workout', time: '09:00', status: 'completed' },
-  { id: '2', title: 'Pull Day B', date: addDays(new Date(), 2), type: 'workout', time: '18:00', status: 'planned' },
-  { id: '3', title: 'Beine', date: subMonths(new Date(), 1), type: 'workout', time: '16:00', status: 'completed' }
+// --- TYPES ---
+type ExerciseType = 'strength' | 'cardio' | 'run' | 'cycle' | 'custom' | 'mobility';
+
+interface CalendarEvent {
+    id: string;
+    date: Date;
+    title: string;
+    type: ExerciseType;
+    duration?: number; // minutes
+    status: 'completed' | 'planned' | 'skipped';
+}
+
+const INITIAL_EVENTS: CalendarEvent[] = [
+    { id: '1', date: new Date(), title: 'Beine (Hypertrophie)', type: 'strength', duration: 90, status: 'planned' },
+    { id: '2', date: addDays(new Date(), -1), title: 'Recovery Run', type: 'run', duration: 30, status: 'completed' },
+    { id: '3', date: addDays(new Date(), 2), title: 'Oberkörper Push', type: 'strength', duration: 75, status: 'planned' },
+    { id: '4', date: addDays(new Date(), 5), title: 'Long Run', type: 'run', duration: 60, status: 'planned' },
+    { id: '5', date: addDays(new Date(), 1), title: 'Mobility Flow', type: 'custom', duration: 20, status: 'planned' },
+    { id: '6', date: addDays(new Date(), 3), title: 'Zwift Race', type: 'cycle', duration: 45, status: 'planned' },
 ];
 
-export const CalendarPage = () => {
-  // STATE
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [view, setView] = useState<'day' | 'week' | 'month'>('month');
-  const [showActions, setShowActions] = useState(false);
+const CalendarPage = () => {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [view, setView] = useState<'day' | 'week' | 'month'>('day'); // Controls the list view below
+    const [events, setEvents] = useState<CalendarEvent[]>(INITIAL_EVENTS);
 
-  // NAVIGATION
-  const nextPeriod = () => {
-    if (view === 'month') setCurrentDate(addMonths(currentDate, 1));
-    else if (view === 'week') setCurrentDate(addDays(currentDate, 7));
-    else setCurrentDate(addDays(currentDate, 1));
-  };
+    // Filter Logic
+    const filteredEvents = events.filter(event => {
+        if (view === 'day') {
+            return isSameDay(event.date, selectedDate);
+        } else if (view === 'week') {
+            const start = startOfISOWeek(selectedDate);
+            const end = endOfISOWeek(selectedDate);
+            return event.date >= start && event.date <= end;
+        } else {
+            // Month
+            return isSameMonth(event.date, currentDate);
+        }
+    }).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const prevPeriod = () => {
-    if (view === 'month') setCurrentDate(subMonths(currentDate, 1));
-    else if (view === 'week') setCurrentDate(addDays(currentDate, -7));
-    else setCurrentDate(addDays(currentDate, -1));
-  };
 
-  const handleDayClick = (day: Date) => {
-    setSelectedDate(day);
-    setCurrentDate(day);
-    setView('day');
-  };
+    // Helpers
+    const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+    const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+    const onDateClick = (day: Date) => {
+        setSelectedDate(day);
 
-  // --- SUB-COMPONENTS ---
+        // If user selects a date, we might want to switch to 'day' view automatically to show details?
+        // User requirement: "Filter: Die Buttons (Tag, Woche, Monat) filtern nur die Liste unter dem Kalender-Grid."
+        // So clicking a date changes selectedDate, which updates list if view='day' or 'week'.
+        // We'll keep the view as is unless user changes it.
+    };
 
-  const Header = () => (
-    <div className="pt-safe bg-zinc-900 shrink-0 z-30 sticky top-0 shadow-sm shadow-black/20">
-      <div className="px-4 pb-2">
-        <div className="flex justify-between items-center mb-1 mt-1">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-              {view === 'month' ? 'Monat' : view === 'week' ? 'Woche' : 'Heute'}
-            </span>
-            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              {view === 'month' && format(currentDate, 'MMMM yyyy', { locale: de })}
-              {view === 'week' && `KW ${format(currentDate, 'w', { locale: de })}`}
-              {view === 'day' && format(currentDate, 'd. MMMM', { locale: de })}
-            </h1>
-          </div>
+    const handleTodayClick = () => {
+        const now = new Date();
+        setSelectedDate(now);
+        setCurrentDate(now);
+        setView('day'); // "Heute-Button: Springt sofort zum aktuellen Datum in die Tagesansicht."
+    };
 
-          <div className="flex items-center bg-zinc-800 rounded-full p-0.5">
-            <button onClick={prevPeriod} className="p-1.5 text-zinc-400 hover:text-white rounded-full active:bg-zinc-700">
-              <ChevronLeft size={18} />
-            </button>
-            <button onClick={nextPeriod} className="p-1.5 text-zinc-400 hover:text-white rounded-full active:bg-zinc-700">
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
+    const getEventColor = (type: ExerciseType) => {
+        switch (type) {
+            case 'strength': return 'bg-blue-500'; // Gym
+            case 'run': return 'bg-red-500'; // Run
+            case 'cycle': return 'bg-green-500'; // Cycle
+            case 'custom': return 'bg-yellow-500'; // Custom
+            case 'mobility': return 'bg-yellow-500';
+            default: return 'bg-zinc-500';
+        }
+    };
 
-        <div className="bg-zinc-800 p-0.5 rounded-xl flex shadow-inner">
-          {['day', 'week', 'month'].map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v as any)}
-              className={`
-                flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200
-                ${view === v
-                  ? 'bg-zinc-600 text-white shadow-lg scale-[1.02]'
-                  : 'text-zinc-400 hover:text-zinc-200'}
-              `}
-            >
-              {v === 'day' ? 'Tag' : v === 'week' ? 'Woche' : 'Monat'}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+    const getEventIcon = (type: ExerciseType) => {
+        switch (type) {
+            case 'strength': return <Dumbbell size={16} />;
+            case 'run': return <Footprints size={16} />;
+            case 'cycle': return <Bike size={16} />;
+            case 'custom': return <Sparkles size={16} />;
+            default: return <Dumbbell size={16} />;
+        }
+    };
 
-  // 1. MONTH VIEW
-  const MonthView = () => {
+    // Calendar Grid Gen
     const monthStart = startOfMonth(currentDate);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, 41) });
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // ISO Mon
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+
+    const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     return (
-      <div className="flex-1 px-2 pt-2 flex flex-col h-full overflow-hidden animate-in fade-in duration-200">
-        <div className="grid grid-cols-7 mb-1 shrink-0">
-          {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(day => (
-            <div key={day} className="text-[9px] font-bold text-zinc-500 uppercase text-center">
-              {day}
-            </div>
-          ))}
-        </div>
+        <div className="min-h-screen bg-[#121214] text-white pb-24">
 
-        <div className="grid grid-cols-7 grid-rows-6 gap-1.5 flex-1 min-h-0 pb-32">
-          {days.map((day) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const isTodayDate = isToday(day);
-            const hasEvent = EVENTS.some(e => isSameDay(e.date, day));
+            {/* Header */}
+            <div className="sticky top-0 z-40 bg-[#121214]/95 backdrop-blur-xl pt-safe border-b border-white/5 pb-2">
+                <div className="px-4 py-3 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold tracking-tight">Kalender</h1>
 
-            return (
-              <div
-                key={day.toString()}
-                onClick={() => handleDayClick(day)}
-                className="flex flex-col h-full"
-              >
-                <div className={`
-                   w-full h-full rounded-xl flex flex-col items-center justify-start pt-1.5 transition-all relative
-                   ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'bg-zinc-800/40'}
-                   ${!isSelected && !isCurrentMonth ? 'opacity-20 bg-zinc-900' : ''}
-                   ${!isSelected && isTodayDate ? 'border border-blue-500 text-blue-500' : ''}
-                   active:scale-95
-                `}>
-                  <span className={`text-xs font-bold ${!isSelected && !isCurrentMonth ? 'text-zinc-600' : ''}`}>
-                    {format(day, 'd')}
-                  </span>
-                  {hasEvent && (
-                    <div className={`mt-1.5 w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`} />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // 2. WEEK VIEW
-  const WeekView = () => {
-    const start = startOfISOWeek(currentDate);
-    const end = endOfISOWeek(currentDate);
-    const days = eachDayOfInterval({ start, end });
-
-    return (
-      <div className="flex-1 px-2 pt-2 flex flex-col h-full overflow-hidden animate-in fade-in duration-200">
-        <div className="grid grid-cols-7 gap-1.5 flex-1 min-h-0 pb-32">
-          {days.map((day) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isTodayDate = isToday(day);
-            const dayEvents = EVENTS.filter(e => isSameDay(e.date, day));
-
-            return (
-              <button
-                key={day.toString()}
-                onClick={() => handleDayClick(day)}
-                className={`
-                    flex flex-col items-center py-2 rounded-2xl transition-all h-full
-                    ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800/40 hover:bg-zinc-800/60'}
-                    ${!isSelected && isTodayDate ? 'border border-blue-500' : ''}
-                 `}
-              >
-                <span className={`text-[9px] font-bold uppercase mb-1 ${isSelected ? 'text-blue-200' : 'text-zinc-500'}`}>
-                  {format(day, 'EEE', { locale: de }).slice(0, 2)}
-                </span>
-                <span className={`text-base font-bold mb-3 ${isSelected ? 'text-white' : isTodayDate ? 'text-blue-500' : 'text-zinc-200'}`}>
-                  {format(day, 'd')}
-                </span>
-                <div className="flex flex-col gap-1 w-full px-1">
-                  {dayEvents.map(ev => (
-                    <div key={ev.id} className={`w-full aspect-square rounded-md flex items-center justify-center ${isSelected ? 'bg-blue-500 text-white' : 'bg-zinc-700 text-zinc-400'}`}>
-                      <Dumbbell size={10} />
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleTodayClick}
+                            className="px-3 py-1.5 bg-zinc-800 rounded-lg text-xs font-bold uppercase tracking-wider text-zinc-300 active:scale-95 transition-transform"
+                        >
+                            Heute
+                        </button>
+                        <button className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/20 active:scale-90 transition-transform">
+                            <Plus size={20} strokeWidth={2.5} />
+                        </button>
                     </div>
-                  ))}
                 </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    );
-  };
 
-  // 3. DAY VIEW (CLEAN - NO HIGHLIGHTS)
-  const DayView = () => {
-    const dayEvents = EVENTS.filter(e => isSameDay(e.date, currentDate));
+                {/* Filter Segments - Moved to Header */}
+                <div className="px-4 pb-2">
+                    <div className="bg-zinc-900/80 rounded-lg p-0.5 flex gap-0.5 border border-white/5">
+                        {(['day', 'week', 'month'] as const).map((v) => (
+                            <button
+                                key={v}
+                                onClick={() => setView(v)}
+                                className={`
+                                    flex-1 py-1 text-[11px] font-bold uppercase tracking-wider rounded-[6px] transition-all
+                                    ${view === v ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}
+                                `}
+                            >
+                                {v === 'day' ? 'Tag' : v === 'week' ? 'Woche' : 'Monat'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-    return (
-      <div className="flex-1 px-4 pt-4 pb-36 overflow-y-auto animate-in fade-in duration-200">
+                {/* Month Nav */}
+                <div className="flex items-center justify-between px-4 py-1">
+                    <button onClick={prevMonth} className="p-2 text-zinc-400 hover:text-white active:scale-90 transition-transform">
+                        <ChevronLeft size={20} />
+                    </button>
+                    <span className="text-lg font-semibold capitalize">
+                        {format(currentDate, 'MMMM yyyy', { locale: de })}
+                    </span>
+                    <button onClick={nextMonth} className="p-2 text-zinc-400 hover:text-white active:scale-90 transition-transform">
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
 
-        {/* Date Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <span className="text-3xl font-bold text-white">
-            {format(currentDate, 'd.')}
-          </span>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-zinc-400 uppercase">
-              {format(currentDate, 'EEEE', { locale: de })}
-            </span>
-          </div>
-        </div>
-
-        {dayEvents.length === 0 ? (
-          <div className="border-l-2 border-zinc-800 pl-6 py-4 space-y-12 opacity-50">
-            {[9, 12, 15, 18].map(hour => (
-              <div key={hour} className="relative h-px bg-zinc-800 w-full">
-                <span className="absolute -left-12 -top-2 text-xs font-mono text-zinc-600">
-                  {hour}:00
-                </span>
-              </div>
-            ))}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-zinc-600 font-medium">Keine Termine</span>
+                {/* Days Header */}
+                <div className="grid grid-cols-7 mb-1 px-2">
+                    {weekDays.map(day => (
+                        <div key={day} className="text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            {day}
+                        </div>
+                    ))}
+                </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {dayEvents.map(ev => (
-              <div key={ev.id} className="bg-zinc-800 p-4 rounded-3xl border border-zinc-700/50 flex gap-4 hover:border-blue-500/30 transition-colors">
-                <div className={`w-1 rounded-full h-full ${ev.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'}`}></div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">Training</span>
-                    <span className="text-xs font-mono text-zinc-500">{ev.time}</span>
-                  </div>
-                  <h3 className="font-bold text-white text-lg">{ev.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Dumbbell size={12} className="text-zinc-500" />
-                    <p className="text-xs text-zinc-400">Gym • 6 Übungen</p>
-                  </div>
+
+            {/* Grid */}
+            <div className="px-2">
+                <div className="grid grid-cols-7 gap-y-2 gap-x-1">
+                    {calendarDays.map((day, idx) => {
+                        const isSelected = isSameDay(day, selectedDate);
+                        const isTodayDate = isToday(day);
+                        const isCurrentMonth = isSameMonth(day, currentDate);
+
+                        const dayEvents = events.filter(e => isSameDay(e.date, day));
+                        const hasEvents = dayEvents.length > 0;
+
+                        return (
+                            <div key={day.toString()} className="flex flex-col items-center">
+                                <button
+                                    onClick={() => onDateClick(day)}
+                                    className={`
+                                        w-10 h-10 rounded-[14px] flex flex-col items-center justify-center relative transition-all duration-200 active:scale-90
+                                        ${isSelected ? 'bg-white text-black shadow-lg shadow-white/10' : ''}
+                                        ${!isSelected && isTodayDate ? 'bg-zinc-800 text-blue-400 font-bold border border-blue-500/50' : ''}
+                                        ${!isSelected && !isTodayDate && isCurrentMonth ? 'text-zinc-200' : ''}
+                                        ${!isSelected && !isTodayDate && !isCurrentMonth ? 'text-zinc-700' : ''}
+                                    `}
+                                >
+                                    <span className="text-sm">{format(day, 'd')}</span>
+
+                                    {/* Event Dots */}
+                                    {hasEvents && (
+                                        <div className="flex gap-0.5 mt-0.5">
+                                            {dayEvents.slice(0, 3).map((ev) => (
+                                                <div
+                                                    key={ev.id}
+                                                    className={`w-1 h-1 rounded-full ${getEventColor(ev.type)}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+            </div>
 
-  const ActionMenu = () => {
-    if (!showActions) return null;
-    return (
-      <>
-        <div onClick={() => setShowActions(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 animate-in fade-in" />
-        <div className="fixed bottom-36 right-24 z-50 flex flex-row items-center gap-3 animate-in slide-in-from-right-10 duration-200">
-          <button onClick={() => console.log('Verschieben')} className="w-14 h-14 bg-orange-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-orange-900/40 active:scale-90 transition-transform">
-            <ArrowRightLeft size={24} />
-          </button>
-          <button onClick={() => console.log('Termin')} className="w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-purple-900/40 active:scale-90 transition-transform">
-            <CalendarPlus size={24} />
-          </button>
-          <button onClick={() => console.log('Training')} className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-900/40 active:scale-90 transition-transform">
-            <Dumbbell size={24} />
-          </button>
+            {/* Event List */}
+            <div className="mt-4 px-4 space-y-3">
+                {filteredEvents.length > 0 ? (
+                    filteredEvents.map(event => (
+                        <div key={event.id} className="bg-zinc-800/50 rounded-2xl p-4 border border-zinc-700/30 flex items-center gap-4 active:scale-[0.99] transition-transform">
+                            <div className={`w-12 h-12 rounded-full ${getEventColor(event.type).replace('bg-', 'bg-')}/20 flex items-center justify-center ${getEventColor(event.type).replace('bg-', 'text-')}`}>
+                                {getEventIcon(event.type)}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white text-sm">{event.title}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-zinc-400">{format(event.date, 'dd. MMM', { locale: de })}</span>
+                                    {event.duration && (
+                                        <>
+                                            <span className="text-zinc-600">•</span>
+                                            <span className="text-xs text-zinc-400">{event.duration} min</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            {event.status === 'completed' ? (
+                                <div className="text-green-500 bg-green-500/10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide">
+                                    Done
+                                </div>
+                            ) : (
+                                <ChevronRight className="text-zinc-600" size={16} />
+                            )}
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-12 text-zinc-500">
+                        <p className="text-sm">Keine Trainings für diesen Zeitraum.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* FAB can go here if needed, but we have header actions */}
+
         </div>
-      </>
     );
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-zinc-900 relative overflow-x-hidden touch-pan-y">
-      <Header />
-      {view === 'month' && <MonthView />}
-      {view === 'week' && <WeekView />}
-      {view === 'day' && <DayView />}
-      <ActionMenu />
-      <div className="absolute bottom-36 right-4 z-50">
-        <button
-          onClick={() => setShowActions(!showActions)}
-          className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-50 relative ${showActions ? 'bg-zinc-700 text-zinc-300 rotate-45' : 'bg-blue-600 text-white shadow-blue-900/20'}`}
-        >
-          <Plus size={28} strokeWidth={2.5} />
-        </button>
-      </div>
-    </div>
-  );
 };
+
+// Mock Component for icons to fix TS error if not imported
+function Sparkles({ size, fill }: { size: number, fill?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill={fill || "none"}
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+        </svg>
+    )
+}
+
+export { CalendarPage };

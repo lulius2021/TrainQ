@@ -128,7 +128,7 @@ const ExerciseRow = React.memo(({
         <div className="truncate text-sm text-gray-400">{(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}{ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}</div>
       </div>
     </div>
-    <button type="button" disabled={isAdded} onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed ${isAdded ? "bg-green-500/20 text-green-300" : "bg-brand-primary text-white hover:opacity-90"}`}>
+    <button type="button" disabled={isAdded} onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed ${isAdded ? "bg-green-500/20 text-green-300" : "bg-[#007AFF] text-white hover:opacity-90"}`}>
       {isAdded ? (<span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>{t("training.exerciseLibrary.added")}</span>) : (t("training.exerciseLibrary.add"))}
     </button>
   </div>
@@ -339,6 +339,15 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
         ) : filteredExercises.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-gray-400">
             {t("training.exerciseLibrary.empty")}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+              >
+                {t("training.exerciseLibrary.addCustom")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">

@@ -368,6 +368,12 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
   const hasTime = Boolean(draftEvent?.startTime);
   const MotionDiv = motion.div as unknown as React.ComponentType<any>;
 
+  const trType = getTrainingType(draftEvent || ({} as CalendarEvent));
+  let libCategory: 'gym' | 'running' | 'cycling' | 'custom' = 'gym';
+  if (trType === 'laufen') libCategory = 'running';
+  if (trType === 'radfahren') libCategory = 'cycling';
+  if (trType === 'custom') libCategory = 'custom';
+
   return (
     <AnimatePresence>
       {open && draftEvent && draftSeed && (
@@ -592,7 +598,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
       )}
       <ExerciseLibraryModal
         open={open && libraryOpen}
-        isCardioLibrary={isCardio}
+        category={libCategory}
         title={isCardio ? t("training.exerciseLibrary.cardioTitle") : t("training.exerciseLibrary.title")}
         onClose={() => setLibraryOpen(false)}
         existingExerciseIds={existingExerciseIds}

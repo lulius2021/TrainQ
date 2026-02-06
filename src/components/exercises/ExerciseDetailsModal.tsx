@@ -129,7 +129,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
         style={
           isAdded
             ? { background: "rgba(16,185,129,0.18)", color: "rgba(16,185,129,0.95)", border: "1px solid rgba(16,185,129,0.35)" }
-            : { background: "var(--primary)", color: "#061226" }
+            : { background: "#007AFF", color: "#FFFFFF", borderRadius: "12px", padding: "16px" }
         }
       >
         {isAdded ? t("training.exerciseLibrary.added") : t("training.exerciseLibrary.add")}

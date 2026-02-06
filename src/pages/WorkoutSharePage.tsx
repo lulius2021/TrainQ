@@ -216,7 +216,7 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
   });
 
   const isSameDay = (d1: Date, d2: Date) => d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
-  const workoutsOnDisk = history.map(h => new Date(h.startedAt || h.dateISO));
+  const workoutsOnDisk = history.map(h => new Date(h.startedAt));
 
   const checkDate = (date: Date) => {
     if (isSameDay(date, currentWorkoutDate)) return true;

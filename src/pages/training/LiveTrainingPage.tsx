@@ -60,6 +60,7 @@ import { formatMmSs } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
 import { LiveActivity } from "capacitor-live-activity"; // Import requested by prompt
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import WheelPicker from "../../components/ui/WheelPicker";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -135,9 +136,9 @@ function normalizeRestSeconds(input: unknown): number | undefined {
   if (!Number.isFinite(n)) return undefined;
 
   const rounded = Math.round(n);
-  if (rounded <= 0) return undefined;
+  if (rounded < 0) return 0;
 
-  return Math.max(10, Math.min(300, rounded));
+  return Math.min(600, rounded);
 }
 
 function formatTimeParts(totalSec: number): { h: number; mm: string; ss: string } {
@@ -1309,24 +1310,36 @@ export default function LiveTrainingPage({
             backdropClassName="bg-black/80"
             sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
           >
-            <div className="p-4 pb-8 space-y-4">
-              <h3 className="text-center font-bold text-white mb-4">Pausenzeit Einstellung</h3>
-              <div className="grid grid-cols-4 gap-3">
-                {[0, 30, 60, 90, 120, 150, 180, 240, 300].map(sec => {
-                  const isSelected = activeTimerExercise?.restSeconds === sec || (sec === 0 && !activeTimerExercise?.restSeconds);
-                  return (
-                    <button
-                      key={sec}
-                      onClick={() => handleSetRestTime(sec)}
-                      className={`h-12 rounded-3xl text-sm font-semibold transition-all ${isSelected
-                        ? "bg-[#007AFF] text-white shadow-[0_0_15px_rgba(0,122,255,0.4)]"
-                        : "bg-[#2c2c2e] text-white/70 hover:bg-[#3a3a3c]"
-                        }`}
-                    >
-                      {sec === 0 ? "-" : (sec < 60 ? `${sec}s` : formatMmSs(sec))}
-                    </button>
-                  );
-                })}
+            <div className="p-4 pb-8 space-y-6">
+              <div className="flex items-center justify-between mb-2">
+                <button className="text-zinc-500 font-semibold" onClick={() => setTimerEditExerciseId(null)}>Abbrechen</button>
+                <h3 className="text-white font-bold">Pausenzeit</h3>
+                <button
+                  className="text-blue-500 font-bold"
+                  onClick={() => {
+                    // Value is already set via handleSetRestTime from picker? 
+                    // Actually WheelPicker calls onChange. I should update state immediately or on confirm?
+                    // If I update immediately, it persists. 
+                    setTimerEditExerciseId(null);
+                  }}
+                >
+                  Fertig
+                </button>
+              </div>
+
+              <div className="flex justify-center py-4">
+                <div className="w-full max-w-[200px]">
+                  <WheelPicker
+                    value={activeTimerExercise?.restSeconds || 0}
+                    onChange={(val) => {
+                      if (timerEditExerciseId) updateExercise(timerEditExerciseId, { restSeconds: val });
+                    }}
+                    options={[0, 10, 20, 30, 45, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600]}
+                    unit="s"
+                    height={200}
+                    itemHeight={44}
+                  />
+                </div>
               </div>
             </div>
           </BottomSheet>
