@@ -24,6 +24,7 @@ import { getScopedItem, setScopedItem } from '../utils/scopedStorage';
 import type { CalendarEvent, LiveWorkout } from '../types/training';
 import { getActiveUserId } from '../utils/session';
 import WorkoutPlannerModal from '../components/training/WorkoutPlannerModal';
+import ShiftPlanModal from '../components/training/ShiftPlanModal';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
@@ -43,13 +44,13 @@ const DashboardPage = () => {
   const weekMinutes = 1457;
   const goalMinutes = 300;
 
-  const handleShiftConfirm = async () => {
+  const handleShiftConfirm = async (days: number) => {
     try {
-      await shiftWorkouts(1);
+      await shiftWorkouts(days);
       setShowShiftModal(false);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
-      console.log("Plan shifted by +1 day");
+      console.log(`Plan shifted by +${days} days`);
     } catch (err) {
       console.error("Shift failed", err);
     }
@@ -354,30 +355,16 @@ const DashboardPage = () => {
   };
 
 
-  const ShiftModal = () => {
-    if (!showShiftModal) return null;
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowShiftModal(false)} />
-        <div className="relative w-full max-w-xs bg-[#1c1c1e] rounded-3xl p-6 border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 mb-4 mx-auto">
-            <RefreshCw size={24} />
-          </div>
-          <h3 className="text-xl font-bold text-center text-white mb-2">Plan verschieben?</h3>
-          <p className="text-center text-zinc-400 text-sm mb-6">Alle geplanten Trainings ab heute werden um einen Tag nach hinten geschoben.</p>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => setShowShiftModal(false)} className="py-3 rounded-xl bg-zinc-800 text-white font-semibold active:scale-95 transition-transform">Abbrechen</button>
-            <button onClick={handleShiftConfirm} className="py-3 rounded-xl bg-blue-600 text-white font-bold active:scale-95 transition-transform">Verschieben</button>
-          </div>
-        </div>
-      </div>
-    )
-  };
+
 
   return (
     <div className="min-h-screen bg-[#121214] text-white pb-32">
       <AdaptivModal />
-      <ShiftModal />
+      <ShiftPlanModal
+        isOpen={showShiftModal}
+        onClose={() => setShowShiftModal(false)}
+        onConfirm={handleShiftConfirm}
+      />
 
       {/* TOAST */}
       {showToast && (
@@ -484,7 +471,7 @@ const DashboardPage = () => {
           }}
         />
       )}
-      <ShiftModal />
+
     </div>
   );
 };

@@ -470,10 +470,19 @@ const MainAppShell: React.FC = () => {
         };
         window.addEventListener("popstate", onPopState);
         window.addEventListener("trainq:navigate", onCustomNavigate as EventListener);
+
+        const onEventsUpdated = () => {
+            // Force refresh from storage
+            console.log("🔄 Global Event Refresh Triggered");
+            setEvents(readEventsFromStorage(userId));
+        };
+        window.addEventListener("trainq:update_events", onEventsUpdated as EventListener);
+
         onPopState();
         return () => {
             window.removeEventListener("popstate", onPopState);
             window.removeEventListener("trainq:navigate", onCustomNavigate as EventListener);
+            window.removeEventListener("trainq:update_events", onEventsUpdated as EventListener);
         };
     }, [userId]);
 
