@@ -90,7 +90,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-[120px]">
 
                 {/* 1. Sport Selection */}
                 <div className="grid grid-cols-4 gap-2">
@@ -172,7 +172,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/10 bg-[#1c1c1e] safe-area-bottom">
+            <div className="p-4 border-t border-white/10 bg-[#1c1c1e] mb-[100px]">
                 <button
                     onClick={handleSave}
                     className="w-full py-4 bg-blue-600 rounded-2xl font-bold text-white hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/20"

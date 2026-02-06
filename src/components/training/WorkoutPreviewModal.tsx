@@ -1,7 +1,9 @@
 
 import React from 'react';
 import { Play, Clock, X, Dumbbell, Footprints, Bike } from 'lucide-react';
-import type { CalendarEvent } from '../../pages/CalendarPage'; // or types/training if we unify
+import type { CalendarEvent } from '../../pages/CalendarPage';
+import { useLiveTrainingStore } from '../../store/useLiveTrainingStore';
+import { persistActiveLiveWorkout } from '../../utils/trainingHistory';
 
 interface WorkoutPreviewModalProps {
     event: CalendarEvent | null;
@@ -38,15 +40,18 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
     const exercises = event.workoutData?.exercises || [];
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center p-0 sm:p-4">
-            {/* Backdrop */}
+        <div
+            className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center pointer-events-none"
+            style={{ paddingBottom: 'calc(220px + env(safe-area-inset-bottom))' }}
+        >
+            {/* Backdrop - needs pointer-events-auto to catch clicks */}
             <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity pointer-events-auto"
                 onClick={onClose}
             />
 
-            {/* Sheet */}
-            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 border-t border-white/10 sm:border ring-1 ring-white/5 mb-20 sm:mb-0">
+            {/* Sheet - needs pointer-events-auto */}
+            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-[32px] p-6 pb-6 shadow-2xl animate-in slide-in-from-bottom-10 border border-white/10 ring-1 ring-white/5 mb-12 sm:mb-0 pointer-events-auto">
 
                 {/* Header */}
                 <div className="flex justify-between items-start mb-6">
@@ -100,7 +105,36 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                         Schließen
                     </button>
                     <button
-                        onClick={() => onStart(event)}
+                        onClick={() => {
+                            // Direct Logic Implementation as requested
+                            if (!event) return;
+
+                            // 1. Construct Live Workout Object
+                            // Use existing workoutData or create fallback
+                            const exercises = event.workoutData?.exercises || [];
+                            const liveWorkout = {
+                                id: crypto.randomUUID(),
+                                calendarEventId: event.id,
+                                title: event.title,
+                                sport: event.type === 'strength' ? 'Gym' : event.type === 'run' ? 'Laufen' : event.type === 'cycle' ? 'Radfahren' : 'Custom',
+                                startedAt: new Date().toISOString(),
+                                isActive: true,
+                                exercises: exercises,
+                                notes: `Started from Calendar: ${event.title}`
+                            };
+
+                            // 2. Persist & Set State
+                            persistActiveLiveWorkout(liveWorkout as any);
+                            useLiveTrainingStore.getState().startWorkout(liveWorkout as any);
+
+                            // 3. Navigate
+                            window.dispatchEvent(new CustomEvent("trainq:navigate", {
+                                detail: { path: "/live-training", eventId: liveWorkout.id }
+                            }));
+
+                            // 4. Close Modal
+                            onClose();
+                        }}
                         className="flex-[2] py-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                     >
                         <Play size={18} fill="currentColor" />
