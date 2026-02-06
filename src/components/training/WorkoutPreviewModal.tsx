@@ -38,7 +38,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
     const exercises = event.workoutData?.exercises || [];
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-end justify-center sm:items-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center p-0 sm:p-4">
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
@@ -46,7 +46,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
             />
 
             {/* Sheet */}
-            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom-10 border-t border-white/10 sm:border ring-1 ring-white/5">
+            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 border-t border-white/10 sm:border ring-1 ring-white/5 mb-20 sm:mb-0">
 
                 {/* Header */}
                 <div className="flex justify-between items-start mb-6">
@@ -74,7 +74,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Geplante Übungen</h3>
 
                     {exercises.length > 0 ? (
-                        <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
                             {exercises.map((ex, i) => (
                                 <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50 border border-white/5">
                                     <span className="text-sm font-medium text-white truncate max-w-[70%]">{ex.name}</span>
