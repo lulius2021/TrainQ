@@ -2,6 +2,7 @@ import React from "react";
 import { History, X } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
+import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 
 interface WorkoutHistoryOverlayProps {
     onClose: () => void;
@@ -31,10 +32,15 @@ function durationMinutes(w: WorkoutHistoryEntry): number {
 }
 
 export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ onClose, workouts, onShare }) => {
+    const insets = useSafeAreaInsets();
+
     return (
         <div className="fixed inset-0 z-[50] bg-zinc-950 flex flex-col animate-in fade-in duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-4 pt-8 bg-zinc-950 border-b border-zinc-900 sticky top-0 z-10">
+            <div
+                style={{ paddingTop: Math.max(insets.top, 20) }}
+                className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-4 bg-zinc-950/90 backdrop-blur-xl border-b border-white/5"
+            >
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl rounded-full">
                         <History className="w-5 h-5 text-white" />
@@ -47,7 +53,10 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ on
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-3 custom-scrollbar">
+            <div
+                style={{ paddingTop: Math.max(insets.top, 20) + 80 }}
+                className="flex-1 overflow-y-auto p-4 pb-32 space-y-3 custom-scrollbar"
+            >
                 {workouts.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                         <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl">

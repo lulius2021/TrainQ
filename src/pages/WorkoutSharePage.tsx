@@ -140,8 +140,42 @@ const TemplateRadar = ({ workout, isExportMode }: { workout: any, isExportMode?:
   )
 };
 
+// --- COMPARISON ENGINE ---
+function getFunnyComparison(tons: number): { text: string, emoji: string } {
+  // 0.5t - 1.0t: "Das ist schwerer als ein Klavier 🎹 (und klingt beim Fallenlassen auch so)."
+  if (tons >= 0.5 && tons < 1.0) return { text: "Das ist schwerer als ein Klavier (und klingt beim Fallenlassen auch so).", emoji: "🎹" };
+
+  // 1.0t - 1.5t: "Das ist schwerer als ein Fiat 500 🚗. Parkplatzsuche beendet."
+  if (tons >= 1.0 && tons < 1.5) return { text: "Das ist schwerer als ein Fiat 500. Parkplatzsuche beendet.", emoji: "🚗" };
+
+  // 1.5t - 2.5t: "Das ist schwerer als ein Flusspferd 🦛. Leg dich besser nicht mit dir an."
+  if (tons >= 1.5 && tons < 2.5) return { text: "Das ist schwerer als ein Flusspferd. Leg dich besser nicht mit dir an.", emoji: "🦛" };
+
+  // 2.5t - 5.0t: "Das ist schwerer als ein T-Rex 🦖. Er würde vor Neid erblassen (wenn er noch könnte)."
+  if (tons >= 2.5 && tons < 5.0) return { text: "Das ist schwerer als ein T-Rex. Er würde vor Neid erblassen (wenn er noch könnte).", emoji: "🦖" };
+
+  // 5.0t - 7.5t: "Das ist schwerer als ein afrikanischer Elefant 🐘. Törööö, du Biest!"
+  if (tons >= 5.0 && tons < 7.5) return { text: "Das ist schwerer als ein afrikanischer Elefant. Törööö, du Biest!", emoji: "🐘" };
+
+  // 7.5t - 15.0t: "Das ist schwerer als ein Schulbus 🚌. Alle einsteigen für den Gain-Train!"
+  if (tons >= 7.5 && tons < 15.0) return { text: "Das ist schwerer als ein Schulbus. Alle einsteigen für den Gain-Train!", emoji: "🚌" };
+
+  // > 15.0t: "Das ist schwerer als ein Anker eines Kreuzfahrtschiffs ⚓. Du hältst die ganze Welt fest."
+  if (tons >= 15.0) return { text: "Das ist schwerer als ein Anker eines Kreuzfahrtschiffs. Du hältst die ganze Welt fest.", emoji: "⚓" };
+
+  // Fallback < 0.5t
+  return { text: "Das ist schwerer als dein innerer Schweinehund. Weiter so!", emoji: "🔥" };
+}
+
 const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, workout: any, isExportMode?: boolean }) => {
   const isCardio = volume === 0 || workout.category === 'cardio';
+
+  // Trigger haptic once on mount if available
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(20);
+    }
+  }, []);
 
   if (isCardio) {
     const dist = workout.distance || 0; // km
@@ -174,7 +208,12 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
     );
   }
 
-  const volStr = (volume / 1000).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const volTons = volume / 1000;
+  const volStr = volTons.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  // Get dynamic comparison
+  const comparison = getFunnyComparison(volTons);
+
   return (
     <div className="flex flex-col h-full items-center justify-center text-center gap-8 py-4">
       <div className="relative">
@@ -190,10 +229,10 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
         </div>
       </div>
 
-      <div className={`bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
+      <div className={`bg-zinc-800 border-zinc-700/50 rounded-2xl/80 rounded-2xl border border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
         <p className={`text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
-          Das ist schwerer als ein <br />
-          <span className={`text-blue-400 font-bold inline-block mt-1 transform -rotate-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>T-Rex 🦖</span>
+          {comparison.text.split(comparison.emoji)[0]} <br />
+          <span className={`text-blue-400 font-bold inline-block mt-1 transform -rotate-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>{comparison.emoji}</span>
         </p>
       </div>
     </div>

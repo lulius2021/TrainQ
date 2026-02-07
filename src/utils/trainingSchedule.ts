@@ -46,9 +46,10 @@ export async function shiftWorkouts(days: number = 1): Promise<{ count: number }
             const status = ev.trainingStatus || ev.status;
             if (status === 'completed' || status === 'skipped') return ev;
 
-            // Shift it
-            const oldDateObj = new Date(date);
-            const newDate = addDays(oldDateObj, days);
+            // Shift it (Safe Local Date)
+            const [y, m, d] = date.split('-').map(Number);
+            const localDate = new Date(y, m - 1, d); // Local Midnight
+            const newDate = addDays(localDate, days);
             const newDateISO = format(newDate, 'yyyy-MM-dd');
 
             count++;

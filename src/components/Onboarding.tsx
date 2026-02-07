@@ -56,21 +56,30 @@ export const Onboarding: React.FC = () => {
 
     const handleFinish = async () => {
         setLoading(true);
-        const client = getSupabaseClient();
-        if (!client || !user.id) return;
 
         try {
             const weeklyMinutes = timePerWorkout * 3;
-            // 1. Save preferences
-            const { error } = await client.from('profiles').update({
+            const preferences = {
                 persona: goal,
                 fitness_level: fitnessLevel,
                 time_budget: String(weeklyMinutes),
-                // Note: onboarding_completed is handled by completeOnboarding() context method
-            }).eq('id', user.id);
+            };
 
-            if (error) {
-                console.error('Onboarding preference update failed:', error);
+            // 1. Save preferences
+            if (user?.provider === 'local') {
+                // Local-first: Save to localStorage
+                localStorage.setItem('user_preferences', JSON.stringify(preferences));
+                // Also update user object if we want to store it there (optional, but good for display)
+                // For now, we rely on the fact that the app doesn't heavily use these outside of generation
+            } else {
+                // Supabase: Save to Profile
+                const client = getSupabaseClient();
+                if (client && user?.id) {
+                    const { error } = await client.from('profiles').update(preferences).eq('id', user.id);
+                    if (error) {
+                        console.error('Onboarding preference update failed:', error);
+                    }
+                }
             }
 
             // 2. Complete Onboarding (Persist & Cache)

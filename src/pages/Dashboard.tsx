@@ -14,7 +14,7 @@ import {
   Bike
 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { shiftWorkouts } from '../utils/trainingSchedule';
 import { generateAdaptiveOptions, persistAdaptiveWorkout, type AdaptiveOption } from '../services/AdaptiveService';
@@ -25,6 +25,7 @@ import type { CalendarEvent, LiveWorkout } from '../types/training';
 import { getActiveUserId } from '../utils/session';
 import WorkoutPlannerModal from '../components/training/WorkoutPlannerModal';
 import ShiftPlanModal from '../components/training/ShiftPlanModal';
+import { ProfileService } from '../services/ProfileService';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
@@ -40,9 +41,82 @@ const DashboardPage = () => {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showToast, setShowToast] = useState(false); // For visual feedback
 
-  // MOCK DATA for Progress (Keep existing visuals)
-  const weekMinutes = 1457;
-  const goalMinutes = 300;
+  // Weekly Goal State
+  const [weeklyMinutes, setWeeklyMinutes] = useState(0);
+  const [weeklyCalories, setWeeklyCalories] = useState(0);
+  const [weeklyGoal] = useState(300); // Default goal 300 min
+
+  // Live Training Check
+  const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
+  const isWorkoutActive = !!activeWorkout?.isActive;
+
+  useEffect(() => {
+    const loadWeeklyStats = () => {
+      // Defer calculation to next tick to avoid blocking UI during interactions
+      setTimeout(() => {
+        try {
+          const userId = getActiveUserId();
+          const raw = getScopedItem("trainq_calendar_events", userId);
+          if (!raw) {
+            setWeeklyMinutes(0);
+            return;
+          }
+          let events = [];
+          try { events = JSON.parse(raw); } catch { }
+          if (!Array.isArray(events)) return;
+
+          const now = new Date();
+          const start = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+          const end = endOfWeek(now, { weekStartsOn: 1 });
+
+          let totalMin = 0;
+          let totalCalories = 0;
+          events.forEach((ev: any) => {
+            if (ev.type === 'training' && ev.trainingStatus === 'completed') {
+              // Check date
+              if (ev.date && isWithinInterval(parseISO(ev.date), { start, end })) {
+                // Sum duration
+                let dur = 0;
+                if (typeof ev.durationMinutes === 'number') {
+                  dur = ev.durationMinutes;
+                } else if (typeof ev.duration === 'string') {
+                  if (ev.duration.includes(':')) {
+                    const parts = ev.duration.split(':').map(Number);
+                    if (parts.length === 2) dur = (parts[0] * 60) + parts[1];
+                    else if (parts.length === 3) dur = (parts[0] * 60) + parts[1]; // Ignore seconds for now
+                  } else {
+                    dur = parseInt(ev.duration) || 0;
+                  }
+                }
+                // Normalize
+                if (Number.isNaN(dur)) dur = 0;
+                totalMin += dur;
+
+                // Calorie Calc (Simple MET estimation)
+                const weight = ProfileService.getUserProfile().weight || 75; // Default 75kg
+                let met = 5; // Gym/Custom default
+                const sport = (ev.sport || ev.trainingType || "").toLowerCase();
+                if (sport.includes("laufen") || sport.includes("run")) met = 9;
+                else if (sport.includes("rad") || sport.includes("bike") || sport.includes("cycling")) met = 7;
+
+                // kcal = MET * kg * hours
+                const kcal = met * weight * (dur / 60);
+                totalCalories += kcal;
+              }
+            }
+          });
+          setWeeklyMinutes(totalMin);
+          setWeeklyCalories(Math.round(totalCalories));
+        } catch (e) {
+          console.error("Error calculating weekly stats", e);
+        }
+      }, 0);
+    };
+
+    loadWeeklyStats();
+    window.addEventListener("trainq:update_events", loadWeeklyStats);
+    return () => window.removeEventListener("trainq:update_events", loadWeeklyStats);
+  }, []);
 
   const handleShiftConfirm = async (days: number) => {
     try {
@@ -118,10 +192,16 @@ const DashboardPage = () => {
         // Start Live Workout
         persistActiveLiveWorkout(liveWorkout);
         useLiveTrainingStore.getState().startWorkout(liveWorkout);
+        // Dispatch update event for Calendar
+        window.dispatchEvent(new CustomEvent("trainq:update_events"));
+
         // Navigate
         window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId } }));
       } else {
         // Import only
+        // Dispatch update event for Calendar
+        window.dispatchEvent(new CustomEvent("trainq:update_events"));
+
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
       }
@@ -287,41 +367,82 @@ const DashboardPage = () => {
 
         case 5: // SELECTION
           return (
-            <div className="space-y-4 pt-0 h-full flex flex-col">
-              <h3 className="text-xl font-bold text-white text-center mb-4">Dein Plan steht.</h3>
-              <div className="grid grid-cols-1 gap-3 flex-1 overflow-y-auto">
-                {options.map((opt) => (
-                  <div
-                    key={opt.id}
-                    className="bg-zinc-800 rounded-2xl p-5 border border-zinc-700/50 relative overflow-hidden flex flex-col"
-                  >
-                    <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br opacity-10 blur-xl rounded-full translate-x-12 -translate-y-6 ${opt.id.includes("quick") ? "from-yellow-500 to-orange-500" : opt.id.includes("power") ? "from-purple-500 to-violet-500" : "from-blue-500 to-cyan-500"}`} />
+            <div
+              className="flex-1 overflow-y-auto pt-2 pb-[160px] px-1 space-y-6"
+              style={{ scrollbarWidth: 'none' }} // Hide scrollbar for cleaner look
+            >
+              <h3 className="text-2xl font-black text-white text-center mb-6">Dein Plan steht.</h3>
 
-                    <div className="relative z-10">
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase border px-2 py-0.5 rounded ${opt.id.includes("quick") ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" : opt.id.includes("power") ? "bg-purple-500/10 text-purple-500 border-purple-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"}`}>{opt.id.split("_")[1]}</span>
-                        <span className="text-xs font-bold text-zinc-400">{opt.durationMinutes} min</span>
+              <div className="space-y-6">
+                {options.map((opt) => {
+                  const isQuick = opt.id.includes("quick");
+                  const isPower = opt.id.includes("power");
+                  const themeColor = isQuick ? "text-yellow-500" : isPower ? "text-purple-500" : "text-blue-500";
+                  const btnBg = isQuick ? "bg-yellow-500" : isPower ? "bg-purple-600" : "bg-blue-600";
+                  const gradient = isQuick ? "from-yellow-500/20 to-orange-500/20" : isPower ? "from-purple-500/20 to-violet-500/20" : "from-blue-500/20 to-cyan-500/20";
+                  const border = isQuick ? "border-yellow-500/30" : isPower ? "border-purple-500/30" : "border-blue-500/30";
+
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`relative overflow-hidden rounded-[32px] bg-[#000000] border ${border} p-6 shadow-2xl flex flex-col gap-4 shrink-0`}
+                    >
+                      {/* Background Glow */}
+                      <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${gradient} blur-[80px] rounded-full opacity-40 pointer-events-none -translate-y-12 translate-x-12`} />
+
+                      {/* Header */}
+                      <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest border ${themeColor} ${themeColor.replace("text", "border").replace("500", "500/30")} bg-white/5`}>
+                            {opt.id.split("_")[1]}
+                          </span>
+                          <span className="text-sm font-bold text-white/60">{opt.durationMinutes} min</span>
+                        </div>
+                        <h4 className="text-3xl font-black text-white leading-tight mb-2">{opt.title}</h4>
+                        <p className="text-sm text-zinc-400 font-medium leading-relaxed max-w-[90%]">{opt.description}</p>
                       </div>
-                      <h4 className="text-lg font-black text-white">{opt.title}</h4>
-                      <p className="text-sm text-zinc-400 mb-4">{opt.description}</p>
 
-                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                      {/* Exercise Preview List */}
+                      <div className="relative z-10 bg-white/5 rounded-2xl p-4 border border-white/5 backdrop-blur-md">
+                        <h5 className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">Vorschau</h5>
+                        <ul className="space-y-2">
+                          {opt.exercises.slice(0, 3).map((ex, idx) => (
+                            <li key={idx} className="flex items-center justify-between text-sm">
+                              <span className="font-bold text-zinc-200 truncate pr-4">{ex.name}</span>
+                              <span className="text-xs font-mono text-zinc-500 bg-black/40 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                {ex.sets.length} Sets
+                              </span>
+                            </li>
+                          ))}
+                          {opt.exercises.length > 3 && (
+                            <li className="text-xs text-center text-zinc-500 font-medium pt-1 italic">
+                              + {opt.exercises.length - 3} weitere Übungen
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="relative z-10 grid grid-cols-1 gap-3 mt-2">
+                        {/* Import Button */}
                         <button
                           onClick={() => handleAction(opt, "import")}
-                          className="py-2 rounded-lg bg-zinc-700 text-xs font-bold text-white hover:bg-zinc-600 transition-colors"
+                          className="w-full h-[60px] rounded-2xl bg-[#1c1c1e] border border-white/10 text-white text-[15px] font-bold hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center uppercase tracking-wide"
                         >
                           Importieren
                         </button>
+
+                        {/* Start Button */}
                         <button
                           onClick={() => handleAction(opt, "start")}
-                          className={`py-2 rounded-lg text-xs font-bold text-white transition-colors ${opt.id.includes("quick") ? "bg-yellow-600 hover:bg-yellow-500" : opt.id.includes("power") ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+                          className={`w-full h-[60px] rounded-2xl ${btnBg} text-black text-[15px] font-black hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center uppercase tracking-wide shadow-lg shadow-${isQuick ? 'yellow' : isPower ? 'purple' : 'blue'}-500/20`}
                         >
-                          Starten
+                          Speichern & Starten
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -358,7 +479,7 @@ const DashboardPage = () => {
 
 
   return (
-    <div className="min-h-screen bg-[#121214] text-white pb-32">
+    <div className="min-h-screen bg-[#000000] text-white pb-32">
       <AdaptivModal />
       <ShiftPlanModal
         isOpen={showShiftModal}
@@ -374,15 +495,18 @@ const DashboardPage = () => {
       )}
 
       {/* HEADER: Native iOS Sticky Header */}
-      <div className="sticky top-0 z-50 bg-[#121214]/95 backdrop-blur-xl border-b border-white/5 pt-[env(safe-area-inset-top)]">
+      <div className="sticky top-0 z-50 bg-[#000000]/95 backdrop-blur-xl border-b border-white/5 pt-[env(safe-area-inset-top)]">
         <div className="px-6 pb-4 mt-[10px]">
           <h1 className="text-3xl font-bold tracking-tight text-white mb-0">Dashboard</h1>
         </div>
       </div>
 
       {/* CONTENT */}
-      {/* Increased top padding slightly to give breath below header */}
-      <div className="p-4 pt-4 space-y-4 max-w-md mx-auto">
+      {/* Dynamic padding bottom to account for MiniPlayer if active */}
+      <div
+        className="p-4 pt-4 space-y-4 max-w-md mx-auto transition-all duration-300"
+        style={{ paddingBottom: isWorkoutActive ? "160px" : "120px" }}
+      >
 
         {/* HERO: ADAPTIV CARD */}
         <button
@@ -429,23 +553,43 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* PROGRESS CARD (Visual Filler) */}
+        {/* PROGRESS CARD */}
         <div>
           <h3 className="text-sm font-bold text-zinc-400 mb-2 pl-1 uppercase tracking-wider text-[11px]">Status</h3>
           <div className="bg-zinc-800 rounded-[24px] p-6 flex items-center gap-6 border border-zinc-700/30 relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full pointer-events-none" />
+            <div className={`absolute right-0 top-0 w-32 h-32 blur-3xl rounded-full pointer-events-none ${weeklyMinutes >= weeklyGoal ? 'bg-green-500/10' : 'bg-blue-500/5'}`} />
+
+            {/* Dynamic Progress Circle */}
             <div className="relative w-16 h-16 shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                 <path className="text-zinc-700/50" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                <path className="text-blue-500" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="75, 100" strokeLinecap="round" />
+                <path
+                  className={weeklyMinutes >= weeklyGoal ? "text-green-500" : "text-blue-500"}
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeDasharray={`${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}, 100`}
+                  strokeLinecap="round"
+                />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
-                75%
+              <div className="absolute inset-0 flex items-center justify-center font-bold text-white text-xs">
+                {Math.round((weeklyMinutes / weeklyGoal) * 100)}%
               </div>
             </div>
+
             <div>
-              <div className="text-lg font-bold text-white leading-tight mb-1">Weekly Goal</div>
-              <p className="text-xs text-zinc-400">Du bist gut unterwegs. Dranbleiben!</p>
+              <div className="text-lg font-bold text-white leading-tight mb-1">
+                {weeklyMinutes} / {weeklyGoal} min
+              </div>
+              <p className="text-xs text-zinc-400">
+                {weeklyMinutes === 0 ? "Woche beginnt erst!" :
+                  weeklyMinutes >= weeklyGoal ? "Ziel erreicht! Starke Woche." :
+                    "Du bist auf Kurs. Dranbleiben!"}
+              </p>
+              <div className="mt-2 text-sm font-medium text-zinc-300 flex items-center gap-2">
+                <span className="text-orange-500">🔥</span> {weeklyCalories} kcal
+              </div>
             </div>
           </div>
         </div>

@@ -76,12 +76,12 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
   const src = useExerciseImage(exercise);
 
   if (src) {
-    return <img src={src} alt="" className="h-12 w-12 rounded-3xl object-cover" loading="lazy" decoding="async" />;
+    return <img src={src} alt="" className="h-20 w-20 rounded-2xl object-cover shrink-0 bg-zinc-800" loading="lazy" decoding="async" />;
   }
 
   return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-3xl border border-white/10 bg-white/5" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-500"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/5 bg-white/5" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-zinc-600"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </div>
   );
 }
@@ -89,13 +89,13 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
 const ExerciseSkeleton = () => (
   <div className="space-y-3 p-4">
     {[1, 2, 3, 4, 5, 6].map((i) => (
-      <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 p-3">
-        <div className="h-12 w-12 shrink-0 animate-pulse rounded-3xl bg-white/10" />
+      <div key={i} className="flex items-center gap-4 rounded-3xl border border-white/5 bg-white/5 p-4">
+        <div className="h-20 w-20 shrink-0 animate-pulse rounded-2xl bg-white/10" />
         <div className="flex-1 space-y-2">
-          <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
-          <div className="h-3 w-1/4 animate-pulse rounded bg-white/10" />
+          <div className="h-5 w-2/3 animate-pulse rounded bg-white/10" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
         </div>
-        <div className="h-8 w-20 animate-pulse rounded-full bg-white/10" />
+        <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/10" />
       </div>
     ))}
   </div>
@@ -120,16 +120,42 @@ const ExerciseRow = React.memo(({
   onOpenDetails: (ex: Exercise) => void;
   onAdd: (ex: Exercise) => void;
 }) => (
-  <div className={`flex items-center justify-between gap-3 rounded-2xl p-3 transition-colors ${isAdded ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`} role="button" tabIndex={0} onClick={() => onOpenDetails(ex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenDetails(ex); }}>
-    <div className="flex min-w-0 items-center gap-4">
+  <div
+    className={`flex items-start justify-between gap-4 rounded-3xl p-4 transition-all border group relative overflow-hidden ${isAdded
+      ? "bg-emerald-500/10 border-emerald-500/20"
+      : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10 active:scale-[0.98]"
+      }`}
+    role="button"
+    tabIndex={0}
+    onClick={() => onOpenDetails(ex)}
+    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenDetails(ex); }}
+  >
+    <div className="flex flex-1 items-start gap-[15px]">
       <ExerciseThumbnail exercise={ex} />
-      <div className="min-w-0">
-        <div className="truncate text-base font-semibold text-white">{getExerciseDisplayName(ex, lang)}</div>
-        <div className="truncate text-sm text-gray-400">{(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}{ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}</div>
+      <div className="flex-1 min-w-0 py-1">
+        <div className="text-[17px] font-bold text-white leading-tight break-words pr-2">
+          {getExerciseDisplayName(ex, lang)}
+        </div>
+        <div className="mt-1.5 text-sm font-medium text-zinc-400 break-words leading-snug">
+          {(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}
+          {ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}
+        </div>
       </div>
     </div>
-    <button type="button" disabled={isAdded} onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed ${isAdded ? "bg-green-500/20 text-green-300" : "bg-[#007AFF] text-white hover:opacity-90"}`}>
-      {isAdded ? (<span className="inline-flex items-center gap-1.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>{t("training.exerciseLibrary.added")}</span>) : (t("training.exerciseLibrary.add"))}
+    <button
+      type="button"
+      disabled={isAdded}
+      onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }}
+      className={`shrink-0 self-center rounded-2xl w-12 h-12 flex items-center justify-center transition-all ${isAdded
+        ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+        : "bg-white/10 text-white hover:bg-[#007AFF] hover:text-white"
+        }`}
+    >
+      {isAdded ? (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+      )}
     </button>
   </div>
 ), (prev, next) => prev.ex.id === next.ex.id && prev.isAdded === next.isAdded && prev.lang === next.lang);
@@ -138,27 +164,36 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   const { t, lang } = useI18n();
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
+  const [searchTerm, setSearchTerm] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const existingSet = useMemo(() => new Set(existingExerciseIds ?? []), [existingExerciseIds]);
   const [localAddedIds, setLocalAddedIds] = useState<Set<string>>(() => new Set(existingExerciseIds ?? []));
 
-  // DEFERRED RENDERING STATE
-  const [isListReady, setIsListReady] = useState(false);
+  // VIRTUALIZATION STATE
+  const [visibleCount, setVisibleCount] = useState(20);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  // Debounce Search
   useEffect(() => {
-    if (open) {
-      // If we are opening, ensure we start with "not ready" -> render skeleton -> then render list
-      // This prevents main thread blocking on the open animation frame
-      setIsListReady(false);
-      const timer = requestAnimationFrame(() => {
-        setIsListReady(true);
-      });
-      return () => cancelAnimationFrame(timer);
-    } else {
-      // Immediately reset when closed, so next open starts clean
-      setIsListReady(false);
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchTerm }));
+    }, 100); // 100ms debounce
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset virtualization when filters change
+  useEffect(() => {
+    setVisibleCount(20);
+    listContainerRef.current?.scrollTo(0, 0);
+  }, [filters, category]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      setVisibleCount(prev => Math.min(prev + 20, filteredExercises.length));
     }
-  }, [open]);
+  };
 
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -182,6 +217,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   useEffect(() => {
     if (!open) return;
     setFilters({ ...defaultExerciseFilters, search: "" });
+    setSearchTerm("");
   }, [open, category]);
 
   useEffect(() => {
@@ -279,8 +315,8 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   };
 
   const renderCardioView = () => (
-    <div className="grid grid-cols-1 gap-4 p-4">
-      {filteredExercises.map((ex) => {
+    <div className="grid grid-cols-1 gap-4 p-4 overflow-y-auto pb-[160px]" onScroll={handleScroll} ref={listContainerRef}>
+      {filteredExercises.slice(0, visibleCount).map((ex) => {
         const isAdded = existingSet.has(ex.id) || localAddedIds.has(ex.id);
         return (
           <div
@@ -312,7 +348,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
         <div className="flex items-center justify-between gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
-            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
+            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-3xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
           </div>
           <button type="button" onClick={openCreate} className="shrink-0 rounded-3xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>
         </div>
@@ -333,10 +369,9 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto pt-2">
-        {!isListReady ? (
-          <ExerciseSkeleton />
-        ) : filteredExercises.length === 0 ? (
+
+      <div className="flex-1 overflow-y-auto pt-2 pb-[160px]" onScroll={handleScroll} ref={listContainerRef}>
+        {filteredExercises.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-gray-400">
             {t("training.exerciseLibrary.empty")}
             <div className="mt-4">
@@ -351,7 +386,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredExercises.map((ex) => (
+            {filteredExercises.slice(0, visibleCount).map((ex) => (
               <ExerciseRow
                 key={ex.id}
                 ex={ex}
@@ -369,6 +404,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
       </div>
     </>
   );
+
 
   const MotionDiv = motion.div as any;
 

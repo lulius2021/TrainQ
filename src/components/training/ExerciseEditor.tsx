@@ -201,7 +201,7 @@ const SwipeableSetRow = ({
     // Main set: bg-[#1c1c1e] (same as standard)
     // Drops: no bg or subtle to blend
     return (
-      <div className={`grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center ${!isDrop ? 'bg-[#1c1c1e] rounded-3xl p-0' : 'relative pl-0'}`}>
+      <div className={`grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center ${!isDrop ? 'bg-[#1c1c1e] rounded-3xl p-0' : 'relative pl-0'}`}>
 
         {/* 1. Label */}
         <div className="flex items-center justify-center cursor-pointer h-10 w-8 shrink-0">
@@ -418,7 +418,7 @@ const SwipeableSetRow = ({
         style={{ touchAction: "pan-y" }}
         className={`relative z-10 bg-[#1c1c1e] rounded-3xl overflow-hidden shadow-sm flex flex-col ${isDropset ? 'border border-purple-500/20' : ''}`} // Add border for dropsets
       >
-        <div className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center bg-[#1c1c1e] p-0">
+        <div className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center bg-[#1c1c1e] p-0">
           {/* Main Row Content */}
 
           {/* 1. Set Index (Type Selector) */}
@@ -535,7 +535,7 @@ const SwipeableSetRow = ({
 
             {/* Drop Rows */}
             {(set.drops || []).map((drop: any, i: number) => (
-              <div key={drop.id} className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center">
+              <div key={drop.id} className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center">
                 {/* 1. Spacer/Icon */}
                 <div className="flex justify-center">
                   <div className="w-1 h-full bg-purple-500/20 rounded-full"></div>
@@ -643,10 +643,10 @@ export default function ExerciseEditor({
           }}
           className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer hover:opacity-75 transition-opacity"
         >
-          <h3 className="text-xl font-bold text-white truncate w-full">
+          <h3 className="text-xl font-bold text-white w-full break-words pr-2">
             {exercise.name || "Neue Übung"}
           </h3>
-          <Info size={20} className="text-[#007AFF] shrink-0" />
+          <Info size={20} className="text-[#007AFF] shrink-0 self-start mt-1" />
         </div>
 
         {/* Action Buttons */}
@@ -663,7 +663,7 @@ export default function ExerciseEditor({
                 ? exercise.restSeconds < 60
                   ? `${exercise.restSeconds}s`
                   : `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}`
-                : "2:00"}
+                : "-"}
             </span>
           </button>
 
@@ -682,13 +682,13 @@ export default function ExerciseEditor({
       </div>
 
       {/* Grid Header */}
-      <div className="grid grid-cols-[24px_1fr_80px_80px_56px] gap-3 items-center px-1">
-        <span className="text-xs font-semibold text-center text-white/30 uppercase tracking-wider">#</span>
-        <span className="text-xs font-semibold text-left text-white/30 uppercase tracking-wider pl-1">Vorher</span>
-        <span className="text-xs font-semibold text-center text-white/30 uppercase tracking-wider">{weightUnit}</span>
-        <span className="text-xs font-semibold text-center text-white/30 uppercase tracking-wider">{repsUnit}</span>
+      <div className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center px-0 mb-1">
+        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">#</span></div>
+        <div className="flex justify-start pl-1"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Vorher</span></div>
+        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{weightUnit}</span></div>
+        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{repsUnit}</span></div>
         <div className="flex justify-center items-center w-full">
-          <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#007AFF]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 text-zinc-600" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>

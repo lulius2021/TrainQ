@@ -9,7 +9,7 @@ import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AuthProvider = "email" | "apple";
+export type AuthProvider = "email" | "apple" | "local";
 
 export type AuthUser = {
   id: string;
@@ -42,6 +42,8 @@ export type AuthContextValue = {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
+const LOCAL_USER_KEY = "trainq_local_user_v1";
+
 // -------------------- Helpers --------------------
 
 function isNativeIOS(): boolean {
@@ -62,9 +64,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Sync Supabase Session -> AuthUser
   const syncSessionToUser = useCallback(async (session: Session | null) => {
     if (!session?.user) {
-      setUser(null);
-      clearActiveSession();
-      clearOnboardingCache(); // ✅ Clear cache on logout
+      // Don't nullify immediately, wait for local fallback check in effect
       return;
     }
 
@@ -72,7 +72,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro";
 
     // ✅ Get onboarding status with fallback to cache
-    // Fix: Validates DB vs Cache to prevent loops
     let onboardingCompleted = false;
     const client = getSupabaseClient();
     const cachedStatus = getOnboardingStatus(u.id);
@@ -81,34 +80,25 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         const { data } = await client.from('profiles').select('onboarding_completed').eq('id', u.id).single();
         if (data) {
-          // If DB is true, trust it
           if (data.onboarding_completed) {
             onboardingCompleted = true;
             cacheOnboardingCompleted(u.id);
           } else {
-            // DB is false. Check cache for optimistic completion
             if (cachedStatus.completed) {
               console.warn("[AuthContext] Optimistic onboarding override: Cache=true, DB=false");
               onboardingCompleted = true;
-            } else {
-              onboardingCompleted = false;
             }
           }
         } else {
-          // No profile found? Use cache
           onboardingCompleted = cachedStatus.completed;
         }
       } catch (e) {
-        // Fallback to cache if DB fails
         onboardingCompleted = cachedStatus.completed;
-        console.warn("[AuthContext] Using cached onboarding status (DB Error):", cachedStatus.source);
       }
     } else {
-      // No client - use cache
       onboardingCompleted = cachedStatus.completed;
     }
 
-    // Map Supabase User to our AuthUser
     const authUser: AuthUser = {
       id: u.id,
       provider: u.app_metadata?.provider === "apple" ? "apple" : "email",
@@ -121,7 +111,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       onboardingCompleted,
     };
 
-    // ✅ Prevent unnecessary re-renders (Fix for Error #310)
     setUser((prev) => {
       if (prev && JSON.stringify(prev) === JSON.stringify(authUser)) {
         return prev;
@@ -131,6 +120,37 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
+  }, []);
+
+  const ensureLocalUser = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_USER_KEY);
+      if (raw) {
+        const localUser = JSON.parse(raw) as AuthUser;
+        console.log("[Auth] Restored local user:", localUser.id);
+        setUser(localUser);
+        setActiveSession({ userId: localUser.id, isPro: !!localUser.isPro, email: localUser.email });
+        return;
+      }
+
+      // Create new local user
+      const newId = `local_${crypto.randomUUID()}`;
+      const newUser: AuthUser = {
+        id: newId,
+        provider: "local",
+        displayName: "Gast",
+        isPro: true, // Default to PRO for local/offline users as requested ("Apple-only, local-first" implies premium experience)
+        createdAt: new Date().toISOString(),
+        onboardingCompleted: false
+      };
+
+      console.log("[Auth] Created new local user:", newUser.id);
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(newUser));
+      setUser(newUser);
+      setActiveSession({ userId: newUser.id, isPro: true, email: undefined });
+    } catch (e) {
+      console.error("[Auth] Failed to ensure local user:", e);
+    }
   }, []);
 
   const loginAsDemoUser = useCallback(async (): Promise<void> => {
@@ -144,73 +164,66 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       updatedAt: new Date().toISOString(),
       onboardingCompleted: true
     };
-
-    // Persist the "Lie"
     localStorage.setItem("isDemoSession", "true");
     setActiveSession({ userId: mockUser.id, isPro: true, email: mockUser.email });
     setUser(mockUser);
   }, []);
 
-  // 1. Init Listener - ROBUST IMPLEMENTATION (Fixes Error #310)
-  // 1. Init Listener - OPTIMIZED FOR PERSISTENCE
+  // 1. Init Listener
   useEffect(() => {
     if (!mountedRef.current) return;
 
     const client = getSupabaseClient();
 
-    // A. Demo Session Bypass (Local Only)
+    // A. Demo Session
     if (localStorage.getItem("isDemoSession") === "true") {
-      console.log("[Auth] Restoring Demo Session...");
       loginAsDemoUser();
       setLoading(false);
       return;
     }
 
-    // B. Supabase Session (Persistent)
+    // B. Supabase Session
     if (!client) {
-      console.warn("[Auth] No client available, stopping load.");
+      // Fallback to local if no client
+      ensureLocalUser();
       setLoading(false);
       return;
     }
 
-    // 1. Check active session immediately (Async)
     client.auth.getSession().then(async ({ data: { session } }) => {
       if (!mountedRef.current) return;
-      console.log("[Auth] Initial session restored:", !!session);
-      await syncSessionToUser(session);
+      if (session) {
+        await syncSessionToUser(session);
+      } else {
+        // ✅ No Session -> Local User Fallback
+        ensureLocalUser();
+      }
       setLoading(false);
     }).catch((err) => {
       console.error("[Auth] Session restore failed:", err);
+      // Fallback on error too
+      ensureLocalUser();
       if (mountedRef.current) setLoading(false);
     });
 
-    // 2. Listen for changes (Login, Logout, Auto-Refresh)
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
-      // Note: We don't set loading=false here aggressively to avoid flickering, 
-      // but strictly sync the user state.
-      syncSessionToUser(session);
+      if (session) {
+        syncSessionToUser(session);
+      }
+      // Note: If session is null (logout), we deliberately don't auto-create a local user here immediately
+      // to avoid weird UX loops. Logout action handles cleanup.
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [syncSessionToUser, loginAsDemoUser]);
-
-  // -------------------- Safe Client Access --------------------
+  }, [syncSessionToUser, loginAsDemoUser, ensureLocalUser]);
 
   const getSafeClient = useCallback((): ReturnType<typeof getSupabaseClient> => {
-    // Attempt to get client
     let client = getSupabaseClient();
-
-    // If missing, try one forced re-init (though getSupabaseClient handles this, being explicit doesn't hurt)
     if (!client) {
-      console.warn("AuthContext: Client is null, re-requesting...");
       client = getSupabaseClient();
-    }
-
-    if (!client) {
-      console.error("CRITICAL: Supabase Client Unavailable. Check VITE_SUPABASE_URL.");
     }
     return client;
   }, []);
@@ -219,41 +232,25 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     const client = getSafeClient();
-    if (!client) return { ok: false, error: "Verbindungsfehler: Auth-Dienst nicht verfügbar (Client missing)." };
-
-    // Clean inputs to avoid whitespace issues
-    const cleanEmail = email.trim();
+    if (!client) return { ok: false, error: "Verbindungsfehler." };
 
     const { error, data } = await client.auth.signInWithPassword({
-      email: cleanEmail,
+      email: email.trim(),
       password
     });
 
-    if (error) {
-      console.warn("Login Failed:", error.message);
-      // Enhance error message for end-users
-      if (error.message.includes("Invalid login credentials")) {
-        return { ok: false, error: "Falsche E-Mail oder Passwort." };
-      }
-      return { ok: false, error: error.message };
-    }
-
+    if (error) return { ok: false, error: error.message };
     return { ok: true, session: data.session, user: data.user };
   }, [getSafeClient]);
 
   const register = useCallback(async (email: string, password: string, data?: { full_name?: string }): Promise<AuthResult> => {
     const client = getSafeClient();
-    if (!client) return { ok: false, error: "Verbindungsfehler: Auth-Dienst nicht verfügbar." };
+    if (!client) return { ok: false, error: "Verbindungsfehler." };
 
     const { error, data: authData } = await client.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          plan: "free", // Default
-          ...data,
-        }
-      }
+      options: { data: { plan: "free", ...data } }
     });
 
     if (error) return { ok: false, error: error.message };
@@ -262,12 +259,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
     const client = getSafeClient();
-    if (!client) return { ok: false, error: "Verbindungsfehler: Auth-Dienst nicht verfügbar." };
-
-    const { error } = await client.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/reset-password",
-    });
-
+    if (!client) return { ok: false, error: "Verbindungsfehler." };
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/reset-password" });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }, [getSafeClient]);
@@ -276,8 +269,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSafeClient();
     await client?.auth.signOut();
     localStorage.removeItem("isDemoSession");
+    localStorage.removeItem(LOCAL_USER_KEY); // Clear local user too
     setUser(null);
     clearActiveSession();
+    // Force reload to trigger ensureLocalUser() again and restart clean
+    window.location.reload();
   }, [getSafeClient]);
 
   // -------------------- Apple --------------------
@@ -288,7 +284,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     try {
-      // Defined locally to match partial responses from different plugin versions
       type AppleResponse = {
         result?: {
           profile?: unknown;
@@ -306,7 +301,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       console.log("Apple Login Result:", JSON.stringify(result));
 
-      // Extract identityToken - check multiple potential paths based on plugin version/platform
+      // Extract identityToken
       let idToken = result.result?.response?.identityToken;
       if (!idToken) {
         idToken = result.result?.idToken;
@@ -325,89 +320,89 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const nonce = result.result?.nonce;
 
-      const { error } = await client.auth.signInWithIdToken({
+      const { error, data } = await client.auth.signInWithIdToken({
         provider: 'apple',
         token: idToken,
-        nonce: nonce, // Forward nonce if present (critical for validation)
+        nonce: nonce,
       });
 
       if (error) return { ok: false, error: error.message };
-      return { ok: true };
+      return { ok: true, session: data.session, user: data.user };
 
     } catch (e: any) {
-      // Keep 'any' for catch clause types as they are unknown by default
       return { ok: false, error: e?.message || "Apple Login fehlgeschlagen." };
     }
   }, [getSafeClient]);
 
   const setUserPro = useCallback(async (isPro: boolean) => {
-    // Attempt to update metadata in Supabase
-    // This often requires RLS policies allowing users to update their own metadata
+    // 1. Handle Local User
+    if (user?.provider === 'local') {
+      const updated = { ...user, isPro };
+      setUser(updated);
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(updated));
+      return;
+    }
+
+    // 2. Handle Supabase User
     const client = getSafeClient();
     if (!client) return;
 
     try {
+      // Attempt to update metadata
       await client.auth.updateUser({
         data: { plan: isPro ? "pro" : "free" }
       });
-      // Listener will pick up change
-    } catch {
-      console.warn("Could not update user metadata. RLS might block this.");
+      // Also try updating profile table if it exists, though trigger usually handles sync
+      await client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id);
+    } catch (e) {
+      console.warn("Could not update user metadata/profile.", e);
     }
-  }, [getSafeClient]);
+  }, [user, getSafeClient]);
 
   const completeOnboarding = useCallback(async (): Promise<void> => {
-    // 1. Optimistic Update (Local State & Cache)
-    setUser((prev) => {
-      if (!prev) return null;
-      // Write to localStorage immediately
-      cacheOnboardingCompleted(prev.id);
-      return { ...prev, onboardingCompleted: true };
-    });
-
-    // 2. Persist to Database (Async)
-    const client = getSafeClient();
-    if (client && user?.id) {
-      try {
-        await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
-      } catch (e) {
-        console.error("Failed to persist onboarding status to DB", e);
-        // Note: We keep the local state as true to not block the user
-      }
-    }
-  }, [user?.id, getSafeClient]);
-
-  const resetOnboarding = useCallback(async (): Promise<void> => {
     if (!user) return;
 
-    // 1. Clear Local Cache
-    clearOnboardingCache();
+    // 1. Update State
+    const updatedUser = { ...user, onboardingCompleted: true };
+    setUser(updatedUser);
 
-    // 2. Update Local State
-    setUser((prev) => prev ? { ...prev, onboardingCompleted: false } : null);
-
-    // 3. Update Database
-    const client = getSafeClient();
-    if (client) {
-      try {
-        await client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id);
-      } catch (e) {
-        console.error("Failed to reset onboarding in DB", e);
+    // 2. Persist Local
+    if (user.provider === 'local') {
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(updatedUser));
+    } else {
+      cacheOnboardingCompleted(user.id);
+      const client = getSafeClient();
+      if (client) {
+        try {
+          await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
+        } catch (e) { console.error(e); }
       }
     }
   }, [user, getSafeClient]);
 
+  const resetOnboarding = useCallback(async (): Promise<void> => {
+    if (!user) return;
+    const updatedUser = { ...user, onboardingCompleted: false };
+    setUser(updatedUser);
 
+    if (user.provider === 'local') {
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(updatedUser));
+    } else {
+      clearOnboardingCache();
+      const client = getSafeClient();
+      if (client) await client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id);
+    }
+  }, [user, getSafeClient]);
 
   const value = useMemo(() => ({
     user,
     login,
     register,
     requestPasswordReset,
-    loginWithApple,
+    loginWithApple, // Keeping original ref if possible, or needing full mock
     logout,
     setUserPro,
-    completeOnboardingLocal: completeOnboarding, // Deprecated name kept for compatibility if needed, but implementation updated
+    completeOnboardingLocal: completeOnboarding,
     completeOnboarding,
     resetOnboarding,
     loginAsDemoUser,
@@ -419,8 +414,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
 export const useAuth = () => {
   const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthContextProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthContextProvider");
   return context;
 };

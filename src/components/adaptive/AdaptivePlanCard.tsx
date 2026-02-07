@@ -208,9 +208,9 @@ export default function AdaptivePlanCard({
                 <button
                     onClick={onSelect}
                     disabled={disabled || isBlocked}
-                    className={`w-full py-3.5 rounded-3xl text-base font-bold text-white transition-all ${disabled || isBlocked
+                    className={`w-full h-[60px] flex items-center justify-center rounded-3xl text-lg font-black text-white uppercase tracking-wide transition-all ${disabled || isBlocked
                         ? "opacity-40 cursor-not-allowed"
-                        : "hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                        : "hover:scale-[1.02] active:scale-[0.98] shadow-xl"
                         }`}
                     style={{
                         background: isBlocked

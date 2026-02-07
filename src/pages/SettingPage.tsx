@@ -17,12 +17,23 @@ import {
     ChevronLeft,
     Check,
     Volume2,
-    Vibrate
+    Vibrate,
+    Trash2,
+    CalendarX,
+    Moon,
+    Sun,
+    Info,
+    Mail,
+    FileText,
+    Building2
 } from "lucide-react";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from "../context/OnboardingContext";
-import { addWorkoutEntry } from "../utils/workoutHistory";
+
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { DataService } from "../services/DataService";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { ProfileService } from "../services/ProfileService"; // Import ProfileService
 
 // --- TYPES ---
 type SettingsRowProps = {
@@ -224,31 +235,7 @@ type Props = {
 };
 
 // Demo Generator (kept but minimized)
-const generateDemoHistory = () => {
-    // ... (Use existing logic or placeholder to save space if needed, copying logic for robustness)
-    const exercisesList = [
-        { name: "Bankdrücken", muscle: "Brust" }, { name: "Kniebeugen", muscle: "Beine" },
-        { name: "Kreuzheben", muscle: "Rücken" }, { name: "Schulterdrücken", muscle: "Schulter" }
-    ];
-    const now = new Date();
-    const entries: any[] = [];
-    for (let w = 0; w < 12; w++) { // 12 Weeks
-        const sessions = 2 + Math.floor(Math.random() * 2);
-        for (let s = 0; s < sessions; s++) {
-            const dayOffset = (w * 7) + (s * 2);
-            if (dayOffset === 0) continue;
-            const date = new Date(now);
-            date.setDate(date.getDate() - dayOffset);
-            const duration = 2700 + Math.floor(Math.random() * 1000);
-            entries.push({
-                title: "Workout", sport: "Gym", startedAt: date.toISOString(),
-                endedAt: new Date(date.getTime() + duration * 1000).toISOString(),
-                durationSec: duration, exercises: [{ name: "Bankdrücken", sets: [{ reps: 10, weight: 60 }] }]
-            });
-        }
-    }
-    return entries;
-};
+
 
 const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall, onOpenGoals }) => {
     const { t, lang } = useI18n();
@@ -262,6 +249,9 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     const [profileName, setProfileName] = useState("");
     const [profileWeight, setProfileWeight] = useState("");
     const [profileHeight, setProfileHeight] = useState("");
+    const [profileImageSrc, setProfileImageSrc] = useState<string | undefined>(undefined);
+    const [profileImageUrlRaw, setProfileImageUrlRaw] = useState<string | undefined>(undefined); // The db: reference
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // -- Preferences State --
     const [hapticEnabled, setHapticEnabled] = useState(true);
@@ -272,10 +262,19 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     // Initial Load
     useEffect(() => {
         // Load Profile
-        const data = readOnboardingDataFromStorage();
-        setProfileName(data.profile.username || "");
-        setProfileWeight(data.personal.weight ? String(data.personal.weight) : "");
-        setProfileHeight(data.personal.height ? String(data.personal.height) : "");
+        // Load Profile via Service
+        const data = ProfileService.getUserProfile();
+        setProfileName(data.username || "");
+        setProfileWeight(data.weight ? String(data.weight) : "");
+        setProfileHeight(data.height ? String(data.height) : "");
+        setProfileImageUrlRaw(data.profileImageUrl);
+
+        // Resolve Image
+        if (data.profileImageUrl) {
+            ProfileService.resolveProfileImage(data.profileImageUrl).then(src => {
+                if (src) setProfileImageSrc(src);
+            });
+        }
 
         // Load Preferences
         const storedHaptic = localStorage.getItem("trainq_pref_haptic");
@@ -295,18 +294,30 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     useEffect(() => { localStorage.setItem("trainq_pref_sound", String(soundEnabled)); }, [soundEnabled]);
 
     const handleSaveProfile = () => {
-        const current = readOnboardingDataFromStorage();
-        const updated = {
-            ...current,
-            profile: { ...current.profile, username: profileName },
-            personal: {
-                ...current.personal,
-                weight: parseFloat(profileWeight) || null,
-                height: parseFloat(profileHeight) || null
-            }
-        };
-        writeOnboardingDataToStorage(updated);
+        ProfileService.updateUserProfile({
+            username: profileName,
+            weight: parseFloat(profileWeight) || null, // Allow 0 or null
+            height: parseFloat(profileHeight) || null,
+            profileImageUrl: profileImageUrlRaw
+        });
         setActiveModal(null);
+    };
+
+    const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const dbRef = await ProfileService.uploadProfileImage(file);
+            const blobUrl = URL.createObjectURL(file);
+            setProfileImageSrc(blobUrl);
+            setProfileImageUrlRaw(dbRef);
+            // Optional: Auto-save immediately to ensure image works if app crashes
+            ProfileService.updateUserProfile({ profileImageUrl: dbRef });
+        } catch (err) {
+            console.error("Image upload failed", err);
+            alert("Bild konnte nicht gespeichert werden.");
+        }
     };
 
     const handleLogout = async () => {
@@ -315,18 +326,50 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
         }
     };
 
-    const handleSeedData = () => {
-        if (!confirm("Generiere Demo-Daten?")) return;
-        const history = generateDemoHistory();
-        history.forEach(entry => addWorkoutEntry(entry));
-        alert("Daten generiert.");
+    const handleClearCalendarAction = async () => {
+        if (!confirm("Alle geplanten Trainings aus dem Kalender löschen?")) return;
+
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+        DataService.clearCalendar();
+        // Since onClearCalendar prop might just be a notify, we also call the service directly or rely on prop if it does specific UI updates
+        // The service dispatches event, so UI should update.
+        if (onClearCalendar) onClearCalendar();
+        alert("Kalender geleert.");
     };
 
+    const handleClearHistoryAction = async () => {
+        if (!confirm("Kompletten Trainingsverlauf unwiderruflich löschen?")) return;
+
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+        DataService.clearWorkoutHistory();
+        alert("Verlauf gelöscht.");
+    };
+
+    // Theme Toggle Logic
+    const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+        if (typeof localStorage !== 'undefined') {
+            return (localStorage.getItem('trainq_theme') as 'dark' | 'light') || 'dark';
+        }
+        return 'dark';
+    });
+
+    useEffect(() => {
+        const root = document.documentElement;
+        if (themeMode === 'dark') {
+            root.classList.add('dark');
+            root.style.colorScheme = 'dark';
+        } else {
+            root.classList.remove('dark');
+            root.style.colorScheme = 'light';
+        }
+        localStorage.setItem('trainq_theme', themeMode);
+    }, [themeMode]);
+
     return (
-        <div className="min-h-screen bg-transparent pb-40">
+        <div className="flex flex-col h-full bg-black text-white overflow-hidden">
 
             {/* HEADER */}
-            <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-6">
+            <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-6 bg-black shrink-0 z-10">
                 <div className="flex items-center mb-2">
                     <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-white/10 transition-colors text-white">
                         <ChevronLeft size={32} />
@@ -342,7 +385,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 </div>
             </div>
 
-            <div className="px-4 max-w-2xl mx-auto">
+            <div className="flex-1 overflow-y-auto px-4 pb-40 max-w-2xl mx-auto w-full">
                 {/* SECTION 1: ACCOUNT */}
                 <Section title={t("settings.section.account")}>
                     <SettingsRow
@@ -361,32 +404,71 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     />
                 </Section>
 
-                {/* SECTION 2: PREFERENCES */}
-                <Section title={t("settings.title")}>
+                {/* SECTION 2: APPEARANCE */}
+                <Section title="Erscheinungsbild">
+                    <div className="flex items-center justify-between p-4 bg-[#1c1c1e] border-b border-white/5 last:border-0 h-16">
+                        <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-2xl flex items-center justify-center bg-indigo-500 shadow-lg">
+                                {themeMode === 'dark' ? <Moon size={18} className="text-white" /> : <Sun size={18} className="text-white" />}
+                            </div>
+                            <span className="font-medium text-[17px] text-white">Design</span>
+                        </div>
+                        <div className="flex bg-[#2c2c2e] p-1 rounded-lg">
+                            <button
+                                onClick={() => setThemeMode('light')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${themeMode === 'light' ? 'bg-white text-black shadow-sm' : 'text-zinc-400'}`}
+                            >
+                                Hell
+                            </button>
+                            <button
+                                onClick={() => setThemeMode('dark')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${themeMode === 'dark' ? 'bg-zinc-600 text-white shadow-sm' : 'text-zinc-400'}`}
+                            >
+                                Dunkel
+                            </button>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* SECTION 3: PREFERENCES */}
+                <Section>
                     <SettingsRow
                         icon={Scale}
                         iconColor="bg-green-500"
-                        label="Einheiten & App"
+                        label="Präferenzen & Einheiten"
                         value=""
                         onClick={() => setActiveModal('preferences')}
                     />
                 </Section>
 
-                {/* SECTION 3: LEGAL */}
-                <Section title={t("settings.section.legal")}>
+                {/* SECTION 4: DATA & PRIVACY */}
+                <Section title="Daten & Sicherheit">
                     <SettingsRow
-                        icon={Shield}
-                        iconColor="bg-zinc-500"
-                        label={t("settings.section.legal")}
-                        onClick={() => setActiveModal('legal')}
+                        icon={CalendarX}
+                        iconColor="bg-red-500"
+                        label="Kalender leeren"
+                        onClick={handleClearCalendarAction}
+                        isDestructive
+                    />
+                    <SettingsRow
+                        icon={Trash2}
+                        iconColor="bg-red-500"
+                        label="Verlauf löschen"
+                        onClick={handleClearHistoryAction}
+                        isDestructive
                     />
                 </Section>
 
-                {/* SECTION 4: DANGER ZONE */}
-                <div className="mt-8 px-2 space-y-4">
-                    <button onClick={handleSeedData} className="w-full p-4 bg-blue-500/10 text-blue-400 rounded-3xl border border-blue-500/20 text-sm font-medium hover:bg-blue-500/20 transition-colors">
-                        🛠️ Generate Demo Data (Review)
-                    </button>
+                {/* SECTION 5: LEGAL */}
+                <Section title={t("settings.section.legal")}>
+                    <SettingsRow icon={Building2} iconColor="bg-zinc-500" label="Impressum" onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={FileText} iconColor="bg-zinc-500" label="Datenschutzerklärung" onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Info} iconColor="bg-blue-500" label="Über uns" onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Mail} iconColor="bg-blue-500" label="Kontakt Support" onClick={() => setActiveModal('legal')} />
+                </Section>
+
+                {/* SECTION 6: DANGER ZONE */}
+                <div className="px-2 space-y-4">
                     <button onClick={handleLogout} className="w-full h-14 bg-[#1c1c1e] active:bg-[#2c2c2e] rounded-2xl border border-white/5 flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg">
                         {t("settings.account.logout")}
                     </button>
@@ -399,12 +481,37 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             {/* --- MODALS --- */}
 
             {/* PROFILE MODAL */}
-            <SettingsModal isOpen={activeModal === 'profile'} onClose={() => setActiveModal(null)} title={t("nav.profile")}>
+            <SettingsModal isOpen={activeModal === 'profile'} onClose={handleSaveProfile} title={t("nav.profile")}>
                 <div className="space-y-6">
-                    <div className="flex items-center justify-center py-4">
-                        <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
-                            {profileName.slice(0, 2).toUpperCase() || "TQ"}
+                    <div className="flex flex-col items-center justify-center py-4 gap-3">
+                        <div
+                            className="relative h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-3xl font-bold text-white shadow-xl overflow-hidden cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            {profileImageSrc ? (
+                                <img src={profileImageSrc} alt="Profile" className="h-full w-full object-cover" />
+                            ) : (
+                                <span>{profileName.slice(0, 2).toUpperCase() || "TQ"}</span>
+                            )}
+
+                            {/* Overlay Hint */}
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                <span className="text-xs font-bold text-white">Edit</span>
+                            </div>
                         </div>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-blue-400 text-sm font-medium"
+                        >
+                            Bild ändern
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImagePick}
+                        />
                     </div>
                     <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-300 text-sm">
                         Deine Profildaten werden lokal und privat gespeichert. Sie helfen uns, dein Training zu personalisieren.
@@ -494,42 +601,77 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
             {/* LEGAL MODAL */}
             <SettingsModal isOpen={activeModal === 'legal'} onClose={() => setActiveModal(null)} title="Rechtliches & Hilfe">
-                <div className="space-y-6">
-                    <div className="space-y-3">
-                        <h3 className="text-lg font-bold text-white">Support</h3>
-                        <p className="text-zinc-400 text-sm">Probleme oder Feedback? Wir helfen gerne weiter.</p>
-                        <a href="mailto:support@trainq.app" className="block w-full text-center py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-3xl text-white font-medium transition-colors">
-                            support@trainq.app
-                        </a>
+                <div className="space-y-8">
+
+                    {/* ABOUT US */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg">
+                                Q
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white text-lg">Über TrainQ</h3>
+                                <p className="text-blue-400 text-xs font-medium">Vision & Mission</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-zinc-400 leading-relaxed">
+                            TrainQ wurde entwickelt, um ambitionierten Athleten die Werkzeuge an die Hand zu geben, die sie für echte Fortschritte benötigen. Keine Ablenkungen, reiner Fokus auf Performance und Daten.
+                        </p>
+                        <p className="text-sm text-zinc-400 leading-relaxed">
+                            Wir glauben daran, dass Training eine Wissenschaft und eine Kunst zugleich ist. TrainQ verbindet beides in einer nahtlosen Erfahrung.
+                        </p>
                     </div>
 
-                    <div className="border-t border-white/5 pt-6 space-y-4">
-                        <h3 className="text-lg font-bold text-white">Rechtliches</h3>
-                        <div className="space-y-2">
-                            <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
-                                <h4 className="font-bold text-white mb-1">Impressum</h4>
-                                <p className="text-xs text-zinc-500">
-                                    TrainQ Inc.<br />
-                                    Musterstraße 1<br />
-                                    10115 Berlin<br />
-                                    Vertreten durch: Julius
-                                </p>
-                            </div>
-                            <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
-                                <h4 className="font-bold text-white mb-1">Datenschutz</h4>
-                                <p className="text-xs text-zinc-500 mb-3">
-                                    Wir speichern Daten lokal auf deinem Gerät. Backups erfolgen verschlüsselt in der Cloud.
-                                </p>
-                                <button onClick={() => window.open("/privacy", "_system")} className="text-blue-400 text-xs font-bold hover:underline">
-                                    Vollständige Erklärung lesen
-                                </button>
-                            </div>
+                    {/* CONTACT */}
+                    <div className="border-t border-white/5 pt-6 space-y-3">
+                        <h3 className="font-bold text-white mb-2">Kontakt & Support</h3>
+                        <div className="bg-[#1c1c1e] p-4 rounded-2xl border border-white/5 space-y-3">
+                            <p className="text-zinc-400 text-xs">
+                                Hast du Fragen, Feedback oder benötigst Hilfe?
+                            </p>
+                            <a href="mailto:support@trainq.app" className="flex items-center justify-center w-full py-3 bg-blue-600/10 text-blue-400 font-bold rounded-xl text-sm hover:bg-blue-600/20 transition-colors gap-2">
+                                <Mail size={16} />
+                                support@trainq.app
+                            </a>
                         </div>
                     </div>
 
-                    <div className="border-t border-white/5 pt-6">
-                        <p className="text-center text-xs text-zinc-600">
-                            © 2026 TrainQ. All rights reserved.
+                    {/* LEGAL LINKS */}
+                    <div className="border-t border-white/5 pt-6 space-y-4">
+                        <h3 className="font-bold text-white">Rechtliches</h3>
+
+                        {/* Impressum */}
+                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                                <Building2 size={16} className="text-zinc-500" /> Impressum
+                            </h4>
+                            <p className="text-xs text-zinc-500 leading-relaxed font-mono">
+                                TrainQ Inc.<br />
+                                Musterstraße 1<br />
+                                10115 Berlin<br />
+                                Deutschland<br /><br />
+                                Vertreten durch: Julius<br />
+                                Kontakt: admin@trainq.app
+                            </p>
+                        </div>
+
+                        {/* Privacy */}
+                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                                <FileText size={16} className="text-zinc-500" /> Datenschutz
+                            </h4>
+                            <p className="text-xs text-zinc-500 mb-4">
+                                Deine Daten gehören dir. Wir speichern Trainingsdaten lokal auf deinem Gerät und nutzen Ende-zu-Ende Verschlüsselung für Backups.
+                            </p>
+                            <button onClick={() => window.open("/privacy", "_system")} className="w-full py-2 bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg hover:bg-zinc-700 transition-colors">
+                                Datenschutzerklärung öffnen
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="pt-6 pb-8 text-center">
+                        <p className="text-[10px] text-zinc-700 font-mono uppercase tracking-widest">
+                            © 2026 TrainQ Inc.
                         </p>
                     </div>
                 </div>

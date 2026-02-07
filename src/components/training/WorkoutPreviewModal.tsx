@@ -1,9 +1,11 @@
 
 import React from 'react';
-import { Play, Clock, X, Dumbbell, Footprints, Bike } from 'lucide-react';
-import type { CalendarEvent } from '../../pages/CalendarPage';
+import { Play, Clock, X, Dumbbell, Footprints, Bike, Trash2 } from 'lucide-react';
+import type { CalendarEvent } from '../../types';
 import { useLiveTrainingStore } from '../../store/useLiveTrainingStore';
 import { persistActiveLiveWorkout } from '../../utils/trainingHistory';
+import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
+import { getActiveUserId } from '../../utils/session';
 
 interface WorkoutPreviewModalProps {
     event: CalendarEvent | null;
@@ -37,30 +39,45 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
 
     const baseColor = getBgColor();
 
+    const handleDelete = () => {
+        if (!event) return;
+        if (window.confirm("Training löschen?")) {
+            const userId = getActiveUserId() || "user";
+            const storageKey = "trainq_calendar_events";
+            const raw = getScopedItem(storageKey, userId);
+            if (raw) {
+                try {
+                    const events = JSON.parse(raw);
+                    const updatedEvents = events.filter((e: any) => e.id !== event.id);
+                    setScopedItem(storageKey, JSON.stringify(updatedEvents), userId);
+                    window.dispatchEvent(new Event("trainq:update_events"));
+                    onClose();
+                } catch (e) { console.error(e); }
+            }
+        }
+    };
+
     const exercises = event.workoutData?.exercises || [];
 
     return (
-        <div
-            className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center pointer-events-none"
-            style={{ paddingBottom: 'calc(220px + env(safe-area-inset-bottom))' }}
-        >
-            {/* Backdrop - needs pointer-events-auto to catch clicks */}
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity pointer-events-auto"
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
                 onClick={onClose}
             />
 
-            {/* Sheet - needs pointer-events-auto */}
-            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-[32px] p-6 pb-6 shadow-2xl animate-in slide-in-from-bottom-10 border border-white/10 ring-1 ring-white/5 mb-12 sm:mb-0 pointer-events-auto">
+            {/* Modal Box */}
+            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-[32px] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border border-white/10 ring-1 ring-white/5 max-h-[80vh] shrink-0">
 
-                {/* Header */}
-                <div className="flex justify-between items-start mb-6">
+                {/* Header (Fixed) */}
+                <div className="shrink-0 flex justify-between items-start p-6 pb-4 border-b border-white/5 bg-[#1c1c1e] z-10 rounded-t-[32px]">
                     <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl bg-${baseColor}/20 flex items-center justify-center border border-${baseColor}/20`}>
+                        <div className={`w-14 h-14 rounded-2xl bg-${baseColor}/20 flex items-center justify-center border border-${baseColor}/20 shrink-0`}>
                             {getIcon()}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white leading-tight">{event.title}</h2>
+                            <h2 className="text-xl font-bold text-white leading-tight line-clamp-1">{event.title}</h2>
                             <div className="flex items-center gap-2 mt-1 text-zinc-400 text-sm font-medium">
                                 <Clock size={14} />
                                 <span>{event.duration} min</span>
@@ -69,77 +86,87 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
-                        <X size={20} />
-                    </button>
+                    <div className="flex bg-zinc-800 rounded-full p-1 gap-1 items-center shrink-0">
+                        <button onClick={handleDelete} className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-700 transition-colors active:scale-95">
+                            <Trash2 size={18} />
+                        </button>
+                        <div className="w-[1px] h-4 bg-zinc-700"></div>
+                        <button onClick={onClose} className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors active:scale-95">
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Content */}
-                <div className="mb-8">
-                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Geplante Übungen</h3>
+                {/* Content (Scrollable) */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div>
+                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 sticky top-0 bg-[#1c1c1e] py-1 z-10">Geplante Übungen</h3>
 
-                    {exercises.length > 0 ? (
-                        <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                            {exercises.map((ex, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50 border border-white/5">
-                                    <span className="text-sm font-medium text-white truncate max-w-[70%]">{ex.name}</span>
-                                    <span className="text-xs font-bold text-zinc-400 bg-zinc-700/50 px-2 py-1 rounded">
-                                        {ex.sets.length} Sets
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 bg-zinc-800/30 rounded-xl border border-dashed border-zinc-700">
-                            <p className="text-sm text-zinc-500">Keine Details verfügbar</p>
-                        </div>
-                    )}
+                        {exercises.length > 0 ? (
+                            <div className="space-y-2">
+                                {exercises.map((ex: any, i: number) => (
+                                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50 border border-white/5">
+                                        <span className="text-sm font-medium text-white break-words line-clamp-2 max-w-[70%]">{ex.name}</span>
+                                        <span className="text-xs font-bold text-zinc-400 bg-zinc-700/50 px-2 py-1 rounded shrink-0">
+                                            {ex.sets.length} Sets
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 bg-zinc-800/30 rounded-xl border border-dashed border-zinc-700">
+                                <p className="text-sm text-zinc-500">Keine Details verfügbar</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="flex gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold text-sm hover:bg-zinc-700 transition-colors"
-                    >
-                        Schließen
-                    </button>
-                    <button
-                        onClick={() => {
-                            // Direct Logic Implementation as requested
-                            if (!event) return;
+                {/* Footer Actions (Fixed) */}
+                <div className="shrink-0 p-6 pt-4 bg-[#1c1c1e] border-t border-white/5 rounded-b-[32px]">
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold text-sm hover:bg-zinc-700 transition-colors"
+                        >
+                            Schließen
+                        </button>
+                        <button
+                            onClick={() => {
+                                // Direct Logic Implementation as requested
+                                if (!event) return;
 
-                            // 1. Construct Live Workout Object
-                            // Use existing workoutData or create fallback
-                            const exercises = event.workoutData?.exercises || [];
-                            const liveWorkout = {
-                                id: crypto.randomUUID(),
-                                calendarEventId: event.id,
-                                title: event.title,
-                                sport: event.type === 'strength' ? 'Gym' : event.type === 'run' ? 'Laufen' : event.type === 'cycle' ? 'Radfahren' : 'Custom',
-                                startedAt: new Date().toISOString(),
-                                isActive: true,
-                                exercises: exercises,
-                                notes: `Started from Calendar: ${event.title}`
-                            };
+                                // 1. Construct Live Workout Object
+                                // Use existing workoutData or create fallback
+                                const exercises = event.workoutData?.exercises || [];
+                                const liveWorkout = {
+                                    id: crypto.randomUUID(),
+                                    calendarEventId: event.id,
+                                    title: event.title,
+                                    sport: event.type === 'strength' ? 'Gym' : event.type === 'run' ? 'Laufen' : event.type === 'cycle' ? 'Radfahren' : 'Custom',
+                                    startedAt: new Date().toISOString(),
+                                    isActive: true,
+                                    exercises: exercises,
+                                    notes: `Started from Calendar: ${event.title}`
+                                };
 
-                            // 2. Persist & Set State
-                            persistActiveLiveWorkout(liveWorkout as any);
-                            useLiveTrainingStore.getState().startWorkout(liveWorkout as any);
+                                // 2. Persist & Set State
+                                persistActiveLiveWorkout(liveWorkout as any);
+                                useLiveTrainingStore.getState().startWorkout(liveWorkout as any);
 
-                            // 3. Navigate
-                            window.dispatchEvent(new CustomEvent("trainq:navigate", {
-                                detail: { path: "/live-training", eventId: liveWorkout.id }
-                            }));
+                                // 3. Navigate
+                                window.dispatchEvent(new CustomEvent("trainq:navigate", {
+                                    detail: { path: "/live-training", eventId: event.id }
+                                }));
 
-                            // 4. Close Modal
-                            onClose();
-                        }}
-                        className="flex-[2] py-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
-                    >
-                        <Play size={18} fill="currentColor" />
-                        Training starten
-                    </button>
+                                // 4. Close Modal
+                                onClose();
+                            }}
+                            className="flex-[2] py-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
+                        >
+                            <Play size={18} fill="currentColor" />
+                            Training starten
+                        </button>
+                    </div>
                 </div>
 
             </div>

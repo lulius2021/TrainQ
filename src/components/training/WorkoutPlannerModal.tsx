@@ -4,7 +4,7 @@ import { X, Clock, Plus, Dumbbell, Footprints, Bike, AlertCircle, Calendar } fro
 import ExerciseLibraryModal from './ExerciseLibraryModal';
 import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
 import { getActiveUserId } from '../../utils/session';
-import type { CalendarEvent } from '../../pages/CalendarPage';
+import type { CalendarEvent } from '../../types';
 import { format } from 'date-fns';
 
 interface WorkoutPlannerModalProps {
@@ -52,7 +52,8 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             title: title || "Training",
             type: sport === 'gym' ? 'strength' : sport === 'run' ? 'run' : sport === 'cycle' ? 'cycle' : 'custom',
             duration: 60, // Estimated default
-            status: 'planned',
+            status: 'planned' as const,
+            intensity: 'medium',
             workoutData: {
                 exercises: exercises
             }
@@ -75,6 +76,9 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
         events.push(coreEvent);
         setScopedItem(STORAGE_KEY, userId, JSON.stringify(events));
 
+        // IMMEDIATE REFRESH: Dispatch global event for Calendar
+        window.dispatchEvent(new Event("trainq:update_events"));
+
         onSave();
         onClose();
     };
@@ -90,7 +94,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-[120px]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
                 {/* 1. Sport Selection */}
                 <div className="grid grid-cols-4 gap-2">
@@ -172,7 +176,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/10 bg-[#1c1c1e] mb-[100px]">
+            <div className="p-4 border-t border-white/10 bg-[#1c1c1e] pb-[160px]">
                 <button
                     onClick={handleSave}
                     className="w-full py-4 bg-blue-600 rounded-2xl font-bold text-white hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/20"

@@ -27,7 +27,7 @@ import { LiveStatsPanel } from "../../components/training/LiveStatsPanel";
 import { LiveStatsOverlay } from "../../components/training/LiveStatsOverlay";
 import RestTimerBar from "../../components/training/RestTimerBar";
 import ExerciseLibraryModal from "../../components/training/ExerciseLibraryModal";
-import ExerciseInfoModal from "../../components/exercises/ExerciseInfoModal";
+import ExerciseDetailView from "../../components/exercises/ExerciseDetailView";
 import { BottomSheet } from "../../components/common/BottomSheet";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { EXERCISES } from "../../data/exerciseLibrary";
@@ -61,6 +61,8 @@ import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload 
 import { LiveActivity } from "capacitor-live-activity"; // Import requested by prompt
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import WheelPicker from "../../components/ui/WheelPicker";
+import { ProfileService } from "../../services/ProfileService";
+import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -201,6 +203,12 @@ function toNumberOrUndefined(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function isBodyweightExercise(id?: string): boolean {
+  if (!id) return false;
+  const ex = EXERCISES.find(e => e.id === id) || getCustomExercises().find(e => e.id === id);
+  return ex?.equipment?.includes("bodyweight") ?? false;
+}
+
 export default function LiveTrainingPage({
   events,
   onUpdateEvents,
@@ -219,65 +227,7 @@ export default function LiveTrainingPage({
   const [initDone, setInitDone] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
 
-  // --- Quick Stats Logic for Action Sheet ---
-  const [elapsedMs, setElapsedMs] = useState(0);
 
-  useEffect(() => {
-    if (!workout?.startedAt) return;
-    const start = new Date(workout.startedAt).getTime();
-    if (isNaN(start)) return;
-
-    setElapsedMs(Date.now() - start); // Init
-    const interval = setInterval(() => {
-      setElapsedMs(Date.now() - start);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [workout?.startedAt]);
-
-  const quickStats = useMemo(() => {
-    if (!workout) return { sets: 0, volume: 0 };
-
-    let sets = 0;
-    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
-
-    const volume = exercises.reduce((total, exercise) => {
-      // Sum up volume for this specific exercise
-      const exerciseVolume = (exercise.sets || []).reduce((setTotal, set) => {
-        if (set.completed) {
-          sets++;
-
-          // 1. SAFELY PARSE INPUTS (Handle "10.5", "10,5", and empty strings)
-          const rawWeight = String(set.weight ?? "0").replace(',', '.');
-          const rawReps = String(set.reps ?? "0").replace(',', '.');
-
-          const weight = parseFloat(rawWeight);
-          const reps = parseFloat(rawReps);
-
-          // 2. VALIDATION: Only count valid numbers.
-          const validWeight = Number.isFinite(weight) ? weight : 0;
-          const validReps = Number.isFinite(reps) ? reps : 0;
-
-          let vol = validWeight * validReps;
-
-          // 3. DROPS VOLUME
-          if (Array.isArray(set.drops)) {
-            vol += set.drops.reduce((acc, d) => {
-              const w = typeof d.weight === 'number' ? d.weight : 0;
-              const r = typeof d.reps === 'number' ? d.reps : 0;
-              return acc + (w * r);
-            }, 0);
-          }
-
-          return setTotal + vol;
-        }
-        return setTotal;
-      }, 0);
-
-      return total + exerciseVolume;
-    }, 0);
-
-    return { sets, volume };
-  }, [workout]);
 
 
 
@@ -347,6 +297,7 @@ export default function LiveTrainingPage({
   const mainRef = useRef<HTMLDivElement | null>(null);
 
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
+  const insets = useSafeAreaInsets();
   const [focusedWeightField, setFocusedWeightField] = useState<{
     exerciseId: string;
     setId: string;
@@ -803,7 +754,9 @@ export default function LiveTrainingPage({
           id: setId,
           completed: false,
           reps: cardio ? 30 : undefined,
-          weight: undefined,
+          weight: (!cardio && isBodyweightExercise(ex?.exerciseId))
+            ? (ProfileService.getUserProfile().weight || undefined)
+            : undefined,
           notes: "",
         } as any,
       ],
@@ -909,6 +862,11 @@ export default function LiveTrainingPage({
             const lastSet = sets[sets.length - 1];
             if (typeof lastSet.weight === "number") defaultWeight = lastSet.weight;
             if (typeof lastSet.reps === "number") defaultReps = lastSet.reps;
+          } else {
+            // First set added manually (after delete)
+            if (!cardio && isBodyweightExercise(e.exerciseId)) {
+              defaultWeight = ProfileService.getUserProfile().weight || undefined;
+            }
           }
 
           const newSet: LiveSet = {
@@ -1137,13 +1095,15 @@ export default function LiveTrainingPage({
   // ✅ STABIL: Reserve space für fixed Header + optional Restbar
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
   // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
+  // ✅ STABIL: Reserve space für fixed Header + optional Restbar
+  // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
   const mainPadTop = activeRest
-    ? "calc(env(safe-area-inset-top) + 150px)"
-    : "calc(env(safe-area-inset-top) + 112px)";
+    ? `calc(${insets.top}px + 150px)`
+    : `calc(${insets.top}px + 112px)`;
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
-  const footerHeightPx = 140;
-  const mainPadBottom = `calc(max(env(safe-area-inset-bottom), 0px) + ${footerHeightPx}px)`;
+  const footerHeightPx = 90;
+  const mainPadBottom = `calc(${Math.max(insets.bottom, 0)}px + ${footerHeightPx}px)`;
 
   const overlaySubtitle = overlayData?.overlaySubtitle ?? "";
   const overlayPrimaryText = overlayData?.overlayPrimaryText ?? "";
@@ -1156,7 +1116,7 @@ export default function LiveTrainingPage({
           {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
           {/* ✅ FIXED HEADER - using PageHeader for consistency */}
           <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10 flex flex-col gap-0">
-            <div className="px-4 pb-0" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
+            <div className="px-4 pb-0" style={{ paddingTop: Math.max(insets.top, 16) }}>
               <PageHeader
                 title={elapsedText}
                 className="py-0 pb-2"
@@ -1229,24 +1189,9 @@ export default function LiveTrainingPage({
 
           {/* ✅ FIXED FOOTER */}
           {/* ✅ FIXED FOOTER */}
-          <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
             <div className="mx-auto w-full max-w-5xl">
-              <div className="mb-2">
-                {/* QUICK STATS ROW */}
-                <div className="bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/50 rounded-3xl p-4 mb-4 grid grid-cols-2 gap-2 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
-                  {/* 1. SÄTZE */}
-                  <div className="flex flex-col items-center justify-center border-r border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 h-10">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Sätze</span>
-                    <span className="text-blue-400 font-bold text-lg leading-none mt-1">{quickStats.sets}</span>
-                  </div>
 
-                  {/* 2. VOLUMEN */}
-                  <div className="flex flex-col items-center justify-center h-10">
-                    <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Volumen</span>
-                    <span className="text-emerald-400 font-bold text-lg leading-none mt-1">{(quickStats.volume / 1000).toFixed(3)}t</span>
-                  </div>
-                </div>
-              </div>
               <div className="flex gap-3">
                 <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12">
                   Minimieren
@@ -1296,7 +1241,7 @@ export default function LiveTrainingPage({
             }
           />
 
-          <ExerciseInfoModal
+          <ExerciseDetailView
             isOpen={!!previewExercise}
             exercise={previewExercise}
             onClose={() => setPreviewExercise(null)}
@@ -1334,7 +1279,7 @@ export default function LiveTrainingPage({
                     onChange={(val) => {
                       if (timerEditExerciseId) updateExercise(timerEditExerciseId, { restSeconds: val });
                     }}
-                    options={[0, 10, 20, 30, 45, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600]}
+                    options={Array.from({ length: 601 }, (_, i) => i)}
                     unit="s"
                     height={200}
                     itemHeight={44}

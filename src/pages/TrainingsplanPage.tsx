@@ -7,7 +7,9 @@ import { type Exercise } from "../data/exerciseLibrary";
 import ExerciseLibraryModal from "../components/training/ExerciseLibraryModal";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import PlanView from "../components/training/PlanView";
 import { PageHeader } from "../components/ui/PageHeader";
+import { Eye, X } from "lucide-react";
 
 // History für graue Werte in der Vorschau
 import { getLastSetsForExercise } from "../utils/trainingHistory";
@@ -671,7 +673,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-5 pb-[160px] scrollbar-hide">
           {/* Top Section: Meta Data */}
           <div className="space-y-4 mb-6">
             <div>
@@ -892,7 +894,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
           </AppButton>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
+        <div className="max-h-[70vh] overflow-y-auto px-4 py-4 pb-[160px]">
           {state.exercises.length === 0 ? (
             <div className="rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-4 text-sm text-zinc-400">
               Keine Übungen
@@ -989,6 +991,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const [previewTemplate, setPreviewTemplate] = useState<WeeklyPlanTemplate | RoutinePlanTemplate | null>(null);
 
   // ✅ Entitlements
   const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
@@ -1638,125 +1641,38 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     <div className="w-full text-white pb-40">
 
       <div className="mx-auto max-w-5xl space-y-4 px-4">
-        {/* Tabs */}
-        <div className="flex gap-2 rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-1 text-base">
-          <button
-            onClick={() => setActiveTab("weekly")}
-            className={`flex-1 rounded-full px-3 py-2 font-medium transition ${activeTab === "weekly" ? "bg-blue-600 text-white shadow" : "text-zinc-400 hover:bg-zinc-900"}`}
-          >
-            Wochenplan
-          </button>
-          <button
-            onClick={() => setActiveTab("routine")}
-            className={`flex-1 rounded-full px-3 py-2 font-medium transition ${activeTab === "routine" ? "bg-blue-600 text-white shadow" : "text-zinc-400 hover:bg-zinc-900"}`}
-          >
-            Routine
-          </button>
-        </div>
-
-        {/* ✅ Startdatum + Dauer kompakt, Hinweis klein, Vorlagen als Row */}
-        <AppCard variant="glass" className="p-4 text-base">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="w-full px-4">
-              <label className="text-sm text-zinc-400">Startdatum</label>
-              <div className="mt-2">
-                <input
-                  type="date"
-                  value={planStartISO}
-                  onChange={(e) => {
-                    setWeeklySaved(false);
-                    setRoutineSaved(false);
-                    setPlanStartISO(e.target.value);
-                  }}
-                  className="w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base text-white outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm text-zinc-400">Dauer</label>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-3">
-                  <AppButton
-                    onClick={() => {
-                      const next = Math.max(1, (activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks) - 1);
-                      if (activeTab === "weekly") {
-                        setWeeklySaved(false);
-                        setWeeklyDurationWeeks(next);
-                      } else {
-                        setRoutineSaved(false);
-                        setRoutineDurationWeeks(next);
-                      }
-                    }}
-                    variant="secondary"
-                    className="h-11 w-11 text-xl font-semibold p-0 flex items-center justify-center"
-                    aria-label="Weniger Wochen"
-                  >
-                    –
-                  </AppButton>
-                  <div className="min-w-[44px] text-center text-lg font-semibold text-white">
-                    {activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
-                  </div>
-                  <AppButton
-                    onClick={() => {
-                      const next = Math.min(52, (activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks) + 1);
-                      if (activeTab === "weekly") {
-                        setWeeklySaved(false);
-                        setWeeklyDurationWeeks(next);
-                      } else {
-                        setRoutineSaved(false);
-                        setRoutineDurationWeeks(next);
-                      }
-                    }}
-                    variant="secondary"
-                    className="h-11 w-11 text-xl font-semibold p-0 flex items-center justify-center"
-                    aria-label="Mehr Wochen"
-                  >
-                    +
-                  </AppButton>
-                </div>
-                <span className="text-sm text-zinc-400">Wochen</span>
-              </div>
-            </div>
-          </div>
-
-          {!effectiveIsPro && (
-            <div className="mt-4 flex items-center gap-3 rounded-3xl bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl text-sm text-white">
-                i
-              </span>
-              <div className="flex-1 text-sm text-zinc-400">
-                Kostenloses Limit beachten
-              </div>
-              <span className="rounded-full px-2 py-1 text-sm font-semibold bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white">
-                {Number.isFinite(calendar7DaysRemaining as number)
-                  ? (calendar7DaysRemaining as number)
-                  : FREE_LIMITS.calendar7DaysPerMonth} Tage übrig
-              </span>
-            </div>
-          )}
-
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <AppButton
-              onClick={() => setWorkoutTemplatesOpen(true)}
-              variant="secondary"
-              className="w-full py-3"
-            >
-              Trainings-Vorlagen
-            </AppButton>
-
-            <AppButton
-              onClick={() => {
-                if (activeTab === "weekly") setWeeklyTemplatesOpen(true);
-                else setRoutineTemplatesOpen(true);
-              }}
-              variant="secondary"
-              className="w-full py-3"
-            >
-              Plan-Vorlagen
-            </AppButton>
-          </div>
-        </AppCard>
+        <PlanView
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          startDateISO={planStartISO}
+          onStartDateChange={(date) => {
+            setWeeklySaved(false);
+            setRoutineSaved(false);
+            setPlanStartISO(date);
+          }}
+          durationWeeks={activeTab === "weekly" ? weeklyDurationWeeks : routineDurationWeeks}
+          onDurationChange={(weeks) => {
+            if (activeTab === "weekly") {
+              setWeeklySaved(false);
+              setWeeklyDurationWeeks(weeks);
+            } else {
+              setRoutineSaved(false);
+              setRoutineDurationWeeks(weeks);
+            }
+          }}
+          onOpenWorkoutTemplates={() => setWorkoutTemplatesOpen(true)}
+          onOpenPlanTemplates={() => {
+            if (activeTab === "weekly") setWeeklyTemplatesOpen(true);
+            else setRoutineTemplatesOpen(true);
+          }}
+          onShowPreview={() => { }}
+          isPro={effectiveIsPro}
+          freeLimitRemaining={
+            Number.isFinite(calendar7DaysRemaining as number)
+              ? (calendar7DaysRemaining as number)
+              : FREE_LIMITS.calendar7DaysPerMonth
+          }
+        />
 
         {/* Weekly */}
         {activeTab === "weekly" && (
@@ -2217,7 +2133,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 ✕
               </AppButton>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto p-4 pb-[160px] scrollbar-hide">
               {workoutTemplates.length === 0 ? (
                 <p className="text-sm text-zinc-400">
                   Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen“ und klicke oben im Editor auf „Vorlage speichern“.
@@ -2291,137 +2207,253 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.days.length} Tage
                         </div>
                       </div>
-                      <AppButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => applyWeeklyTemplate(tpl)}
-                        className="text-xs"
-                      >
-                        Übernehmen
-                      </AppButton>
+
+                      <div className="flex gap-2">
+                        <AppButton
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setPreviewTemplate(tpl)}
+                          className="text-xs gap-1"
+                        >
+                          <Eye size={14} />
+                        </AppButton>
+                        <AppButton
+                          variant="primary"
+                          size="sm"
+                          onClick={() => applyWeeklyTemplate(tpl)}
+                          className="text-xs"
+                        >
+                          Übernehmen
+                        </AppButton>
+                      </div>
                     </AppCard>
                   ))}
                 </div>
               )}
             </div>
           </AppCard>
-        </div>
+        </div >
       )}
 
       {/* Trainingspläne Vorlagen Modal (Routine) */}
-      {routineTemplatesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Deine Routinen</h3>
-              <AppButton
-                variant="ghost"
-                size="sm"
-                onClick={() => setRoutineTemplatesOpen(false)}
-                className="h-8 w-8 !p-0 text-white hover:bg-zinc-900"
-              >
-                ✕
-              </AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-              {routineTemplates.length === 0 ? (
-                <p className="text-sm text-zinc-400">Keine Vorlagen gefunden.</p>
-              ) : (
-                <div className="space-y-2">
-                  {routineTemplates.map((tpl) => (
-                    <AppCard
-                      key={tpl.id}
-                      variant="soft"
-                      className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <div className="text-sm text-white">
-                        <div className="font-medium">{tpl.name}</div>
-                        <div className="text-xs text-zinc-400">
-                          {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im
-                          Zyklus
-                        </div>
-                      </div>
-                      <AppButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => applyRoutineTemplate(tpl)}
-                        className="text-xs"
+      {
+        routineTemplatesOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
+            <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
+                <h3 className="text-sm font-semibold text-white">Deine Routinen</h3>
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRoutineTemplatesOpen(false)}
+                  className="h-8 w-8 !p-0 text-white hover:bg-zinc-900"
+                >
+                  ✕
+                </AppButton>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+                {routineTemplates.length === 0 ? (
+                  <p className="text-sm text-zinc-400">Keine Vorlagen gefunden.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {routineTemplates.map((tpl) => (
+                      <AppCard
+                        key={tpl.id}
+                        variant="soft"
+                        className="flex items-center justify-between gap-2 p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                       >
-                        Übernehmen
-                      </AppButton>
-                    </AppCard>
-                  ))}
-                </div>
-              )}
-            </div>
-          </AppCard>
-        </div>
-      )}
+                        <div className="text-sm text-white">
+                          <div className="font-medium">{tpl.name}</div>
+                          <div className="text-xs text-zinc-400">
+                            {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im
+                            Zyklus
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <AppButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setPreviewTemplate(tpl)}
+                            className="text-xs gap-1"
+                          >
+                            <Eye size={14} />
+                          </AppButton>
+                          <AppButton
+                            variant="primary"
+                            size="sm"
+                            onClick={() => applyRoutineTemplate(tpl)}
+                            className="text-xs"
+                          >
+                            Übernehmen
+                          </AppButton>
+                        </div>
+                      </AppCard>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </AppCard >
+          </div >
+        )
+      }
+
+      {/* Preview Modal */}
+      {
+        previewTemplate && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
+            <AppCard variant="glass" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl border border-white/10">
+              <div className="flex items-center justify-between border-b border-white/10 bg-zinc-900/80 px-4 py-3 sticky top-0 backdrop-blur-md z-10">
+                <h3 className="font-bold text-white text-lg truncate pr-4">{previewTemplate.name}</h3>
+                <button
+                  onClick={() => setPreviewTemplate(null)}
+                  className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide bg-zinc-950/50">
+
+                {/* Weekly Review */}
+                {(previewTemplate as any).days && (previewTemplate as any).days.map((day: any, i: number) => {
+                  const isRest = day.sport === "Ruhetag";
+                  return (
+                    <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{day.label}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-black/40 text-zinc-400 border border-white/5">{day.sport}</span>
+                      </div>
+                      {!isRest && day.exercises?.length > 0 && (
+                        <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
+                          {day.exercises.map((ex: any, j: number) => (
+                            <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
+                              <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets.length}×</span>
+                              <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Routine Review */}
+                {(previewTemplate as any).blocks && (previewTemplate as any).blocks.map((block: any, i: number) => {
+                  const isRest = block.type === "Rest";
+                  return (
+                    <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{block.label || `Block ${i + 1}`}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-black/40 text-zinc-400 border border-white/5">{block.sport}</span>
+                      </div>
+                      {!isRest && block.exercises?.length > 0 && (
+                        <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
+                          {block.exercises.map((ex: any, j: number) => (
+                            <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
+                              <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets.length}×</span>
+                              <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-4 border-t border-white/10 bg-zinc-900/80 backdrop-blur-md flex gap-3 sticky bottom-0 z-10">
+                <AppButton variant="secondary" onClick={() => setPreviewTemplate(null)} className="flex-1">
+                  Schließen
+                </AppButton>
+                <AppButton
+                  variant="primary"
+                  onClick={() => {
+                    const isWeekly = !!(previewTemplate as any).days;
+                    if (isWeekly) applyWeeklyTemplate(previewTemplate as any);
+                    else applyRoutineTemplate(previewTemplate as any);
+                    setPreviewTemplate(null);
+                    if (isWeekly) setWeeklyTemplatesOpen(false);
+                    else setRoutineTemplatesOpen(false);
+                  }}
+                  className="flex-1 font-bold"
+                >
+                  Übernehmen
+                </AppButton>
+              </div>
+            </AppCard>
+          </div>
+        )
+      }
 
       {/* Save Dialogs (Plan) */}
-      {weeklySaveDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-white">Wochenplan anwenden</h3>
-            <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
-            <div className="mt-4 space-y-2">
-              <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
-              <input
-                type="text"
-                value={weeklyTemplateName}
-                onChange={(e) => setWeeklyTemplateName(e.target.value)}
-                className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <AppButton
-                onClick={() => saveWeeklyTemplateAndCalendar(false)}
-                variant="secondary"
-              >
-                Nur Kalender
-              </AppButton>
-              <AppButton
-                onClick={() => saveWeeklyTemplateAndCalendar(true)}
-                variant="primary"
-              >
-                Kalender + Vorlage
-              </AppButton>
-            </div>
-          </AppCard>
-        </div>
-      )}
+      {
+        weeklySaveDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
+            <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
+              <h3 className="text-base font-semibold text-white">Wochenplan anwenden</h3>
+              <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
+              <div className="mt-4 space-y-2">
+                <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
+                <input
+                  type="text"
+                  value={weeklyTemplateName}
+                  onChange={(e) => setWeeklyTemplateName(e.target.value)}
+                  className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <AppButton
+                  onClick={() => saveWeeklyTemplateAndCalendar(false)}
+                  variant="secondary"
+                >
+                  Nur Kalender
+                </AppButton>
+                <AppButton
+                  onClick={() => saveWeeklyTemplateAndCalendar(true)}
+                  variant="primary"
+                >
+                  Kalender + Vorlage
+                </AppButton>
+              </div>
+            </AppCard>
+          </div>
+        )
+      }
 
-      {routineSaveDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-white">Routine anwenden</h3>
-            <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
-            <div className="mt-4 space-y-2">
-              <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
-              <input
-                type="text"
-                value={routineTemplateName}
-                onChange={(e) => setRoutineTemplateName(e.target.value)}
-                className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <AppButton
-                onClick={() => saveRoutineTemplateAndCalendar(false)}
-                variant="secondary"
-              >
-                Nur Kalender
-              </AppButton>
-              <AppButton
-                onClick={() => saveRoutineTemplateAndCalendar(true)}
-                variant="primary"
-              >
-                Kalender + Vorlage
-              </AppButton>
-            </div>
-          </AppCard>
-        </div>
-      )}
+      {
+        routineSaveDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
+            <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
+              <h3 className="text-base font-semibold text-white">Routine anwenden</h3>
+              <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
+              <div className="mt-4 space-y-2">
+                <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
+                <input
+                  type="text"
+                  value={routineTemplateName}
+                  onChange={(e) => setRoutineTemplateName(e.target.value)}
+                  className="w-full rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <AppButton
+                  onClick={() => saveRoutineTemplateAndCalendar(false)}
+                  variant="secondary"
+                >
+                  Nur Kalender
+                </AppButton>
+                <AppButton
+                  onClick={() => saveRoutineTemplateAndCalendar(true)}
+                  variant="primary"
+                >
+                  Kalender + Vorlage
+                </AppButton>
+              </div>
+            </AppCard>
+          </div>
+        )
+      }
     </div>
   );
 };

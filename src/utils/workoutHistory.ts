@@ -480,3 +480,12 @@ export function onWorkoutHistoryUpdated(cb: () => void): () => void {
 export function __debugGetStorageKey(): string {
   return STORAGE_KEY;
 }
+
+/**
+ * Stub implementation for legacy compatibility.
+ * functionality moved to useLiveTrainingStore.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function persistActiveLiveWorkout(_workout: any): void {
+  // no-op stub
+}

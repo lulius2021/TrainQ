@@ -4,7 +4,7 @@ import { useI18n } from "../i18n/useI18n";
 // Pages
 import Dashboard from "../pages/Dashboard";
 import TrainingsplanPage from "../pages/TrainingsplanPage";
-import { CalendarPage } from "../pages/CalendarPage";
+import CalendarPage from "../pages/CalendarPage";
 import ProfilePage from "../pages/ProfilePage";
 import StartTodayPage from "../pages/StartTodayPage";
 import SettingsPage from "../pages/SettingPage";
@@ -543,7 +543,7 @@ const MainAppShell: React.FC = () => {
     const tabSwipeEnabled = isTabRoute && profileScreen === "profile" && !paywallOpen;
 
     useTabSwipeNavigation({
-        enabled: tabSwipeEnabled,
+        enabled: false, // ❌ Global Swipe Disabled per User Request
         isBlocked: isSwipeBlocked,
         noSwipeSelector: '[data-no-tab-swipe="true"]',
         onSwipeLeft: () => {

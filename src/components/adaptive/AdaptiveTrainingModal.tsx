@@ -68,10 +68,9 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
       style={{ touchAction: 'none' }}
     >
       <div
-        className="w-full max-w-2xl h-[90vh] rounded-2xl border-[1.5px] border-white/10 bg-white/10 shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-2xl max-h-[90vh] rounded-2xl border-[1.5px] border-white/10 bg-white/10 shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxHeight: 'calc(100vh - 2rem)',
           backdropFilter: 'blur(32px)',
           WebkitBackdropFilter: 'blur(32px)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -98,7 +97,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
         </header>
 
         <div
-          className="flex-1 overflow-y-auto p-5 space-y-4 overscroll-contain pb-32"
+          className="flex-1 overflow-y-auto p-5 space-y-4 overscroll-contain pb-[160px]"
           style={{
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'thin',
@@ -124,7 +123,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
           )}
 
           {step === "questions" && (
-            <div className="space-y-5">
+            <div className="space-y-5 pb-4">
               {[
                 { id: "q1", title: t("adaptive.q1"), key: "timeToday", options: [["lt20", t("adaptive.q1.lt20")], ["20to40", t("adaptive.q1.min20to40")], ["40to60", t("adaptive.q1.min40to60")], ["gt60", t("adaptive.q1.gt60")]] },
                 { id: "q2", title: t("adaptive.q2"), key: "dayForm", options: [["low", t("adaptive.q2.low")], ["mid", t("adaptive.q2.mid")], ["high", t("adaptive.q2.high")]] },
@@ -140,17 +139,11 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                   </div>
                 </div>
               ))}
-              <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.cancel")}</button>
-                <button className="flex-1 py-3 rounded-3xl bg-[#007AFF] text-white text-base font-semibold hover:bg-[#007AFF]/90 shadow-lg shadow-[#007AFF]/20 disabled:opacity-50" onClick={() => setStep("suggestions")} disabled={!plannedOk} title={!plannedOk ? t("adaptive.planMismatchShort") : t("adaptive.showSuggestions")}>
-                  {t("adaptive.showSuggestions")}
-                </button>
-              </div>
             </div>
           )}
 
           {step === "suggestions" && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4">
               <div className="rounded-3xl p-4 bg-white/5 border border-white/10">
                 <h3 className="font-bold text-lg text-white">{t("adaptive.suggestionsTitle")}</h3>
                 <p className="text-sm text-white/70">
@@ -170,10 +163,23 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                   />
                 )
               })}
-              <div className="flex gap-3 pt-2">
-                <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={() => setStep("questions")}>{t("common.back")}</button>
-                <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.close")}</button>
-              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer (Pinned) */}
+        <div className="flex-shrink-0 p-5 pt-4 bg-transparent border-t border-white/10">
+          {step === "questions" ? (
+            <div className="flex gap-3">
+              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.cancel")}</button>
+              <button className="flex-1 py-3 rounded-3xl bg-[#007AFF] text-white text-base font-semibold hover:bg-[#007AFF]/90 shadow-lg shadow-[#007AFF]/20 disabled:opacity-50" onClick={() => setStep("suggestions")} disabled={!plannedOk} title={!plannedOk ? t("adaptive.planMismatchShort") : t("adaptive.showSuggestions")}>
+                {t("adaptive.showSuggestions")}
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={() => setStep("questions")}>{t("common.back")}</button>
+              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.close")}</button>
             </div>
           )}
         </div>

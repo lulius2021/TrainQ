@@ -838,48 +838,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         </div>
       )}
 
-      {/* SETTINGS DRAWER (rechts rein) */}
+      {/* SETTINGS FULLSCREEN MODAL */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-50">
-          {/* backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSettingsOpen(false)} />
-
-          {/* panel */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl">
-            <div className="h-full flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                <SettingPage onBack={() => setSettingsOpen(false)} onClearCalendar={onClearCalendar ?? (() => { })} onOpenPaywall={openPaywall} onOpenGoals={() => { }} />
-              </div>
-
-              {/* Quick actions footer */}
-              <div className="p-4 border-t border-[var(--border)] bg-[var(--surface)]">
-                <div className="grid grid-cols-2 gap-3">
-                  <AppButton
-                    onClick={handleClearHistory}
-                    variant="danger"
-                    size="sm"
-                  >
-                    Verlauf löschen
-                  </AppButton>
-                  <AppButton
-                    onClick={handleRestartOnboarding}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Onboarding reset
-                  </AppButton>
-                </div>
-
-                <AppButton
-                  onClick={handleLogout}
-                  variant="ghost"
-                  className="mt-3 w-full"
-                >
-                  Abmelden
-                </AppButton>
-              </div>
-            </div>
-          </div>
+        <div className="fixed inset-0 z-[100] bg-black overscroll-none touch-pan-y">
+          <SettingPage
+            onBack={() => setSettingsOpen(false)}
+            onClearCalendar={onClearCalendar || (() => { })}
+            onOpenPaywall={openPaywall}
+            onOpenGoals={() => { }}
+          />
         </div>
       )}
     </>
