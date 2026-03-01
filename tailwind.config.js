@@ -6,10 +6,10 @@ export default {
     ],
     theme: {
         extend: {
-            colors: {
-                // Restore standard TrainQ brand colors if needed, but remove variable refs
-                // Keep it simple for now to fix the bug
+            fontFamily: {
+                sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
             },
+            colors: {},
         },
     },
     plugins: [],

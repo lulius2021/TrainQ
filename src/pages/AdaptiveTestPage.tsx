@@ -61,12 +61,12 @@ export default function AdaptiveTestPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 pt-0 pb-[var(--nav-height)]">
+        <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text)] p-4 pt-0 pb-[var(--nav-height)]">
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
                 <AppCard>
                     <h1 className="text-3xl font-bold mb-2">🧠 Adaptive Engine Testlabor</h1>
-                    <p className="text-[var(--muted)]">
+                    <p className="text-[var(--text-muted)]">
                         Testen und Validieren des adaptiven Trainingssystems
                     </p>
                 </AppCard>
@@ -75,13 +75,13 @@ export default function AdaptiveTestPage() {
                 <AppCard title="Test-Steuerung">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-[var(--muted)] mb-2">
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">
                                 Vorlage
                             </label>
                             <select
                                 value={selectedTemplate}
                                 onChange={(e) => setSelectedTemplate(e.target.value)}
-                                className="w-full h-12 rounded-3xl bg-[var(--surface2)] border-none px-4 text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                                className="w-full h-12 rounded-3xl bg-[var(--button-bg)] border-none px-4 text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
                             >
                                 <option value="push">Push</option>
                                 <option value="pull">Pull</option>
@@ -131,23 +131,23 @@ export default function AdaptiveTestPage() {
                         {/* Summary */}
                         <AppCard title="📊 Zusammenfassung">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Erholungswert</div>
+                                <div className="rounded-3xl bg-[var(--button-bg)] p-3">
+                                    <div className="text-xs text-[var(--text-muted)] mb-1">Erholungswert</div>
                                     <div className="text-2xl font-bold">{result.recoveryScore}%</div>
                                 </div>
 
-                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Erholungsfaktor</div>
+                                <div className="rounded-3xl bg-[var(--button-bg)] p-3">
+                                    <div className="text-xs text-[var(--text-muted)] mb-1">Erholungsfaktor</div>
                                     <div className="text-2xl font-bold">{(result.recoveryModifier * 100).toFixed(1)}%</div>
                                 </div>
 
-                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Overload-Faktor</div>
+                                <div className="rounded-3xl bg-[var(--button-bg)] p-3">
+                                    <div className="text-xs text-[var(--text-muted)] mb-1">Overload-Faktor</div>
                                     <div className="text-2xl font-bold">{(result.overloadFactor * 100).toFixed(1)}%</div>
                                 </div>
 
-                                <div className="rounded-3xl bg-[var(--surface2)] p-3">
-                                    <div className="text-xs text-[var(--muted)] mb-1">Übungen</div>
+                                <div className="rounded-3xl bg-[var(--button-bg)] p-3">
+                                    <div className="text-xs text-[var(--text-muted)] mb-1">Übungen</div>
                                     <div className="text-2xl font-bold">{result.exercises.length}</div>
                                 </div>
                             </div>
@@ -173,30 +173,30 @@ export default function AdaptiveTestPage() {
                                         <div className="mb-3 flex items-start justify-between">
                                             <div>
                                                 <div className="font-semibold text-lg">{exercise.name}</div>
-                                                <div className="text-sm text-[var(--muted)]">
+                                                <div className="text-sm text-[var(--text-muted)]">
                                                     {exercise.sets.length} Sätze × {exercise.restSeconds}s Pause
                                                 </div>
                                             </div>
-                                            <div className="text-sm text-[var(--muted)]">#{idx + 1}</div>
+                                            <div className="text-sm text-[var(--text-muted)]">#{idx + 1}</div>
                                         </div>
 
                                         <div className="space-y-2">
                                             {exercise.sets.map((set, setIdx) => (
                                                 <div
                                                     key={set.id}
-                                                    className="flex items-center gap-4 rounded-2xl bg-[var(--bg)] p-3 text-sm"
+                                                    className="flex items-center gap-4 rounded-2xl bg-[var(--bg-color)] p-3 text-sm"
                                                 >
-                                                    <div className="w-12 text-[var(--muted)]">Satz {setIdx + 1}</div>
+                                                    <div className="w-12 text-[var(--text-muted)]">Satz {setIdx + 1}</div>
                                                     <div className="flex-1 grid grid-cols-3 gap-4">
                                                         <div>
-                                                            <span className="text-[var(--muted)]">Wdh: </span>
+                                                            <span className="text-[var(--text-muted)]">Wdh: </span>
                                                             <span className="font-semibold">{set.reps}</span>
                                                         </div>
                                                         <div>
-                                                            <span className="text-[var(--muted)]">Gewicht: </span>
+                                                            <span className="text-[var(--text-muted)]">Gewicht: </span>
                                                             <span className="font-semibold">{set.weight}kg</span>
                                                         </div>
-                                                        <div className="text-xs text-[var(--muted)] truncate">
+                                                        <div className="text-xs text-[var(--text-muted)] truncate">
                                                             {set.notes || "—"}
                                                         </div>
                                                     </div>
@@ -212,23 +212,23 @@ export default function AdaptiveTestPage() {
 
                 {/* Documentation */}
                 <AppCard title="📖 Testszenarien">
-                    <div className="space-y-3 text-sm text-[var(--muted)]">
-                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
+                    <div className="space-y-3 text-sm text-[var(--text-muted)]">
+                        <div className="rounded-3xl bg-[var(--button-bg)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">✅ Normaler Ablauf</div>
                             <p>Generiert ein Training mit aktueller zeitzonenbasierter Erholungssimulation</p>
                         </div>
 
-                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--button-bg)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">🔬 Stresstest</div>
                             <p>Simuliert 100 verschiedene Erholungswerte (0-100%) und protokolliert die Gewichtsberechnungen</p>
                         </div>
 
-                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--button-bg)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">⚠️ Deload Erkennung</div>
                             <p>Löst automatisch aus nach 3 aufeinanderfolgenden Fehlversuchen (simuliert in echter Nutzung)</p>
                         </div>
 
-                        <div className="rounded-3xl bg-[var(--surface2)] p-3">
+                        <div className="rounded-3xl bg-[var(--button-bg)] p-3">
                             <div className="font-semibold text-[var(--text)] mb-1">🔄 Fallback Logik</div>
                             <p>Nutzt 7-Tage Durchschnitt wenn Garmin API fehlschlägt (5% Zufallsfehlerquote)</p>
                         </div>

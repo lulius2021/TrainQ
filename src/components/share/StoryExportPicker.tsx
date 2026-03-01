@@ -68,8 +68,8 @@ export default function StoryExportPicker({ templates, activeId, onChange, local
               className={`shrink-0 rounded-2xl border p-3 transition-transform ${isActive ? "scale-[1.02]" : "scale-[0.98]"}`}
               style={{
                 width: CARD_W,
-                borderColor: isActive ? "rgba(37,99,235,0.7)" : "var(--border)",
-                background: "var(--surface2)",
+                borderColor: isActive ? "rgba(37,99,235,0.7)" : "var(--border-color)",
+                background: "var(--button-bg)",
                 scrollSnapAlign: "center",
               }}
               onClick={() => onChange(tpl.id)}
@@ -113,7 +113,7 @@ export default function StoryExportPicker({ templates, activeId, onChange, local
                 {tpl.mode === "sticker" && (
                   <span
                     className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{ background: "rgba(148,163,184,0.2)", color: "var(--muted)" }}
+                    style={{ background: "rgba(148,163,184,0.2)", color: "var(--text-muted)" }}
                   >
                     {stickerLabel}
                   </span>
@@ -129,7 +129,7 @@ export default function StoryExportPicker({ templates, activeId, onChange, local
           <span
             key={tpl.id}
             className="h-1.5 w-4 rounded-full"
-            style={{ background: idx === activeIndex ? "var(--primary)" : "rgba(148,163,184,0.3)" }}
+            style={{ background: idx === activeIndex ? "var(--accent-color)" : "rgba(148,163,184,0.3)" }}
           />
         ))}
       </div>

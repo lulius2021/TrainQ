@@ -24,10 +24,14 @@ import {
 // ✅ Free-Limit: 7 Tage im Voraus (Date helper)
 import { isWithinDaysAhead } from "../utils/dateLimits";
 
+// ✅ Lokale ISO-Date Konvertierung (kein UTC-Shift)
+import { toISODateLocal } from "../utils/calendarGeneration";
+
 // ✅ Entitlements (Single Source of Truth)
 import { useEntitlements } from "../hooks/useEntitlements";
 import { useProGuard } from "../hooks/useProGuard";
 import { useAuth } from "../hooks/useAuth";
+import { useTheme } from "../theme/ThemeContext";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
 
@@ -130,15 +134,21 @@ type WorkoutTemplate = {
 
 // -------------------- Konfiguration --------------------
 
+const WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+
+function weekdayName(index: number): string {
+  return WEEKDAY_NAMES[((index - 1) % 7 + 7) % 7] || `Tag ${index}`;
+}
+
 function getDefaultWeeklyDays(): WeeklyDayConfig[] {
   return [
-    { id: 1, label: "Tag 1", sport: "Gym", focus: "Push", exercises: [], startTime: "" },
-    { id: 2, label: "Tag 2", sport: "Gym", focus: "Pull", exercises: [], startTime: "" },
-    { id: 3, label: "Tag 3", sport: "Gym", focus: "Beine", exercises: [], startTime: "" },
-    { id: 4, label: "Tag 4", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
-    { id: 5, label: "Tag 5", sport: "Gym", focus: "Push (Kurz)", exercises: [], startTime: "" },
-    { id: 6, label: "Tag 6", sport: "Gym", focus: "Pull (Kurz)", exercises: [], startTime: "" },
-    { id: 7, label: "Tag 7", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
+    { id: 1, label: "Montag", sport: "Gym", focus: "Push", exercises: [], startTime: "" },
+    { id: 2, label: "Dienstag", sport: "Gym", focus: "Pull", exercises: [], startTime: "" },
+    { id: 3, label: "Mittwoch", sport: "Gym", focus: "Beine", exercises: [], startTime: "" },
+    { id: 4, label: "Donnerstag", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
+    { id: 5, label: "Freitag", sport: "Gym", focus: "Push (Kurz)", exercises: [], startTime: "" },
+    { id: 6, label: "Samstag", sport: "Gym", focus: "Pull (Kurz)", exercises: [], startTime: "" },
+    { id: 7, label: "Sonntag", sport: "Ruhetag", focus: "Ruhetag", exercises: [], startTime: "" },
   ];
 }
 
@@ -173,9 +183,7 @@ function nextExerciseSetId() {
 
 // Helpers
 function dateToISO(d: Date): string {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString().slice(0, 10);
+  return toISODateLocal(d);
 }
 
 function isoToDate(iso: string): Date {
@@ -297,7 +305,7 @@ function normalizeWeeklyDay(input: any, fallbackId: number): WeeklyDayConfig {
         ? rawSport
         : "Gym";
 
-  const label = typeof input?.label === "string" && input.label.trim() ? input.label : `Tag ${id}`;
+  const label = typeof input?.label === "string" && input.label.trim() ? input.label : weekdayName(id);
 
   const focus =
     typeof input?.focus === "string" && input.focus.trim()
@@ -495,6 +503,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   }, []);
 
   const handleAddExerciseFromLibrary = (exercise: Exercise) => {
+    if (!exercise) return;
     const cardioMin = isCardioLibrary ? parseMinutesFromTitle(exercise.name) : undefined;
     const newBlockExercise: BlockExercise = {
       id: nextBlockExerciseId(),
@@ -652,17 +661,17 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" data-overlay-open="true">
-      <AppCard variant="glass" className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl bg-[#1c1c1e] ring-1 ring-white/10">
+      <AppCard variant="glass" className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl ring-1" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)", boxShadow: "0 0 0 1px var(--border-color)" }}>
 
         {/* Sticky Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 bg-[#1c1c1e]/80 backdrop-blur-xl sticky top-0 z-10">
+        <div className="flex items-center justify-between px-4 py-4 backdrop-blur-xl sticky top-0 z-10 border-b" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
           <button
             onClick={onClose}
             className="text-[17px] text-red-500 hover:text-red-400 transition-colors font-medium"
           >
             Abbrechen
           </button>
-          <div className="text-[17px] font-bold text-white text-center truncate px-2">
+          <div className="text-[17px] font-bold text-center truncate px-2" style={{ color: "var(--text-color)" }}>
             {isCardioLibrary ? "Einheit bearbeiten" : "Training bearbeiten"}
           </div>
           <button
@@ -682,7 +691,8 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="Name der Vorlage (optional)"
-                className="w-full bg-white/5 border border-white/10 p-4 rounded-3xl text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
+                className="w-full border p-4 rounded-3xl placeholder-opacity-40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
+                style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
               />
               {/* Save as Template Quick Action */}
               <div className="flex justify-end mt-2">
@@ -696,8 +706,8 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-3xl">
-              <span className="text-white/80 font-medium text-sm">Vorlage laden</span>
+            <div className="flex items-center justify-between border p-4 rounded-3xl" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+              <span className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>Vorlage laden</span>
               <div className="relative">
                 <select
                   value={selectedWorkoutTemplateId}
@@ -744,32 +754,34 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
           {/* Exercise List */}
           <div className="space-y-4">
-            <h3 className="text-white/50 text-xs font-semibold uppercase tracking-wider pl-1">
+            <h3 className="text-xs font-semibold uppercase tracking-wider pl-1" style={{ color: "var(--text-secondary)" }}>
               {isCardioLibrary ? "Einheiten" : "Übungen"} ({draft.exercises.length})
             </h3>
 
             {draft.exercises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-3xl bg-white/5 border border-white/5">
-                <span className="text-white/20 mb-3 text-3xl">🏋️</span>
-                <p className="text-white/40 font-medium text-sm">Keine Übungen. Füge welche hinzu!</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center rounded-3xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                <span className="opacity-20 mb-3 text-3xl">🏋️</span>
+                <p className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>Keine Übungen. Füge welche hinzu!</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {draft.exercises.map((ex) => (
-                  <div key={ex.id} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                  <div key={ex.id} className="rounded-3xl border p-4 shadow-sm" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <input
                         type="text"
                         value={ex.name}
                         onChange={(e) => handleUpdateExerciseName(ex.id, e.target.value)}
-                        className="w-full bg-transparent text-white font-semibold outline-none border-b border-transparent focus:border-[#007AFF]/50 transition-colors py-1"
+                        className="w-full bg-transparent font-semibold outline-none border-b border-transparent focus:border-[#007AFF]/50 transition-colors py-1"
                         placeholder="Übungsname"
+                        style={{ color: "var(--text-color)" }}
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveBlockExercise(ex.id)}
-                        className="p-2 -mr-2 text-white/40 hover:text-red-400 transition-colors"
+                        className="p-2 -mr-2 hover:text-red-400 transition-colors"
                         title="Entfernen"
+                        style={{ color: "var(--text-muted)" }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                       </button>
@@ -777,7 +789,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
                     <div className="space-y-2">
                       {/* Sets Header */}
-                      <div className="flex items-center justify-between text-[11px] text-white/50 px-1">
+                      <div className="flex items-center justify-between text-[11px] px-1" style={{ color: "var(--text-muted)" }}>
                         <div className="grid grid-cols-[auto,1fr,1fr,2fr] gap-3 w-full pr-8">
                           <span>#</span>
                           <span>{repsPlaceholder}</span>
@@ -789,14 +801,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                       {ex.sets.map((set, index) => (
                         <div key={set.id} className="relative flex items-center group">
                           <div className="grid grid-cols-[auto,1fr,1fr,2fr] gap-3 w-full items-center">
-                            <span className="text-white/40 text-xs w-4">{index + 1}</span>
+                            <span className="text-xs w-4" style={{ color: "var(--text-muted)" }}>{index + 1}</span>
 
                             <input
                               type="number"
                               min={1}
                               value={set.reps ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
-                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              className="w-full rounded-2xl border px-2 py-2 text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                               placeholder="0"
                             />
 
@@ -805,7 +817,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               min={0}
                               value={set.weight ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
-                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center"
+                              className="w-full rounded-2xl border px-2 py-2 text-sm outline-none focus:border-[#007AFF]/50 transition-colors text-center" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                               placeholder="0"
                             />
 
@@ -813,7 +825,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                               type="text"
                               value={set.notes ?? ""}
                               onChange={(e) => handleUpdateSetField(ex.id, set.id, "notes", e.target.value)}
-                              className="w-full rounded-2xl bg-black/20 border border-white/5 px-2 py-2 text-white text-sm outline-none focus:border-[#007AFF]/50 transition-colors"
+                              className="w-full rounded-2xl border px-2 py-2 text-sm outline-none focus:border-[#007AFF]/50 transition-colors" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                               placeholder="-"
                             />
                           </div>
@@ -987,6 +999,8 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 // -------------------- Haupt-Komponente --------------------
 
 const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
+  // Fallback Theme Guard
+  const { theme } = useTheme() || { theme: { colors: { text: '#fff', background: '#000', card: '#1c1c1e', border: '#27272a' } } };
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
   const { user } = useAuth();
@@ -1202,7 +1216,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       if (!handleCalendar7DaysGate(dateISO)) break;
 
-      const title = (block.label || `Training Tag ${i + 1}`).trim();
+      const title = (block.label || `Training ${weekdayName(i + 1)}`).trim();
       const isCardio = isCardioSport(block.sport);
 
       // ✅ Startzeit nur wenn gesetzt
@@ -1257,7 +1271,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               focus: "Ruhetag",
               exercises: [],
               startTime: "",
-              label: d.label?.trim() ? d.label : `Tag ${d.id}`,
+              label: d.label?.trim() ? d.label : weekdayName(d.id),
             };
           }
 
@@ -1485,7 +1499,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
     setPreviewState({
       title: b.label,
-      subtitle: `Tag ${index + 1} · ${b.sport}`,
+      subtitle: `${weekdayName(index + 1)} · ${b.sport}`,
       isCardio: isCardioSport(b.sport),
       sport: b.sport as TrainingSportType,
       exercises: b.exercises,
@@ -1603,7 +1617,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
     if (!routineBlocks.length) return [];
     return Array.from({ length: 7 }).map((_, i) => {
       const block = normalizeRoutineBlock(routineBlocks[i % routineBlocks.length] as any, (i % routineBlocks.length) + 1);
-      return { dayIndex: i, label: `Tag ${i + 1}`, block };
+      return { dayIndex: i, label: weekdayName(i + 1), block };
     });
   }, [routineBlocks]);
 
@@ -1638,7 +1652,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   // -------------------- Render --------------------
 
   return (
-    <div className="w-full text-white pb-40">
+    <div className="w-full text-white pb-40" style={{ paddingTop: "env(safe-area-inset-top)" }}>
 
       <div className="mx-auto max-w-5xl space-y-4 px-4">
         <PlanView
@@ -1679,9 +1693,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-white">Wochenplan</h2>
-                <div className="mt-1 text-sm text-zinc-400">
-                  Startet am <span className="text-white">{planStartISO}</span>
+                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>Wochenplan</h2>
+                <div className="mt-1 text-sm" style={{ color: theme.colors.textSecondary }}>
+                  Startet am <span style={{ color: theme.colors.text }}>{planStartISO}</span>
                 </div>
               </div>
               {weeklySaved && <span className="text-sm text-emerald-400">Im Kalender gespeichert</span>}
@@ -1695,10 +1709,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const hasTime = !!day.startTime?.trim();
 
                 return (
-                  <AppCard key={day.id} variant="glass" className="p-4 space-y-4">
+                  <AppCard key={day.id} variant="glass" className="p-4 space-y-4" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-lg font-semibold text-white">
-                        Tag {day.id}
+                      <div className="text-lg font-semibold" style={{ color: theme.colors.text }}>
+                        {weekdayName(day.id)}
                       </div>
                       <div className="flex items-center gap-2">
                         {hasTime && (
@@ -1710,16 +1724,21 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-zinc-400">Bezeichnung</label>
+                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>Bezeichnung</label>
                       <input
                         type="text"
                         value={isRest ? "Ruhetag" : day.focus}
                         disabled={isRest}
                         onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
-                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-blue-500 ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-zinc-400" : "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"}`}
+                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-blue-500 shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20`}
+                        style={{
+                          backgroundColor: theme.colors.background,
+                          borderColor: theme.colors.border,
+                          color: isRest ? theme.colors.textSecondary : theme.colors.text
+                        }}
                       />
                       {!isRest && (
-                        <div className="mt-2 text-sm text-zinc-400">Füge Übungen hinzu, um diesen Tag zu planen.</div>
+                        <div className="mt-2 text-sm" style={{ color: theme.colors.textSecondary }}>Füge Übungen hinzu, um diesen Tag zu planen.</div>
                       )}
                     </div>
 
@@ -1734,13 +1753,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </AppButton>
                     ) : (
                       <>
-                        <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3">
-                          <span className="text-base text-white font-medium">Sportart</span>
+                        <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3"
+                          style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border }}>
+                          <span className="text-base font-medium" style={{ color: theme.colors.text }}>Sportart</span>
                           <select
                             value={day.sport}
                             onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
 
-                            className="bg-transparent text-white text-right outline-none font-medium"
+                            className="bg-transparent text-right outline-none font-medium"
+                            style={{ color: theme.colors.text }}
                           >
                             <option value="Gym">Gym</option>
                             <option value="Laufen">Laufen</option>
@@ -1753,27 +1774,35 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openWeeklyTraining(day)}
-                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          className="w-full py-3 border font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          style={{
+                            backgroundColor: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                            borderColor: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                            color: theme.colors.text
+                          }}
                         >
                           {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
                         </button>
 
-                        <details className="rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3">
-                          <summary className="cursor-pointer text-base font-medium text-white">
+                        <details className="rounded-3xl shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3"
+                          style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border }}>
+                          <summary className="cursor-pointer text-base font-medium" style={{ color: theme.colors.text }}>
                             Details
                           </summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm text-zinc-400">Startzeit</div>
+                              <div className="text-sm" style={{ color: theme.colors.textSecondary }}>Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
+                                  <span className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm"
+                                    style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}>
                                     {day.startTime}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
-                                    className="rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
+                                    className="rounded-full shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-2 py-1 text-sm hover:opacity-80"
+                                    style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.textSecondary }}
                                     title="Startzeit entfernen"
                                   >
                                     ✕
@@ -1783,7 +1812,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 <button
                                   type="button"
                                   onClick={() => handleWeeklyDayChange(day.id, "startTime", defaultStartTimeNowRounded())}
-                                  className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white hover:bg-zinc-900"
+                                  className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm hover:opacity-80"
+                                  style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}
                                 >
                                   Startzeit hinzufügen
                                 </button>
@@ -1836,9 +1866,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-white">Routine-Zyklus</h2>
-                <div className="mt-1 text-sm text-zinc-400">
-                  Startet am <span className="text-white">{planStartISO}</span>
+                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>Routine-Zyklus</h2>
+                <div className="mt-1 text-sm" style={{ color: theme.colors.textSecondary }}>
+                  Startet am <span style={{ color: theme.colors.text }}>{planStartISO}</span>
                 </div>
               </div>
 
@@ -1855,10 +1885,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 const hasTime = !!block.startTime?.trim();
 
                 return (
-                  <div key={block.id} className="rounded-[24px] border-[1.5px] border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-4 space-y-4 backdrop-blur-xl">
+                  <div key={block.id} className="rounded-[24px] border-[1.5px] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-sm p-4 space-y-4 backdrop-blur-xl"
+                    style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className="text-lg font-semibold text-white">
+                        <div className="text-lg font-semibold" style={{ color: theme.colors.text }}>
                           Routine {index + 1}
                         </div>
                         <button
@@ -1872,7 +1903,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       <div className="flex items-center gap-2">
                         {hasTime && (
-                          <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
+                          <span className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm"
+                            style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}>
                             {block.startTime}
                           </span>
                         )}
@@ -1880,13 +1912,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-zinc-400">Bezeichnung</label>
+                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>Bezeichnung</label>
                       <input
                         type="text"
                         value={isRest ? "Ruhetag" : block.label}
                         disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
-                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-zinc-400" : "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"}`}
+                        className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl`}
+                        style={{
+                          backgroundColor: theme.colors.background,
+                          borderColor: theme.colors.border,
+                          color: isRest ? theme.colors.textSecondary : theme.colors.text
+                        }}
                       />
                       {!isRest && (
                         <div className="mt-2 text-sm text-zinc-400">Füge Übungen hinzu, um diesen Tag zu planen.</div>
@@ -1894,12 +1931,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     {!isRest && (
-                      <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3">
-                        <span className="text-base text-white font-medium">Sportart</span>
+                      <div className="w-full flex justify-between items-center shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3"
+                        style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border }}>
+                        <span className="text-base font-medium" style={{ color: theme.colors.text }}>Sportart</span>
                         <select
                           value={block.sport}
                           onChange={(e) => handleRoutineBlockChange(block.id, "sport", e.target.value)}
-                          className="bg-transparent text-white text-right outline-none font-medium"
+                          className="bg-transparent text-right outline-none font-medium"
+                          style={{ color: theme.colors.text }}
                         >
                           <option value="Gym">Gym</option>
                           <option value="Laufen">Laufen</option>
@@ -1914,7 +1953,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       <button
                         type="button"
                         onClick={() => handleRoutineBlockChange(block.id, "sport", "Gym")}
-                        className="w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base font-semibold text-white hover:bg-zinc-800"
+                        className="w-full rounded-3xl shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base font-semibold hover:opacity-80"
+                        style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border, color: theme.colors.text }}
                       >
                         Ruhetag entfernen
                       </button>
@@ -1923,7 +1963,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <button
                           type="button"
                           onClick={() => openRoutineTraining(block)}
-                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          className="w-full py-3 border font-semibold rounded-3xl shadow-[0_0_20px_rgba(0,122,255,0.3)] hover:shadow-[0_0_25px_rgba(0,122,255,0.5)] transition-all active:scale-[0.98] flex justify-center items-center gap-2 backdrop-blur-md"
+                          style={{
+                            backgroundColor: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                            borderColor: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                            color: theme.colors.text
+                          }}
                         >
 
                           {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
@@ -1936,13 +1981,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                               <div className="text-sm text-zinc-400">Startzeit</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white">
+                                  <span className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm"
+                                    style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}>
                                     {block.startTime}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
-                                    className="rounded-full bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
+                                    className="rounded-full shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-2 py-1 text-sm hover:opacity-80"
+                                    style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.textSecondary }}
                                     title="Startzeit entfernen"
                                   >
                                     ✕
@@ -1952,7 +1999,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 <button
                                   type="button"
                                   onClick={() => handleRoutineBlockChange(block.id, "startTime", defaultStartTimeNowRounded())}
-                                  className="rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-3 py-1 text-sm text-white hover:bg-zinc-900"
+                                  className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm hover:opacity-80"
+                                  style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}
                                 >
                                   Startzeit hinzufügen
                                 </button>
@@ -1971,7 +2019,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={handleAddRoutineBlock}
-                className="inline-flex items-center justify-center rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium text-white hover:opacity-95"
+                className="inline-flex items-center justify-center rounded-3xl border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium hover:opacity-95"
+                style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.text }}
               >
                 + Tag hinzufügen
               </button>
@@ -1979,7 +2028,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <button
                 type="button"
                 onClick={() => setRoutinePreviewOpen(true)}
-                className="inline-flex items-center justify-center rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium text-white hover:opacity-95"
+                className="inline-flex items-center justify-center rounded-3xl border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium hover:opacity-95"
+                style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.text }}
               >
                 Vorschau
               </button>
@@ -2058,7 +2108,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   return (
                     <AppCard key={day.id} variant="soft" className="p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-white">Tag {day.id}</span>
+                        <span className="text-xs font-semibold text-white">{weekdayName(day.id)}</span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl text-zinc-400" : "bg-green-500/10 text-green-500"
                             }`}
@@ -2316,7 +2366,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide bg-zinc-950/50">
 
                 {/* Weekly Review */}
-                {(previewTemplate as any).days && (previewTemplate as any).days.map((day: any, i: number) => {
+                {/* Weekly Review */}
+                {(previewTemplate as any)?.days?.map((day: any, i: number) => {
+                  if (!day) return null;
                   const isRest = day.sport === "Ruhetag";
                   return (
                     <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
@@ -2326,12 +2378,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       {!isRest && day.exercises?.length > 0 && (
                         <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
-                          {day.exercises.map((ex: any, j: number) => (
-                            <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
-                              <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets.length}×</span>
-                              <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
-                            </div>
-                          ))}
+                          {(day.exercises || []).map((ex: any, j: number) => {
+                            if (!ex) return null;
+                            return (
+                              <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
+                                <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
+                                <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -2339,7 +2394,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 })}
 
                 {/* Routine Review */}
-                {(previewTemplate as any).blocks && (previewTemplate as any).blocks.map((block: any, i: number) => {
+
+                {(previewTemplate as any)?.blocks?.map((block: any, i: number) => {
+                  if (!block) return null;
                   const isRest = block.type === "Rest";
                   return (
                     <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
@@ -2349,12 +2406,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       </div>
                       {!isRest && block.exercises?.length > 0 && (
                         <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
-                          {block.exercises.map((ex: any, j: number) => (
-                            <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
-                              <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets.length}×</span>
-                              <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
-                            </div>
-                          ))}
+                          {(block.exercises || []).map((ex: any, j: number) => {
+                            if (!ex) return null;
+                            return (
+                              <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
+                                <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
+                                <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

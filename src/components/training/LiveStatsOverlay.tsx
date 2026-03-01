@@ -58,7 +58,8 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
 
         // Format for Radar Chart
         // 1. Find max sets for any muscle to normalize
-        const maxMuscleSets = Math.max(...Object.values(muscleCounts), 1);
+        const muscleCountValues = Object.values(muscleCounts);
+        const maxMuscleSets = muscleCountValues.length > 0 ? Math.max(...muscleCountValues, 1) : 1;
 
         // 2. Map to RadarDataPoint
         // Preferred order for Radar: Chest -> Shoulders -> Arms -> Core -> Legs -> Back (Circular flow)
@@ -103,26 +104,33 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black/60 backdrop-blur-xl animate-in fade-in duration-200">
+
+        <div
+            className="fixed inset-0 z-[80] flex flex-col animate-in fade-in duration-200"
+            style={{ backgroundColor: "var(--bg-color)" }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+        >
 
             {/* HEADER */}
-            <div className="flex items-center justify-between px-4 pt-12 pb-4">
-                <h2 className="text-lg font-bold text-white tracking-tight">Workout Statistik</h2>
+            <div className="flex items-center justify-between px-4 pt-safe pb-3" style={{ paddingTop: "max(env(safe-area-inset-top), 16px)" }}>
+                <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--text-color)" }}>Workout Statistik</h2>
                 <button
-                    onClick={onClose}
-                    className="rounded-full bg-white/10 p-2 text-white active:bg-white/20 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onClose(); }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                    style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
                 >
-                    <X size={20} />
+                    <X size={18} />
                 </button>
             </div>
 
             {/* SCROLLABLE CONTENT */}
-            <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-6">
+            <div className="overflow-y-auto flex-1 px-4 pb-safe" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 20px)" }}>
 
                 {/* HERO RADAR */}
                 <div className="flex flex-col items-center justify-center py-4">
                     <RadarChart data={stats.radarData} size={280} color="#3b82f6" />
-                    <p className="mt-[-10px] text-xs font-medium text-white/40 uppercase tracking-widest">Muskel Fokus</p>
+                    <p className="mt-[-10px] text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Muskel Fokus</p>
                 </div>
 
                 {/* METRICS GRID */}
@@ -155,20 +163,20 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                 </div>
 
                 {/* PROGRESSION INSIGHT */}
-                <AppCard variant="glass" className="p-4 relative overflow-hidden">
+                <AppCard variant="glass" className="p-4 relative overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
                     <div className="absolute top-0 right-0 p-3 opacity-10">
-                        <Calendar size={80} className="text-white" />
+                        <Calendar size={80} style={{ color: "var(--text-color)" }} />
                     </div>
                     <div className="relative z-10">
-                        <h3 className="text-sm font-semibold text-white/90 mb-1">Session Progress</h3>
-                        <p className="text-xs text-white/50 leading-relaxed max-w-[85%]">
+                        <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text-color)" }}>Session Progress</h3>
+                        <p className="text-xs leading-relaxed max-w-[85%]" style={{ color: "var(--text-muted)" }}>
                             {stats.currentVolume > 5000
                                 ? "Starke Leistung! Du bewegst heute ordentlich Gewicht."
                                 : "Guter Start. Bleib dran und steigere dich Satz für Satz."}
                         </p>
 
                         <div className="mt-4 flex items-center gap-2">
-                            <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-1 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--input-bg)" }}>
                                 <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 w-[60%]" />
                             </div>
                             <span className="text-[10px] font-mono text-emerald-400">ON TRACK</span>
@@ -184,15 +192,18 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
 // --- SUBCOMPONENTS ---
 
 const StatBox = ({ label, value, icon, subtext, highlight }: any) => (
-    <div className={`rounded-2xl p-4 border ${highlight ? 'bg-purple-500/10 border-purple-500/20' : 'bg-white/5 border-white/5'}`}>
+    <div className={`rounded-2xl p-4 border transition-colors`} style={{
+        backgroundColor: highlight ? "rgba(168, 85, 247, 0.1)" : "var(--input-bg)",
+        borderColor: highlight ? "rgba(168, 85, 247, 0.2)" : "var(--border-color)"
+    }}>
         <div className="flex items-start justify-between mb-2">
-            <span className="text-xs font-medium text-white/40">{label}</span>
+            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{label}</span>
             {icon}
         </div>
-        <div className="text-2xl font-bold text-white tracking-tight">
+        <div className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-color)" }}>
             {value}
         </div>
-        {subtext && <div className="text-[10px] text-white/30 mt-0.5">{subtext}</div>}
+        {subtext && <div className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{subtext}</div>}
     </div>
 );
 

@@ -68,13 +68,13 @@ const WheelPicker: React.FC<WheelPickerProps> = memo(({
         <div className="relative w-full overflow-hidden select-none touch-pan-y" style={{ height }}>
             {/* Selection Highlight */}
             <div
-                className="absolute left-0 right-0 z-10 pointer-events-none border-t border-b border-white/10 bg-white/5"
+                className="absolute left-0 right-0 z-10 pointer-events-none border-t border-b border-[var(--border-color)] bg-[var(--button-bg)]"
                 style={{ top: overlayTop, height: itemHeight }}
             />
 
             {/* Gradients */}
-            <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-[#1c1c1e] to-transparent z-20 pointer-events-none" />
-            <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#1c1c1e] to-transparent z-20 pointer-events-none" />
+            <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-[var(--card-bg)] to-transparent z-20 pointer-events-none" />
+            <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[var(--card-bg)] to-transparent z-20 pointer-events-none" />
 
             {/* Scroll Container */}
             <div
@@ -92,7 +92,7 @@ const WheelPicker: React.FC<WheelPickerProps> = memo(({
                         key={opt}
                         className={`
                             flex items-center justify-center snap-center transition-opacity duration-200
-                            ${opt === localValue ? 'text-white font-bold text-xl' : 'text-zinc-500 text-base scale-95'}
+                            ${opt === localValue ? 'text-[var(--text-color)] font-bold text-xl' : 'text-[var(--text-secondary)] text-base scale-95'}
                         `}
                         style={{ height: itemHeight }}
                     >

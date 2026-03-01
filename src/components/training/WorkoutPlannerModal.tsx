@@ -84,11 +84,11 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
     };
 
     return (
-        <div className="fixed inset-0 z-[9000] bg-[#121214] flex flex-col animate-in slide-in-from-bottom-10">
+        <div className="fixed inset-0 z-[9000] flex flex-col animate-in slide-in-from-bottom-10" style={{ backgroundColor: "var(--modal-bg)" }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 pt-12 sm:pt-4 border-b border-white/10 bg-[#1c1c1e]">
-                <h2 className="text-xl font-bold text-white">Training anlegen</h2>
-                <button onClick={onClose} className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
+            <div className="flex items-center justify-between px-4 py-4 pt-12 sm:pt-4 border-b" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
+                <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Training anlegen</h2>
+                <button onClick={onClose} className="p-2 rounded-full transition-colors" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}>
                     <X size={20} />
                 </button>
             </div>
@@ -107,7 +107,8 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
                         <button
                             key={opt.id}
                             onClick={() => setSport(opt.id as SportType)}
-                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all ${sport === opt.id ? `${opt.color} ${opt.border} text-white` : 'bg-zinc-800/50 border-white/5 text-zinc-400'}`}
+                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all ${sport === opt.id ? `${opt.color} ${opt.border} text-white` : ''}`}
+                            style={sport !== opt.id ? { backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-muted)" } : {}}
                         >
                             {opt.icon}
                             <span className="text-xs font-bold">{opt.label}</span>
@@ -118,23 +119,25 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
                 {/* 2. Inputs */}
                 <div className="space-y-4">
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Titel</label>
+                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Titel</label>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full bg-[#1c1c1e] border border-white/10 rounded-2xl p-4 text-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full rounded-2xl p-4 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 border"
+                            style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                             placeholder="z.B. Oberkörper Push"
                         />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Startzeit</label>
-                        <div className="flex items-center gap-2 bg-[#1c1c1e] border border-white/10 rounded-2xl p-4">
-                            <Clock className="text-zinc-500" size={20} />
+                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Startzeit</label>
+                        <div className="flex items-center gap-2 rounded-2xl p-4 border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
+                            <Clock size={20} style={{ color: "var(--text-muted)" }} />
                             <input
                                 type="time"
                                 value={startTime}
                                 onChange={(e) => setStartTime(e.target.value)}
-                                className="bg-transparent text-white font-medium focus:outline-none w-full"
+                                className="bg-transparent font-medium focus:outline-none w-full"
+                                style={{ color: "var(--text-color)" }}
                             />
                         </div>
                     </div>
@@ -143,7 +146,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
                 {/* 3. Exercises */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Übungen ({exercises.length})</label>
+                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Übungen ({exercises.length})</label>
                         <button
                             onClick={() => setShowLibrary(true)}
                             className="flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
@@ -155,9 +158,9 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
                     {exercises.length > 0 ? (
                         <div className="space-y-2">
                             {exercises.map((ex, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 bg-[#1c1c1e] rounded-2xl border border-white/5">
-                                    <span className="font-medium text-white">{ex.name}</span>
-                                    <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="text-zinc-500 hover:text-red-400">
+                                <div key={i} className="flex items-center justify-between p-4 rounded-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                                    <span className="font-medium" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                                    <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="hover:text-red-400 transition-colors" style={{ color: "var(--text-muted)" }}>
                                         <X size={16} />
                                     </button>
                                 </div>
@@ -166,7 +169,8 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
                     ) : (
                         <div
                             onClick={() => setShowLibrary(true)}
-                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-800 rounded-3xl bg-zinc-900/30 text-zinc-500 gap-2 cursor-pointer hover:border-zinc-700 transition-colors"
+                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-3xl gap-2 cursor-pointer transition-colors"
+                            style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)", color: "var(--text-muted)" }}
                         >
                             <Calendar size={24} className="opacity-50" />
                             <span className="text-sm font-medium">Noch keine Übungen</span>
@@ -176,7 +180,7 @@ export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerM
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/10 bg-[#1c1c1e] pb-[160px]">
+            <div className="p-4 border-t pb-[160px]" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
                 <button
                     onClick={handleSave}
                     className="w-full py-4 bg-blue-600 rounded-2xl font-bold text-white hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/20"

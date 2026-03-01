@@ -24,7 +24,7 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
                     TrainQ hilft dir, dein Training basierend auf deinen Zielen und deiner Erholung zu optimieren.
                 </p>
 
-                <div className="text-xs space-y-2 text-[var(--muted)]">
+                <div className="text-xs space-y-2 text-[var(--text-muted)]">
                     <p>
                         Wir stellen dir ein paar kurze Fragen, um die App für dich einzurichten.
                         Das dauert weniger als eine Minute.
@@ -36,7 +36,7 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
                 <AppButton
                     onClick={onSkip}
                     variant="ghost"
-                    className="text-xs text-[var(--muted)] hover:text-[var(--text)]"
+                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                 >
                     Überspringen & Standardwerte nutzen
                 </AppButton>

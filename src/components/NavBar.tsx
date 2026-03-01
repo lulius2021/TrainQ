@@ -47,38 +47,35 @@ export const NavBar: React.FC<NavBarProps> = ({ activeTab, onChange }) => {
             src={icon}
             alt={label}
             draggable={false}
-            className="h-6 w-6"
+            className="h-6 w-6 transition-all duration-200"
             style={{
-              opacity: 1,
-              filter: "brightness(0) invert(1)"
+              opacity: isActive ? 1 : 0.6,
+              filter: "var(--nav-icon-filter)"
             }}
           />
         )}
 
         <span
-          className={`text-[11px] text-white ${isActive ? "font-semibold" : "font-medium"}`}
+          className={`text-[9px] uppercase tracking-wide transition-colors duration-200 ${isActive ? "font-bold" : "font-medium"}`}
+          style={{
+            color: isActive ? "var(--nav-icon-active)" : "var(--nav-icon-inactive)"
+          }}
         >
           {label}
         </span>
-
-        <div
-          className={`mt-0.5 h-[3px] w-4 rounded-full ${!isPrimary && isActive ? "bg-blue-600" : "bg-transparent"
-            }`}
-        />
       </button>
     );
   };
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-safe"
     >
       <footer
-        className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10
-                   p-0 backdrop-blur-xl shadow-2xl"
+        className="w-full max-w-md rounded-3xl border shadow-2xl"
+        style={{ backgroundColor: "var(--nav-bg)", borderColor: "var(--border-color)" }}
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-5 px-2 pb-2">
           <Item tab="dashboard" label={t("nav.dashboard")} icon={iconDashboard} />
           <Item tab="calendar" label={t("nav.calendar")} icon={iconKalender} />
           <Item

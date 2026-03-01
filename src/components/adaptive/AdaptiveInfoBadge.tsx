@@ -33,7 +33,7 @@ export function AdaptiveInfoBadge({
     // Determine badge color based on context
     const getBadgeColor = () => {
         if (isDeload) {
-            return "bg-[var(--primary)]/20 border-[var(--primary)]/40 text-[var(--primary)]";
+            return "bg-[var(--accent-color)]/20 border-[var(--accent-color)]/40 text-[var(--accent-color)]";
         }
 
         if (recoveryScore !== undefined) {

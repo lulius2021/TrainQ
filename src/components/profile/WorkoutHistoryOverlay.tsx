@@ -1,8 +1,9 @@
 import React from "react";
-import { History, X } from "lucide-react";
+import { History, X, Footprints, Bike, Dumbbell, MapPin, Timer } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
+import { formatPace, formatDistanceKm } from "../../utils/gpsUtils";
 
 interface WorkoutHistoryOverlayProps {
     onClose: () => void;
@@ -35,19 +36,19 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ on
     const insets = useSafeAreaInsets();
 
     return (
-        <div className="fixed inset-0 z-[50] bg-zinc-950 flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[50] flex flex-col animate-in fade-in duration-200" style={{ backgroundColor: "var(--card-bg)" }}>
             {/* Header */}
             <div
-                style={{ paddingTop: Math.max(insets.top, 20) }}
-                className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-4 bg-zinc-950/90 backdrop-blur-xl border-b border-white/5"
+                style={{ paddingTop: Math.max(insets.top, 20), backgroundColor: "var(--modal-header)", borderColor: "var(--border-color)" }}
+                className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-4 border-b backdrop-blur-xl"
             >
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl rounded-full">
-                        <History className="w-5 h-5 text-white" />
+                    <div className="p-2 rounded-2xl rounded-full" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
+                        <History className="w-5 h-5" style={{ color: "var(--text-color)" }} />
                     </div>
-                    <h2 className="text-xl font-bold text-white">Deine Historie</h2>
+                    <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Deine Historie</h2>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+                <button onClick={onClose} className="p-2 rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl transition-colors" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}>
                     <X className="w-5 h-5" />
                 </button>
             </div>
@@ -59,49 +60,85 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ on
             >
                 {workouts.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl">
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: "var(--input-bg)" }}>
                             📅
                         </div>
                         <div className="space-y-1">
-                            <h3 className="text-white font-medium">Keine Trainings gefunden</h3>
-                            <p className="text-sm text-white/50 max-w-xs">Sobald du ein Training absolvierst, erscheint es hier in deiner Historie.</p>
+                            <h3 className="font-medium" style={{ color: "var(--text-color)" }}>Keine Trainings gefunden</h3>
+                            <p className="text-sm max-w-xs" style={{ color: "var(--text-muted)" }}>Sobald du ein Training absolvierst, erscheint es hier in deiner Historie.</p>
                         </div>
                     </div>
                 )}
 
                 {workouts.map((w) => {
                     const sport = normalizeSport(w.sport);
+                    const isCardio = sport === "Laufen" || sport === "Radfahren";
                     const exCount = (w.exercises ?? []).length;
                     const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
                     const mins = durationMinutes(w);
 
+                    const sportConfig = sport === "Laufen"
+                        ? { icon: <Footprints size={16} />, color: "#34C759", bg: "rgba(52,199,89,0.1)" }
+                        : sport === "Radfahren"
+                        ? { icon: <Bike size={16} />, color: "#FF9500", bg: "rgba(255,149,0,0.1)" }
+                        : { icon: <Dumbbell size={16} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)" };
+
                     return (
-                        <div key={w.id} className="rounded-3xl p-4 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl border border-white/10 hover:border-white/20 transition-all">
+                        <div key={w.id} className="rounded-2xl p-4 border transition-all" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                             <div className="flex justify-between items-start mb-2">
-                                <div>
-                                    <div className="text-xs text-white/50 uppercase font-semibold tracking-wider mb-1">{date}</div>
-                                    <h4 className="text-base font-bold text-white">{w.title ?? "Training"}</h4>
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                        style={{ backgroundColor: sportConfig.bg, color: sportConfig.color }}
+                                    >
+                                        {sportConfig.icon}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-base font-bold" style={{ color: "var(--text-color)" }}>{w.title ?? "Training"}</h4>
+                                        <div className="text-[11px] uppercase font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>{date}</div>
+                                    </div>
                                 </div>
-                                <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs font-medium text-white/70">
+                                <div className="px-2 py-1 rounded-lg text-[11px] font-bold" style={{ backgroundColor: sportConfig.bg, color: sportConfig.color }}>
                                     {sport}
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4 text-sm text-white/60 mb-3">
+                            <div className="flex items-center gap-4 text-sm mb-3 flex-wrap" style={{ color: "var(--text-secondary)" }}>
                                 <span className="flex items-center gap-1.5">
-                                    ⏱ {mins} min
+                                    <Timer size={14} /> {mins} min
                                 </span>
-                                <span className="flex items-center gap-1.5">
-                                    🏋️ {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
-                                </span>
+
+                                {isCardio && w.distanceKm != null && w.distanceKm > 0 ? (
+                                    <>
+                                        <span className="flex items-center gap-1.5" style={{ color: sportConfig.color }}>
+                                            <MapPin size={14} /> {formatDistanceKm(w.distanceKm * 1000)}
+                                        </span>
+                                        {w.paceSecPerKm != null && w.paceSecPerKm > 0 && (
+                                            <span className="flex items-center gap-1.5">
+                                                ⚡ {formatPace(w.paceSecPerKm)}
+                                            </span>
+                                        )}
+                                    </>
+                                ) : (
+                                    <span className="flex items-center gap-1.5">
+                                        <Dumbbell size={14} /> {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
+                                    </span>
+                                )}
+
+                                {!isCardio && w.totalVolume > 0 && (
+                                    <span className="flex items-center gap-1.5">
+                                        {Math.round(w.totalVolume).toLocaleString("de-DE")} kg
+                                    </span>
+                                )}
                             </div>
 
-                            <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                            <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--border-color)" }}>
                                 <AppButton
                                     onClick={() => onShare(w)}
                                     variant="ghost"
                                     size="sm"
-                                    className="rounded-2xl h-8 text-xs bg-white/5 hover:bg-white/10 border border-white/10 w-full justify-center"
+                                    className="rounded-2xl h-8 text-xs border w-full justify-center"
+                                    style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                                 >
                                     Teilen / Exportieren
                                 </AppButton>

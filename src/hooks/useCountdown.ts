@@ -17,7 +17,12 @@ export function useCountdown(endTimeIso: string | null) {
       return;
     }
 
-    const end = new Date(endTimeIso).getTime();
+    const d = new Date(endTimeIso);
+    const end = d.getTime();
+    if (isNaN(end)) {
+      setRemaining(0);
+      return;
+    }
 
     const update = () => {
       const now = Date.now();

@@ -28,7 +28,7 @@ export const unifiedTheme = {
     },
     typography: {
         fontFamily:
-            '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+            '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif',
         letterSpacing: "-0.4px",
     },
     effects: {

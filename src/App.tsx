@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AuthContextProvider, useAuth } from "./context/AuthContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
-
+import { ThemeProvider } from "./theme/ThemeContext";
 import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 
@@ -41,9 +41,9 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-zinc-950 px-6 text-center text-white">
+        <div style={{ backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }} className="flex h-screen w-full flex-col items-center justify-center px-6 text-center">
           <h2 className="mb-2 text-xl font-bold">Ups, etwas ist schiefgelaufen.</h2>
-          <p className="mb-6 text-sm text-zinc-400 max-w-xs">
+          <p className="mb-6 text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>
             Keine Sorge, deine Daten sind sicher. Wir bringen dich zurück.
           </p>
 
@@ -68,7 +68,8 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
             </button>
             <button
               onClick={this.handleBackToDashboard}
-              className="w-full rounded-3xl bg-white/5 border border-white/10 px-4 py-3 font-semibold text-white active:scale-95 transition-transform hover:bg-white/10"
+              className="w-full rounded-3xl px-4 py-3 font-semibold active:scale-95 transition-transform border"
+              style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-color)' }}
             >
               Zurück zum Dashboard
             </button>
@@ -80,24 +81,6 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
   }
 
 }
-
-const AppContent: React.FC = () => {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-        <div className="animate-pulse font-bold text-xl">TrainQ lädt...</div>
-      </div>
-    );
-  }
-
-  return (
-    <OnboardingProvider>
-      <AppRouter />
-    </OnboardingProvider>
-  );
-};
 
 export const App: React.FC = () => {
   const seededRef = useRef(false);
@@ -111,13 +94,15 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-transparent font-[SF Pro Display,sans-serif] text-white">
-      <GlobalErrorBoundary>
-        <AuthContextProvider>
-          <AppContent />
-        </AuthContextProvider>
-      </GlobalErrorBoundary>
-    </div>
+    <GlobalErrorBoundary>
+      <AuthContextProvider>
+        <ThemeProvider>
+          <OnboardingProvider>
+            <AppRouter />
+          </OnboardingProvider>
+        </ThemeProvider>
+      </AuthContextProvider>
+    </GlobalErrorBoundary>
   );
 };
 

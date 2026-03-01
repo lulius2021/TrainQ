@@ -26,6 +26,16 @@
 	<string></string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TrainQ benötigt deinen Standort, um deine Lauf- und Radstrecke aufzuzeichnen.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TrainQ benötigt dauerhaften Standortzugriff, um deine Route auch im Hintergrund aufzuzeichnen.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>TrainQ benötigt Zugriff auf die Kamera, um Barcodes von Lebensmitteln zu scannen.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>TrainQ benötigt Zugriff, um Trainingsbilder in die Fotos zu speichern.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

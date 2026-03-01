@@ -37,8 +37,8 @@ export function BottomSheet({
 }: BottomSheetProps & { backdropClassName?: string; variant?: "floating" | "docked" }) {
   const dragControls = useDragControls();
   const footerBaseStyle: React.CSSProperties = {
-    background: "var(--surface)",
-    borderTop: "1px solid var(--border)",
+    background: "var(--card-bg)",
+    borderTop: "1px solid var(--border-color)",
     paddingBottom: variant === "docked" ? "env(safe-area-inset-bottom)" : 0,
   };
 
@@ -70,7 +70,7 @@ export function BottomSheet({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className={`absolute inset-0 ${backdropClassName || "bg-black/70"}`} onClick={onClose} />
+          <div className={`absolute inset-0 ${backdropClassName || "bg-black/70"}`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} />
 
           <div
             className={`fixed left-0 right-0 flex justify-center ${isDocked ? "px-0" : "px-4"}`}
@@ -89,7 +89,6 @@ export function BottomSheet({
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <div
                 className="pt-3 pb-1"

@@ -46,23 +46,51 @@ function setupGlobalNoZoom() {
     },
     { passive: false }
   );
+}
 
-  // Prevent double-tap to zoom (common on iOS)
-  let lastTouchEnd = 0;
+// ----- Global FastClick: fire clicks immediately on touch -----
+// iOS WKWebView delays click events inside scroll containers.
+// This handler fires .click() on pointerup for taps, bypassing the delay.
+function setupFastClick() {
+  let startX = 0;
+  let startY = 0;
+  let startTime = 0;
+
   document.addEventListener(
-    "touchend",
+    "pointerdown",
     (e) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-      }
-      lastTouchEnd = now;
+      if (e.pointerType !== "touch") return;
+      startX = e.clientX;
+      startY = e.clientY;
+      startTime = Date.now();
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    "pointerup",
+    (e) => {
+      if (e.pointerType !== "touch") return;
+
+      // Only treat as tap if finger didn't move much and was brief
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 10 || dy > 10 || Date.now() - startTime > 500) return;
+
+      const target = e.target as HTMLElement;
+      const clickable = target.closest("button, a, [role='button']") as HTMLElement | null;
+      if (!clickable) return;
+
+      // Prevent the delayed browser click from double-firing
+      e.preventDefault();
+      clickable.click();
     },
     { passive: false }
   );
 }
 
 setupGlobalNoZoom();
+setupFastClick();
 import { hasSupabaseEnv } from "./lib/supabaseClient";
 
 if (!hasSupabaseEnv()) {
@@ -88,10 +116,6 @@ if (!hasSupabaseEnv()) {
   );
 } else {
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </React.StrictMode>
+    <App />
   );
 }

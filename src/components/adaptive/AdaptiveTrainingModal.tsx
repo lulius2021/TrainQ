@@ -1,13 +1,12 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
 import React, { useMemo, useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { useI18n } from "../../i18n/useI18n";
 import AdaptivePlanCard from "./AdaptivePlanCard";
 import type { TranslationKey } from "../../i18n/index";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
 import { buildAdaptiveSuggestions, profileAccent } from "../../utils/adaptiveScoring";
-
-// ... (Helper functions remain unchanged)
 
 export interface AdaptiveTrainingModalProps {
   open: boolean;
@@ -63,26 +62,44 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden"
+      className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center"
       onClick={onClose}
-      style={{ touchAction: 'none' }}
+      style={{
+        touchAction: 'none',
+        padding: "12px",
+      }}
     >
       <div
-        className="w-full max-w-2xl max-h-[90vh] rounded-2xl border-[1.5px] border-white/10 bg-white/10 shadow-2xl flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md flex flex-col overflow-hidden rounded-[28px] border shadow-2xl"
         style={{
-          backdropFilter: 'blur(32px)',
-          WebkitBackdropFilter: 'blur(32px)',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          backgroundColor: "var(--modal-bg)",
+          borderColor: "var(--border-color)",
+          maxHeight: "calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 140px)",
+          marginBottom: "60px",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex-shrink-0 flex items-center justify-between gap-4 p-6 bg-transparent" style={{ zIndex: 10 }}>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-white" style={{ letterSpacing: '-0.4px' }}>{t("adaptive.title")}</h2>
+        {/* Header */}
+        <header
+          className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b rounded-t-[28px]"
+          style={{ borderColor: "var(--border-color)", backgroundColor: "var(--modal-header)" }}
+        >
+          <div className="flex items-center gap-2.5">
+            <h2
+              className="text-xl font-bold"
+              style={{ color: "var(--text-color)", letterSpacing: '-0.3px' }}
+            >
+              {t("adaptive.title")}
+            </h2>
             <button
               type="button"
               onClick={() => setShowHelp(!showHelp)}
-              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${showHelp ? 'bg-white text-black border-white' : 'border-white/30 text-white/50 hover:text-white hover:border-white'}`}
+              className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all"
+              style={{
+                borderColor: showHelp ? "var(--accent-color)" : "var(--text-secondary)",
+                color: showHelp ? "var(--accent-color)" : "var(--text-secondary)",
+                backgroundColor: showHelp ? "rgba(0,122,255,0.1)" : "transparent",
+              }}
             >
               ?
             </button>
@@ -90,96 +107,169 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
           <button
             type="button"
             onClick={onClose}
-            className="h-10 w-10 flex items-center justify-center rounded-full text-2xl text-white/50 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+            className="w-9 h-9 flex items-center justify-center rounded-full active:scale-95 transition-transform"
+            style={{ backgroundColor: "var(--button-bg)" }}
           >
-            ✕
+            <X size={18} style={{ color: "var(--text-secondary)" }} />
           </button>
         </header>
 
+        {/* Scrollable Content */}
         <div
-          className="flex-1 overflow-y-auto p-5 space-y-4 overscroll-contain pb-[160px]"
-          style={{
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255,255,255,0.2) transparent',
-          }}
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {showHelp && (
-            <div className="mb-4 rounded-2xl bg-white/10 border border-white/20 p-4 backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-              <p className="text-sm text-white/90 leading-relaxed">
-                <strong>Wie funktioniert es?</strong><br />
-                Wähle deine heutige Tagesform aus. Basierend darauf passen wir Volumen und Intensität deines Trainings optimal an, um Überlastung zu vermeiden und langfristige Fortschritte zu sichern.
-              </p>
-            </div>
-          )}
-
-          {!plannedOk && (
-            <div className="rounded-3xl border border-red-500/50 bg-red-500/10 p-4">
-              <h3 className="font-bold text-red-300">Plan passt nicht</h3>
-              <p className="text-sm text-red-300/80">
-                Dieser adaptive Plan ist für <strong>{typeName(plannedWorkoutType)}</strong> gedacht.
-              </p>
-            </div>
-          )}
-
-          {step === "questions" && (
-            <div className="space-y-5 pb-4">
-              {[
-                { id: "q1", title: t("adaptive.q1"), key: "timeToday", options: [["lt20", t("adaptive.q1.lt20")], ["20to40", t("adaptive.q1.min20to40")], ["40to60", t("adaptive.q1.min40to60")], ["gt60", t("adaptive.q1.gt60")]] },
-                { id: "q2", title: t("adaptive.q2"), key: "dayForm", options: [["low", t("adaptive.q2.low")], ["mid", t("adaptive.q2.mid")], ["high", t("adaptive.q2.high")]] },
-                { id: "q3", title: t("adaptive.q3"), key: "stress", options: [["low", t("adaptive.q3.low")], ["mid", t("adaptive.q3.mid")], ["high", t("adaptive.q3.high")]] },
-                { id: "q4", title: t("adaptive.q4"), key: "yesterdayEffort", options: [["low", t("adaptive.q4.low")], ["mid", t("adaptive.q4.mid")], ["high", t("adaptive.q4.high")]] },
-              ].map(q => (
-                <div key={q.id} className="rounded-3xl p-4 bg-white/5 border border-white/10">
-                  <h3 className="text-base font-semibold mb-3 text-white">{q.title}</h3>
-                  <div className={`grid gap-3 grid-cols-2 ${q.options.length > 2 ? 'sm:grid-cols-' + q.options.length : ''}`}>
-                    {q.options.map(([value, label]) => (
-                      <button key={value} type="button" onClick={() => setAnswers(p => ({ ...p, [q.key]: value }))} className={`w-full p-3 rounded-2xl text-sm font-semibold transition active:scale-[0.98] ${answers[q.key as keyof AdaptiveAnswers] === value ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/20' : 'bg-white/5 text-white/70 hover:bg-white/15 border border-white/10'}`}>{label}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {step === "suggestions" && (
-            <div className="space-y-4 pb-4">
-              <div className="rounded-3xl p-4 bg-white/5 border border-white/10">
-                <h3 className="font-bold text-lg text-white">{t("adaptive.suggestionsTitle")}</h3>
-                <p className="text-sm text-white/70">
-                  Vorschläge für <strong>{typeName(plannedWorkoutType)}</strong> basierend auf deinen Antworten.
+          <div className="px-4 py-4 space-y-4">
+            {showHelp && (
+              <div
+                className="rounded-[20px] border p-4"
+                style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+              >
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-color)" }}>
+                  <strong>Wie funktioniert es?</strong><br />
+                  Wähle deine heutige Tagesform aus. Basierend darauf passen wir Volumen und Intensität deines Trainings optimal an.
                 </p>
               </div>
-              {suggestions.map(s => {
-                const accent = profileAccent(s.profile);
-                return (
-                  <AdaptivePlanCard
-                    key={s.profile}
-                    suggestion={s}
-                    accent={accent}
-                    onSelect={() => onSelect(s, answers)}
-                    disabled={!plannedOk}
-                    isPro={isPro}
-                  />
-                )
-              })}
-            </div>
-          )}
+            )}
+
+            {!plannedOk && (
+              <div
+                className="rounded-[20px] border p-4"
+                style={{ backgroundColor: "rgba(255,59,48,0.1)", borderColor: "rgba(255,59,48,0.3)" }}
+              >
+                <h3 className="font-bold" style={{ color: "var(--danger)" }}>Plan passt nicht</h3>
+                <p className="text-sm" style={{ color: "var(--danger)", opacity: 0.8 }}>
+                  Dieser adaptive Plan ist für <strong>{typeName(plannedWorkoutType)}</strong> gedacht.
+                </p>
+              </div>
+            )}
+
+            {step === "questions" && (
+              <div className="space-y-4">
+                {[
+                  { id: "q1", title: t("adaptive.q1"), key: "timeToday", options: [["lt20", t("adaptive.q1.lt20")], ["20to40", t("adaptive.q1.min20to40")], ["40to60", t("adaptive.q1.min40to60")], ["gt60", t("adaptive.q1.gt60")]] },
+                  { id: "q2", title: t("adaptive.q2"), key: "dayForm", options: [["low", t("adaptive.q2.low")], ["mid", t("adaptive.q2.mid")], ["high", t("adaptive.q2.high")]] },
+                  { id: "q3", title: t("adaptive.q3"), key: "stress", options: [["low", t("adaptive.q3.low")], ["mid", t("adaptive.q3.mid")], ["high", t("adaptive.q3.high")]] },
+                  { id: "q4", title: t("adaptive.q4"), key: "yesterdayEffort", options: [["low", t("adaptive.q4.low")], ["mid", t("adaptive.q4.mid")], ["high", t("adaptive.q4.high")]] },
+                ].map(q => (
+                  <div
+                    key={q.id}
+                    className="rounded-[20px] p-4 border"
+                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                  >
+                    <h3 className="text-[15px] font-semibold mb-3" style={{ color: "var(--text-color)" }}>
+                      {q.title}
+                    </h3>
+                    <div className={`grid gap-2.5 ${q.options.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                      {q.options.map(([value, label]) => {
+                        const isSelected = answers[q.key as keyof AdaptiveAnswers] === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setAnswers(p => ({ ...p, [q.key]: value }))}
+                            className="py-3 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] border"
+                            style={{
+                              backgroundColor: isSelected ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
+                              color: isSelected ? "var(--accent-color)" : "var(--text-color)",
+                              borderColor: isSelected ? "var(--accent-color)" : "var(--border-color)",
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {step === "suggestions" && (
+              <div className="space-y-4">
+                <div
+                  className="rounded-[20px] p-4 border"
+                  style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                >
+                  <h3 className="font-bold text-[17px]" style={{ color: "var(--text-color)" }}>
+                    {t("adaptive.suggestionsTitle")}
+                  </h3>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Vorschläge für <strong>{typeName(plannedWorkoutType)}</strong> basierend auf deinen Antworten.
+                  </p>
+                </div>
+                {suggestions.map(s => {
+                  const accent = profileAccent(s.profile);
+                  return (
+                    <AdaptivePlanCard
+                      key={s.profile}
+                      suggestion={s}
+                      accent={accent}
+                      onSelect={() => onSelect(s, answers)}
+                      disabled={!plannedOk}
+                      isPro={isPro}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer (Pinned) */}
-        <div className="flex-shrink-0 p-5 pt-4 bg-transparent border-t border-white/10">
+        <div
+          className="flex-shrink-0 px-4 py-3 border-t rounded-b-[28px]"
+          style={{
+            borderColor: "var(--border-color)",
+            backgroundColor: "var(--modal-header)",
+          }}
+        >
           {step === "questions" ? (
             <div className="flex gap-3">
-              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.cancel")}</button>
-              <button className="flex-1 py-3 rounded-3xl bg-[#007AFF] text-white text-base font-semibold hover:bg-[#007AFF]/90 shadow-lg shadow-[#007AFF]/20 disabled:opacity-50" onClick={() => setStep("suggestions")} disabled={!plannedOk} title={!plannedOk ? t("adaptive.planMismatchShort") : t("adaptive.showSuggestions")}>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{
+                  backgroundColor: "var(--button-bg)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-color)",
+                }}
+                onClick={onClose}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] text-white disabled:opacity-50"
+                style={{ backgroundColor: "var(--accent-color)" }}
+                onClick={() => setStep("suggestions")}
+                disabled={!plannedOk}
+              >
                 {t("adaptive.showSuggestions")}
               </button>
             </div>
           ) : (
             <div className="flex gap-3">
-              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={() => setStep("questions")}>{t("common.back")}</button>
-              <button className="flex-1 py-3 rounded-3xl bg-white/10 border border-white/10 text-base font-semibold hover:bg-white/20 text-white" onClick={onClose}>{t("common.close")}</button>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{
+                  backgroundColor: "var(--button-bg)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-color)",
+                }}
+                onClick={() => setStep("questions")}
+              >
+                {t("common.back")}
+              </button>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{
+                  backgroundColor: "var(--button-bg)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-color)",
+                }}
+                onClick={onClose}
+              >
+                {t("common.close")}
+              </button>
             </div>
           )}
         </div>

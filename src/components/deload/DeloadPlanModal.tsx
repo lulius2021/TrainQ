@@ -1,187 +1,123 @@
-import React, { useEffect, useMemo, useState } from "react";
-import type { DeloadRule } from "../../types/deload";
-import { addDaysISO, addWeeksISO, getWeekStartISO } from "../../utils/deload/schedule";
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import type { DeloadPlan, DeloadRule } from "../../types/deload";
+import { getWeekStartISO, addDaysISO } from "../../utils/deload/schedule";
 
-type Props = {
+interface DeloadPlanModalProps {
   open: boolean;
-  todayISO: string;
   onClose: () => void;
-  onConfirm: (startISO: string, endISO: string, rules: DeloadRule) => void;
-  onDiscard?: () => void;
-  defaultWeekChoice?: "current" | "next";
-  initialRules?: DeloadRule | null;
-  initialStartISO?: string | null;
+  onSave: (plan: DeloadPlan) => void;
+}
+
+type PresetKey = "leicht" | "mittel" | "intensiv";
+
+const PRESETS: Record<PresetKey, { label: string; desc: string; rules: DeloadRule }> = {
+  leicht: {
+    label: "Leicht",
+    desc: "Gewicht -10%, Saetze bleiben",
+    rules: { reduceWeightPct: 10, reduceSetsPct: 0 },
+  },
+  mittel: {
+    label: "Mittel",
+    desc: "Gewicht -15%, Saetze halbiert",
+    rules: { reduceWeightPct: 15, reduceSetsPct: 50 },
+  },
+  intensiv: {
+    label: "Intensiv",
+    desc: "Gewicht -25%, Saetze halbiert, kein Failure",
+    rules: { reduceWeightPct: 25, reduceSetsPct: 50, forceFailureToNormal: true },
+  },
 };
 
-const DEFAULT_RULES: DeloadRule = {
-  reduceSetsPct: 50,
-  reduceWeightPct: 15,
-  forceFailureToNormal: true,
-  applyWeightToDropsets: true,
+const PRESET_COLORS: Record<PresetKey, string> = {
+  leicht: "border-green-500/40 bg-green-500/10 text-green-400",
+  mittel: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+  intensiv: "border-red-500/40 bg-red-500/10 text-red-400",
 };
 
-export default function DeloadPlanModal({
-  open,
-  todayISO,
-  onClose,
-  onConfirm,
-  onDiscard,
-  defaultWeekChoice = "current",
-  initialRules,
-  initialStartISO,
-}: Props) {
-  const [weekChoice, setWeekChoice] = useState<"current" | "next">(defaultWeekChoice);
-  const [rules, setRules] = useState<DeloadRule>(DEFAULT_RULES);
+const PRESET_ACTIVE_COLORS: Record<PresetKey, string> = {
+  leicht: "border-green-500 bg-green-500/20 text-green-300 ring-1 ring-green-500/50",
+  mittel: "border-amber-500 bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50",
+  intensiv: "border-red-500 bg-red-500/20 text-red-300 ring-1 ring-red-500/50",
+};
 
-  useEffect(() => {
-    if (!open) return;
-    const base = getWeekStartISO(todayISO);
-    const next = addWeeksISO(base, 1);
-    if (initialStartISO) {
-      const start = getWeekStartISO(initialStartISO);
-      setWeekChoice(start === next ? "next" : "current");
-    } else {
-      setWeekChoice(defaultWeekChoice);
-    }
-    setRules(initialRules ?? DEFAULT_RULES);
-  }, [open, todayISO, defaultWeekChoice, initialRules, initialStartISO]);
-
-  const startISO = useMemo(() => {
-    const base = getWeekStartISO(todayISO);
-    return weekChoice === "next" ? addWeeksISO(base, 1) : base;
-  }, [todayISO, weekChoice]);
-  const endISO = useMemo(() => addDaysISO(startISO, 6), [startISO]);
+export default function DeloadPlanModal({ open, onClose, onSave }: DeloadPlanModalProps) {
+  const [selected, setSelected] = useState<PresetKey>("mittel");
 
   if (!open) return null;
 
+  const handleApply = () => {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const startISO = getWeekStartISO(todayISO);
+    const endISO = addDaysISO(startISO, 6);
+
+    const plan: DeloadPlan = {
+      id: crypto.randomUUID(),
+      startISO,
+      endISO,
+      createdAtISO: new Date().toISOString(),
+      rules: PRESETS[selected].rules,
+    };
+
+    onSave(plan);
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-lg rounded-[24px] border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl text-[var(--text)] p-6 space-y-5">
+      <div className="w-full max-w-lg rounded-[24px] border border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl text-[var(--text)] p-6 space-y-5">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="text-base font-semibold">{onDiscard ? "Deload anpassen" : "Deload planen"}</div>
-          <button type="button" onClick={onClose} className="rounded-2xl px-2 py-1 text-sm text-white/60 hover:text-white">
-            ✕
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setWeekChoice("current")}
-            className="rounded-3xl px-4 py-2 text-xs font-semibold transition-colors"
-            style={{
-              background: weekChoice === "current" ? "#007AFF" : "rgba(255,255,255,0.08)",
-              color: "white",
-            }}
-          >
-            Diese Woche
-          </button>
-          <button
-            type="button"
-            onClick={() => setWeekChoice("next")}
-            className="rounded-3xl px-4 py-2 text-xs font-semibold transition-colors"
-            style={{
-              background: weekChoice === "next" ? "#007AFF" : "rgba(255,255,255,0.08)",
-              color: "white",
-            }}
-          >
-            Nächste Woche
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={typeof rules.reduceSetsPct === "number"}
-              onChange={(e) =>
-                setRules((prev) => ({
-                  ...prev,
-                  reduceSetsPct: e.target.checked ? prev.reduceSetsPct ?? 50 : undefined,
-                }))
-              }
-            />
-            Sätze halbieren (50%)
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rules.forceFailureToNormal !== false}
-              onChange={(e) =>
-                setRules((prev) => ({
-                  ...prev,
-                  forceFailureToNormal: e.target.checked,
-                }))
-              }
-            />
-            Failure-Sätze deaktivieren
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={typeof rules.reduceWeightPct === "number"}
-              onChange={(e) =>
-                setRules((prev) => ({
-                  ...prev,
-                  reduceWeightPct: e.target.checked ? prev.reduceWeightPct ?? 15 : undefined,
-                }))
-              }
-            />
-            Gewicht reduzieren ({rules.reduceWeightPct ?? 15}%)
-          </label>
-
-          {typeof rules.reduceWeightPct === "number" && (
-            <div className="pl-6 space-y-2">
-              <input
-                type="range"
-                min={10}
-                max={30}
-                value={rules.reduceWeightPct ?? 15}
-                onChange={(e) => setRules((prev) => ({ ...prev, reduceWeightPct: Number(e.target.value) }))}
-                className="w-fullaccent-[#007AFF]"
-              />
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={rules.applyWeightToDropsets !== false}
-                  onChange={(e) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      applyWeightToDropsets: e.target.checked,
-                    }))
-                  }
-                />
-                Gewicht auch auf Dropsets anwenden
-              </label>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2">
-          {onDiscard && (
-            <button
-              type="button"
-              onClick={onDiscard}
-              className="rounded-3xl px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
-            >
-              Deload verwerfen
-            </button>
-          )}
+          <div className="text-base font-semibold">Deload planen</div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-3xl px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20"
+            className="rounded-2xl p-1.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Description */}
+        <p className="text-xs text-[var(--text-secondary)]">
+          Waehle eine Intensitaet fuer deine Deload-Woche. Gewicht und Saetze werden automatisch angepasst.
+        </p>
+
+        {/* Preset Buttons */}
+        <div className="space-y-2">
+          {(Object.keys(PRESETS) as PresetKey[]).map((key) => {
+            const preset = PRESETS[key];
+            const isActive = selected === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelected(key)}
+                className={`w-full text-left rounded-2xl border p-4 transition-all active:scale-[0.98] ${
+                  isActive ? PRESET_ACTIVE_COLORS[key] : PRESET_COLORS[key]
+                }`}
+              >
+                <div className="text-sm font-bold">{preset.label}</div>
+                <div className="text-xs opacity-70 mt-0.5">{preset.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-3xl px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20 transition-colors"
           >
             Abbrechen
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(startISO, endISO, rules)}
-            className="rounded-3xl px-4 py-2 text-xs font-semibold text-white bg-[var(--primary)] hover:opacity-90 transition-colors"
+            onClick={handleApply}
+            className="rounded-3xl px-4 py-2 text-xs font-semibold text-white bg-[var(--accent-color)] hover:opacity-90 transition-colors"
           >
-            {onDiscard ? "Deload anpassen" : "Deload planen"}
+            Deload starten
           </button>
         </div>
       </div>

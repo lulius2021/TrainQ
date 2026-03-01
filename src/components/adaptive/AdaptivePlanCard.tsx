@@ -1,5 +1,6 @@
 // src/components/adaptive/AdaptivePlanCard.tsx
 import React from "react";
+import { Clock, ClipboardList, Layers, Zap } from "lucide-react";
 import type { AdaptiveSuggestion } from "../../types/adaptive";
 import { useI18n } from "../../i18n/useI18n";
 
@@ -33,169 +34,133 @@ export default function AdaptivePlanCard({
 
     return (
         <div
-            className={`rounded-2xl border transition-all ${isBlocked ? "opacity-50" : "hover:shadow-xl hover:scale-[1.01]"
-                }`}
+            className={`rounded-[20px] border transition-all overflow-hidden ${isBlocked ? "opacity-50" : ""}`}
             style={{
                 borderColor: accent.border,
                 borderWidth: '1.5px',
-                background: `linear-gradient(135deg, ${accent.bg}, rgba(255,255,255,0.03))`,
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                backgroundColor: "var(--card-bg)",
             }}
         >
-            <div className="p-5">
+            <div className="p-4">
                 {/* Header with Profile Badge */}
-                <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2.5">
+                        <div className="flex items-center gap-2 mb-2">
                             <span
-                                className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider"
+                                className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider"
                                 style={{
                                     background: accent.badgeBg,
                                     color: accent.border,
-                                    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif',
-                                    letterSpacing: '0.5px',
                                 }}
                             >
                                 {profileLabel}
                             </span>
                             {!isPro && suggestion.profile !== "stabil" && (
-                                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30">
+                                <span
+                                    className="px-2 py-0.5 rounded-md text-[11px] font-semibold border"
+                                    style={{
+                                        backgroundColor: "rgba(0,122,255,0.1)",
+                                        color: "var(--accent-color)",
+                                        borderColor: "rgba(0,122,255,0.2)",
+                                    }}
+                                >
                                     Pro
                                 </span>
                             )}
-                            {isPro && (
-                                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-white/10 text-white/70">
-                                    {t("adaptive.alwaysFree")}
-                                </span>
-                            )}
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-1.5" style={{ letterSpacing: '-0.3px' }}>
+                        <h3
+                            className="text-[17px] font-bold mb-1"
+                            style={{ color: "var(--text-color)", letterSpacing: '-0.2px' }}
+                        >
                             {suggestion.title}
                         </h3>
-                        <p className="text-sm text-gray-300 leading-relaxed" style={{ letterSpacing: '-0.1px' }}>
+                        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                             {suggestion.subtitle}
                         </p>
                     </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                    {/* Duration */}
-                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg
-                                className="w-4 h-4 text-white/70"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                            </svg>
-                            <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                                Time
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div
+                        className="rounded-2xl p-3 border"
+                        style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}
+                    >
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <Clock size={13} style={{ color: "var(--text-secondary)" }} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                                Zeit
                             </span>
                         </div>
-                        <p className="text-lg font-bold text-white">
-                            {isBlocked ? "—" : `${suggestion.estimatedMinutes} min`}
+                        <p className="text-base font-bold" style={{ color: "var(--text-color)" }}>
+                            {isBlocked ? "—" : `${suggestion.estimatedMinutes}m`}
                         </p>
                     </div>
 
-                    {/* Exercises */}
-                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg
-                                className="w-4 h-4 text-white/70"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                                />
-                            </svg>
-                            <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                                Exercises
+                    <div
+                        className="rounded-2xl p-3 border"
+                        style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}
+                    >
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <ClipboardList size={13} style={{ color: "var(--text-secondary)" }} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                                Übungen
                             </span>
                         </div>
-                        <p className="text-lg font-bold text-white">
+                        <p className="text-base font-bold" style={{ color: "var(--text-color)" }}>
                             {isBlocked ? "—" : suggestion.exercisesCount}
                         </p>
                     </div>
 
-                    {/* Sets */}
-                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg
-                                className="w-4 h-4 text-white/70"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 6h16M4 12h16M4 18h16"
-                                />
-                            </svg>
-                            <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                                Sets
+                    <div
+                        className="rounded-2xl p-3 border"
+                        style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}
+                    >
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <Layers size={13} style={{ color: "var(--text-secondary)" }} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                                Sätze
                             </span>
                         </div>
-                        <p className="text-lg font-bold text-white">
+                        <p className="text-base font-bold" style={{ color: "var(--text-color)" }}>
                             {isBlocked ? "—" : `${suggestion.setsPerExercise}/ex`}
                         </p>
                     </div>
                 </div>
 
                 {/* Intensity Hint */}
-                <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
+                <div
+                    className="rounded-2xl p-3 border mb-3"
+                    style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}
+                >
                     <div className="flex items-start gap-2">
-                        <svg
-                            className="w-5 h-5 text-white/70 flex-shrink-0 mt-0.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                        </svg>
+                        <Zap size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--text-secondary)" }} />
                         <div className="flex-1">
-                            <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-1">
-                                Intensity
+                            <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--text-secondary)" }}>
+                                Intensität
                             </p>
-                            <p className="text-sm text-white font-medium">
+                            <p className="text-sm font-medium" style={{ color: "var(--text-color)" }}>
                                 {suggestion.intensityHint}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Reasons (Why this plan?) */}
+                {/* Reasons */}
                 {suggestion.reasons && suggestion.reasons.length > 0 && (
-                    <div className="rounded-3xl bg-white/5 backdrop-blur-sm p-3 border border-white/10 mb-4">
-                        <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
+                    <div
+                        className="rounded-2xl p-3 border mb-3"
+                        style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}
+                    >
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>
                             {t("adaptive.why")}
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                             {suggestion.reasons.slice(0, 3).map((reason) => (
                                 <span
                                     key={reason}
-                                    className="px-2 py-1 rounded-md text-xs font-medium bg-white/10 text-white/80"
+                                    className="px-2 py-1 rounded-lg text-xs font-medium"
+                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
                                 >
                                     {t(`adaptive.reason.${reason}` as any) || reason}
                                 </span>
@@ -208,22 +173,21 @@ export default function AdaptivePlanCard({
                 <button
                     onClick={onSelect}
                     disabled={disabled || isBlocked}
-                    className={`w-full h-[60px] flex items-center justify-center rounded-3xl text-lg font-black text-white uppercase tracking-wide transition-all ${disabled || isBlocked
-                        ? "opacity-40 cursor-not-allowed"
-                        : "hover:scale-[1.02] active:scale-[0.98] shadow-xl"
-                        }`}
+                    className={`w-full py-3.5 flex items-center justify-center rounded-2xl text-[15px] font-bold transition-all ${
+                        disabled || isBlocked
+                            ? "opacity-40 cursor-not-allowed"
+                            : "active:scale-[0.97]"
+                    }`}
                     style={{
-                        background: isBlocked
-                            ? "rgba(255,255,255,0.1)"
-                            : `linear-gradient(135deg, ${accent.badgeBg.replace("0.2", "0.4")}, ${accent.border})`,
+                        color: isBlocked ? "var(--text-secondary)" : "#FFFFFF",
+                        backgroundColor: isBlocked ? "var(--button-bg)" : accent.border,
                     }}
                 >
                     {isBlocked ? t("adaptive.disabledToday") : t("adaptive.select")}
                 </button>
 
-                {/* Disabled Message */}
                 {isBlocked && (
-                    <p className="text-xs text-center text-white/50 mt-2">
+                    <p className="text-xs text-center mt-2" style={{ color: "var(--text-secondary)" }}>
                         {t("adaptive.disabledMessage")}
                     </p>
                 )}

@@ -167,7 +167,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl p-4 text-left"
+      className="space-y-4 rounded-3xl border border-[var(--border-color)] bg-[var(--card-bg)] backdrop-blur-xl p-4 text-left"
     >
       <h2 className="text-lg font-semibold mb-1">{t("workoutEditor.title")}</h2>
 
@@ -179,7 +179,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
           placeholder={t("workoutEditor.titlePlaceholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
+          className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)] text-[var(--text)]"
         />
       </div>
 
@@ -193,7 +193,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             setSportart(value);
             setSessionType(null);
           }}
-          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
+          className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)] text-[var(--text)]"
         >
           <option value="REST">{t("training.sport.rest")}</option>
           <option value="GYM">{t("training.sport.gym")}</option>
@@ -214,7 +214,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                 (e.target.value as SessionType) || null
               )
             }
-            className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] text-[var(--text)]"
+            className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)] text-[var(--text)]"
           >
             <option value="">{t("workoutEditor.selectPlaceholder")}</option>
             <option value="LONGRUN">{t("workoutEditor.longrun")}</option>
@@ -251,7 +251,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             <button
               type="button"
               onClick={addExercise}
-              className="text-xs px-2 py-1 rounded-md border border-[var(--border)] hover:bg-[var(--surface2)]"
+              className="text-xs px-2 py-1 rounded-md border border-[var(--border-color)] hover:bg-[var(--button-bg)]"
             >
               {t("workoutEditor.addExercise")}
             </button>
@@ -261,7 +261,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
             {exercises.map((ex) => (
               <div
                 key={ex.id}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface2)] p-3 space-y-2"
+                className="rounded-2xl border border-[var(--border-color)] bg-[var(--button-bg)] p-3 space-y-2"
               >
                 <div className="flex items-center justify-between gap-2">
                   <input
@@ -271,7 +271,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                     onChange={(e) =>
                       updateExerciseName(ex.id, e.target.value)
                     }
-                    className="flex-1 rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+                    className="flex-1 rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)]"
                   />
                   <button
                     type="button"
@@ -300,7 +300,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                             e.target.value
                           )
                         }
-                        className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+                        className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)]"
                       />
                       <input
                         type="number"
@@ -314,7 +314,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                             e.target.value
                           )
                         }
-                        className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+                        className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)]"
                       />
                       <button
                         type="button"
@@ -332,7 +332,7 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
                   <button
                     type="button"
                     onClick={() => addSetToExercise(ex.id)}
-                    className="text-xs px-2 py-1 rounded-md border border-[var(--border)] hover:bg-[var(--surface2)]"
+                    className="text-xs px-2 py-1 rounded-md border border-[var(--border-color)] hover:bg-[var(--button-bg)]"
                   >
                     {t("workoutEditor.addSet")}
                   </button>
@@ -350,14 +350,14 @@ export default function WorkoutEditor({ onAdd }: WorkoutEditorProps) {
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)] resize-none"
+          className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)] resize-none"
           placeholder={t("workoutEditor.notesPlaceholder")}
         />
       </div>
 
       <button
         type="submit"
-        className="w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold text-white hover:opacity-90 transition"
+        className="w-full rounded-md bg-[var(--accent-color)] py-2 text-sm font-semibold text-white hover:opacity-90 transition"
       >
         {t("workoutEditor.addToDay")}
       </button>
@@ -381,7 +381,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md bg-[var(--surface2)] border border-[var(--border)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--primary)]"
+        className="rounded-md bg-[var(--button-bg)] border border-[var(--border-color)] px-2 py-1 text-sm focus:outline-none focus:border-[var(--accent-color)]"
       />
     </div>
   );

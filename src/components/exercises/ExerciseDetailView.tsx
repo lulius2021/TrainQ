@@ -46,7 +46,7 @@ const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" 
     // Show chart if we have at least 1 point (visualize dot) or more
     if (data.length === 0) {
         return (
-            <div className="h-32 bg-zinc-900/50 rounded-2xl border border-white/5 flex items-center justify-center text-zinc-500 text-xs italic">
+            <div className="h-32 rounded-2xl border flex items-center justify-center text-xs italic" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-muted)" }}>
                 Noch keine Daten vorhanden
             </div>
         );
@@ -82,10 +82,10 @@ const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" 
     const isLive = chartData[lastIdx].isLive;
 
     return (
-        <div className="bg-zinc-900/40 rounded-2xl border border-white/5 p-4">
+        <div className="rounded-2xl border p-4" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
             <div className="flex justify-between items-end mb-4">
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{label}</span>
-                <span className="text-lg font-black text-white">
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</span>
+                <span className="text-lg font-black" style={{ color: "var(--text-color)" }}>
                     {values[values.length - 1].toFixed(1)}{suffix}
                     {isLive && <span className="ml-2 text-[10px] text-blue-400 font-bold uppercase tracking-wider align-middle bg-blue-500/20 px-1.5 py-0.5 rounded">Live</span>}
                 </span>
@@ -126,7 +126,7 @@ const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" 
                     </circle>
                 </svg>
             </div>
-            <div className="mt-2 text-[10px] text-zinc-600 font-medium text-center">
+            <div className="mt-2 text-[10px] font-medium text-center" style={{ color: "var(--text-secondary)" }}>
                 Letzte {chartData.length} Einheiten {isLive && "(inkl. Heute)"}
             </div>
         </div>
@@ -286,13 +286,14 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: "100%" }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="fixed inset-0 z-[100] bg-black flex flex-col"
+                    className="fixed inset-0 z-[100] flex flex-col"
+                    style={{ backgroundColor: "var(--modal-bg)" }}
                 >
                     {/* Close Button - absolute to be safe from scroll */}
                     <button
                         onClick={onClose}
-                        style={{ top: topPadding, right: 20 }}
-                        className="absolute z-50 w-10 h-10 rounded-full bg-zinc-800/80 backdrop-blur-md flex items-center justify-center text-white p-2 shadow-lg border border-white/10"
+                        style={{ top: topPadding, right: 20, backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                        className="absolute z-50 w-10 h-10 rounded-full backdrop-blur-md flex items-center justify-center p-2 shadow-lg border"
                     >
                         <X size={20} />
                     </button>
@@ -303,11 +304,11 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                         <div className="px-6 pb-8">
                             {/* 1. HEADER & IMAGE */}
                             <div className="mb-8">
-                                <h1 className="text-3xl font-black text-white leading-tight mb-4 pr-12">
+                                <h1 className="text-3xl font-black leading-tight mb-4 pr-12" style={{ color: "var(--text-color)" }}>
                                     {exercise.name}
                                 </h1>
 
-                                <div className="relative w-full aspect-video rounded-[32px] overflow-hidden bg-zinc-900 border border-white/5 shadow-2xl">
+                                <div className="relative w-full aspect-video rounded-[32px] overflow-hidden border shadow-2xl" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                                     {imageUrl ? (
                                         <img src={imageUrl} alt={exercise.name} className="w-full h-full object-cover" />
                                     ) : (
@@ -333,16 +334,16 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">All-Time Bestleistungen</h3>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-zinc-900/60 rounded-2xl p-4 border border-white/5">
-                                        <div className="text-xs text-zinc-500 font-medium mb-1">Max Gewicht</div>
-                                        <div className="text-2xl font-black text-white tracking-tight">
-                                            {records.maxWeight} <span className="text-sm text-zinc-500 font-bold">kg</span>
+                                    <div className="rounded-2xl p-4 border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                                        <div className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Max Gewicht</div>
+                                        <div className="text-2xl font-black tracking-tight" style={{ color: "var(--text-color)" }}>
+                                            {records.maxWeight} <span className="text-sm font-bold" style={{ color: "var(--text-muted)" }}>kg</span>
                                         </div>
                                     </div>
-                                    <div className="bg-zinc-900/60 rounded-2xl p-4 border border-white/5">
-                                        <div className="text-xs text-zinc-500 font-medium mb-1">Max Volumen</div>
-                                        <div className="text-2xl font-black text-white tracking-tight">
-                                            {records.maxVolume} <span className="text-sm text-zinc-500 font-bold">kg</span>
+                                    <div className="rounded-2xl p-4 border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                                        <div className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Max Volumen</div>
+                                        <div className="text-2xl font-black tracking-tight" style={{ color: "var(--text-color)" }}>
+                                            {records.maxVolume} <span className="text-sm font-bold" style={{ color: "var(--text-muted)" }}>kg</span>
                                         </div>
                                     </div>
                                 </div>
@@ -366,18 +367,19 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                             </div>
 
                             {/* 4. INSTRUCTIONS (Moved DOWN) */}
-                            <div className="mb-8 bg-[#1c1c1e] rounded-[24px] border border-white/5 overflow-hidden shadow-lg">
+                            <div className="mb-8 rounded-[24px] border overflow-hidden shadow-lg" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                                 <button
                                     onClick={() => setInstructionsOpen(!instructionsOpen)}
-                                    className="w-full flex items-center justify-between p-5 text-left bg-white/5 hover:bg-white/10 transition-colors"
+                                    className="w-full flex items-center justify-between p-5 text-left transition-colors hover:opacity-80"
+                                    style={{ backgroundColor: "var(--input-bg)" }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
                                             <Info size={16} strokeWidth={2.5} />
                                         </div>
-                                        <span className="font-bold text-white text-base">Anleitung & Form</span>
+                                        <span className="font-bold text-base" style={{ color: "var(--text-color)" }}>Anleitung & Form</span>
                                     </div>
-                                    {instructionsOpen ? <ChevronUp size={20} className="text-zinc-500" /> : <ChevronDown size={20} className="text-zinc-500" />}
+                                    {instructionsOpen ? <ChevronUp size={20} style={{ color: "var(--text-muted)" }} /> : <ChevronDown size={20} style={{ color: "var(--text-muted)" }} />}
                                 </button>
                                 <AnimatePresence>
                                     {instructionsOpen && instructionSet && (
@@ -391,8 +393,8 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                                                 {/* Steps */}
                                                 <ul className="space-y-3">
                                                     {instructionSet.steps.map((step, idx) => (
-                                                        <li key={idx} className="flex gap-3 text-sm text-zinc-300 leading-relaxed">
-                                                            <span className="shrink-0 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500 mt-0.5">{idx + 1}</span>
+                                                        <li key={idx} className="flex gap-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                                                            <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-muted)" }}>{idx + 1}</span>
                                                             <span>{step}</span>
                                                         </li>
                                                     ))}

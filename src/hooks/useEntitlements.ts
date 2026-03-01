@@ -64,19 +64,19 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
   // ---------- Remaining (Free) ----------
 
   const adaptiveBCRemaining = useMemo(() => {
-    if (isPro) return Infinity as unknown as number;
+    if (isPro) return Number.MAX_SAFE_INTEGER;
     const used = typeof state.adaptiveBCUsedThisMonth === "number" ? state.adaptiveBCUsedThisMonth : 0;
     return Math.max(0, FREE_LIMITS.adaptiveBCPerMonth - used);
   }, [isPro, state.adaptiveBCUsedThisMonth]);
 
   const planShiftRemaining = useMemo(() => {
-    if (isPro) return Infinity as unknown as number;
+    if (isPro) return Number.MAX_SAFE_INTEGER;
     const used = typeof state.planShiftUsedThisMonth === "number" ? state.planShiftUsedThisMonth : 0;
     return Math.max(0, FREE_LIMITS.planShiftPerMonth - used);
   }, [isPro, state.planShiftUsedThisMonth]);
 
   const calendar7DaysRemaining = useMemo(() => {
-    if (isPro) return Infinity as unknown as number;
+    if (isPro) return Number.MAX_SAFE_INTEGER;
     const used = typeof state.calendar7DaysUsedThisMonth === "number" ? state.calendar7DaysUsedThisMonth : 0;
     return Math.max(0, FREE_LIMITS.calendar7DaysPerMonth - used);
   }, [isPro, state.calendar7DaysUsedThisMonth]);

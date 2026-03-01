@@ -35,8 +35,8 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
                             className={`
                         w-[47%] grow py-6 rounded-2xl text-center font-bold text-lg transition-all border
                         ${isSelected
-                                    ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-lg shadow-blue-500/30 scale-105'
-                                    : 'bg-[var(--surface)] text-[var(--muted)] border-white/5 hover:bg-[var(--surface2)] hover:text-[var(--text)]'}
+                                    ? 'bg-[var(--accent-color)] border-[var(--accent-color)] text-white shadow-lg shadow-blue-500/30 scale-105'
+                                    : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-white/5 hover:bg-[var(--button-bg)] hover:text-[var(--text)]'}
                     `}
                         >
                             {timeVal}
@@ -46,9 +46,9 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
             </div>
 
             {data.training.timeBudget && (
-                <div className="mt-8 p-6 bg-[var(--surface)] rounded-2xl border border-white/5 animate-pulse">
+                <div className="mt-8 p-6 bg-[var(--card-bg)] rounded-2xl border border-white/5 animate-pulse">
                     <h3 className="text-white font-medium mb-2">Perfekt!</h3>
-                    <p className="text-[var(--muted)] text-sm leading-relaxed">
+                    <p className="text-[var(--text-muted)] text-sm leading-relaxed">
                         Mit {data.training.timeBudget} können wir bereits sehr effektive Reize setzen.
                     </p>
                 </div>

@@ -15,25 +15,148 @@
         /* Zinc-800 */
     }
 
-    html,
+    /* GLOBAL RESET & THEME VARIABLES */
+    :root {
+        /* Default Dark Theme */
+        --bg-color: #000000;
+        --card-bg: #1C1C1E;
+        --button-bg: #2C2C2E;
+        --text-color: #FFFFFF;
+        --text-main: #FFFFFF;
+        --text-secondary: #8E8E93;
+        --text-muted: #8E8E93;
+        --accent-color: #007AFF;
+        --border-color: #27272a;
+        --input-bg: #2C2C2E;
+        --tab-bar-bg: #1C1C1E;
+        --success: #34C759;
+        --danger: #FF3B30;
+
+        /* Modal & Overlays */
+        --modal-bg: #1C1C1E;
+        --modal-header: rgba(28, 28, 30, 0.95);
+        --card-plan-bg: #1C1C1E;
+        --button-text: #FFFFFF;
+
+        /* Navigation */
+        --nav-bg: #1C1C1E;
+        --nav-icon-active: #0A84FF;
+        --nav-icon-inactive: #8E8E93;
+        --nav-label: #FFFFFF;
+        --nav-item-active: #0A84FF;
+        --nav-item-inactive: #8E8E93;
+        --button-haptic: #3A3A3C;
+        --nav-icon-filter: brightness(0) invert(1);
+        --mini-bar-bg: rgba(28, 28, 30, 0.95);
+        --chart-grid: rgba(255, 255, 255, 0.1);
+        --text: var(--text-color);
+    }
+
+    body.light-theme {
+        /* Light Theme Overrides */
+        --bg-color: #F2F2F7;
+        --card-bg: #FFFFFF;
+        --button-bg: #E5E5EA;
+        --text-color: #000000;
+        --text-main: #000000 !important;
+        --text-secondary: #3C3C43;
+        --text-muted: #3C3C43;
+        --accent-color: #007AFF;
+        --border-color: #E5E5EA;
+        --input-bg: #F2F2F7;
+        --tab-bar-bg: #FFFFFF;
+        --success: #34C759;
+        --danger: #FF3B30;
+
+        /* Modal & Overlays */
+        --modal-bg: #FFFFFF;
+        --modal-header: #F9F9F9;
+        --card-plan-bg: #F2F2F7;
+        --button-text: #000000;
+
+        /* Navigation */
+        --nav-bg: #FFFFFF;
+        --nav-icon-active: #007AFF;
+        --nav-icon-inactive: #000000;
+        --nav-label: #000000;
+        --nav-item-active: #007AFF;
+        --nav-item-inactive: #8E8E93;
+        --button-haptic: #D1D1D6;
+        --nav-icon-filter: brightness(0);
+        --mini-bar-bg: rgba(255, 255, 255, 0.95);
+        --chart-grid: #C7C7CC;
+    }
+
+    /* Theme switching transition — scoped to layout containers only */
+    body,
+    #root,
+    header,
+    footer,
+    nav,
+    main,
+    section {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* Fix iOS double-tap delay — set on html so all descendants inherit via touch-action intersection */
+    html {
+        touch-action: manipulation;
+    }
+
+    button, a, input, select, textarea, [role="button"], [onclick] {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Force white text (for gradient cards etc.) */
+    .force-white,
+    .force-white *,
+    .force-white h1, .force-white h2, .force-white h3, .force-white h4,
+    .force-white p, .force-white span, .force-white div,
+    .force-white svg {
+        color: #FFFFFF !important;
+        fill: #FFFFFF;
+    }
+
+    /* Haptic Feedback Class */
+    .btn-haptic:active {
+        background-color: var(--button-haptic) !important;
+        transform: scale(0.97);
+        transition: all 0.1s;
+    }
+
+    html {
+        height: 100%;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+    }
+
     body,
     #root {
         height: 100%;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
         width: 100%;
         margin: 0;
         padding: 0;
         overflow: hidden;
 
-        /* HARDCODED DARK BACKGROUND & WHITE TEXT */
-        background-color: #121214 !important;
-        /* Zinc-900 */
-        color: #ffffff !important;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
     }
 
-    body {
-        @apply antialiased;
+    .btn-dynamic-text {
+        color: var(--button-text);
     }
 }
+
 
 @layer utilities {
     .pb-safe {
@@ -43,4 +166,31 @@
     .pt-safe {
         padding-top: env(safe-area-inset-top);
     }
+
+    #library-image-forced {
+        width: 90px !important;
+        height: 90px !important;
+        min-width: 90px !important;
+        min-height: 90px !important;
+        object-fit: cover !important;
+        border-radius: 12px !important;
+        display: block !important;
+    }
+}
+
+/* FINAL UI FORCE-OVERRIDE */
+body.light-theme .text-white:not(.force-white *),
+body.light-theme .text-zinc-400:not(.force-white *) {
+    color: #000000 !important;
+}
+
+body.light-theme h1:not(.force-white h1):not(.force-white *),
+body.light-theme h2:not(.force-white h2):not(.force-white *),
+body.light-theme h3:not(.force-white h3):not(.force-white *) {
+    color: #000000 !important;
+}
+
+body.light-theme .bg-zinc-900,
+body.light-theme .bg-zinc-950 {
+    background-color: var(--card-bg) !important;
 }

@@ -9,7 +9,7 @@ export default function PrivacyPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
+        <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text)] px-4 py-8" style={{ paddingTop: `calc(2rem + ${safeTop})` }}>
             <div className="max-w-2xl mx-auto space-y-6">
                 <button
                     onClick={goBack}
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
 
                 <h1 className="text-3xl font-bold">Datenschutzerklärung</h1>
 
-                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)]">
+                <div className="space-y-4 opacity-90 leading-relaxed bg-[var(--card-bg)] p-6 rounded-3xl border border-[var(--border-color)]">
                     <p>
                         Der Schutz deiner Daten ist uns wichtig. In dieser Datenschutzerklärung erfährst du,
                         welche Daten wir erfassen und wie wir sie nutzen.

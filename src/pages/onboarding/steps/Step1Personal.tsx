@@ -92,7 +92,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
           </span>
         </div>
 
-        <div className="text-[11px] text-[var(--muted)]">
+        <div className="text-[11px] text-[var(--text-muted)]">
           1 = entspannt, 10 = sehr gestresst
         </div>
 
@@ -108,7 +108,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               stressLevel: clamp(Number(e.target.value), 1, 10),
             }))
           }
-          className="w-full accent-[var(--primary)]"
+          className="w-full accent-[var(--accent-color)]"
         />
       </AppCard>
 
@@ -121,7 +121,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
           </span>
         </div>
 
-        <div className="text-[11px] text-[var(--muted)]">
+        <div className="text-[11px] text-[var(--text-muted)]">
           Durchschnitt pro Nacht
         </div>
 
@@ -137,7 +137,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               sleepHours: clamp(Number(e.target.value), 0, 12),
             }))
           }
-          className="w-full accent-[var(--primary)]"
+          className="w-full accent-[var(--accent-color)]"
         />
       </AppCard>
 
@@ -147,12 +147,12 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
           <div className="text-sm font-semibold text-[var(--text)]">
             Körperdaten (optional)
           </div>
-          <div className="text-[11px] text-[var(--muted)]">später änderbar</div>
+          <div className="text-[11px] text-[var(--text-muted)]">später änderbar</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--muted)]">Alter</div>
+            <div className="text-[11px] text-[var(--text-muted)]">Alter</div>
             <input
               type="number"
               inputMode="numeric"
@@ -162,12 +162,12 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="Jahre"
               value={local.age ?? ""}
               onChange={(e) => handleChangeNumber("age", e.target.value)}
-              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--card-bg)] border border-white/10 text-[var(--text)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--muted)]">Größe</div>
+            <div className="text-[11px] text-[var(--text-muted)]">Größe</div>
             <input
               type="number"
               inputMode="numeric"
@@ -177,12 +177,12 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="cm"
               value={local.height ?? ""}
               onChange={(e) => handleChangeNumber("height", e.target.value)}
-              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--card-bg)] border border-white/10 text-[var(--text)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--muted)]">Gewicht</div>
+            <div className="text-[11px] text-[var(--text-muted)]">Gewicht</div>
             <input
               type="number"
               inputMode="numeric"
@@ -192,7 +192,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
               placeholder="kg"
               value={local.weight ?? ""}
               onChange={(e) => handleChangeNumber("weight", e.target.value)}
-              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--card-bg)] border border-white/10 text-[var(--text)] placeholder:text-[var(--text-muted)]"
             />
           </div>
         </div>

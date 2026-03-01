@@ -401,7 +401,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                 onPointerDown={(e: React.PointerEvent) => !isEditing && dragControls.start(e)}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm" style={{ color: "var(--muted)" }}>
+                  <div className="text-sm" style={{ color: "var(--text-muted)" }}>
                     {t("calendar.preview.title")}
                   </div>
                   <input
@@ -418,7 +418,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                       onChange={(e) => canEdit && setDraftEvent({ ...draftEvent, date: e.target.value })}
                       disabled={!isEditing}
                       className="rounded px-2 py-1 text-sm"
-                      style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                      style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
                     />
                     {hasTime ? (
                       isEditing ? (
@@ -429,7 +429,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                             onChange={(e) => canEdit && setDraftEvent({ ...draftEvent, startTime: e.target.value })}
                             disabled={!isEditing}
                             className="rounded px-2 py-1 text-sm pr-7"
-                            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                            style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
                           />
                           <button
                             type="button"
@@ -442,7 +442,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                               })
                             }
                             className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 hover:opacity-90"
-                            style={{ color: "var(--muted)" }}
+                            style={{ color: "var(--text-muted)" }}
                             aria-label={t("calendar.preview.removeTime")}
                             title={t("calendar.preview.removeTime")}
                           >
@@ -452,7 +452,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                       ) : (
                         <div
                           className="rounded px-2 py-1 text-sm"
-                          style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                          style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
                         >
                           {draftEvent.startTime}
                         </div>
@@ -468,7 +468,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                           })
                         }
                         className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm hover:opacity-95"
-                        style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                        style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
                         aria-label={t("calendar.preview.addTime")}
                         title={t("calendar.preview.addTime")}
                       >
@@ -476,7 +476,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                         <span>{t("calendar.preview.addTime")}</span>
                       </button>
                     ) : (
-                      <div className="rounded px-2 py-1 text-sm" style={{ color: "var(--muted)" }}>
+                      <div className="rounded px-2 py-1 text-sm" style={{ color: "var(--text-muted)" }}>
                         {t("calendar.preview.noTime")}
                       </div>
                     )}
@@ -487,7 +487,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                   type="button"
                   onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                   className="h-9 w-9 rounded-full border flex items-center justify-center hover:opacity-95"
-                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                  style={{ borderColor: "var(--border-color)", color: "var(--text)" }}
                   aria-label={isEditing ? t("calendar.preview.saveEdit") : t("calendar.preview.edit")}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
@@ -497,9 +497,9 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
               <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3" style={{ WebkitOverflowScrolling: "touch" }}>
                 <div className="space-y-4">
-                  <div className="rounded-3xl px-3 py-3" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                  <div className="rounded-3xl px-3 py-3" style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+                      <div className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
                         {t("calendar.preview.scope")}
                       </div>
                       <div className="text-sm">
@@ -516,7 +516,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
                   <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
                     {draftExercises.length === 0 ? (
-                      <div className="rounded-3xl p-3 text-sm" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                      <div className="rounded-3xl p-3 text-sm" style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
                         {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
                       </div>
                     ) : (
@@ -544,7 +544,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                         type="button"
                         onClick={() => setLibraryOpen(true)}
                         className="mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold hover:opacity-95"
-                        style={{ background: "var(--surface2)", borderColor: "var(--border)", color: "var(--text)" }}
+                        style={{ background: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text)" }}
                       >
                         {isCardio ? t("calendar.preview.addCardio") : t("calendar.preview.addExercise")}
                       </button>
@@ -571,7 +571,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                         style={
                           canStartPreview
                             ? { background: "rgba(16,185,129,0.95)", color: "#06120c" }
-                            : { background: "rgba(148,163,184,0.25)", color: "var(--muted)" }
+                            : { background: "rgba(148,163,184,0.25)", color: "var(--text-muted)" }
                         }
                       >
                         {t("calendar.preview.startTraining")}
@@ -582,7 +582,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
                       type="button"
                       onClick={handleClose}
                       className="px-4 py-3 rounded-2xl text-sm hover:opacity-95"
-                      style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+                      style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}
                     >
                       {t("common.close")}
                     </button>

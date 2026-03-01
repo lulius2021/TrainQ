@@ -9,7 +9,7 @@ type Props = {
 
 function pickSpotlight(model: WorkoutShareModel) {
   if (model.spotlight) return model.spotlight;
-  if (!model.exercises.length) return undefined;
+  if (!model.exercises || !model.exercises.length) return undefined;
   let best = model.exercises[0];
   let bestVolume = best.volume ?? 0;
   for (const ex of model.exercises) {

@@ -1,244 +1,224 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getSupabaseClient } from '../lib/supabaseClient';
-import { AppCard } from './ui/AppCard';
 import { AppButton } from './ui/AppButton';
-import { PageHeader } from './ui/PageHeader';
+import { Dumbbell } from 'lucide-react';
 
 /**
- * ------------------------------------------------------------
- * Internal UI Components for consistent design
- * ------------------------------------------------------------
- */
-
-const OnboardingLayout: React.FC<{ children: React.ReactNode; progress: number }> = ({ children, progress }) => (
-    <div className="fixed inset-0 z-[100] bg-gradient-to-b from-[#0f172a] via-[#0a0e17] to-black text-white flex flex-col font-sans overflow-hidden">
-        {/* Safe Area Background Fix (Top) */}
-        <div className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] bg-[#0f172a] z-50" />
-
-        {/* Progress Bar */}
-        <div className="relative pt-[calc(env(safe-area-inset-top)+20px)] px-6 z-40">
-            <div className="h-1 w-full bg-[var(--surface2)] rounded-full overflow-hidden">
-                <div
-                    className="h-full bg-[var(--primary)] transition-all duration-500 ease-out rounded-full"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
-        </div>
-
-        {/* content */}
-        <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-4 overflow-y-auto overflow-x-hidden no-scrollbar">
-            {children}
-        </div>
-    </div>
-);
-
-/**
- * 3-Step Strategic Onboarding Flow
+ * Single-screen onboarding: Fokus + Zeit + Level
+ * Nur beim ersten Login / neuen Account
  */
 export const Onboarding: React.FC = () => {
     const { user, completeOnboarding } = useAuth();
-    const [step, setStep] = useState<number>(0);
     const [loading, setLoading] = useState(false);
 
-    // Form Data
-    const [goal, setGoal] = useState<string>('');
+    const [goal, setGoal] = useState<string>('beginner');
     const [timePerWorkout, setTimePerWorkout] = useState<number>(45);
     const [fitnessLevel, setFitnessLevel] = useState<number>(3);
 
-    if (!user || user.onboardingCompleted) {
-        return null;
-    }
-
-    const handleNext = () => {
-        setStep((p) => p + 1);
-    };
+    if (!user || user.onboardingCompleted) return null;
 
     const handleFinish = async () => {
         setLoading(true);
-
         try {
-            const weeklyMinutes = timePerWorkout * 3;
             const preferences = {
                 persona: goal,
                 fitness_level: fitnessLevel,
-                time_budget: String(weeklyMinutes),
+                time_budget: String(timePerWorkout * 3),
             };
 
-            // 1. Save preferences
             if (user?.provider === 'local') {
-                // Local-first: Save to localStorage
                 localStorage.setItem('user_preferences', JSON.stringify(preferences));
-                // Also update user object if we want to store it there (optional, but good for display)
-                // For now, we rely on the fact that the app doesn't heavily use these outside of generation
             } else {
-                // Supabase: Save to Profile
                 const client = getSupabaseClient();
                 if (client && user?.id) {
-                    const { error } = await client.from('profiles').update(preferences).eq('id', user.id);
-                    if (error) {
-                        console.error('Onboarding preference update failed:', error);
-                    }
+                    try { await client.from('profiles').update(preferences).eq('id', user.id); } catch { /* ignore */ }
                 }
             }
 
-            // 2. Complete Onboarding (Persist & Cache)
             await completeOnboarding();
-
-            // 3. Force Navigation State to Dashboard
-            // Ensure we are logically at root
             window.history.replaceState({}, "", "/");
             window.dispatchEvent(new PopStateEvent("popstate"));
-
         } catch (e) {
             console.error('Onboarding error:', e);
             setLoading(false);
         }
     };
 
-    // Derived Progress (33%, 66%, 100%)
-    const progress = ((step + 1) / 3) * 100;
+    const personas = [
+        { id: 'pro', label: 'Athlet', desc: 'Maximale Leistung' },
+        { id: 'manager', label: 'Effizient', desc: 'Zeitsparend & fokussiert' },
+        { id: 'beginner', label: 'Gesundheit', desc: 'Nachhaltiger Aufbau' },
+    ];
+
+    const times = [
+        { min: 20, label: '20 min' },
+        { min: 30, label: '30 min' },
+        { min: 45, label: '45 min' },
+        { min: 60, label: '60+ min' },
+    ];
+
+    const levels = [
+        { lvl: 1, label: 'Einsteiger' },
+        { lvl: 2, label: 'Anfaenger' },
+        { lvl: 3, label: 'Fortgeschritten' },
+        { lvl: 4, label: 'Erfahren' },
+        { lvl: 5, label: 'Profi' },
+    ];
 
     return (
-        <OnboardingLayout progress={progress}>
+        <div
+            className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+            style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+        >
+            <div
+                className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] z-50"
+                style={{ backgroundColor: "var(--bg-color)" }}
+            />
 
-            {/* STEP 0: Persona */}
-            {step === 0 && (
-                <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <PageHeader
-                        title="Dein Fokus?"
-                        subtitle="Wir passen den Algorithmus an dein Leben an."
-                        className="px-0"
-                    />
-
-                    <div className="space-y-4 flex-1">
-                        {[
-                            { id: 'pro', label: 'Profi-Athlet', desc: 'Maximale Leistung & Volumen' },
-                            { id: 'manager', label: 'High Performer', desc: 'Effizient, Zeitsparend, Fokus' },
-                            { id: 'beginner', label: 'Gesundheit', desc: 'Nachhaltiger Aufbau & Balance' },
-                        ].map((opt) => {
-                            const selected = goal === opt.id;
-                            return (
-                                <AppCard
-                                    key={opt.id}
-                                    variant={selected ? "solid" : "glass"}
-                                    onClick={() => { setGoal(opt.id); handleNext(); }}
-                                    className={`p-6 cursor-pointer text-left border-transition ${selected ? '!border-[var(--primary)] !bg-[var(--primary)]/10' : ''}`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className={`font-bold text-lg mb-1 ${selected ? 'text-white' : 'text-white'}`}>
-                                            {opt.label}
-                                        </div>
-                                    </div>
-                                    <div className={`text-sm font-medium ${selected ? 'text-blue-100' : 'text-gray-500'}`}>
-                                        {opt.desc}
-                                    </div>
-                                </AppCard>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* STEP 1: Time */}
-            {step === 1 && (
-                <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <PageHeader
-                        title="Dein Zeitbudget"
-                        subtitle="Wie viel Zeit hast du realistisch pro Einheit?"
-                        className="px-0"
-                    />
-
-                    <div className="flex-1 flex flex-col justify-center space-y-12">
-                        <div className="text-center">
-                            <div className="text-6xl font-extrabold text-[var(--primary)] tabular-nums tracking-tighter">
-                                {timePerWorkout >= 120 ? '120+' : timePerWorkout}
-                                <span className="text-2xl text-gray-500 font-medium ml-2">min</span>
-                            </div>
-                        </div>
-
-                        <div className="px-2">
-                            <input
-                                type="range"
-                                min="15"
-                                max="120"
-                                step="5"
-                                value={timePerWorkout}
-                                onChange={(e) => setTimePerWorkout(Number(e.target.value))}
-                                className="w-full h-2 bg-[var(--surface2)] rounded-2xl appearance-none cursor-pointer accent-[var(--primary)] outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
-                            />
-                            <div className="w-full flex justify-between text-xs text-gray-500 font-mono uppercase mt-4 tracking-widest font-bold">
-                                <span>Quick (15m)</span>
-                                <span>Endurance (120+)</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <AppButton
-                        onClick={handleNext}
-                        fullWidth
-                        size="lg"
-                        className="mt-auto shadow-lg"
+            <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-[calc(env(safe-area-inset-top)+24px)] overflow-y-auto no-scrollbar">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-8">
+                    <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                        style={{ backgroundColor: "rgba(0,122,255,0.1)" }}
                     >
-                        Weiter
-                    </AppButton>
-                </div>
-            )}
-
-            {/* STEP 2: Fitness Level */}
-            {step === 2 && (
-                <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
-                    <PageHeader
-                        title="Dein Level"
-                        subtitle="Wie schätzt du deine aktuelle Fitness ein?"
-                        className="px-0"
-                    />
-
-                    <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex justify-between gap-2 mb-8 px-2">
-                            {[1, 2, 3, 4, 5].map((lvl) => (
-                                <button
-                                    key={lvl}
-                                    onClick={() => setFitnessLevel(lvl)}
-                                    className={`
-                                        h-16 flex-1 rounded-2xl flex items-center justify-center text-xl font-bold transition-all duration-300
-                                        ${fitnessLevel === lvl
-                                            ? 'bg-[var(--primary)] text-white scale-110 shadow-lg shadow-blue-500/30 ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--bg)]'
-                                            : 'bg-[var(--surface)] text-gray-500 hover:bg-[var(--surface2)]'
-                                        }
-                                    `}
-                                >
-                                    {lvl}
-                                </button>
-                            ))}
-                        </div>
-
-                        <AppCard variant="glass" className="p-6 text-center">
-                            <div className="text-[var(--primary)] font-bold mb-2 uppercase tracking-wide text-sm">
-                                Level {fitnessLevel}
-                            </div>
-                            <div className="text-white font-medium text-lg">
-                                {fitnessLevel === 1 && "Einsteiger – Aller Anfang ist schwer."}
-                                {fitnessLevel === 2 && "Gelegenheits-Sportler."}
-                                {fitnessLevel === 3 && "Fortgeschritten – Du hast Routine."}
-                                {fitnessLevel === 4 && "Sehr Fit – Sport ist dein Lifestyle."}
-                                {fitnessLevel === 5 && "Elite – Du lebst für Höchstleistung."}
-                            </div>
-                        </AppCard>
+                        <Dumbbell size={22} style={{ color: "var(--accent-color)" }} />
                     </div>
+                    <div>
+                        <h1 className="text-[28px] font-bold tracking-tight" style={{ color: "var(--text-color)" }}>
+                            Willkommen bei TrainQ
+                        </h1>
+                        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                            Richte dein Training ein.
+                        </p>
+                    </div>
+                </div>
 
+                {/* Fokus */}
+                <div className="mb-6">
+                    <h3
+                        className="text-[11px] font-bold uppercase tracking-wider mb-2.5 pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Dein Fokus
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {personas.map((p) => (
+                            <button
+                                key={p.id}
+                                onClick={() => setGoal(p.id)}
+                                className={`rounded-2xl p-3.5 text-center transition-all border active:scale-[0.97] ${
+                                    goal === p.id
+                                        ? 'border-[var(--accent-color)]'
+                                        : 'border-[var(--border-color)]'
+                                }`}
+                                style={{
+                                    backgroundColor: goal === p.id
+                                        ? "rgba(0,122,255,0.1)"
+                                        : "var(--card-bg)",
+                                    color: goal === p.id
+                                        ? "var(--accent-color)"
+                                        : "var(--text-color)",
+                                }}
+                            >
+                                <div className="text-sm font-bold">{p.label}</div>
+                                <div
+                                    className="text-[10px] mt-0.5"
+                                    style={{ color: "var(--text-secondary)" }}
+                                >
+                                    {p.desc}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Zeit */}
+                <div className="mb-6">
+                    <h3
+                        className="text-[11px] font-bold uppercase tracking-wider mb-2.5 pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Zeit pro Einheit
+                    </h3>
+                    <div className="grid grid-cols-4 gap-2.5">
+                        {times.map((t) => (
+                            <button
+                                key={t.min}
+                                onClick={() => setTimePerWorkout(t.min)}
+                                className={`rounded-2xl py-3.5 text-center transition-all border active:scale-[0.97] ${
+                                    timePerWorkout === t.min
+                                        ? 'border-[var(--accent-color)]'
+                                        : 'border-[var(--border-color)]'
+                                }`}
+                                style={{
+                                    backgroundColor: timePerWorkout === t.min
+                                        ? "rgba(0,122,255,0.1)"
+                                        : "var(--card-bg)",
+                                    color: timePerWorkout === t.min
+                                        ? "var(--accent-color)"
+                                        : "var(--text-color)",
+                                }}
+                            >
+                                <div className="text-sm font-bold">{t.label}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Fitness Level */}
+                <div className="mb-10">
+                    <h3
+                        className="text-[11px] font-bold uppercase tracking-wider mb-2.5 pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Fitness-Level
+                    </h3>
+                    <div className="flex gap-2">
+                        {levels.map((l) => (
+                            <button
+                                key={l.lvl}
+                                onClick={() => setFitnessLevel(l.lvl)}
+                                className={`flex-1 rounded-2xl py-3.5 text-center transition-all border active:scale-[0.97] ${
+                                    fitnessLevel === l.lvl
+                                        ? 'border-[var(--accent-color)]'
+                                        : 'border-[var(--border-color)]'
+                                }`}
+                                style={{
+                                    backgroundColor: fitnessLevel === l.lvl
+                                        ? "rgba(0,122,255,0.1)"
+                                        : "var(--card-bg)",
+                                    color: fitnessLevel === l.lvl
+                                        ? "var(--accent-color)"
+                                        : "var(--text-color)",
+                                }}
+                            >
+                                <div className="text-lg font-bold">{l.lvl}</div>
+                                <div
+                                    className="text-[9px] mt-0.5"
+                                    style={{ color: "var(--text-secondary)" }}
+                                >
+                                    {l.label}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* CTA */}
+                <div className="mt-auto">
                     <AppButton
                         onClick={handleFinish}
                         isLoading={loading}
                         fullWidth
                         size="lg"
-                        className="mt-auto shadow-lg"
+                        className="shadow-lg !rounded-2xl !text-lg !font-black"
                     >
-                        Training starten
+                        Los geht's
                     </AppButton>
                 </div>
-            )}
-
-        </OnboardingLayout>
+            </div>
+        </div>
     );
 };

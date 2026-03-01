@@ -76,12 +76,38 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
   const src = useExerciseImage(exercise);
 
   if (src) {
-    return <img src={src} alt="" className="h-20 w-20 rounded-2xl object-cover shrink-0 bg-zinc-800" loading="lazy" decoding="async" />;
+    return (
+      <img
+        src={src}
+        id="library-image-forced"
+        alt=""
+        style={{ width: 90, height: 90, borderRadius: 12, objectFit: 'cover' }}
+        loading="eager"
+        decoding="async"
+      />
+    );
   }
 
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/5 bg-white/5" aria-hidden="true">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-zinc-600"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    <div
+      id="library-image-forced"
+      style={{
+        width: 90,
+        height: 90,
+        borderRadius: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--button-bg)',
+        border: '1px solid var(--border-color)',
+        minWidth: 90,
+        minHeight: 90
+      }}
+      aria-hidden="true"
+    >
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" color="#52525b">
+        <path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </div>
   );
 }
@@ -89,13 +115,13 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
 const ExerciseSkeleton = () => (
   <div className="space-y-3 p-4">
     {[1, 2, 3, 4, 5, 6].map((i) => (
-      <div key={i} className="flex items-center gap-4 rounded-3xl border border-white/5 bg-white/5 p-4">
-        <div className="h-20 w-20 shrink-0 animate-pulse rounded-2xl bg-white/10" />
+      <div key={i} className="flex items-center gap-4 rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] p-4">
+        <div className="h-20 w-20 shrink-0 animate-pulse rounded-2xl bg-[var(--input-bg)]" />
         <div className="flex-1 space-y-2">
-          <div className="h-5 w-2/3 animate-pulse rounded bg-white/10" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
+          <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--input-bg)]" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--input-bg)]" />
         </div>
-        <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/10" />
+        <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[var(--input-bg)]" />
       </div>
     ))}
   </div>
@@ -122,8 +148,8 @@ const ExerciseRow = React.memo(({
 }) => (
   <div
     className={`flex items-start justify-between gap-4 rounded-3xl p-4 transition-all border group relative overflow-hidden ${isAdded
-      ? "bg-emerald-500/10 border-emerald-500/20"
-      : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10 active:scale-[0.98]"
+      ? "bg-[var(--success)]/10 border-[var(--success)]/20"
+      : "bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-[var(--button-bg)] active:scale-[0.98]"
       }`}
     role="button"
     tabIndex={0}
@@ -133,10 +159,19 @@ const ExerciseRow = React.memo(({
     <div className="flex flex-1 items-start gap-[15px]">
       <ExerciseThumbnail exercise={ex} />
       <div className="flex-1 min-w-0 py-1">
-        <div className="text-[17px] font-bold text-white leading-tight break-words pr-2">
+        <div
+          className="text-[17px] font-bold text-[var(--text-color)] leading-tight pr-2"
+          style={{
+            flexWrap: 'wrap',
+            wordBreak: 'break-word',
+            whiteSpace: 'normal',
+            overflow: 'visible',
+            flex: 1
+          }}
+        >
           {getExerciseDisplayName(ex, lang)}
         </div>
-        <div className="mt-1.5 text-sm font-medium text-zinc-400 break-words leading-snug">
+        <div className="mt-1.5 text-sm font-medium text-[var(--text-secondary)] break-words leading-snug">
           {(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}
           {ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}
         </div>
@@ -148,7 +183,7 @@ const ExerciseRow = React.memo(({
       onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }}
       className={`shrink-0 self-center rounded-2xl w-12 h-12 flex items-center justify-center transition-all ${isAdded
         ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-        : "bg-white/10 text-white hover:bg-[#007AFF] hover:text-white"
+        : "bg-[var(--button-bg)] text-[var(--text-color)] hover:bg-[#007AFF] hover:text-white"
         }`}
     >
       {isAdded ? (
@@ -307,11 +342,11 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   };
 
   const getCardBg = (id: string, isAdded: boolean) => {
-    if (isAdded) return "bg-green-500/20 border-green-500/50";
-    if (id.includes("run_1") || id.includes("cycle_1")) return "bg-brand-primary/10 border-brand-primary/20 hover:bg-brand-primary/20";
-    if (id.includes("run_2") || id.includes("cycle_2")) return "bg-green-500/10 border-green-500/20 hover:bg-green-500/20";
+    if (isAdded) return "bg-[var(--success)]/20 border-[var(--success)]/50";
+    if (id.includes("run_1") || id.includes("cycle_1")) return "bg-[var(--accent-color)]/10 border-[var(--accent-color)]/20 hover:bg-[var(--accent-color)]/20";
+    if (id.includes("run_2") || id.includes("cycle_2")) return "bg-[var(--success)]/10 border-[var(--success)]/20 hover:bg-[var(--success)]/20";
     if (id.includes("run_3") || id.includes("cycle_3")) return "bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20";
-    return "bg-white/5 border-white/10 hover:bg-white/10";
+    return "bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-[var(--button-bg)]";
   };
 
   const renderCardioView = () => (
@@ -328,8 +363,8 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
               {getCardIcon(ex.id)}
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-white">{getExerciseDisplayName(ex, lang)}</h3>
-              <p className="text-base text-gray-400 mt-1">{t(`training.difficulty.${ex.difficulty || "Mittel"}` as any)}</p>
+              <h3 className="text-xl font-bold text-[var(--text-color)]">{getExerciseDisplayName(ex, lang)}</h3>
+              <p className="text-base text-[var(--text-secondary)] mt-1">{t(`training.difficulty.${ex.difficulty || "Mittel"}` as any)}</p>
             </div>
             {isAdded && (
               <div className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-black">
@@ -344,27 +379,27 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
   const renderGymView = () => (
     <>
-      <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[#061226]/80 to-transparent">
+      <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--modal-bg)] to-transparent">
         <div className="flex items-center justify-between gap-3">
           <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
-            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-3xl border border-white/10 bg-white/5 px-10 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-gray-500" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
+            <input ref={searchRef} type="text" placeholder={t("training.exerciseLibrary.searchGym")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-10 py-3 text-sm text-[var(--text-color)] outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-[var(--text-secondary)]" />
           </div>
-          <button type="button" onClick={openCreate} className="shrink-0 rounded-3xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20">{t("training.exerciseLibrary.addCustom")}</button>
+          <button type="button" onClick={openCreate} className="shrink-0 rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-color)] hover:bg-[var(--button-bg)]">{t("training.exerciseLibrary.addCustom")}</button>
         </div>
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
-            <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
+            <select value={filters.muscle} onChange={(e) => setFilters((prev) => ({ ...prev, muscle: e.target.value as Muscle }))} className="w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.muscleAll")}</option>{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select>
+            <select value={filters.equipment} onChange={(e) => setFilters((prev) => ({ ...prev, equipment: e.target.value as Equipment }))} className="w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.equipmentAll")}</option>{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select>
           </div>
-          <button type="button" onClick={() => setShowMoreFilters((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/5 border border-white/10">{showMoreFilters ? "–" : "+"}</span>
+          <button type="button" onClick={() => setShowMoreFilters((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-color)]">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--button-bg)] border border-[var(--border-color)]">{showMoreFilters ? "–" : "+"}</span>
             {t("training.exerciseLibrary.moreFilters")}
           </button>
           {showMoreFilters && (
             <div className="grid grid-cols-2 gap-2">
-              <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
-              <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
+              <select value={filters.difficulty} onChange={(e) => setFilters((prev) => ({ ...prev, difficulty: e.target.value as any }))} className="w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.levelAll")}</option>{DIFFICULTIES.map((d) => <option key={d} value={d}>{t(`training.difficulty.${d}` as any)}</option>)}</select>
+              <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value as ExerciseType }))} className="w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary"><option value="alle">{t("training.exerciseLibrary.typeAll")}</option>{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select>
             </div>
           )}
         </div>
@@ -372,13 +407,13 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
       <div className="flex-1 overflow-y-auto pt-2 pb-[160px]" onScroll={handleScroll} ref={listContainerRef}>
         {filteredExercises.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-gray-400">
+          <div className="rounded-2xl border border-dashed border-[var(--border-color)] p-6 text-center text-[var(--text-secondary)]">
             {t("training.exerciseLibrary.empty")}
             <div className="mt-4">
               <button
                 type="button"
                 onClick={openCreate}
-                className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                className="rounded-full bg-[var(--button-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-color)] transition-colors hover:bg-[var(--input-bg)]"
               >
                 {t("training.exerciseLibrary.addCustom")}
               </button>
@@ -432,16 +467,16 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           }}
         >
           <div
-            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl h-[85lvh] min-h-[80vh] shrink-0"
+            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--modal-bg)] shadow-2xl h-[85lvh] min-h-[80vh] shrink-0"
           >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3 bg-[var(--modal-header)]">
               <div className="min-w-0">
-                <div className="truncate text-base font-semibold text-white">{title || (category === 'running' ? "Lauf auswählen" : category === 'cycling' ? "Radfahrt auswählen" : "Übungsbibliothek")}</div>
-                <div className="truncate text-sm text-gray-400">
+                <div className="truncate text-base font-semibold text-[var(--text-color)]">{title || (category === 'running' ? "Lauf auswählen" : category === 'cycling' ? "Radfahrt auswählen" : "Übungsbibliothek")}</div>
+                <div className="truncate text-sm text-[var(--text-secondary)]">
                   {category === 'running' ? "Distanz oder Intervalle" : category === 'cycling' ? "Distanz oder Intervalle" : "Übung auswählen"}
                 </div>
               </div>
-              <button type="button" onClick={onClose} className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">{t("common.close")}</button>
+              <button type="button" onClick={onClose} className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--button-bg)]/80">{t("common.close")}</button>
             </div>
 
             <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4">
@@ -451,20 +486,20 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
           </div>
           {showCreate && <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) closeCreate(); }}>
-            <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
-              <div className="flex items-center justify-between pb-3"><h3 className="text-lg font-semibold text-white">{t("training.exerciseLibrary.createTitle")}</h3><button type="button" className="text-gray-400 hover:text-white" onClick={closeCreate}>✕</button></div>
+            <div className="w-full max-w-lg rounded-3xl border border-[var(--border-color)] bg-[var(--modal-bg)] backdrop-blur-xl p-6 shadow-2xl">
+              <div className="flex items-center justify-between pb-3"><h3 className="text-lg font-semibold text-[var(--text-color)]">{t("training.exerciseLibrary.createTitle")}</h3><button type="button" className="text-[var(--text-secondary)] hover:text-[var(--text-color)]" onClick={closeCreate}>✕</button></div>
               <div className="mt-3 space-y-4">
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary" /></div>
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-gray-500"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm disabled:opacity-50 text-white hover:bg-white/20" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
+                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary" /></div>
+                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)]">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[var(--text-secondary)]"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm disabled:opacity-50 text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
-                  <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
+                  <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
+                  <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
                 </div>
-                <div><label className="text-sm text-gray-400">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-3xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
-                <div><div className="text-sm text-gray-400">{t("training.exerciseLibrary.createMetricsLabel")}</div><div className="mt-2 flex flex-wrap gap-2">{METRICS.map((metric) => <button key={metric} type="button" onClick={() => toggleMetric(metric)} className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${createMetrics.includes(metric) ? 'bg-brand-primary text-white border-brand-primary' : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'}`}>{metricLabels[metric]}</button>)}</div></div>
+                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
+                <div><div className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMetricsLabel")}</div><div className="mt-2 flex flex-wrap gap-2">{METRICS.map((metric) => <button key={metric} type="button" onClick={() => toggleMetric(metric)} className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${createMetrics.includes(metric) ? 'bg-brand-primary text-white border-brand-primary' : 'border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]'}`}>{metricLabels[metric]}</button>)}</div></div>
                 {createError && <div className="rounded-3xl border border-red-500/30 bg-red-500/20 px-3 py-2 text-sm text-red-300">{createError}</div>}
                 <div className="flex items-center justify-end gap-3 pt-2">
-                  <button type="button" className="rounded-3xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
+                  <button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
                   <button type="button" className="rounded-3xl px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90" onClick={handleCreate}>{t("training.exerciseLibrary.createSave")}</button>
                 </div>
               </div>

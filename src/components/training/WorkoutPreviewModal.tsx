@@ -68,30 +68,30 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
             />
 
             {/* Modal Box */}
-            <div className="relative w-full max-w-sm bg-[#1c1c1e] rounded-[32px] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border border-white/10 ring-1 ring-white/5 max-h-[80vh] shrink-0">
+            <div className="relative w-full max-w-sm bg-[var(--card-bg)] rounded-[32px] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border border-[var(--border-color)] ring-1 ring-[var(--border-color)] max-h-[80vh] shrink-0">
 
                 {/* Header (Fixed) */}
-                <div className="shrink-0 flex justify-between items-start p-6 pb-4 border-b border-white/5 bg-[#1c1c1e] z-10 rounded-t-[32px]">
+                <div className="shrink-0 flex justify-between items-start p-6 pb-4 border-b border-[var(--border-color)] bg-[var(--card-bg)] z-10 rounded-t-[32px]">
                     <div className="flex items-center gap-4">
                         <div className={`w-14 h-14 rounded-2xl bg-${baseColor}/20 flex items-center justify-center border border-${baseColor}/20 shrink-0`}>
                             {getIcon()}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white leading-tight line-clamp-1">{event.title}</h2>
-                            <div className="flex items-center gap-2 mt-1 text-zinc-400 text-sm font-medium">
+                            <h2 className="text-xl font-bold text-[var(--text-color)] leading-tight line-clamp-1">{event.title}</h2>
+                            <div className="flex items-center gap-2 mt-1 text-[var(--text-secondary)] text-sm font-medium">
                                 <Clock size={14} />
                                 <span>{event.duration} min</span>
-                                <span className="text-zinc-600">•</span>
+                                <span className="opacity-50">•</span>
                                 <span className="capitalize">{event.type}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex bg-zinc-800 rounded-full p-1 gap-1 items-center shrink-0">
-                        <button onClick={handleDelete} className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-700 transition-colors active:scale-95">
+                    <div className="flex bg-[var(--button-bg)] rounded-full p-1 gap-1 items-center shrink-0">
+                        <button onClick={handleDelete} className="p-2 rounded-full text-[var(--text-secondary)] hover:text-red-500 hover:bg-[var(--button-bg)] transition-colors active:scale-95">
                             <Trash2 size={18} />
                         </button>
-                        <div className="w-[1px] h-4 bg-zinc-700"></div>
-                        <button onClick={onClose} className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors active:scale-95">
+                        <div className="w-[1px] h-4 bg-[var(--border-color)]"></div>
+                        <button onClick={onClose} className="p-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--button-bg)] transition-colors active:scale-95">
                             <X size={18} />
                         </button>
                     </div>
@@ -100,33 +100,33 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                 {/* Content (Scrollable) */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     <div>
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 sticky top-0 bg-[#1c1c1e] py-1 z-10">Geplante Übungen</h3>
+                        <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-3 sticky top-0 bg-[var(--card-bg)] py-1 z-10">Geplante Übungen</h3>
 
                         {exercises.length > 0 ? (
                             <div className="space-y-2">
                                 {exercises.map((ex: any, i: number) => (
-                                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/50 border border-white/5">
-                                        <span className="text-sm font-medium text-white break-words line-clamp-2 max-w-[70%]">{ex.name}</span>
-                                        <span className="text-xs font-bold text-zinc-400 bg-zinc-700/50 px-2 py-1 rounded shrink-0">
+                                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-[var(--button-bg)] border border-[var(--border-color)]">
+                                        <span className="text-sm font-medium text-[var(--text-color)] break-words line-clamp-2 max-w-[70%]">{ex.name}</span>
+                                        <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--input-bg)] px-2 py-1 rounded shrink-0">
                                             {ex.sets.length} Sets
                                         </span>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-8 bg-zinc-800/30 rounded-xl border border-dashed border-zinc-700">
-                                <p className="text-sm text-zinc-500">Keine Details verfügbar</p>
+                            <div className="text-center py-8 bg-[var(--button-bg)] rounded-xl border border-dashed border-[var(--border-color)]">
+                                <p className="text-sm text-[var(--text-secondary)]">Keine Details verfügbar</p>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Footer Actions (Fixed) */}
-                <div className="shrink-0 p-6 pt-4 bg-[#1c1c1e] border-t border-white/5 rounded-b-[32px]">
+                <div className="shrink-0 p-6 pt-4 bg-[var(--card-bg)] border-t border-[var(--border-color)] rounded-b-[32px]">
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold text-sm hover:bg-zinc-700 transition-colors"
+                            className="flex-1 py-4 rounded-xl bg-[var(--button-bg)] text-[var(--text-color)] font-bold text-sm hover:opacity-80 transition-colors"
                         >
                             Schließen
                         </button>

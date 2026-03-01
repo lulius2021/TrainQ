@@ -100,7 +100,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
         <div className="truncate text-base font-bold" style={{ color: "var(--text)" }}>
           {exercise.name}
         </div>
-        <div className="mt-0.5 text-[11px]" style={{ color: "var(--muted)" }}>
+        <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
           {t("training.exerciseLibrary.detailsSubtitle")}
         </div>
       </div>
@@ -108,7 +108,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
         type="button"
         onClick={onClose}
         className="rounded-full border px-3 py-1 text-xs"
-        style={{ background: "var(--surface2)", borderColor: "var(--border)", color: "var(--text)" }}
+        style={{ background: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text)" }}
         aria-label={t("common.close")}
       >
         ✕
@@ -153,12 +153,12 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
       <div className="space-y-4 px-4 pb-4" style={{ color: "var(--text)" }}>
         <div
           className="flex h-[260px] w-full items-center justify-center overflow-hidden rounded-2xl border"
-          style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--border)" }}
+          style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--border-color)" }}
         >
           {src ? (
             <img src={src} alt={exercise.name} className="h-full w-full object-contain" />
           ) : (
-            <div className="flex flex-col items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
+            <div className="flex flex-col items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8"
@@ -179,7 +179,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
               <span
                 key={eq}
                 className="rounded-full border px-3 py-1 text-[10px]"
-                style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
               >
                 {equipmentLabels[eq] ?? eq}
               </span>
@@ -187,7 +187,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
             {difficulty && (
               <span
                 className="rounded-full border px-3 py-1 text-[10px]"
-                style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
               >
                 {difficultyLabels[difficulty] ?? difficulty}
               </span>
@@ -200,13 +200,13 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
             {t("training.exerciseLibrary.cuesTitle")}
           </div>
           {cues.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm" style={{ color: "var(--muted)" }}>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm" style={{ color: "var(--text-muted)" }}>
               {cues.map((cue, idx) => (
                 <li key={`${cue}-${idx}`}>{cue}</li>
               ))}
             </ul>
           ) : (
-            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+            <div className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
               {t("training.exerciseLibrary.cuesEmpty")}
             </div>
           )}
@@ -217,7 +217,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
             {t("training.exerciseLibrary.musclesTitle")}
           </div>
           {muscles.primary.length === 0 && muscles.secondary.length === 0 ? (
-            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+            <div className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
               {t("training.exerciseLibrary.musclesEmpty")}
             </div>
           ) : (
@@ -241,7 +241,7 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
                     <span
                       key={`secondary-${m}`}
                       className="rounded-full border px-3 py-1 text-[10px]"
-                      style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                      style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
                     >
                       {muscleLabels[m] ?? m}
                     </span>

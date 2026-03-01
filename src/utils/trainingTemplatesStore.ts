@@ -23,6 +23,7 @@ export type TrainingTemplateLite = {
 
 const STORAGE_KEY = "trainq_training_templates_v1";
 const SEED_KEY = "trainq_training_templates_seeded_v1";
+const CLEANUP_KEY = "trainq_templates_starter_cleaned_v1";
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -87,49 +88,41 @@ function sortByCreatedDesc(list: TrainingTemplateLite[]): TrainingTemplateLite[]
 }
 
 export function seedDefaultTemplatesOnce(): void {
+  // No default templates — users create their own
   const seeded = getScopedItem(SEED_KEY);
   if (seeded === "1") return;
 
-  const defaults: TrainingTemplateLite[] = [
-    {
-      id: "starter_push",
-      title: "Push",
-      sportType: "gym",
-      createdAt: nowISO(),
-      updatedAt: nowISO(),
-      exercises: [
-        { name: "Bankdruecken", sets: [{ reps: 8, weight: 60 }, { reps: 8, weight: 60 }] },
-        { name: "Schulterdruecken", sets: [{ reps: 10, weight: 30 }] },
-        { name: "Trizepsdruecken", sets: [{ reps: 12, weight: 25 }] },
-      ],
-    },
-    {
-      id: "starter_fullbody",
-      title: "Full Body",
-      sportType: "gym",
-      createdAt: nowISO(),
-      updatedAt: nowISO(),
-      exercises: [
-        { name: "Kniebeuge", sets: [{ reps: 8, weight: 70 }, { reps: 8, weight: 70 }] },
-        { name: "Rudern", sets: [{ reps: 10, weight: 50 }] },
-      ],
-    },
-    {
-      id: "starter_easy_run",
-      title: "Easy Run",
-      sportType: "laufen",
-      createdAt: nowISO(),
-      updatedAt: nowISO(),
-      exercises: [{ name: "Lockerer Lauf", sets: [{ reps: 30, weight: 5 }] }],
-    },
-  ];
+  // Clean up any old starter templates
+  const raw = getScopedItem(STORAGE_KEY);
+  if (raw) {
+    const parsed = safeParse<any[]>(raw, []);
+    const cleaned = parsed.filter((t: any) => {
+      const id = String(t?.id || "");
+      return !id.startsWith("starter_");
+    });
+    setScopedItem(STORAGE_KEY, JSON.stringify(cleaned));
+  }
 
-  setScopedItem(STORAGE_KEY, JSON.stringify(defaults));
   setScopedItem(SEED_KEY, "1");
+}
+
+function cleanupStarterTemplates(): void {
+  if (getScopedItem(CLEANUP_KEY) === "1") return;
+  const raw = getScopedItem(STORAGE_KEY);
+  if (raw) {
+    const parsed = safeParse<any[]>(raw, []);
+    const cleaned = parsed.filter((t: any) => {
+      const id = String(t?.id || "");
+      return !id.startsWith("starter_");
+    });
+    setScopedItem(STORAGE_KEY, JSON.stringify(cleaned));
+  }
+  setScopedItem(CLEANUP_KEY, "1");
 }
 
 export function getTemplates(): TrainingTemplateLite[] {
   seedDefaultTemplatesOnce();
+  cleanupStarterTemplates();
   const raw = getScopedItem(STORAGE_KEY);
   const parsed = safeParse<any[]>(raw, []);
   const normalized = parsed.map(normalizeTemplate).filter(Boolean) as TrainingTemplateLite[];

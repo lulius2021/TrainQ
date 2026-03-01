@@ -27,60 +27,59 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
     isPrimary?: boolean;
   }) => {
     const active = activeTab === p.keyTab;
+    const color = active ? "var(--nav-icon-active)" : "var(--nav-icon-inactive)";
+    const labelColor = active ? "var(--nav-icon-active)" : "var(--nav-label)";
 
     return (
       <button
         onClick={() => onChange(p.keyTab)}
-        className="flex flex-col items-center gap-0.5 px-2 py-1 min-h-[44px]"
+        className="flex flex-col items-center gap-0.5 px-2 py-1 min-h-[44px] btn-haptic"
       >
         {p.isPrimary ? (
           <div
-            className="h-12 w-12 rounded-3xl flex items-center justify-center"
-            style={{ background: "var(--primary)" }}
+            className="h-12 w-12 rounded-3xl flex items-center justify-center shadow-lg"
+            style={{ background: "var(--accent-color)" }}
           >
             {p.renderIcon?.(active)}
           </div>
         ) : p.renderIcon ? (
           p.renderIcon(active)
         ) : (
-          <img
-            src={p.icon}
-            alt={p.label}
+          <div
             className="h-6 w-6"
-            style={{ filter: active ? ACTIVE_ICON_FILTER : INACTIVE_ICON_FILTER }}
+            style={{
+              backgroundColor: color,
+              maskImage: `url(${p.icon})`,
+              WebkitMaskImage: `url(${p.icon})`,
+              maskSize: "contain",
+              WebkitMaskSize: "contain",
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskPosition: "center",
+            }}
           />
         )}
 
         <span
           className="text-[10px] font-medium"
-          style={{
-            color: active ? "var(--primarySoft)" : "var(--muted)",
-          }}
+          style={{ color: labelColor }}
         >
           {p.label}
         </span>
-
-        <div
-          className="mt-0.5 h-0.5 w-5 rounded-full transition"
-          style={{
-            background: p.isPrimary ? "transparent" : active ? "var(--primarySoft)" : "transparent",
-          }}
-        />
       </button>
     );
   };
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50"
+      className="fixed bottom-0 left-0 right-0 z-50 transition-colors duration-300"
       style={{
-        /* 👇 schwebt über dem blau → schwarz Verlauf */
-        background:
-          "linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.25), transparent)",
-        borderTop: "1px solid var(--border)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        backgroundColor: "var(--nav-bg)",
+        borderTop: "1px solid var(--border-color)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
       }}
     >
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2">
@@ -91,8 +90,8 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
           label={t("nav.play")}
           isPrimary
           renderIcon={() => (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M8 6.5V17.5L18 12L8 6.5Z" fill="#061226" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M8 6.5V17.5L18 12L8 6.5Z" fill="#FFFFFF" />
             </svg>
           )}
         />

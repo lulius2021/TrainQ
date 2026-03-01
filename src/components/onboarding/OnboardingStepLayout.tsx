@@ -29,7 +29,7 @@ export const OnboardingStepLayout: React.FC<Props> = ({
         <div className="flex flex-col h-full w-full pt-[calc(var(--safe-top)+20px)] pb-[calc(var(--safe-bottom)+100px)] px-6 relative">
             <div className="flex-none mt-4 mb-6">
                 <h1 className="text-3xl font-bold text-[var(--text)] mb-2 tracking-tight">{title}</h1>
-                {subtitle && <p className="text-lg text-[var(--muted)] leading-relaxed">{subtitle}</p>}
+                {subtitle && <p className="text-lg text-[var(--text-muted)] leading-relaxed">{subtitle}</p>}
             </div>
 
             <div className="flex-1 w-full flex flex-col gap-4 overflow-y-auto no-scrollbar">
@@ -55,7 +55,7 @@ export const OnboardingStepLayout: React.FC<Props> = ({
                                     onClick={onBack}
                                     variant="ghost"
                                     fullWidth
-                                    className="text-[var(--muted)]"
+                                    className="text-[var(--text-muted)]"
                                 >
                                     {t("common.back")}
                                 </AppButton>

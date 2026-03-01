@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { NavBar } from "../components/NavBar";
 import type { TabKey } from "../types";
 
@@ -17,18 +17,26 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     showNavBar = true,
     floatingWidget
 }) => {
-    const isCalendar = activeTab === "calendar";
-    // Dashboard should also be full-width/edge-to-edge to support its native sticky header
-    const isEdgeToEdge = activeTab === "calendar" || activeTab === "dashboard";
+    const mainRef = useRef<HTMLElement>(null);
+    // All tabs are edge-to-edge — no title headers, pages handle their own spacing
+    const isEdgeToEdge = true;
+
+    // Scroll to top when switching tabs
+    useEffect(() => {
+        if (mainRef.current) {
+            mainRef.current.scrollTop = 0;
+        }
+    }, [activeTab]);
 
     return (
-        <div className="relative flex h-full w-full flex-col overflow-hidden font-[SF Pro Display,sans-serif] bg-transparent text-white">
+        <div className="relative flex h-full w-full flex-col overflow-hidden font-sans" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
             {/* Main Content Area */}
             <main
-                className={`flex-1 overflow-y-auto overflow-x-hidden w-full ${isEdgeToEdge ? "pb-0 pt-0" : "pt-[env(safe-area-inset-top)] pb-[120px]"}`}
+                ref={mainRef}
+                className={`flex-1 overflow-y-auto overflow-x-hidden w-full ${isEdgeToEdge ? "pb-[100px] pt-0" : "pt-[env(safe-area-inset-top)] pb-[120px]"}`}
                 style={{
-                    // Force hardware acceleration for smooth scrolling
                     WebkitOverflowScrolling: "touch",
+                    backgroundColor: "var(--bg-color)",
                 }}
             >
                 <div className={`mx-auto w-full ${isEdgeToEdge ? "h-full px-0 max-w-none" : "max-w-md px-5"}`}>

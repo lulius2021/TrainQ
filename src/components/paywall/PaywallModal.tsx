@@ -73,7 +73,7 @@ export default function PaywallModal(props: Props) {
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       <div
-        className="relative w-full max-w-sm my-10 overflow-hidden rounded-[32px] border border-white/10 bg-[#1c1c1e]/90 shadow-2xl backdrop-blur-2xl transition-all"
+        className="relative w-full max-w-sm my-10 overflow-hidden rounded-[32px] border border-[var(--border-color)] bg-[var(--card-bg)] shadow-2xl backdrop-blur-2xl transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative p-6 pt-8 text-center pb-8">
@@ -81,7 +81,7 @@ export default function PaywallModal(props: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white z-10"
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-bg)] text-[var(--text-secondary)] hover:opacity-80 hover:text-[var(--text-color)] z-10"
           >
             ✕
           </button>
@@ -91,11 +91,11 @@ export default function PaywallModal(props: Props) {
             <span className="text-3xl">✨</span>
           </div>
 
-          <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-color)] mb-2">
             TrainQ <span className="text-[#007AFF]">Pro</span>
           </h2>
 
-          <p className="max-w-[85%] mx-auto text-sm text-white/60 leading-relaxed mb-6">
+          <p className="max-w-[85%] mx-auto text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
             {reason === "adaptive_limit" || reason === "plan_shift" ? reasonTitle(t, reason) : t("paywall.title")}
           </p>
 
@@ -106,7 +106,7 @@ export default function PaywallModal(props: Props) {
                 <span className="mt-0.5 flex-shrink-0 text-[#007AFF]">
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
                 </span>
-                <span className="text-[15px] font-medium text-white/90 leading-tight">
+                <span className="text-[15px] font-medium text-[var(--text-color)] leading-tight">
                   {b.label}
                 </span>
               </div>
@@ -126,12 +126,12 @@ export default function PaywallModal(props: Props) {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-base font-bold text-white mb-0.5">{t("paywall.plan.yearly")}</div>
-                  <div className="text-xs font-medium text-white/80">{t("paywall.plan.yearlyDetail")}</div>
+                  <div className="text-base font-bold text-[var(--text-color)] mb-0.5">{t("paywall.plan.yearly")}</div>
+                  <div className="text-xs font-medium text-[var(--text-secondary)]">{t("paywall.plan.yearlyDetail")}</div>
                 </div>
                 <div className="text-right">
                   {/* Just dummy savings text or arrow */}
-                  <div className="font-bold text-white text-lg">→</div>
+                  <div className="font-bold text-[var(--text-color)] text-lg">→</div>
                 </div>
               </div>
             </button>
@@ -140,12 +140,12 @@ export default function PaywallModal(props: Props) {
             <button
               type="button"
               onClick={onBuyMonthly}
-              className="relative w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:bg-white/10 active:scale-[0.98]"
+              className="relative w-full rounded-2xl border border-[var(--border-color)] bg-[var(--button-bg)] p-4 text-left transition-all hover:opacity-80 active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-base font-semibold text-white mb-0.5">{t("paywall.plan.monthly")}</div>
-                  <div className="text-xs text-white/50">{t("paywall.plan.monthlyDetail")}</div>
+                  <div className="text-base font-semibold text-[var(--text-color)] mb-0.5">{t("paywall.plan.monthly")}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{t("paywall.plan.monthlyDetail")}</div>
                 </div>
               </div>
             </button>
@@ -165,7 +165,7 @@ export default function PaywallModal(props: Props) {
             <button
               type="button"
               onClick={onRestore}
-              className="mt-4 text-xs font-medium text-white/40 hover:text-white/60 underline underline-offset-4"
+              className="mt-4 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-color)] underline underline-offset-4"
             >
               {t("paywall.restore")}
             </button>

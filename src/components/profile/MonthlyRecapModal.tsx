@@ -115,12 +115,12 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="w-full max-w-lg h-full max-h-screen overflow-y-auto bg-[#000000] text-white flex flex-col relative"
+                    className="w-full max-w-lg h-full max-h-screen overflow-y-auto bg-[var(--bg-color)] text-[var(--text-color)] flex flex-col relative"
                     style={{ paddingBottom: 140 }}
                 >
                     {/* Close Button + Share */}
                     <div
-                        className="sticky top-0 z-50 flex justify-between items-center bg-gradient-to-b from-[#000000] to-transparent/5 mb-4 backdrop-blur-sm"
+                        className="sticky top-0 z-50 flex justify-between items-center bg-gradient-to-b from-[var(--bg-color)] to-transparent/5 mb-4 backdrop-blur-sm"
                         style={{
                             paddingTop: insets.top + 20,
                             paddingLeft: 20,
@@ -132,45 +132,45 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
                             Teilen
                         </button>
-                        <button onClick={onClose} className="bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full w-[44px] h-[44px] flex items-center justify-center backdrop-blur-md transition-colors">
+                        <button onClick={onClose} className="bg-[var(--button-bg)] hover:bg-[var(--button-bg)] text-[var(--text-color)] rounded-full w-[44px] h-[44px] flex items-center justify-center backdrop-blur-md transition-colors">
                             <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
                         </button>
                     </div>
 
-                    <div id="monthly-recap-capture" className="px-6 flex-1 space-y-10 bg-[#000000] text-white">
+                    <div id="monthly-recap-capture" className="px-6 flex-1 space-y-10 bg-[var(--bg-color)] text-[var(--text-color)]">
                         {/* Header */}
                         <div className="space-y-1 mt-4">
                             <div className="text-[#007AFF] font-bold tracking-widest uppercase text-sm">Monatsrückblick</div>
                             <div className="flex flex-col leading-none">
-                                <span className="text-5xl font-black text-white tracking-tight">{monthName}</span>
-                                <span className="text-5xl font-thin text-white/40 tracking-tight">{year}</span>
+                                <span className="text-5xl font-black text-[var(--text-color)] tracking-tight">{monthName}</span>
+                                <span className="text-5xl font-thin text-[var(--text-secondary)] tracking-tight">{year}</span>
                             </div>
                         </div>
 
                         {/* Main Stats Grid */}
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 flex flex-col justify-between h-32">
-                                <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Trainings</span>
-                                <span className="text-3xl font-bold text-white mb-1">{stats.count}</span>
+                            <div className="bg-[var(--card-bg)] rounded-2xl p-4 border border-[var(--border-color)] flex flex-col justify-between h-32">
+                                <span className="text-[var(--text-secondary)] text-xs font-bold uppercase tracking-wider">Trainings</span>
+                                <span className="text-3xl font-bold text-[var(--text-color)] mb-1">{stats.count}</span>
                             </div>
-                            <div className="bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 flex flex-col justify-between h-32">
-                                <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Zeit</span>
-                                <span className="text-3xl font-bold text-white mb-1">{stats.hours}<span className="text-base font-normal text-white/40 ml-1">std</span></span>
+                            <div className="bg-[var(--card-bg)] rounded-2xl p-4 border border-[var(--border-color)] flex flex-col justify-between h-32">
+                                <span className="text-[var(--text-secondary)] text-xs font-bold uppercase tracking-wider">Zeit</span>
+                                <span className="text-3xl font-bold text-[var(--text-color)] mb-1">{stats.hours}<span className="text-base font-normal text-[var(--text-secondary)] ml-1">std</span></span>
                             </div>
-                            <div className="bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 flex flex-col justify-between h-32">
-                                <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Volumen</span>
-                                <span className="text-2xl font-bold text-white mb-1">{(stats.volume / 1000).toFixed(1)}<span className="text-xs font-normal text-white/40 ml-1">t</span></span>
+                            <div className="bg-[var(--card-bg)] rounded-2xl p-4 border border-[var(--border-color)] flex flex-col justify-between h-32">
+                                <span className="text-[var(--text-secondary)] text-xs font-bold uppercase tracking-wider">Volumen</span>
+                                <span className="text-2xl font-bold text-[var(--text-color)] mb-1">{(stats.volume / 1000).toFixed(1)}<span className="text-xs font-normal text-[var(--text-secondary)] ml-1">t</span></span>
                             </div>
                         </div>
 
                         {/* Weekly Distribution Chart */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold">Verteilung (Wochen)</h3>
-                            <div className="h-40 flex items-end justify-between gap-2 px-2 border-b border-white/5 pb-2">
+                            <div className="h-40 flex items-end justify-between gap-2 px-2 border-b border-[var(--border-color)] pb-2">
                                 {weeklyDistribution.map((item, idx) => (
-                                    <div key={idx} className="w-full bg-[#1c1c1e] rounded-t-lg relative group flex flex-col justify-end" style={{ height: '100%' }}>
+                                    <div key={idx} className="w-full bg-[var(--card-bg)] rounded-t-lg relative group flex flex-col justify-end" style={{ height: '100%' }}>
                                         <div
-                                            className="w-full bg-white rounded-t-lg transition-all group-hover:bg-[#007AFF]"
+                                            className="w-full bg-[var(--text-color)] rounded-t-lg transition-all group-hover:bg-[#007AFF]"
                                             style={{ height: `${Math.max(item.height, 4)}%` }}
                                         />
                                     </div>
@@ -183,18 +183,18 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
                             <h3 className="text-lg font-bold">Aktivitäts-Kalender</h3>
                             <div className="grid grid-cols-7 gap-2">
                                 {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
-                                    <div key={d} className="text-center text-xs text-white/30 font-medium mb-2">{d}</div>
+                                    <div key={d} className="text-center text-xs text-[var(--text-secondary)] font-medium mb-2">{d}</div>
                                 ))}
                                 {calendarGrid.map((day, idx) => {
                                     if (!day) return <div key={`empty-${idx}`} />;
                                     return (
-                                        <div key={day.day} className="aspect-square flex items-center justify-center relative bg-zinc-900/50 rounded-lg">
+                                        <div key={day.day} className="aspect-square flex items-center justify-center relative bg-[var(--button-bg)] rounded-lg">
                                             {day.hasWorkout ? (
                                                 <div className="w-8 h-8 rounded-full bg-[#007AFF] shadow-[0_0_15px_rgba(0,122,255,0.4)] flex items-center justify-center text-xs font-bold text-white scale-110">
                                                     {day.day}
                                                 </div>
                                             ) : (
-                                                <span className="text-zinc-600 text-xs font-medium">{day.day}</span>
+                                                <span className="text-[var(--text-secondary)] text-xs font-medium">{day.day}</span>
                                             )}
                                         </div>
                                     );
@@ -208,7 +208,7 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
                                 <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className="text-[#007AFF]"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
                             </div>
                             <div className="text-xl font-bold text-[#007AFF] mb-1">Starker Monat!</div>
-                            <p className="text-white/80 text-sm font-medium leading-relaxed max-w-[80%]">Du hast deine Routine gehalten. Mach weiter so im nächsten Monat!</p>
+                            <p className="text-[var(--text-secondary)] text-sm font-medium leading-relaxed max-w-[80%]">Du hast deine Routine gehalten. Mach weiter so im nächsten Monat!</p>
                         </div>
                     </div>
 

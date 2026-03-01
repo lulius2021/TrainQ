@@ -1,13 +1,21 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Dumbbell, Footprints, Bike, Star, X } from "lucide-react";
+import React, { useMemo, useState, useCallback } from "react";
+import {
+    Dumbbell, Footprints, Bike, Star, AlertTriangle,
+    ChevronRight, Plus, Play, Trash2, X, MapPin
+} from "lucide-react";
 import type { CalendarEvent, TrainingType } from "../types/training";
 import { useTodaysSessions } from "../hooks/useTodaysSessions";
 import { useI18n } from "../i18n/useI18n";
-import { startSession, startTrainingTemplate } from "../utils/startSession";
-import { getTemplates, saveTemplate, deleteTemplate, type TrainingTemplateLite } from "../utils/trainingTemplatesStore";
+import { startSession, startFreeTraining, startTrainingTemplate } from "../utils/startSession";
+import { useLiveTrainingStore } from "../store/useLiveTrainingStore";
 import { PageHeader } from "../components/ui/PageHeader";
-import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import {
+    getTemplates,
+    saveTemplate,
+    deleteTemplate,
+    type TrainingTemplateLite,
+} from "../utils/trainingTemplatesStore";
 
 interface StartTodayPageProps {
     events: CalendarEvent[];
@@ -21,297 +29,400 @@ function formatSportLabel(type: TrainingType): string {
     return "Gym";
 }
 
-function buildTemplateSummary(template: TrainingTemplateLite): string {
-    const exercises = template.exercises?.length ?? 0;
-    const sets = template.exercises?.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0) ?? 0;
-    if (exercises === 0) return "Keine Übungen";
-    return `${exercises} Übungen, ${sets} Sätze`;
+function sportIcon(type: TrainingType) {
+    if (type === "laufen") return <Footprints size={20} />;
+    if (type === "radfahren") return <Bike size={20} />;
+    if (type === "custom") return <Star size={20} />;
+    return <Dumbbell size={20} />;
 }
 
-function TrashIcon({ className }: { className?: string }) {
+function sportColor(type: TrainingType): { color: string; bg: string } {
+    if (type === "laufen") return { color: "#34C759", bg: "rgba(52,199,89,0.1)" };
+    if (type === "radfahren") return { color: "#FF9500", bg: "rgba(255,149,0,0.1)" };
+    if (type === "custom") return { color: "#AF52DE", bg: "rgba(175,82,222,0.1)" };
+    return { color: "#007AFF", bg: "rgba(0,122,255,0.1)" };
+}
+
+// ---- Create Template Modal ----
+function CreateTemplateModal({ open, onClose, onSave }: {
+    open: boolean;
+    onClose: () => void;
+    onSave: (t: { title: string; sportType: TrainingType }) => void;
+}) {
+    const [title, setTitle] = useState("");
+    const [sport, setSport] = useState<TrainingType>("gym");
+
+    if (!open) return null;
+
+    const handleSave = () => {
+        if (!title.trim()) return;
+        onSave({ title: title.trim(), sportType: sport });
+        setTitle("");
+        setSport("gym");
+    };
+
+    const sportOptions: { value: TrainingType; label: string }[] = [
+        { value: "gym", label: "Gym" },
+        { value: "laufen", label: "Laufen" },
+        { value: "radfahren", label: "Radfahren" },
+        { value: "custom", label: "Custom" },
+    ];
+
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-        </svg>
+        <div
+            className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md rounded-t-[32px] p-6 pb-[calc(env(safe-area-inset-bottom)+24px)] border-t"
+                style={{
+                    backgroundColor: "var(--modal-bg)",
+                    borderColor: "var(--border-color)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Neue Vorlage</h3>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: "var(--button-bg)" }}
+                    >
+                        <X size={16} style={{ color: "var(--text-secondary)" }} />
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label
+                            className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block"
+                            style={{ color: "var(--text-secondary)" }}
+                        >
+                            Bezeichnung
+                        </label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="z.B. Push Day, Oberkörper..."
+                            className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
+                            style={{
+                                backgroundColor: "var(--input-bg)",
+                                borderColor: "var(--border-color)",
+                                color: "var(--text-color)",
+                            }}
+                        />
+                    </div>
+
+                    <div>
+                        <label
+                            className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block"
+                            style={{ color: "var(--text-secondary)" }}
+                        >
+                            Sportart
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {sportOptions.map((o) => {
+                                const sc = sportColor(o.value);
+                                return (
+                                    <button
+                                        key={o.value}
+                                        onClick={() => setSport(o.value)}
+                                        className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-[0.97]"
+                                        style={{
+                                            backgroundColor: sport === o.value ? sc.bg : "var(--button-bg)",
+                                            borderColor: sport === o.value ? sc.color : "var(--border-color)",
+                                            color: sport === o.value ? sc.color : "var(--text-secondary)",
+                                        }}
+                                    >
+                                        {o.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <AppButton
+                        onClick={handleSave}
+                        fullWidth
+                        size="lg"
+                        disabled={!title.trim()}
+                        className="!rounded-2xl mt-2"
+                    >
+                        Vorlage erstellen
+                    </AppButton>
+                </div>
+            </div>
+        </div>
     );
 }
 
+// ---- Main Page ----
 export default function StartTodayPage({ events, onPlanTraining }: StartTodayPageProps) {
     const { formatDate } = useI18n();
     const { sessions, status, primarySession } = useTodaysSessions(events);
+    const activeWorkout = useLiveTrainingStore((s) => s.activeWorkout);
+    const hasActiveWorkout = !!activeWorkout?.isActive;
+    const [templates, setTemplates] = useState<TrainingTemplateLite[]>(() => getTemplates());
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
-    const [templates, setTemplates] = useState<TrainingTemplateLite[]>([]);
-    const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [newTitle, setNewTitle] = useState("");
-    const [newSportType, setNewSportType] = useState<TrainingType>("gym");
-    const [attemptedSave, setAttemptedSave] = useState(false);
-
-    useEffect(() => {
+    const refreshTemplates = useCallback(() => {
         setTemplates(getTemplates());
     }, []);
 
-    const dateLabel = useMemo(() => {
-        return formatDate(new Date(), { weekday: "long", day: "2-digit", month: "long" });
-    }, [formatDate]);
-
-    const closeCreate = () => {
-        setIsCreateOpen(false);
-        setNewTitle("");
-        setNewSportType("gym");
-        setAttemptedSave(false);
+    const handleFreeTraining = (sport: TrainingType = "gym") => {
+        if (hasActiveWorkout) return;
+        startFreeTraining(sport);
     };
 
-    const handleSaveTemplate = () => {
-        setAttemptedSave(true);
-        if (!newTitle.trim()) return;
-        saveTemplate({
-            title: newTitle.trim(),
-            sportType: newSportType,
-        });
-        setTemplates(getTemplates());
-        closeCreate();
+    const handleStartTemplate = (tpl: TrainingTemplateLite) => {
+        if (hasActiveWorkout) return;
+        startTrainingTemplate(tpl);
     };
 
-    const confirmDelete = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        setTemplateToDelete(id);
+    const handleDeleteTemplate = (id: string) => {
+        deleteTemplate(id);
+        refreshTemplates();
     };
 
-    const handleDeleteTemplate = () => {
-        if (templateToDelete) {
-            deleteTemplate(templateToDelete);
-            setTemplates(getTemplates());
-            setTemplateToDelete(null);
-        }
+    const handleCreateTemplate = (input: { title: string; sportType: TrainingType }) => {
+        saveTemplate(input);
+        refreshTemplates();
+        setShowCreateModal(false);
     };
 
-    /* 
-     * Dynamic top padding: 
-     * Header is fixed. Content starts below.
-     * `PageHeader` is typically ~96px tall effectively (safe-area + title).
-     * We will add `pt-[calc(env(safe-area-inset-top)+60px)]` to be safe/approximate, 
-     * or rely on `PageHeader`'s layout if it pushes content. 
-     * Since PageHeader is fixed, we need padding.
-     */
+    const todaySessions = status === "single" && primarySession ? [primarySession] : sessions;
+    const hasSessions = status !== "none" && todaySessions.length > 0;
 
     return (
-        <div className="w-full h-full pb-40">
-            <PageHeader
-                title="Heute"
-                className="pb-2"
-            />
+        <div className="w-full h-full pb-40" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+            <div className="w-full max-w-md mx-auto px-4 pt-2 space-y-6">
 
-            <div className="w-full max-w-3xl mx-auto px-4 space-y-8">
-                <div className="pt-0">
-                    <p className="text-xl font-medium text-[var(--muted)]">{dateLabel}</p>
-                </div>
+                {/* Active workout warning */}
+                {hasActiveWorkout && (
+                    <div
+                        className="flex items-center gap-3 rounded-2xl px-4 py-3.5 border"
+                        style={{
+                            backgroundColor: "rgba(255,149,0,0.08)",
+                            borderColor: "rgba(255,149,0,0.25)",
+                        }}
+                    >
+                        <AlertTriangle size={18} className="text-amber-500 shrink-0" />
+                        <p className="text-[13px] font-medium" style={{ color: "var(--text-color)" }}>
+                            Ein Training läuft bereits. Beende es zuerst.
+                        </p>
+                    </div>
+                )}
 
-                <section className="space-y-4">
-                    <h2 className="text-xl font-semibold text-[var(--text)]">Geplantes Training</h2>
+                {/* ── HEUTE GEPLANT ── */}
+                <section className="space-y-2.5">
+                    <h2
+                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Heute geplant
+                    </h2>
 
-                    {status === "none" && (
-                        <AppCard variant="glass" className="p-8 text-center flex flex-col items-center justify-center min-h-[160px]">
-                            <h3 className="text-lg font-semibold text-[var(--text)]">Kein Training geplant</h3>
-                            <p className="text-base text-[var(--muted)] mt-2">Genieße deinen Ruhetag oder starte ein spontanes Training.</p>
-                        </AppCard>
-                    )}
-
-                    {status === "single" && primarySession && (
-                        <AppCard variant="glass" className="p-0 overflow-hidden relative group">
-                            <div className="p-6 space-y-1">
-                                <h3 className="text-2xl font-bold text-[var(--text)]">{primarySession.title || "Unbenanntes Training"}</h3>
-                                <p className="text-base text-[var(--muted)]">
-                                    {primarySession.startAt ? `${primarySession.startAt} · ` : ""}
-                                    {formatSportLabel(primarySession.sportType)}
-                                </p>
-                            </div>
-                            <div className="px-6 pb-6">
-                                <AppButton
-                                    onClick={() => startSession(primarySession)}
-                                    variant="primary"
-                                    fullWidth
-                                    size="lg"
-                                    className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all shadow-lg shadow-blue-500/20"
+                    {hasSessions ? (
+                        todaySessions.map((session) => {
+                            const sc = sportColor(session.sportType);
+                            return (
+                                <button
+                                    key={session.id}
+                                    onClick={() => startSession(session)}
+                                    disabled={hasActiveWorkout}
+                                    className="w-full rounded-2xl p-4 border flex items-center gap-4 active:scale-[0.98] transition-transform text-left disabled:opacity-50"
+                                    style={{
+                                        backgroundColor: "var(--card-bg)",
+                                        borderColor: "var(--border-color)",
+                                    }}
                                 >
-                                    Training starten
-                                </AppButton>
-                            </div>
-                        </AppCard>
-                    )}
-
-                    {status === "multiple" && (
-                        <div className="space-y-3">
-                            {sessions.map((session) => (
-                                <AppCard key={session.id} variant="glass" className="p-4 flex items-center justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold truncate text-[var(--text)]">{session.title || "Unbenanntes Training"}</h3>
-                                        <p className="text-sm text-[var(--muted)]">
-                                            {session.startAt ? `${session.startAt} · ` : ""}
-                                            {formatSportLabel(session.sportType)}
+                                    <div
+                                        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                                        style={{ backgroundColor: sc.bg, color: sc.color }}
+                                    >
+                                        {sportIcon(session.sportType)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>
+                                            {session.title || "Training"}
+                                        </h3>
+                                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                                            {session.startAt ? `${session.startAt} · ` : ""}{formatSportLabel(session.sportType)}
                                         </p>
                                     </div>
-                                    <AppButton
-                                        onClick={() => startSession(session)}
-                                        variant="primary"
-                                        size="sm"
-                                        className="!bg-[#007AFF] !text-white !font-semibold !rounded-3xl hover:!brightness-110 active:!scale-95 transition-all"
-                                    >
-                                        Starten
-                                    </AppButton>
-                                </AppCard>
-                            ))}
+                                    <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
+                                </button>
+                            );
+                        })
+                    ) : (
+                        <div
+                            className="rounded-2xl border border-dashed p-8 flex flex-col items-center gap-2"
+                            style={{
+                                borderColor: "var(--border-color)",
+                                backgroundColor: "var(--card-bg)",
+                            }}
+                        >
+                            <div
+                                className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
+                                style={{ backgroundColor: "var(--button-bg)" }}
+                            >
+                                <Dumbbell size={18} style={{ color: "var(--text-secondary)" }} />
+                            </div>
+                            <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                                Kein Training geplant
+                            </p>
+                            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                Plane Trainings im Kalender oder starte unten ein freies Workout
+                            </p>
                         </div>
                     )}
                 </section>
 
-                <section className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-[var(--text)]">Meine Vorlagen</h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {templates.map((template) => (
-                            <AppCard key={template.id} variant="glass" className="p-5 flex flex-col justify-between h-full relative group">
-                                <button
-                                    onClick={(e) => confirmDelete(e, template.id)}
-                                    className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-all backdrop-blur-md opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                >
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-[var(--text)] line-clamp-1 pr-8">{template.title}</h3>
-                                    <p className="text-sm text-[var(--muted)] mt-1">{formatSportLabel(template.sportType)}</p>
-                                    <p className="text-xs text-[var(--muted)] mt-1 opacity-80">{buildTemplateSummary(template)}</p>
-                                </div>
-                                <AppButton
-                                    onClick={() => startTrainingTemplate(template)}
-                                    variant="secondary"
-                                    fullWidth
-                                    className="mt-4"
-                                >
-                                    Starten
-                                </AppButton>
-                            </AppCard>
-                        ))}
+                {/* ── SCHNELLSTART — 3 gleichwertige Sport-Buttons ── */}
+                <section className="space-y-2.5">
+                    <h2
+                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Schnellstart
+                    </h2>
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {/* Gym */}
                         <button
-                            type="button"
-                            onClick={() => setIsCreateOpen(true)}
-                            className="rounded-2xl p-5 flex flex-col items-center justify-center min-h-[140px] bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 text-[var(--muted)] transition-all active:scale-95"
+                            onClick={() => handleFreeTraining("gym")}
+                            disabled={hasActiveWorkout}
+                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                         >
-                            <span className="text-2xl mb-2">+</span>
-                            <span className="font-medium">Neue Vorlage</span>
+                            <div
+                                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                                style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
+                            >
+                                <Dumbbell size={26} />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Gym</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>Krafttraining</p>
+                            </div>
+                        </button>
+
+                        {/* Laufen */}
+                        <button
+                            onClick={() => handleFreeTraining("laufen")}
+                            disabled={hasActiveWorkout}
+                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                        >
+                            <div
+                                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                                style={{ backgroundColor: "rgba(52,199,89,0.1)", color: "#34C759" }}
+                            >
+                                <Footprints size={26} />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Laufen</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
+                            </div>
+                        </button>
+
+                        {/* Radfahren */}
+                        <button
+                            onClick={() => handleFreeTraining("radfahren")}
+                            disabled={hasActiveWorkout}
+                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                        >
+                            <div
+                                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                                style={{ backgroundColor: "rgba(255,149,0,0.1)", color: "#FF9500" }}
+                            >
+                                <Bike size={26} />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Radfahren</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
+                            </div>
                         </button>
                     </div>
                 </section>
 
-                {isCreateOpen && (
-                    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={closeCreate}>
-                        <div
-                            className="w-full max-w-md bg-zinc-950 rounded-3xl border border-zinc-800 p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 mb-safe"
-                            onClick={(e) => e.stopPropagation()}
+                {/* ── VORLAGEN ── */}
+                {(templates.length > 0 || true) && (
+                    <section className="space-y-2.5">
+                        <h2
+                            className="text-[11px] font-bold uppercase tracking-wider pl-1"
+                            style={{ color: "var(--text-secondary)" }}
                         >
+                            Meine Vorlagen
+                        </h2>
 
-                            {/* HEADER */}
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-white">Neue Vorlage erstellen</h2>
-                                <button onClick={closeCreate} className="p-2 bg-zinc-900 rounded-full text-zinc-400 hover:text-white transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            {/* SPORT TYPES GRID */}
-                            <div className="grid grid-cols-2 gap-3 mb-6">
-                                {[
-                                    { label: 'Gym', value: 'gym', Icon: Dumbbell },
-                                    { label: 'Laufen', value: 'laufen', Icon: Footprints },
-                                    { label: 'Radfahren', value: 'radfahren', Icon: Bike },
-                                    { label: 'Custom', value: 'custom', Icon: Star }
-                                ].map(({ label, value, Icon }) => (
+                        {/* User-created templates */}
+                        {templates.map((tpl) => {
+                            const sc = sportColor(tpl.sportType);
+                            const exCount = tpl.exercises?.length ?? 0;
+                            return (
+                                <div
+                                    key={tpl.id}
+                                    className="rounded-2xl border flex items-center overflow-hidden"
+                                    style={{
+                                        backgroundColor: "var(--card-bg)",
+                                        borderColor: "var(--border-color)",
+                                    }}
+                                >
                                     <button
-                                        key={value}
-                                        onClick={() => setNewSportType(value as TrainingType)}
-                                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${newSportType === value
-                                                ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
-                                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
-                                            }`}
+                                        onClick={() => handleStartTemplate(tpl)}
+                                        disabled={hasActiveWorkout}
+                                        className="flex-1 flex items-center gap-4 p-4 text-left disabled:opacity-50 min-w-0 active:scale-[0.98] transition-transform"
                                     >
-                                        <Icon size={24} className="mb-2" />
-                                        <span className="text-sm font-medium">{label}</span>
+                                        <div
+                                            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                                            style={{ backgroundColor: sc.bg, color: sc.color }}
+                                        >
+                                            {sportIcon(tpl.sportType)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>
+                                                {tpl.title}
+                                            </h3>
+                                            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                                                {formatSportLabel(tpl.sportType)}{exCount > 0 ? ` · ${exCount} Übungen` : ""}
+                                            </p>
+                                        </div>
+                                        <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
                                     </button>
-                                ))}
-                            </div>
-
-                            {/* INPUTS */}
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider ml-1 mb-2 block">
-                                        Titel der Vorlage
-                                    </label>
-                                    <input
-                                        value={newTitle}
-                                        onChange={(e) => setNewTitle(e.target.value)}
-                                        placeholder="z.B. Push Day A"
-                                        className={`w-full bg-zinc-900 border ${attemptedSave && !newTitle.trim() ? "border-red-500" : "border-zinc-800"} text-white rounded-xl h-12 px-4 outline-none focus:border-blue-500 transition-colors`}
-                                    />
-                                    {attemptedSave && !newTitle.trim() && <p className="text-xs text-red-500 mt-1 ml-1">Bitte gib einen Titel ein.</p>}
+                                    <button
+                                        onClick={() => handleDeleteTemplate(tpl.id)}
+                                        className="px-4 self-stretch flex items-center justify-center border-l"
+                                        style={{ borderColor: "var(--border-color)" }}
+                                    >
+                                        <Trash2 size={14} style={{ color: "var(--danger, #FF3B30)" }} />
+                                    </button>
                                 </div>
-                            </div>
+                            );
+                        })}
 
-                            {/* EXERCISE PLACEHOLDER (Visual Only) */}
-                            <div className="mb-8">
-                                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider ml-1 mb-2 block">
-                                    Geplante Übungen
-                                </label>
-                                <div className="border-2 border-dashed border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30">
-                                    <span className="text-sm">Noch keine Übungen hinzugefügt</span>
-                                </div>
-                            </div>
-
-                            {/* FOOTER ACTIONS */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <AppButton
-                                    onClick={closeCreate}
-                                    className="!bg-transparent border border-zinc-800 !text-zinc-400 hover:!text-white hover:!bg-zinc-900 !rounded-xl h-12"
-                                >
-                                    Abbrechen
-                                </AppButton>
-                                <AppButton
-                                    onClick={handleSaveTemplate}
-                                    className="!bg-blue-600 hover:!bg-blue-500 !text-white !rounded-xl h-12 shadow-lg shadow-blue-500/20"
-                                >
-                                    Erstellen
-                                </AppButton>
-                            </div>
-
-                        </div>
-                    </div>
-                )}
-
-                {templateToDelete && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={() => setTemplateToDelete(null)}>
-                        <div className="bg-[#1c1c1e]/90 backdrop-blur-xl border border-white/10 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-xl font-semibold text-white">Vorlage löschen?</h3>
-                            <p className="text-[var(--muted)]">Möchtest du diese Vorlage wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.</p>
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={() => setTemplateToDelete(null)}
-                                    className="flex-1 px-4 py-3 rounded-3xl bg-white/5 hover:bg-white/10 text-white font-medium transition-colors"
-                                >
-                                    Abbrechen
-                                </button>
-                                <button
-                                    onClick={handleDeleteTemplate}
-                                    className="flex-1 px-4 py-3 rounded-3xl bg-red-500/20 hover:bg-red-500/30 text-red-500 font-medium transition-colors"
-                                >
-                                    Löschen
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                        {/* Create template button */}
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="w-full rounded-2xl border-2 border-dashed py-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                            style={{ borderColor: "var(--border-color)" }}
+                        >
+                            <Plus size={16} style={{ color: "var(--text-secondary)" }} />
+                            <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                                Vorlage erstellen
+                            </span>
+                        </button>
+                    </section>
                 )}
             </div>
+
+            <CreateTemplateModal
+                open={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSave={handleCreateTemplate}
+            />
         </div>
     );
 }

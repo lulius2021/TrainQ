@@ -8,7 +8,7 @@ import {
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
 import { WorkoutHistoryOverlay } from "../components/profile/WorkoutHistoryOverlay";
-import { History } from "lucide-react";
+import { History, Settings } from "lucide-react";
 
 import {
   readOnboardingDataFromStorage,
@@ -29,7 +29,6 @@ import { AppButton } from "../components/ui/AppButton";
 import { useStatistics, type TimeRange } from "../hooks/useStatistics";
 import { StatsChart } from "../components/stats/StatsChart";
 import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
-import { MuscleSplitChart } from "../components/stats/MuscleSplitChart";
 import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
 
@@ -134,9 +133,66 @@ import MonthlyRecapModal from "../components/profile/MonthlyRecapModal";
 
 // ... existing imports ...
 
+// -------------------- Deferred Section (prevents WebKit rendering crash) --------------------
+// -------------------- Section Error Boundary --------------------
+class SectionErrorBoundary extends React.Component<{ name: string; children: React.ReactNode }, { hasError: boolean; error: string }> {
+  constructor(props: { name: string; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, error: String((error as any)?.message || error) };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 12, backgroundColor: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 12, marginBottom: 8 }}>
+          <p style={{ fontSize: 12, color: "#FF3B30", margin: 0 }}>[{this.props.name}] {this.state.error}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // -------------------- Page --------------------
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
+// Error Boundary specifically for Profile — uses hardcoded colors to avoid CSS var issues
+class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string; stack: string }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: "", stack: "" };
+  }
+  static getDerivedStateFromError(error: unknown) {
+    const msg = String((error as any)?.message || error);
+    const stack = String((error as any)?.stack || "").slice(0, 500);
+    return { hasError: true, error: msg, stack };
+  }
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error("ProfilePage Error:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, backgroundColor: "var(--bg-color)", color: "var(--text-color)", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+          <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "var(--text-color)" }}>Profil-Fehler</h2>
+          <div style={{ padding: 16, backgroundColor: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 12, marginBottom: 16 }}>
+            <p style={{ fontSize: 14, color: "#FF3B30", wordBreak: "break-all", margin: 0 }}>{this.state.error}</p>
+            {this.state.stack && (
+              <pre style={{ fontSize: 10, color: "#FF3B30", opacity: 0.7, marginTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{this.state.stack}</pre>
+            )}
+          </div>
+          <button onClick={() => this.setState({ hasError: false, error: "", stack: "" })} style={{ padding: "12px 24px", background: "#007AFF", color: "white", border: "none", borderRadius: 12, fontWeight: "bold", fontSize: 16 }}>
+            Erneut versuchen
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
   const { user, logout } = useAuth();
   const { isPro } = useEntitlements(user?.id);
 
@@ -153,7 +209,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   const stats = useStatistics(workouts, timeRange);
 
   const refreshOnboarding = useCallback(() => setOnboarding(readOnboardingDataFromStorage()), []);
-  const refreshWorkouts = useCallback(() => setWorkouts(loadWorkoutHistory()), []);
+  const refreshWorkouts = useCallback(() => {
+    const fresh = loadWorkoutHistory();
+    setWorkouts(prev => prev.length === fresh.length ? prev : fresh);
+  }, []);
 
   useEffect(() => {
     refreshOnboarding();
@@ -459,29 +518,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   }, []);
 
   // -------------------- Theme-safe style helpers --------------------
-
-  const surfaceBox: React.CSSProperties = { background: "var(--surface)", border: "1px solid var(--border)" };
-  const surfaceSoft: React.CSSProperties = { background: "var(--surface2)", border: "1px solid var(--border)" };
-  const muted: React.CSSProperties = { color: "var(--muted)" };
-
-  const primaryBtn: React.CSSProperties = { background: "var(--primary)", color: "#061226", border: "1px solid var(--border)" };
-
-  const badgeStylePro: React.CSSProperties = {
-    background: "rgba(245, 158, 11, 0.16)",
-    border: "1px solid var(--border)",
-    color: "rgba(245, 158, 11, 0.95)",
-  };
-
-  const badgeStyleFree: React.CSSProperties = {
-    background: "rgba(16, 185, 129, 0.14)",
-    border: "1px solid var(--border)",
-    color: "rgba(16, 185, 129, 0.95)",
-  };
-
-  const avatarFallbackStyle: React.CSSProperties = {
-    background: "linear-gradient(135deg, var(--primary) 0%, var(--primarySoft) 100%)",
-    color: "#061226",
-  };
+  // (unused legacy helpers removed — all styling uses CSS variables inline)
 
   // -------- Monthly Recap Logic --------
   const [recapOpen, setRecapOpen] = useState(false);
@@ -503,12 +540,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
   return (
     <>
-      <div className="w-full text-[var(--text)]">
-        <div className="mx-auto w-full max-w-5xl px-4 pt-0 pb-40 space-y-6">
+      <div className="w-full min-h-full" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
+        <div className="mx-auto w-full max-w-5xl px-4 pb-40 space-y-6" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <section className="mt-2 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <h1 className="text-2xl font-bold text-[var(--text)]">Profil</h1>
-              {/* ... existing header buttons ... */}
+            <div className="flex items-center justify-end px-1">
               <div className="flex items-center gap-2">
                 <AppButton
                   onClick={handleShareProfile}
@@ -517,7 +552,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                   title="Profil teilen"
                   aria-label="Profil teilen"
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" className="text-white">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" style={{ color: "var(--text-main)" }}>
                     <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
@@ -525,15 +560,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 <AppButton
                   onClick={() => setSettingsOpen(true)}
                   variant="ghost"
-                  className="rounded-full !p-0 w-10 h-10"
+                  className="rounded-full !p-0 w-11 h-11 flex items-center justify-center"
                   title="Einstellungen"
                   aria-label="Einstellungen"
                 >
-                  <div className="flex flex-col gap-1.5 px-2">
-                    <span className="block h-0.5 w-5 rounded bg-white" />
-                    <span className="block h-0.5 w-5 rounded bg-white" />
-                    <span className="block h-0.5 w-5 rounded bg-white" />
-                  </div>
+                  <Settings className="w-7 h-7" style={{ color: "var(--text-main)" }} />
                 </AppButton>
               </div>
             </div>
@@ -550,7 +581,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               >
                 <div className="flex flex-col">
                   <span className="text-[#007AFF] text-xs font-bold uppercase tracking-wider mb-0.5">Highlights</span>
-                  <span className="text-white font-semibold text-lg">Dein {lastMonthName} {lastMonthYear} ist fertig.</span>
+                  <span className="font-semibold text-lg" style={{ color: "var(--text-color)" }}>Dein {lastMonthName} {lastMonthYear} ist fertig.</span>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-[#007AFF]/20 flex items-center justify-center text-[#007AFF]">
                   <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
@@ -562,7 +593,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             <AppCard variant="glass" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               {/* ... (rest of profile card content) ... */}
               <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60">
+                <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600">
                   {avatarDataUrl ? (
                     <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
                   ) : (
@@ -571,25 +602,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 </div>
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-semibold truncate text-[var(--text)]">{profileName}</h2>
+                    <h2 className="text-xl font-semibold truncate text-[var(--text-color)]">{profileName}</h2>
                     {isPro ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[var(--primary)]">Pro</span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-500">Pro</span>
                     ) : (
                       <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title="Upgrade auf Pro">
                         Free
                       </button>
                     )}
                   </div>
-                  <p className="text-base max-w-xs text-[var(--muted)]">{profileBio}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)] pt-1">
-                    {user?.email && <span className="truncate">Account: <span className="text-[var(--text)]">{user.email}</span></span>}
-                    <span>Trainings: <span className="text-[var(--text)]">{weekTotalSessions}</span></span>
-                    <span>Zeit: <span className="text-[var(--text)]">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
+                  <p className="text-base max-w-xs text-[var(--text-secondary)]">{profileBio}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm pt-1" style={{ color: "var(--text-main)" }}>
+                    {user?.email && <span className="truncate">Account: <span className="font-medium">{user.email}</span></span>}
+                    <span>Trainings: <span className="font-medium">{weekTotalSessions}</span></span>
+                    <span>Zeit: <span className="font-medium">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
                   </div>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center self-end sm:self-center">
-                <AppButton onClick={openEdit} variant="secondary" size="sm">
+                <AppButton onClick={openEdit} variant="secondary" size="sm" style={{ color: "var(--text-main)" }}>
                   Bearbeiten
                 </AppButton>
               </div>
@@ -600,7 +631,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
             {(copyFeedback || shareFeedback) && (
               <AppCard variant="soft" className="px-4 py-2 text-sm text-center">
-                <span className="text-[var(--muted)]">{copyFeedback || shareFeedback}</span>
+                <span className="text-[var(--text-secondary)]">{copyFeedback || shareFeedback}</span>
               </AppCard>
             )}
 
@@ -609,8 +640,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               <AppCard variant="glass">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-[var(--text)]">Auf PRO upgraden</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">Schalte alle Funktionen frei und entferne Limits.</p>
+                    <h3 className="text-base font-semibold text-[var(--text-color)]">Auf PRO upgraden</h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">Schalte alle Funktionen frei und entferne Limits.</p>
                   </div>
                   <AppButton onClick={openPaywall} variant="primary" size="sm">
                     Upgrade
@@ -619,100 +650,100 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               </AppCard>
             )}
 
-            {/* Statistics card */}
-            {/* Statistics Section */}
-            <div className="space-y-4">
-              {/* Heatmap Top */}
-              <ShareableStatCard titleForFile={`trainq-heatmap-${new Date().toISOString().split('T')[0]}`}>
-                <ConsistencyHeatmap workouts={workouts} />
-              </ShareableStatCard>
+            {/* Statistics */}
+              <div className="space-y-4">
+                {/* Heatmap Top */}
+                <SectionErrorBoundary name="Heatmap">
+                <ShareableStatCard titleForFile={`trainq-heatmap-${new Date().toISOString().split('T')[0]}`}>
+                  <ConsistencyHeatmap workouts={workouts} />
+                </ShareableStatCard>
+                </SectionErrorBoundary>
 
-              <div className="flex items-center justify-between px-1 mt-6">
-                <h3 className="text-lg font-semibold text-[var(--text)]">Dein Fortschritt</h3>
-                <div className="flex items-center p-1 bg-zinc-950 rounded-lg border border-zinc-800">
-                  {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
-                    <button
-                      key={tr}
-                      onClick={() => setTimeRange(tr)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${timeRange === tr
-                        ? "bg-zinc-700 text-white shadow-sm"
-                        : "text-zinc-400 hover:text-zinc-200 bg-transparent"
-                        }`}
-                    >
-                      {tr}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between px-1 mt-6">
+                  <h3 className="text-lg font-semibold text-[var(--text-color)]">Dein Fortschritt</h3>
+                  <div className="flex items-center p-1 rounded-lg border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
+                    {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
+                      <button
+                        key={tr}
+                        onClick={() => setTimeRange(tr)}
+                        className="px-3 py-1 text-xs font-medium rounded-md transition-all"
+                        style={{
+                          backgroundColor: timeRange === tr ? "var(--card-bg)" : "transparent",
+                          color: timeRange === tr ? "var(--text-color)" : "var(--text-muted)",
+                          boxShadow: timeRange === tr ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
+                        }}
+                      >
+                        {tr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SectionErrorBoundary name="AreaChart-Volume">
+                    <StatsChart
+                      title="Trainingslast"
+                      valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
+                      unit="kg"
+                      data={stats.volumeData}
+                      type="area"
+                      color="#007AFF"
+                    />
+                  </SectionErrorBoundary>
+
+                  <SectionErrorBoundary name="BarChart-Duration">
+                    <StatsChart
+                      title="Zeit im Training"
+                      valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
+                      unit="min"
+                      data={stats.durationData}
+                      type="bar"
+                      color="#F59E0B"
+                    />
+                  </SectionErrorBoundary>
+
+                  {stats.totals.distance > 0 && (
+                    <SectionErrorBoundary name="AreaChart-Distance">
+                      <StatsChart
+                        title="Distanz"
+                        valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
+                        unit="km"
+                        data={stats.distanceData}
+                        type="area"
+                        color="#10B981"
+                      />
+                    </SectionErrorBoundary>
+                  )}
+
+                  <SectionErrorBoundary name="PieChart-Sports">
+                    <StatsChart
+                      title="Sportarten & Fokus"
+                      type="pie"
+                      data={stats.sportSplitData}
+                      unit="x"
+                    />
+                  </SectionErrorBoundary>
+
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ShareableStatCard titleForFile="trainq-volume">
-                  <StatsChart
-                    title="Trainingslast"
-                    valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
-                    unit="kg"
-                    data={stats.volumeData}
-                    type="area"
-                    color="#007AFF"
-                  />
-                </ShareableStatCard>
-
-                <ShareableStatCard titleForFile="trainq-duration">
-                  <StatsChart
-                    title="Zeit im Training"
-                    valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
-                    unit="min"
-                    data={stats.durationData}
-                    type="bar"
-                    color="#F59E0B"
-                  />
-                </ShareableStatCard>
-
-                {stats.totals.distance > 0 && (
-                  <ShareableStatCard titleForFile="trainq-distance">
-                    <StatsChart
-                      title="Distanz"
-                      valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
-                      unit="km"
-                      data={stats.distanceData}
-                      type="area"
-                      color="#10B981"
-                    />
-                  </ShareableStatCard>
-                )}
-
-                <ShareableStatCard titleForFile="trainq-sports">
-                  <StatsChart
-                    title="Sportarten & Fokus"
-                    // valueDisplay={stats.sportSplitData.length + " Sports"}
-                    type="pie"
-                    data={stats.sportSplitData}
-                    unit="x"
-                  />
-                </ShareableStatCard>
-
-                {/* Muscle Split (Radar) */}
-                <ShareableStatCard titleForFile="trainq-muscle-balance">
-                  <MuscleSplitChart workouts={workouts} />
-                </ShareableStatCard>
-              </div>
-            </div>
 
             {/* Workout history list TRIGGER */}
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="w-full bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-4 flex items-center justify-between hover:bg-zinc-800 transition-all group"
+              className="w-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-4 flex items-center justify-between transition-all group hover:opacity-90"
+              style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
             >
               <div className="flex items-center gap-4">
-                <div className="p-2 bg-white/5 rounded-2xl text-white/70 group-hover:text-white transition-colors">
+                <div className="p-2 rounded-2xl transition-colors" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-muted)" }}>
                   <History className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <div className="text-white font-medium">Alle Trainings anzeigen</div>
-                  <div className="text-xs text-white/40">{workouts.length} gesamt</div>
+                  <div className="font-medium" style={{ color: "var(--text-color)" }}>Alle Trainings anzeigen</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{workouts.length} gesamt</div>
                 </div>
               </div>
-              <div className="text-white/20 group-hover:text-white/50 transition-colors">
+              <div style={{ color: "var(--text-muted)" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </div>
             </button>
@@ -721,6 +752,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         </div>
       </div>
 
+      <SectionErrorBoundary name="MonthlyRecap">
       <MonthlyRecapModal
         isOpen={recapOpen}
         onClose={() => setRecapOpen(false)}
@@ -728,6 +760,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         month={lastMonthIndex}
         workouts={workouts}
       />
+      </SectionErrorBoundary>
 
       {isHistoryOpen && (
         <WorkoutHistoryOverlay
@@ -740,23 +773,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       {/* MODAL: Profil bearbeiten */}
       {isEditProfileOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
-          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-6 max-h-[85vh] overflow-y-auto pb-[140px]">
+          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-6 max-h-[85vh] overflow-y-auto pb-[140px]" style={{ backgroundColor: "var(--modal-bg)" }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Profil bearbeiten</h2>
-              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10">✕</AppButton>
+              <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Profil bearbeiten</h2>
+              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full hover:opacity-80" style={{ color: "var(--text-muted)" }}>✕</AppButton>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60 ring-4 ring-white/5">
+              <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600 border-4" style={{ borderColor: "var(--border-color)" }}>
                 {avatarDataUrl ? (<img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />) : (<span className="text-3xl font-semibold text-white">{safeInitials(profileName)}</span>)}
               </div>
               <div className="flex flex-col gap-2">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
-                <AppButton onClick={onPickAvatar} className="bg-white/10 border border-white/20 text-white hover:bg-white/20" size="sm">
+                <AppButton onClick={onPickAvatar} className="border hover:opacity-90" style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} size="sm">
                   Bild wählen
                 </AppButton>
                 {avatarDataUrl && (
-                  <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20" size="sm">
+                  <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20" size="sm">
                     Bild entfernen
                   </AppButton>
                 )}
@@ -765,51 +798,51 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-white/60">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Dein Name" />
+                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>Name</label>
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Dein Name" />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-white/60">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none min-h-[100px]" placeholder="Erzähle etwas über dein Training..." />
+                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>Beschreibung</label>
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none min-h-[100px] focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Erzähle etwas über dein Training..." />
               </div>
             </div>
 
             <div className="space-y-4 pt-2">
-              <h3 className="text-lg font-semibold text-white">Deine Daten</h3>
+              <h3 className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>Deine Daten</h3>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-white/60">Alter</label>
-                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Alter</label>
+                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-white/60">Größe (cm)</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Größe (cm)</label>
+                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-white/60">Gewicht (kg)</label>
-                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-3 text-center outline-none" placeholder="-" />
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Gewicht (kg)</label>
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-white/60">Stunden/Woche</label>
-                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="h" />
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Stunden/Woche</label>
+                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="h" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-white/60">Einheiten/Woche</label>
-                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="#" />
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Einheiten/Woche</label>
+                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="#" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-white/60">Sportarten (CSV)</label>
-                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Laufen, Gym..." />
+                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Sportarten (CSV)</label>
+                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Laufen, Gym..." />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-white/60">Ziele (CSV)</label>
-                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-3xl text-white placeholder:text-white/30 focus:bg-white/10 focus:border-[#007AFF] transition-all p-4 outline-none" placeholder="Marathon, Kraft..." />
+                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Ziele (CSV)</label>
+                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Marathon, Kraft..." />
               </div>
             </div>
 
@@ -830,8 +863,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setStatsOpen(false); }}>
           <AppCard variant="glass" className="w-full max-w-5xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Statistiken</h2>
-              <AppButton onClick={() => setStatsOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--muted)]">✕</AppButton>
+              <h2 className="text-lg font-semibold text-[var(--text-color)]">Statistiken</h2>
+              <AppButton onClick={() => setStatsOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--text-secondary)]">✕</AppButton>
             </div>
             <ProfileStatsDashboard workouts={workouts} weeklyGoalMinutes={WEEKLY_GOAL_MINUTES} />
           </AppCard>
@@ -840,7 +873,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
 
       {/* SETTINGS FULLSCREEN MODAL */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-[100] bg-black overscroll-none touch-pan-y">
+        <div className="fixed inset-0 z-[100] overscroll-none touch-pan-y" style={{ backgroundColor: "var(--bg-color)" }}>
           <SettingPage
             onBack={() => setSettingsOpen(false)}
             onClearCalendar={onClearCalendar || (() => { })}
@@ -852,5 +885,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     </>
   );
 };
+
+const ProfilePage: React.FC<ProfilePageProps> = (props) => (
+  <ProfileErrorBoundary>
+    <ProfilePageInner {...props} />
+  </ProfileErrorBoundary>
+);
 
 export default ProfilePage;

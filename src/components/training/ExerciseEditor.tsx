@@ -1,8 +1,10 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState, useCallback } from "react";
 import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
 import { useI18n } from "../../i18n/useI18n";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { Info, MoreHorizontal, X, Plus, Trash2 } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
+import type { WeightSuggestion } from "../../utils/weightSuggestion";
 
 // -------------------- Helpers --------------------
 function parseOptionalNumber(v: string): number | undefined {
@@ -23,36 +25,168 @@ function uid(): string {
 
 // -------------------- Helpers Components --------------------
 
+function useSwipeToDismiss(onDelete: () => void) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const state = useRef({
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    locked: null as "h" | "v" | null,
+    active: false,
+  });
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = contentRef.current;
+    if (!el) return;
+    const t = e.touches[0];
+    state.current = { startX: t.clientX, startY: t.clientY, currentX: 0, locked: null, active: true };
+    el.style.transition = "none";
+    el.style.willChange = "transform";
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const s = state.current;
+    if (!s.active) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.startX;
+    const dy = t.clientY - s.startY;
+
+    if (!s.locked) {
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        s.locked = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+        if (s.locked === "h" && document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }
+      return;
+    }
+    if (s.locked === "v") return;
+
+    // Only allow swiping left
+    const clamped = Math.min(0, dx);
+    s.currentX = clamped;
+    if (contentRef.current) {
+      contentRef.current.style.transform = `translateX(${clamped}px)`;
+    }
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    const s = state.current;
+    const el = contentRef.current;
+    s.active = false;
+
+    if (!el) return;
+    el.style.willChange = "";
+
+    if (s.locked !== "h") {
+      el.style.transition = "transform 0.2s ease";
+      el.style.transform = "translateX(0)";
+      return;
+    }
+
+    if (s.currentX < -70) {
+      // Dismiss — slide out and delete
+      el.style.transition = "transform 0.18s ease-out, opacity 0.18s ease-out";
+      el.style.transform = "translateX(-110%)";
+      el.style.opacity = "0";
+      setTimeout(() => onDelete(), 180);
+    } else {
+      // Snap back
+      el.style.transition = "transform 0.2s ease";
+      el.style.transform = "translateX(0)";
+    }
+  }, [onDelete]);
+
+  return { contentRef, onTouchStart, onTouchMove, onTouchEnd };
+}
+
 const SwipeableItem = ({ children, onDelete, className }: { children: React.ReactNode; onDelete: () => void; className?: string }) => {
-  const controls = useAnimation();
+  const { contentRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(onDelete);
   return (
     <div className={`relative overflow-hidden ${className || ""}`}>
-      {/* Background Layer (Delete Reveal) */}
       <div className="absolute inset-y-0 right-0 w-full bg-red-500 flex items-center justify-end px-4 rounded-3xl">
         <Trash2 size={18} className="text-white" />
       </div>
-
-      {/* Foreground Layer (Content) */}
-      <motion.div
-        drag="x"
-        dragConstraints={{ left: -100, right: 0 }}
-        dragElastic={0.1}
-        // @ts-ignore
-        onDragEnd={(_: any, info: any) => {
-          if (info.offset.x < -75) {
-            controls.start({ x: -500, opacity: 0, transition: { duration: 0.2 } }).then(() => {
-              onDelete();
-            });
-          } else {
-            controls.start({ x: 0 });
-          }
-        }}
-        animate={controls}
-        style={{ touchAction: "pan-y" }}
-        className="relative z-10 bg-[#1c1c1e]" // Opaque background to hide delete button
+      <div
+        ref={contentRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className="relative z-10"
       >
         {children}
-      </motion.div>
+      </div>
+    </div>
+  );
+};
+
+// -------------------- Swipeable Drop Row --------------------
+
+const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, isMain }: {
+  drop: any; theme: any;
+  onUpdate: (patch: any) => void;
+  onToggle: () => void;
+  onDelete: () => void;
+  label?: React.ReactNode;
+  isMain?: boolean;
+}) => {
+  const { contentRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(onDelete);
+  const isCompleted = !!drop.completed;
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Delete background */}
+      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0">
+        <Trash2 size={14} className="text-white" />
+      </div>
+      {/* Foreground */}
+      <div
+        ref={contentRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className="relative z-10 grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center px-0 py-1"
+        style={{ backgroundColor: theme.colors.card }}
+      >
+        <div className="flex items-center justify-center">
+          {label || <div className="w-1.5 h-1.5 rounded-full bg-purple-500/40" />}
+        </div>
+        <input
+          type="number" inputMode="decimal" step={0.5}
+          value={typeof drop.weight === "number" ? drop.weight : ""} placeholder="kg"
+          onChange={(e) => {
+            const parsed = Number(e.target.value.replace(",", "."));
+            onUpdate({ weight: Number.isFinite(parsed) ? parsed : undefined });
+          }}
+          style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
+          className={`${isMain ? "h-10 text-base" : "h-9 text-sm"} w-full rounded-3xl text-center font-bold outline-none border-2 border-transparent ${isMain ? "focus:border-[#007AFF]/50" : "focus:border-purple-500/50"} transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
+        />
+        <input
+          type="number" inputMode="numeric"
+          value={typeof drop.reps === "number" ? drop.reps : ""} placeholder="Wdh"
+          onChange={(e) => {
+            const parsed = Number(e.target.value.replace(",", "."));
+            onUpdate({ reps: Number.isFinite(parsed) ? parsed : undefined });
+          }}
+          style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
+          className={`${isMain ? "h-10 text-base" : "h-9 text-sm"} w-full rounded-3xl text-center font-bold outline-none border-2 border-transparent ${isMain ? "focus:border-[#007AFF]/50" : "focus:border-purple-500/50"} transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
+        />
+        <div className="flex items-center justify-center">
+          <button type="button" onClick={onToggle}
+            className={`${isMain ? "h-10 w-14" : "h-9 w-12"} rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
+              ? (isMain ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]" : "bg-purple-600 border-purple-600 shadow-sm")
+              : (isMain ? "border-transparent hover:border-[#007AFF]" : "border-transparent hover:border-purple-500/50")
+            }`}
+            style={{ backgroundColor: !isCompleted ? theme.colors.inputBackground : undefined }}
+          >
+            {isCompleted ? (
+              <svg viewBox="0 0 24 24" className={`${isMain ? "h-5 w-5" : "h-4 w-4"} text-white`} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+            ) : (
+              <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -74,10 +208,15 @@ const SwipeableSetRow = ({
   onWeightBlur,
   weightUnit, // passed from parent to avoid re-hooking
   repsUnit,   // passed from parent
+  prSets,     // Set<string> of set IDs that are PRs
 }: any) => {
-  const controls = useAnimation();
+  const { theme } = useTheme();
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
   const isDropset = set.type === "d" || set.type === "1D"; // Treat 'd' or '1D' as dropset-capable
+
+  const { contentRef: swipeRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(
+    () => onRemoveSet(set.id)
+  );
 
   // Helper to init drops if missing but type is dropset
   const ensureDrops = () => {
@@ -99,8 +238,6 @@ const SwipeableSetRow = ({
 
   const updateDrop = (dropId: string, patch: any) => {
     const currentDrops = set.drops || [];
-    // Ensure we parse numbers correctly
-    // If patch has weight/reps, parse them
     const cleanPatch = { ...patch };
     if ('weight' in patch && typeof patch.weight === 'string') {
       const parsed = Number(patch.weight.replace(',', '.'));
@@ -114,26 +251,6 @@ const SwipeableSetRow = ({
     onSetChange(set.id, {
       drops: currentDrops.map((d: any) => d.id === dropId ? { ...d, ...cleanPatch } : d)
     });
-  };
-
-  // Format "Previous" text
-  let prevText = "-";
-  if (last) {
-    if (last.weight && last.reps) prevText = `${last.weight}kg × ${last.reps}`;
-    else if (last.reps) prevText = `${last.reps} Wdh`;
-    else if (last.weight) prevText = `${last.weight}kg`;
-  }
-
-  const handleDragEnd = (_event: any, info: any) => {
-    // Threshold for delete: drag distance < -100px
-    if (info.offset.x < -100) {
-      // Animate further left to imply deletion
-      controls.start({ x: -500, opacity: 0, transition: { duration: 0.2 } });
-      onRemoveSet(set.id);
-    } else {
-      // Snap back if not swiped far enough
-      controls.start({ x: 0 });
-    }
   };
 
   const handleTypeCycle = (e: React.MouseEvent) => {
@@ -166,7 +283,7 @@ const SwipeableSetRow = ({
     if (t === "w") return "text-yellow-500";
     if (t === "d") return "text-purple-500";
     if (t === "f") return "text-red-500";
-    return set.completed ? "text-[#007AFF]" : "text-white";
+    return set.completed ? "text-[#007AFF]" : "text-[var(--text-color)]";
   };
 
   const toggleDropComplete = (dropId: string) => {
@@ -198,10 +315,13 @@ const SwipeableSetRow = ({
     onDeleteRaw?: () => void
   ) => {
     // Background logic:
-    // Main set: bg-[#1c1c1e] (same as standard)
-    // Drops: no bg or subtle to blend
+    // Main set: theme.colors.card
+    // Drops: no bg or subtle
     return (
-      <div className={`grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center ${!isDrop ? 'bg-[#1c1c1e] rounded-3xl p-0' : 'relative pl-0'}`}>
+      <div
+        className={`grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center ${!isDrop ? 'rounded-3xl p-0' : 'relative pl-0'}`}
+        style={{ backgroundColor: !isDrop ? theme.colors.card : 'transparent' }}
+      >
 
         {/* 1. Label */}
         <div className="flex items-center justify-center cursor-pointer h-10 w-8 shrink-0">
@@ -212,10 +332,7 @@ const SwipeableSetRow = ({
           ) : label}
         </div>
 
-        {/* 2. Previous History / Spacer */}
-        <div className="text-sm font-medium text-white/40 truncate pl-1 h-10 flex items-center justify-start overflow-hidden">
-          {!isDrop ? prevText : ""}
-        </div>
+
 
         {/* 3. Weight */}
         <input
@@ -227,8 +344,12 @@ const SwipeableSetRow = ({
           onChange={(e) => onChangeWeight(e.target.value)}
           onFocus={() => !isDrop && onWeightFocus?.(set.id, set.weight)}
           onBlur={() => !isDrop && onWeightBlur?.()}
-          onPointerDownCapture={(e) => e.stopPropagation()}
-          className={`h-10 w-full rounded-3xl ${isDrop ? "bg-[#2c2c2e]/50" : "bg-[#2c2c2e]"} text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${(isCompleted && !isDrop) ? "opacity-50" : ""}`}
+
+          style={{
+            backgroundColor: isDrop ? (theme.mode === 'dark' ? 'rgba(44, 44, 46, 0.5)' : '#E5E5EA') : theme.colors.inputBackground,
+            color: theme.colors.text
+          }}
+          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${(isCompleted && !isDrop) ? "opacity-50" : ""}`}
         />
 
         {/* 4. Reps */}
@@ -238,8 +359,12 @@ const SwipeableSetRow = ({
           value={typeof repsValue === "number" ? repsValue : ""}
           placeholder={isDrop ? "Wdh" : fmtPlaceholderNumber(last?.reps, "-")}
           onChange={(e) => onChangeReps(e.target.value)}
-          onPointerDownCapture={(e) => e.stopPropagation()}
-          className={`h-10 w-full rounded-3xl ${isDrop ? "bg-[#2c2c2e]/50" : "bg-[#2c2c2e]"} text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${(isCompleted && !isDrop) ? "opacity-50" : ""}`}
+
+          style={{
+            backgroundColor: isDrop ? (theme.mode === 'dark' ? 'rgba(44, 44, 46, 0.5)' : '#E5E5EA') : theme.colors.inputBackground,
+            color: theme.colors.text
+          }}
+          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${(isCompleted && !isDrop) ? "opacity-50" : ""}`}
         />
 
         {/* 5. Checkbox */}
@@ -258,7 +383,7 @@ const SwipeableSetRow = ({
           {(!isDrop && isTimerRunning && restRemainingSec !== undefined) ? (
             <div
               className="h-10 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
-              onPointerDownCapture={(e) => e.stopPropagation()}
+    
               onClick={(e) => { e.stopPropagation(); onToggle(); }}
             >
               <span className="text-[10px] font-bold text-white tabular-nums tracking-tighter leading-none">
@@ -269,18 +394,21 @@ const SwipeableSetRow = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onToggle(); }}
-              onPointerDownCapture={(e) => e.stopPropagation()}
+    
               className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
-                ? (isDrop ? "bg-purple-600 border-purple-600 shadow-sm" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
-                : (isDrop ? "bg-[#2c2c2e]/50 border-transparent hover:border-purple-500/50" : "bg-[#2c2c2e] border-transparent hover:border-[#007AFF]")
+                ? (isDrop ? "bg-purple-600 border-purple-600 shadow-sm" : (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"))
+                : (isDrop ? "border-transparent hover:border-purple-500/50" : "border-transparent hover:border-[#007AFF]")
                 }`}
+              style={{
+                backgroundColor: !isCompleted ? (isDrop ? (theme.mode === 'dark' ? 'rgba(44,44,46,0.5)' : '#E5E5EA') : theme.colors.inputBackground) : undefined
+              }}
             >
               {isCompleted ? (
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
               ) : (
-                <div className="h-2 w-2 rounded-full bg-white/10" />
+                <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
               )}
             </button>
           )}
@@ -298,88 +426,62 @@ const SwipeableSetRow = ({
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
         exit={{ opacity: 0, height: 0 }}
-        className="relative mb-2"
+        className="mb-2"
+        style={{ backgroundColor: theme.colors.card, borderRadius: 16, overflow: "hidden" }}
       >
-        {/* 1. MAIN ROW (Standard Look) */}
-        <div className="relative z-10 bg-[#1c1c1e] rounded-3xl overflow-hidden shadow-sm flex flex-col">
-          <div onClick={handleTypeCycle} className="w-full">
-            {renderDropsetRow(
-              getTypeLabel(set.type),
-              set.weight,
-              set.reps,
-              (v) => onSetChange(set.id, { weight: parseOptionalNumber(v) }),
-              (v) => onSetChange(set.id, { reps: parseOptionalNumber(v) }),
-              set.completed,
-              () => {
-                // Feature: Auto-fill previous values if empty (for main set)
-                let updates: any = {};
-                let shouldUpdate = false;
-                if (!set.weight && last?.weight) { updates.weight = last.weight; shouldUpdate = true; }
-                if (!set.reps && last?.reps) { updates.reps = last.reps; shouldUpdate = true; }
-                if (shouldUpdate) onSetChange(set.id, updates);
-                onToggleSet(set.id);
-              },
-              false
-            )}
-          </div>
-
-          {/* 2. DROPS LIST (Attached below) */}
-          {/* 2. DROPS LIST (Attached below) */}
-          {(set.drops || []).map((drop: any, i: number) => (
-            <div key={drop.id} className="relative pl-0 pt-2 pb-1">
-              <SwipeableItem onDelete={() => deleteDrop(drop.id)}>
-                {/* Visual Connector - subtle (Inside swipeable area) */}
-                <div className="absolute left-[29px] -top-3 bottom-[50%] w-0.5 bg-[#2c2c2e] -z-10"></div>
-                <div className="absolute left-[29px] bottom-[25px] w-3 h-0.5 bg-[#2c2c2e] -z-10"></div>
-
-                {renderDropsetRow(
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500/40" />, // Clean visual dot instead of text
-                  drop.weight,
-                  drop.reps,
-                  (v) => updateDrop(drop.id, { weight: v }),
-                  (v) => updateDrop(drop.id, { reps: v }),
-                  !!drop.completed,
-                  () => toggleDropComplete(drop.id),
-                  true,
-                  undefined // Remove old delete button logic if exists
-                )}
-              </SwipeableItem>
+        {/* Main set row — individually swipeable */}
+        <SwipeableDropRow
+          drop={{ ...set, weight: set.weight, reps: set.reps, completed: set.completed }}
+          theme={theme}
+          onUpdate={(patch) => onSetChange(set.id, patch)}
+          onToggle={() => {
+            let updates: any = {};
+            if (!set.weight && last?.weight) updates.weight = last.weight;
+            if (!set.reps && last?.reps) updates.reps = last.reps;
+            if (Object.keys(updates).length) onSetChange(set.id, updates);
+            onToggleSet(set.id);
+          }}
+          onDelete={() => onRemoveSet(set.id)}
+          label={
+            <div className="flex items-center justify-center cursor-pointer h-10" onClick={handleTypeCycle}>
+              <span className={`text-sm font-bold select-none ${getTypeColor(set.type)}`}>{getTypeLabel(set.type)}</span>
             </div>
-          ))}
+          }
+          isMain
+        />
 
-          {/* ADD DROP ACTION (Subtle at bottom) */}
-          <div className="flex justify-center py-2">
-            <button
-              onClick={() => {
-                const currentDrops = set.drops || [];
-                // Determine reference values (Main Set or Last Drop)
-                let refWeight = set.weight || 0;
-                let refReps = set.reps || 0;
+        {/* Drop rows — individually swipeable */}
+        {(set.drops || []).map((drop: any) => (
+          <SwipeableDropRow
+            key={drop.id}
+            drop={drop}
+            theme={theme}
+            onUpdate={(patch) => updateDrop(drop.id, patch)}
+            onToggle={() => toggleDropComplete(drop.id)}
+            onDelete={() => deleteDrop(drop.id)}
+          />
+        ))}
 
-                if (currentDrops.length > 0) {
-                  const lastDrop = currentDrops[currentDrops.length - 1];
-                  refWeight = lastDrop.weight || 0;
-                  refReps = lastDrop.reps || 0;
-                }
-
-                // Calculate smart defaults (-5kg step)
-                const nextWeight = Math.max(0, refWeight - 5);
-                const nextReps = refReps; // Carry over reps
-
-                const newDrop = {
-                  id: uid(),
-                  weight: nextWeight,
-                  reps: nextReps,
-                  completed: false
-                };
-                onSetChange(set.id, { drops: [...currentDrops, newDrop] });
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2c2c2e]/30 text-[10px] font-bold text-white/40 hover:text-purple-400 hover:bg-purple-500/10 transition-colors border border-transparent hover:border-purple-500/20"
-            >
-              <Plus size={12} />
-              DROP
-            </button>
-          </div>
+        {/* Add drop button */}
+        <div className="flex justify-center py-2">
+          <button
+            onClick={() => {
+              const currentDrops = set.drops || [];
+              let refWeight = set.weight || 0;
+              let refReps = set.reps || 0;
+              if (currentDrops.length > 0) {
+                const lastDrop = currentDrops[currentDrops.length - 1];
+                refWeight = lastDrop.weight || 0;
+                refReps = lastDrop.reps || 0;
+              }
+              onSetChange(set.id, { drops: [...currentDrops, { id: uid(), weight: Math.max(0, refWeight - 5), reps: refReps, completed: false }] });
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-colors"
+            style={{ backgroundColor: theme.colors.inputBackground, color: "var(--text-secondary)" }}
+          >
+            <Plus size={12} />
+            DROP
+          </button>
         </div>
       </motion.div>
     );
@@ -397,29 +499,23 @@ const SwipeableSetRow = ({
       className="relative mb-2" // Add margin bottom for spacing
     >
       {/* Background Layer (Delete Reveal) */}
-      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-3xl flex items-center justify-end px-4 z-0 h-full">
-        {/* h-full ensures it matches the dynamic height including drops */}
+      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-2xl flex items-center justify-end px-4 z-0 h-full">
         <div className="flex items-center gap-2 font-bold text-white">
-          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
+          <Trash2 size={16} />
           <span className="text-sm">Löschen</span>
         </div>
       </div>
 
       {/* Foreground Layer (Content) */}
-      <motion.div
-        // @ts-ignore
-        drag="x"
-        dragConstraints={{ left: -100, right: 0 }}
-        dragElastic={0.1}
-        onDragEnd={handleDragEnd as any}
-        animate={controls}
-        style={{ touchAction: "pan-y" }}
-        className={`relative z-10 bg-[#1c1c1e] rounded-3xl overflow-hidden shadow-sm flex flex-col ${isDropset ? 'border border-purple-500/20' : ''}`} // Add border for dropsets
+      <div
+        ref={swipeRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ backgroundColor: theme.colors.card }}
+        className={`relative z-10 rounded-2xl overflow-hidden flex flex-col ${isDropset ? 'border border-purple-500/20' : ''}`}
       >
-        <div className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center bg-[#1c1c1e] p-0">
-          {/* Main Row Content */}
+        <div className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center p-0">
 
           {/* 1. Set Index (Type Selector) */}
           <div className="flex items-center justify-center cursor-pointer h-10" onClick={handleTypeCycle}>
@@ -429,10 +525,7 @@ const SwipeableSetRow = ({
             </span>
           </div>
 
-          {/* 2. Previous History */}
-          <div className="text-sm font-medium text-white/40 truncate pl-1 h-10 flex items-center">
-            {prevText}
-          </div>
+
 
           {/* 3. Input 1 (Weight) */}
           <input
@@ -444,8 +537,8 @@ const SwipeableSetRow = ({
             onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
             onFocus={() => onWeightFocus?.(set.id, set.weight)}
             onBlur={() => onWeightBlur?.()}
-            onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-3xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
+            className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
               }`}
           />
 
@@ -455,8 +548,8 @@ const SwipeableSetRow = ({
             value={typeof set.reps === "number" ? set.reps : ""}
             placeholder={fmtPlaceholderNumber(last?.reps, "-")}
             onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
-            onPointerDownCapture={(e) => e.stopPropagation()}
-            className={`h-10 w-full rounded-3xl bg-[#2c2c2e] text-white text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-white/20 ${set.completed ? "opacity-50" : ""
+            style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
+            className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
               }`}
             inputMode="numeric"
           />
@@ -466,11 +559,7 @@ const SwipeableSetRow = ({
             {isTimerRunning && restRemainingSec !== undefined ? (
               <div
                 className="h-10 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
-                onPointerDownCapture={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleSet(set.id);
-                }}
+                onClick={() => onToggleSet(set.id)}
               >
                 <span className="text-[10px] font-bold text-white tabular-nums tracking-tighter leading-none">
                   {Math.floor(restRemainingSec / 60)}:{(restRemainingSec % 60).toString().padStart(2, "0")}
@@ -479,43 +568,39 @@ const SwipeableSetRow = ({
             ) : (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   // Feature: Auto-fill previous values if empty
                   let updates: any = {};
                   let shouldUpdate = false;
 
-                  // Check Weight (if 0 or undefined/null)
                   if (!set.weight && last?.weight) {
                     updates.weight = last.weight;
                     shouldUpdate = true;
                   }
 
-                  // Check Reps (if 0 or undefined/null)
                   if (!set.reps && last?.reps) {
                     updates.reps = last.reps;
                     shouldUpdate = true;
                   }
 
                   if (shouldUpdate) {
-                    console.log("Auto-filling set from history:", updates);
                     onSetChange(set.id, updates);
                   }
 
                   onToggleSet(set.id);
                 }}
-                onPointerDownCapture={(e) => e.stopPropagation()}
                 className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
-                  ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
-                  : "bg-[#2c2c2e] border-transparent hover:border-[#007AFF]"
+                  ? (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
+                  : "border-transparent hover:border-[#007AFF]"
                   }`}
+                style={{ backgroundColor: !set.completed ? theme.colors.inputBackground : undefined }}
               >
                 {set.completed ? (
                   <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
                 ) : (
-                  <div className="h-2 w-2 rounded-full bg-white/10" />
+                  <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
                 )}
               </button>
             )}
@@ -524,7 +609,7 @@ const SwipeableSetRow = ({
 
         {/* --- DROPS UI --- */}
         {isDropset && (
-          <div className="flex flex-col gap-2 pb-3 px-3 border-t border-white/5 bg-black/10 pt-2">
+          <div className="flex flex-col gap-2 pb-3 px-3 border-t border-[var(--border-color)] bg-[var(--bg-color)]/10 pt-2">
             {/* Header for Drops */}
             <div className="flex justify-between items-center pl-8 text-xs text-purple-400 font-semibold uppercase tracking-wide">
               <span>Dropsets</span>
@@ -535,16 +620,13 @@ const SwipeableSetRow = ({
 
             {/* Drop Rows */}
             {(set.drops || []).map((drop: any, i: number) => (
-              <div key={drop.id} className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center">
+              <div key={drop.id} className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center">
                 {/* 1. Spacer/Icon */}
                 <div className="flex justify-center">
                   <div className="w-1 h-full bg-purple-500/20 rounded-full"></div>
                 </div>
 
-                {/* 2. Label */}
-                <div className="text-xs text-right text-purple-300/50 pr-2">
-                  Drop {i + 1}
-                </div>
+
 
                 {/* 3. Weight Input */}
                 <input
@@ -554,8 +636,8 @@ const SwipeableSetRow = ({
                   value={typeof drop.weight === "number" ? drop.weight : ""}
                   placeholder="kg"
                   onChange={(e) => updateDrop(drop.id, { weight: e.target.value })}
-                  onPointerDownCapture={(e) => e.stopPropagation()}
-                  className="h-8 w-full rounded-2xl bg-[#2c2c2e]/50 text-white text-center text-sm font-medium outline-none border border-white/5 focus:border-purple-500/50 transition-all placeholder-white/10"
+        
+                  className="h-8 w-full rounded-2xl bg-[var(--button-bg)] text-[var(--text-color)] text-center text-sm font-medium outline-none border border-[var(--border-color)] focus:border-purple-500/50 transition-all placeholder-[var(--text-secondary)]/30"
                 />
 
                 {/* 4. Reps Input */}
@@ -565,15 +647,15 @@ const SwipeableSetRow = ({
                   value={typeof drop.reps === "number" ? drop.reps : ""}
                   placeholder="Wdh"
                   onChange={(e) => updateDrop(drop.id, { reps: e.target.value })}
-                  onPointerDownCapture={(e) => e.stopPropagation()}
-                  className="h-8 w-full rounded-2xl bg-[#2c2c2e]/50 text-white text-center text-sm font-medium outline-none border border-white/5 focus:border-purple-500/50 transition-all placeholder-white/10"
+        
+                  className="h-8 w-full rounded-2xl bg-[var(--button-bg)] text-[var(--text-color)] text-center text-sm font-medium outline-none border border-[var(--border-color)] focus:border-purple-500/50 transition-all placeholder-[var(--text-secondary)]/30"
                 />
 
                 {/* 5. Remove Button */}
                 <div className="flex justify-center">
                   <button
                     onClick={() => removeDrop(drop.id)}
-                    className="h-6 w-6 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/5 transition-colors"
+                    className="h-6 w-6 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-red-400 hover:bg-[var(--button-bg)] transition-colors"
                   >
                     &times;
                   </button>
@@ -591,7 +673,7 @@ const SwipeableSetRow = ({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
     </motion.div>
   );
 };
@@ -614,7 +696,14 @@ export default function ExerciseEditor({
   restRemainingSec,
   onOpenExerciseDetails, // New Prop
   onOpenTimer,           // New Prop
+  weightSuggestion,      // Weight suggestion from history
+  onAddWarmupSets,       // Warmup sets callback
+  prSets,                // Set<string> of set IDs that are PRs
 }: any) {
+  const { theme } = useTheme();
+
+  if (!theme) return null;
+
   // const { t } = useI18n(); // Removed i18n
   const nameRef = useRef<HTMLInputElement | null>(null);
 
@@ -633,7 +722,7 @@ export default function ExerciseEditor({
   };
 
   return (
-    <div className="space-y-4 rounded-3xl p-5 bg-[#1c1c1e] border-[1.5px] border-white/5 shadow-2xl">
+    <div className="space-y-4 rounded-3xl p-5 border-[1.5px] shadow-2xl" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
       {/* Exercise Header */}
       <div className="flex items-center justify-between mb-2 gap-2">
         <div
@@ -641,9 +730,19 @@ export default function ExerciseEditor({
             e.stopPropagation();
             if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id);
           }}
-          className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer hover:opacity-75 transition-opacity"
+          className="flex-1 min-w-0 flex items-start gap-2 cursor-pointer hover:opacity-75 transition-opacity"
         >
-          <h3 className="text-xl font-bold text-white w-full break-words pr-2">
+          <h3
+            className="text-xl font-bold w-full pr-2 leading-tight"
+            style={{
+              color: theme.colors.text,
+              flexWrap: 'wrap',
+              wordBreak: 'break-word',
+              whiteSpace: 'normal',
+              overflow: 'visible',
+              flex: 1
+            }}
+          >
             {exercise.name || "Neue Übung"}
           </h3>
           <Info size={20} className="text-[#007AFF] shrink-0 self-start mt-1" />
@@ -655,11 +754,12 @@ export default function ExerciseEditor({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleTimerClick(); }}
-            className="h-9 px-3 flex items-center justify-center rounded-2xl bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium gap-1.5"
+            className="h-9 px-3 flex items-center justify-center rounded-2xl transition-colors text-sm font-medium gap-1.5"
+            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
           >
             <span>⏱️</span>
             <span>
-              {typeof exercise.restSeconds === 'number'
+              {typeof exercise.restSeconds === 'number' && exercise.restSeconds > 0
                 ? exercise.restSeconds < 60
                   ? `${exercise.restSeconds}s`
                   : `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}`
@@ -671,7 +771,8 @@ export default function ExerciseEditor({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="h-9 w-9 flex items-center justify-center rounded-2xl bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-2xl hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
             title="Übung entfernen"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -681,14 +782,45 @@ export default function ExerciseEditor({
         </div>
       </div>
 
+      {/* Weight Suggestion Banner */}
+      {weightSuggestion && (
+        <div className="flex flex-col gap-0.5 px-1 -mt-1 mb-1">
+          <span className="text-xs font-medium" style={{ color: theme.colors.textSecondary }}>
+            Letztes Mal: {weightSuggestion.lastWeight}kg &times; {weightSuggestion.lastReps}
+          </span>
+          {weightSuggestion.allSetsCompleted && (
+            <span className="text-xs font-semibold text-[#007AFF]">
+              Vorschlag: {weightSuggestion.suggestedWeight}kg (+{weightSuggestion.increment}kg)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Warmup Button */}
+      {onAddWarmupSets && !isCardio && (() => {
+        const hasWarmupSets = sets.some((s: LiveSet) => s.setType === "warmup" || (s as any).type === "w");
+        const firstWorkingSet = sets.find((s: LiveSet) => s.setType !== "warmup" && (s as any).type !== "w");
+        const firstWeight = firstWorkingSet?.weight;
+        const canAdd = !hasWarmupSets && typeof firstWeight === "number" && firstWeight > 0;
+        return canAdd ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onAddWarmupSets(); }}
+            className="w-full h-9 flex items-center justify-center gap-2 rounded-2xl text-xs font-semibold transition-all active:scale-95 border border-yellow-500/20"
+            style={{ backgroundColor: "rgba(234,179,8,0.08)", color: "#EAB308" }}
+          >
+            <span>🔥</span> Aufwärmsätze hinzufügen
+          </button>
+        ) : null;
+      })()}
+
       {/* Grid Header */}
-      <div className="grid grid-cols-[32px_1fr_80px_80px_56px] gap-3 items-center px-0 mb-1">
-        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">#</span></div>
-        <div className="flex justify-start pl-1"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Vorher</span></div>
-        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{weightUnit}</span></div>
-        <div className="flex justify-center"><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{repsUnit}</span></div>
+      <div className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center px-0 mb-1">
+        <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>#</span></div>
+        <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{weightUnit}</span></div>
+        <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{repsUnit}</span></div>
         <div className="flex justify-center items-center w-full">
-          <svg viewBox="0 0 24 24" className="h-4 w-4 text-zinc-600" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" style={{ color: theme.colors.textSecondary }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>
@@ -715,6 +847,7 @@ export default function ExerciseEditor({
                 onWeightBlur={onWeightBlur}
                 weightUnit={weightUnit}
                 repsUnit={repsUnit}
+                prSets={prSets}
               />
             );
           })}
@@ -725,7 +858,8 @@ export default function ExerciseEditor({
         <button
           type="button"
           onClick={onAddSet}
-          className="w-full h-10 flex items-center justify-center rounded-3xl bg-white/5 text-white/30 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          className="w-full h-10 flex items-center justify-center rounded-3xl transition-all active:scale-95"
+          style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
           aria-label={addSetLabel}
         >
           <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

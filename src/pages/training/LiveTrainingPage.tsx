@@ -23,9 +23,12 @@ import type {
 } from "../../types/training";
 
 import ExerciseEditor from "../../components/training/ExerciseEditor";
+import ConfettiOverlay from "../../components/training/ConfettiOverlay";
+import LiveCardioPage from "./LiveCardioPage";
 import { LiveStatsPanel } from "../../components/training/LiveStatsPanel";
 import { LiveStatsOverlay } from "../../components/training/LiveStatsOverlay";
 import RestTimerBar from "../../components/training/RestTimerBar";
+import RestTimerModal from "../../components/training/RestTimerModal";
 import ExerciseLibraryModal from "../../components/training/ExerciseLibraryModal";
 import ExerciseDetailView from "../../components/exercises/ExerciseDetailView";
 import { BottomSheet } from "../../components/common/BottomSheet";
@@ -53,6 +56,9 @@ import {
 } from "../../utils/trainingHistory";
 
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
+import { buildPRBaseline, checkSetPR, type PRBaseline } from "../../utils/prDetection";
+import { getWeightSuggestion, type WeightSuggestion } from "../../utils/weightSuggestion";
+import { calculateWarmupSets } from "../../utils/warmupCalculator";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
@@ -63,6 +69,7 @@ import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import WheelPicker from "../../components/ui/WheelPicker";
 import { ProfileService } from "../../services/ProfileService";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
+import { useTheme } from "../../context/ThemeContext";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -78,7 +85,7 @@ type LiveTrainingPageProps = {
 
 
 class LiveTrainingErrorBoundary extends React.Component<
-  { onExit: () => void; children: React.ReactNode },
+  { onExit: () => void; children: React.ReactNode; theme: import("../../theme/types").Theme },
   { hasError: boolean; errorMessage?: string }
 > {
   state = { hasError: false, errorMessage: undefined };
@@ -95,8 +102,12 @@ class LiveTrainingErrorBoundary extends React.Component<
 
   render() {
     if (!this.state.hasError) return this.props.children;
+    const { theme } = this.props;
     return (
-      <div className="flex h-screen w-screen items-center justify-center px-4 bg-zinc-950 text-white">
+      <div
+        className="flex h-screen w-screen items-center justify-center px-4"
+        style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
+      >
         <AppCard className="w-full max-w-md text-center">
           <div className="text-sm font-semibold">Live-Training ist abgestürzt.</div>
           <div className="mt-2 text-xs text-zinc-400">
@@ -227,6 +238,18 @@ export default function LiveTrainingPage({
   const [initDone, setInitDone] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
 
+  // Safety Modals State
+  const [showFinishReview, setShowFinishReview] = useState(false);
+  const [showAbortConfirm, setShowAbortConfirm] = useState(false);
+  const [reviewName, setReviewName] = useState("");
+
+  // PR Detection State
+  const [prBaseline, setPrBaseline] = useState<Map<string, PRBaseline> | null>(null);
+  const [prSets, setPrSets] = useState<Set<string>>(new Set());
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const { theme } = useTheme();
+
 
 
 
@@ -313,6 +336,12 @@ export default function LiveTrainingPage({
       document.body.style.overflow = prev;
     };
   }, []);
+
+  // Load PR baseline when workout is available
+  useEffect(() => {
+    if (!workout?.id) return;
+    setPrBaseline(buildPRBaseline(workout.id));
+  }, [workout?.id]);
 
   // ✅ Init: Active -> GlobalSeed -> resolveSeed -> Event -> Default
   useEffect(() => {
@@ -443,9 +472,18 @@ export default function LiveTrainingPage({
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
 
-
-
-
+  // Weight suggestions for all exercises (from workout history)
+  const weightSuggestions = useMemo(() => {
+    const map = new Map<string, WeightSuggestion | null>();
+    if (!workout?.exercises) return map;
+    for (const ex of workout.exercises) {
+      const key = ex.id;
+      if (!map.has(key)) {
+        map.set(key, getWeightSuggestion(ex.name, { exerciseId: ex.exerciseId }));
+      }
+    }
+    return map;
+  }, [workout?.exercises?.length]);
 
   const totalSets = useMemo(() => {
     if (!workout) return 0;
@@ -609,6 +647,11 @@ export default function LiveTrainingPage({
   const toggleSetCompleted = (exerciseId: string, setId: string) => {
     if (!workout) return;
 
+    // Find the exercise and set for PR check (before state update)
+    const exerciseForPR = workout.exercises.find((e) => e.id === exerciseId);
+    const setForPR = exerciseForPR?.sets?.find((s) => s.id === setId);
+    const isTogglingOn = setForPR ? !setForPR.completed : false;
+
     setWorkout((prev) => {
       if (!prev) return prev;
       const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
@@ -643,6 +686,31 @@ export default function LiveTrainingPage({
 
       return { ...prev, exercises: nextExercises };
     });
+
+    // PR Detection: check after toggling on, remove after toggling off
+    if (isTogglingOn && exerciseForPR && setForPR && prBaseline) {
+      const result = checkSetPR(
+        exerciseForPR.name,
+        { weight: setForPR.weight, reps: setForPR.reps },
+        prBaseline
+      );
+      if (result.isPR) {
+        setPrSets((prev) => {
+          const next = new Set(prev);
+          next.add(setId);
+          return next;
+        });
+        setShowConfetti(true);
+        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => { });
+      }
+    } else if (!isTogglingOn) {
+      setPrSets((prev) => {
+        if (!prev.has(setId)) return prev;
+        const next = new Set(prev);
+        next.delete(setId);
+        return next;
+      });
+    }
   };
 
   // ... (history remain same)
@@ -886,6 +954,36 @@ export default function LiveTrainingPage({
     });
   };
 
+  const addWarmupSets = (exerciseId: string) => {
+    if (!workout) return;
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      return {
+        ...prev,
+        exercises: prevExercises.map((e) => {
+          if (e.id !== exerciseId) return e;
+          const sets = Array.isArray(e.sets) ? e.sets : [];
+          // Find first working set weight
+          const firstWorking = sets.find((s) => s.setType !== "warmup" && (s as any).type !== "w");
+          const workingWeight = firstWorking?.weight;
+          if (typeof workingWeight !== "number" || workingWeight <= 0) return e;
+          const warmups = calculateWarmupSets(workingWeight);
+          if (warmups.length === 0) return e;
+          const warmupLiveSets: LiveSet[] = warmups.map((ws) => ({
+            id: uid(),
+            weight: ws.weight,
+            reps: ws.reps,
+            completed: false,
+            setType: "warmup" as const,
+            tag: "W" as const,
+          }));
+          return { ...e, sets: [...warmupLiveSets, ...sets] };
+        }),
+      };
+    });
+  };
+
   const removeSet = (exerciseId: string, setId: string) => {
     if (!workout) return;
 
@@ -1008,12 +1106,19 @@ export default function LiveTrainingPage({
     );
   };
 
-  const finishTraining = () => {
+  const handleFinishClick = () => {
+    if (!workout || statsOpen) return;
+    setReviewName(workout.title || "Training");
+    setShowFinishReview(true);
+  };
+
+  const confirmFinish = () => {
     if (!workout) return;
-    const completed = completeLiveWorkout(workout);
+    const finalWorkout = { ...workout, title: reviewName }; // Apply renamed title
+    const completed = completeLiveWorkout(finalWorkout);
     markCalendarEvent("completed", completed.id);
     clearLiveTrainingState();
-    useLiveTrainingStore.getState().finishWorkout(); // ✅ Clear Store
+    useLiveTrainingStore.getState().finishWorkout();
     if (typeof onShareWorkout === "function") {
       onShareWorkout(completed.id);
     } else {
@@ -1021,18 +1126,24 @@ export default function LiveTrainingPage({
     }
   };
 
-  const abortAndExit = () => {
+  const handleAbortClick = () => {
+    if (statsOpen) return;
+    setShowAbortConfirm(true);
+  };
+
+  const confirmAbort = () => {
     if (!workout) {
       onExit();
       return;
     }
     abortLiveWorkout(workout);
     clearLiveTrainingState();
-    useLiveTrainingStore.getState().cancelWorkout(); // ✅ Clear Store
+    useLiveTrainingStore.getState().cancelWorkout();
     onExit();
   };
 
   const minimize = () => {
+    if (statsOpen) return;
     if (workout && workout.isActive) {
       const next = { ...workout, isMinimized: true };
       setWorkout(next);
@@ -1065,12 +1176,15 @@ export default function LiveTrainingPage({
 
   if (!workout) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center px-4 bg-[var(--bg)] text-[var(--text)]">
+      <div
+        className="flex h-screen w-screen items-center justify-center px-4"
+        style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
+      >
         <AppCard className="w-full max-w-md text-center">
           <div className="text-sm font-semibold">Lade Live-Training…</div>
           {initDone && (
             <>
-              <div className="mt-2 text-xs text-[var(--muted)]">
+              <div className="mt-2 text-xs" style={{ color: theme.colors.textSecondary }}>
                 {initError || "Kein Live-Workout gefunden."}
               </div>
               <AppButton
@@ -1088,6 +1202,19 @@ export default function LiveTrainingPage({
     );
   }
 
+  // Redirect cardio sports to dedicated GPS tracking page
+  if (isCardioWorkout) {
+    return (
+      <LiveCardioPage
+        sport={workout.sport as "Laufen" | "Radfahren"}
+        title={workout.title || (workout.sport === "Laufen" ? "Lauf" : "Radfahrt")}
+        calendarEventId={workout.calendarEventId}
+        onExit={onExit}
+        onMinimize={onMinimize}
+      />
+    );
+  }
+
   const elapsedText = overlayData?.elapsedText ?? "0:00";
   const isCardioLibrary = isCardioWorkout;
   const exercises = overlayData?.exercises ?? [];
@@ -1102,7 +1229,7 @@ export default function LiveTrainingPage({
     : `calc(${insets.top}px + 112px)`;
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
-  const footerHeightPx = 90;
+  const footerHeightPx = 72;
   const mainPadBottom = `calc(${Math.max(insets.bottom, 0)}px + ${footerHeightPx}px)`;
 
   const overlaySubtitle = overlayData?.overlaySubtitle ?? "";
@@ -1111,21 +1238,29 @@ export default function LiveTrainingPage({
 
   return (
     <>
-      <LiveTrainingErrorBoundary onExit={onExit}>
-        <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
-          {/* ✅ FIXED HEADER - using AppCard variant="glass" structure but manually positioned */}
-          {/* ✅ FIXED HEADER - using PageHeader for consistency */}
-          <div className="fixed inset-x-0 top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-[1.5px] border-white/10 flex flex-col gap-0">
+      <ConfettiOverlay show={showConfetti} onDone={() => setShowConfetti(false)} />
+      <LiveTrainingErrorBoundary onExit={onExit} theme={theme}>
+        <div
+          className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] w-screen"
+          style={{ touchAction: "pan-y" }}
+        >
+          {/* ✅ FIXED HEADER */}
+          <div
+            className="fixed top-0 left-0 right-0 z-[70] backdrop-blur-xl border-b border-[var(--border-color)] flex flex-col gap-0"
+            style={{
+              backgroundColor: "var(--nav-bg)",
+            }}
+          >
             <div className="px-4 pb-0" style={{ paddingTop: Math.max(insets.top, 16) }}>
               <PageHeader
                 title={elapsedText}
                 className="py-0 pb-2"
                 rightAction={
                   <AppButton
-                    onClick={finishTraining}
+                    onClick={handleFinishClick}
                     variant="primary"
                     size="sm"
-                    className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)]"
+                    className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)] btn-haptic"
                   >
                     Beenden
                   </AppButton>
@@ -1136,21 +1271,26 @@ export default function LiveTrainingPage({
             <LiveStatsPanel workout={workout} onOpenOverlay={() => setStatsOpen(true)} />
           </div>
 
-          {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
+          {/* ✅ MAIN SCROLL AREA */}
           <main
             ref={mainRef}
-            className="flex-1 min-h-0 overflow-y-auto px-4"
-            style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
+            className="flex-1 w-full overflow-y-auto overflow-x-hidden px-4"
+            style={{
+              paddingTop: mainPadTop,
+              paddingBottom: mainPadBottom,
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch"
+            }}
           >
             <div className="py-4 max-w-5xl mx-auto w-full">
 
 
               {exercises.length === 0 ? (
-                <AppCard variant="soft" className="p-5 text-center">
-                  <div className="text-base text-[var(--muted)] mb-4">
+                <AppCard variant="soft" className="p-5 text-center bg-[var(--card-bg)]">
+                  <div className="text-base mb-4 text-[var(--text-secondary)]">
                     Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
                   </div>
-                  <AppButton onClick={() => setLibraryOpen(true)} className="w-full" variant="secondary">
+                  <AppButton onClick={() => setLibraryOpen(true)} className="w-full btn-haptic" variant="secondary">
                     + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
                   </AppButton>
                 </AppCard>
@@ -1175,11 +1315,14 @@ export default function LiveTrainingPage({
                         onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
                         onOpenExerciseDetails={handleOpenDetails}
                         onOpenTimer={handleOpenTimer}
+                        weightSuggestion={weightSuggestions.get(ex.id)}
+                        onAddWarmupSets={!isCardioWorkout ? () => addWarmupSets(ex.id) : undefined}
+                        prSets={prSets}
                       />
                     </div>
                   ))}
 
-                  <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]">
+                  <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--text-color)] btn-haptic">
                     + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
                   </AppButton>
                 </div>
@@ -1188,15 +1331,20 @@ export default function LiveTrainingPage({
           </main>
 
           {/* ✅ FIXED FOOTER */}
-          {/* ✅ FIXED FOOTER */}
-          <div className="fixed inset-x-0 bottom-0 z-50 bg-white/10 backdrop-blur-xl border-t border-[1.5px] border-white/10 px-4 pt-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[70] backdrop-blur-xl border-t border-[var(--border-color)] px-4 pt-2"
+            style={{
+              backgroundColor: "var(--nav-bg)",
+              paddingBottom: "env(safe-area-inset-bottom)"
+            }}
+          >
             <div className="mx-auto w-full max-w-5xl">
 
               <div className="flex gap-3">
-                <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12">
+                <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12 btn-haptic bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]">
                   Minimieren
                 </AppButton>
-                <AppButton onClick={abortAndExit} variant="ghost" className="flex-1 h-12 text-red-400 hover:bg-red-500/10 hover:text-red-500" title="Training abbrechen">
+                <AppButton onClick={handleAbortClick} variant="ghost" className="flex-1 h-12 text-red-500 hover:bg-red-500/10 hover:text-red-600 btn-haptic" title="Training abbrechen">
                   Abbrechen
                 </AppButton>
               </div>
@@ -1247,48 +1395,102 @@ export default function LiveTrainingPage({
             onClose={() => setPreviewExercise(null)}
           />
 
-          <BottomSheet
+          <RestTimerModal
             open={!!timerEditExerciseId}
             onClose={() => setTimerEditExerciseId(null)}
-            height="auto"
-            variant="docked"
-            backdropClassName="bg-black/80"
-            sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            <div className="p-4 pb-8 space-y-6">
-              <div className="flex items-center justify-between mb-2">
-                <button className="text-zinc-500 font-semibold" onClick={() => setTimerEditExerciseId(null)}>Abbrechen</button>
-                <h3 className="text-white font-bold">Pausenzeit</h3>
+            initialSeconds={activeTimerExercise?.restSeconds || 90}
+            onSave={(seconds) => {
+              if (timerEditExerciseId) updateExercise(timerEditExerciseId, { restSeconds: seconds });
+            }}
+          />
+        </div>
+
+        {/* --- SAFETY MODALS --- */}
+
+        {/* 1. Abort Confirmation */}
+        {showAbortConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-white/10 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500 mb-4">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <h3 className="text-xl font-bold text-black dark:text-white mb-2">Training abbrechen?</h3>
+              <p className="text-slate-600 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
+                Alle bisherigen Daten dieses Workouts gehen verloren. Bist du sicher?
+              </p>
+              <div className="flex flex-col gap-3 w-full">
                 <button
-                  className="text-blue-500 font-bold"
-                  onClick={() => {
-                    // Value is already set via handleSetRestTime from picker? 
-                    // Actually WheelPicker calls onChange. I should update state immediately or on confirm?
-                    // If I update immediately, it persists. 
-                    setTimerEditExerciseId(null);
-                  }}
+                  onClick={confirmAbort}
+                  className="w-full py-3.5 rounded-xl bg-red-500 text-white font-bold active:scale-95 transition-transform"
                 >
-                  Fertig
+                  Ja, Abbrechen
+                </button>
+                <button
+                  onClick={() => setShowAbortConfirm(false)}
+                  className="w-full py-3.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-semibold active:scale-95 transition-transform"
+                >
+                  Nein, Weiter trainieren
                 </button>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="flex justify-center py-4">
-                <div className="w-full max-w-[200px]">
-                  <WheelPicker
-                    value={activeTimerExercise?.restSeconds || 0}
-                    onChange={(val) => {
-                      if (timerEditExerciseId) updateExercise(timerEditExerciseId, { restSeconds: val });
-                    }}
-                    options={Array.from({ length: 601 }, (_, i) => i)}
-                    unit="s"
-                    height={200}
-                    itemHeight={44}
+        {/* 2. Finish Review */}
+        {showFinishReview && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#121214] rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl border-t sm:border border-white/10 animate-in slide-in-from-bottom-10 fade-in duration-200">
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full mx-auto mb-6 sm:hidden" />
+
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-6 text-center">Zusammenfassung</h2>
+
+              <div className="space-y-4 mb-8">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Name des Trainings</label>
+                  <input
+                    type="text"
+                    value={reviewName}
+                    onChange={e => setReviewName(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-zinc-900 text-black dark:text-white text-lg font-semibold px-4 py-3.5 rounded-xl border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-300"
+                    placeholder="Training Name"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
+                    <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Dauer</span>
+                    <span className="text-xl font-bold text-black dark:text-white tabular-nums">{overlayData?.elapsedText}</span>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
+                    <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Volumen</span>
+                    <span className="text-xl font-bold text-black dark:text-white tabular-nums">
+                      {isCardioWorkout
+                        ? (overlayData?.cardioDistance ? overlayData.cardioDistance.toFixed(1) + " km" : "-")
+                        : (workout?.exercises.reduce((acc, ex) => acc + (ex.sets || []).reduce((sAcc, s) => (s.completed && typeof s.weight === 'number' && typeof s.reps === 'number' ? sAcc + (s.weight * s.reps) : sAcc), 0), 0) / 1000).toFixed(1) + " t"
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={confirmFinish}
+                  className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
+                >
+                  Final Speichern
+                </button>
+                <button
+                  onClick={() => setShowFinishReview(false)}
+                  className="w-full py-3 rounded-xl text-slate-500 dark:text-zinc-500 font-medium hover:text-slate-800 dark:hover:text-zinc-300 transition-colors"
+                >
+                  Zurück zum Training
+                </button>
               </div>
             </div>
-          </BottomSheet>
-        </div>
+          </div>
+        )}
+
       </LiveTrainingErrorBoundary>
     </>
   );

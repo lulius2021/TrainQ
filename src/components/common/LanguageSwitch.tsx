@@ -9,7 +9,7 @@ export function LanguageSwitch() {
         type="button"
         onClick={() => setLang("de")}
         className={`rounded-full px-3 py-1 text-sm ${
-          lang === "de" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface2)] text-[var(--text)]"
+          lang === "de" ? "bg-[var(--accent-color)] text-white" : "bg-[var(--button-bg)] text-[var(--text)]"
         }`}
       >
         {t("language.de")}
@@ -18,7 +18,7 @@ export function LanguageSwitch() {
         type="button"
         onClick={() => setLang("en")}
         className={`rounded-full px-3 py-1 text-sm ${
-          lang === "en" ? "bg-[var(--primary)] text-white" : "bg-[var(--surface2)] text-[var(--text)]"
+          lang === "en" ? "bg-[var(--accent-color)] text-white" : "bg-[var(--button-bg)] text-[var(--text)]"
         }`}
       >
         {t("language.en")}

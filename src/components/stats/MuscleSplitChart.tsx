@@ -1,130 +1,138 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
     Radar,
     RadarChart,
     PolarGrid,
     PolarAngleAxis,
     PolarRadiusAxis,
-    ResponsiveContainer,
-    Tooltip
 } from "recharts";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { EXERCISES } from "../../data/exerciseLibrary";
+import type { Muscle } from "../../data/exerciseLibrary";
+import {
+    type MuscleDetailMode,
+    SIMPLE_GROUP_MAP,
+    SIMPLE_GROUP_ORDER,
+    COMPLEX_MUSCLE_LABELS,
+    getMuscleDetailMode,
+    setMuscleDetailMode,
+    groupBySimple,
+} from "../../utils/muscleGrouping";
 
 interface MuscleSplitChartProps {
     workouts: WorkoutHistoryEntry[];
 }
 
-// --- ROBUST MUSCLE MAPPING LOGIC ---
-
-// 1. Define the 5 Target Axes
-const RADAR_CATEGORIES = {
-    CHEST: 'Brust',
-    BACK: 'Rücken',
-    LEGS: 'Beine',
-    ARMS: 'Arme',
-    SHOULDERS: 'Schultern',
-};
-
-// 2. The Mapping Function
-const getCategoryForMuscle = (muscleName: string): string | null => {
-    const m = muscleName.toLowerCase().trim();
-
-    // BRUST (Chest)
-    if (m.includes('chest') || m.includes('brust') || m.includes('pectoralis') || m.includes('pecs')) {
-        return RADAR_CATEGORIES.CHEST;
-    }
-
-    // RÜCKEN (Back)
-    if (m.includes('back') || m.includes('rücken') || m.includes('lat') || m.includes('trapezius') || m.includes('rhomboid') || m.includes('lower back') || m.includes('erector')) {
-        return RADAR_CATEGORIES.BACK;
-    }
-
-    // SCHULTERN (Shoulders)
-    if (m.includes('shoulder') || m.includes('schulter') || m.includes('deltoid') || m.includes('delt')) {
-        return RADAR_CATEGORIES.SHOULDERS;
-    }
-
-    // ARME (Arms - Biceps/Triceps/Forearms)
-    if (m.includes('arm') || m.includes('biceps') || m.includes('triceps') || m.includes('bizeps') || m.includes('trizeps') || m.includes('forearm') || m.includes('unterarm')) {
-        return RADAR_CATEGORIES.ARMS;
-    }
-
-    // BEINE (Legs)
-    if (m.includes('leg') || m.includes('bein') || m.includes('quad') || m.includes('hamstring') || m.includes('glute') || m.includes('calf') || m.includes('wade') || m.includes('schenkel')) {
-        return RADAR_CATEGORIES.LEGS;
-    }
-
-    return null; // Ignore unknown or 'Core'/'Abs' if not on chart
-};
-
 export const MuscleSplitChart: React.FC<MuscleSplitChartProps> = ({ workouts }) => {
+    const [mode, setMode] = useState<MuscleDetailMode>(() => getMuscleDetailMode());
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState({ w: 0, h: 0 });
 
-    const data = useMemo(() => {
-        // Init scores
-        const scores: Record<string, number> = {
-            [RADAR_CATEGORIES.CHEST]: 0,
-            [RADAR_CATEGORIES.BACK]: 0,
-            [RADAR_CATEGORIES.SHOULDERS]: 0,
-            [RADAR_CATEGORIES.ARMS]: 0,
-            [RADAR_CATEGORIES.LEGS]: 0,
-        };
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const w = containerRef.current.clientWidth;
+        const h = containerRef.current.clientHeight;
+        if (w > 0 && h > 0) setSize({ w, h });
+    }, []);
 
+    const handleModeChange = (newMode: MuscleDetailMode) => {
+        setMode(newMode);
+        setMuscleDetailMode(newMode);
+    };
+
+    const perMuscleVolume = useMemo(() => {
+        const volume: Partial<Record<Muscle, number>> = {};
         workouts.forEach(w => {
             w.exercises.forEach(exHistory => {
-                const exDef = exHistory.exerciseId ? EXERCISES.find(e => e.id === exHistory.exerciseId) : undefined;
-
-                if (exDef) {
-                    // Check both 'targetMuscle' (primary) and 'secondaryMuscles' arrays if available
-                    // We map from exDef which has primaryMuscles and secondaryMuscles arrays
-                    const musclesToCheck = [...(exDef.primaryMuscles || []), ...(exDef.secondaryMuscles || [])];
-
-                    musclesToCheck.forEach(muscle => {
-                        if (!muscle) return;
-                        const category = getCategoryForMuscle(muscle);
-                        if (category) {
-                            // Add sets. Using Sets (default 1)
-                            scores[category] = (scores[category] || 0) + (exHistory.sets?.length || 1);
-                        }
-                    });
-                }
+                const exDef = exHistory.exerciseId
+                    ? EXERCISES.find(e => e.id === exHistory.exerciseId)
+                    : undefined;
+                if (!exDef) return;
+                const setCount = exHistory.sets?.length || 1;
+                const muscles: Muscle[] = [
+                    ...(exDef.primaryMuscles || []),
+                    ...(exDef.secondaryMuscles || []),
+                ];
+                muscles.forEach(m => {
+                    volume[m] = (volume[m] || 0) + setCount;
+                });
             });
         });
-
-        // Convert to Chart Format
-        // Order: Chest -> Shoulders -> Arms -> Back -> Legs
-        const order = [
-            RADAR_CATEGORIES.CHEST,
-            RADAR_CATEGORIES.SHOULDERS,
-            RADAR_CATEGORIES.ARMS,
-            RADAR_CATEGORIES.BACK,
-            RADAR_CATEGORIES.LEGS
-        ];
-
-        const maxScore = Math.max(...Object.values(scores)) || 10;
-
-        return order.map(key => ({
-            subject: key,
-            A: scores[key],
-            fullMark: Math.max(maxScore * 1.2, 10),
-        }));
-
+        return volume as Record<string, number>;
     }, [workouts]);
 
-    // Determine max value for dynamic scaling of the chart
-    const maxVal = Math.max(...data.map(d => d.A), 5); // at least 5 to avoid flat charts
+    const data = useMemo(() => {
+        if (mode === "einfach") {
+            const grouped = groupBySimple(perMuscleVolume);
+            const groupedValues = Object.values(grouped);
+            const maxScore = groupedValues.length > 0 ? Math.max(...groupedValues, 10) : 10;
+            return SIMPLE_GROUP_ORDER.map(group => ({
+                subject: group,
+                A: grouped[group],
+                fullMark: Math.max(maxScore * 1.2, 10),
+            }));
+        }
+        const entries = (Object.keys(SIMPLE_GROUP_MAP) as Muscle[])
+            .map(muscle => ({
+                muscle,
+                label: COMPLEX_MUSCLE_LABELS[muscle],
+                value: (perMuscleVolume[muscle] || 0) as number,
+            }))
+            .filter(e => e.value > 0);
+        if (entries.length < 3) {
+            const remaining = (Object.keys(SIMPLE_GROUP_MAP) as Muscle[])
+                .filter(m => !entries.some(e => e.muscle === m));
+            for (const m of remaining) {
+                if (entries.length >= 3) break;
+                entries.push({ muscle: m, label: COMPLEX_MUSCLE_LABELS[m], value: 0 });
+            }
+        }
+        const entryValues = entries.map(e => e.value);
+        const maxScore = entryValues.length > 0 ? Math.max(...entryValues, 10) : 10;
+        return entries.map(e => ({
+            subject: e.label,
+            A: e.value,
+            fullMark: Math.max(maxScore * 1.2, 10),
+        }));
+    }, [mode, perMuscleVolume]);
+
+    const maxVal = useMemo(() => {
+        const vals = data.map(d => d.A);
+        return vals.length > 0 ? Math.max(...vals, 5) : 5;
+    }, [data]);
+
+    const tickFontSize = mode === "komplex" ? 10 : 12;
 
     return (
-        <div className="w-full bg-[#18181b] border border-[#27272a] rounded-2xl p-5 flex flex-col items-center justify-center relative shadow-sm h-[320px]">
-            <h3 className="absolute top-5 left-5 text-sm font-medium text-zinc-500">Muscle Balance</h3>
-
-            <div className="w-full h-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
-                        <PolarGrid stroke="#3f3f46" />
+        <div className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl p-5 flex flex-col items-center justify-center relative shadow-sm h-[320px]">
+            <h3 className="absolute top-5 left-5 text-sm font-medium text-[var(--text-secondary)]">
+                Muscle Balance
+            </h3>
+            <div className="absolute top-4 right-4 flex bg-[var(--button-bg)] p-0.5 rounded-lg z-10">
+                <button
+                    onClick={() => handleModeChange("einfach")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                        mode === "einfach" ? "bg-blue-500 text-white shadow-sm" : "text-[var(--text-secondary)]"
+                    }`}
+                >
+                    Einfach
+                </button>
+                <button
+                    onClick={() => handleModeChange("komplex")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                        mode === "komplex" ? "bg-blue-500 text-white shadow-sm" : "text-[var(--text-secondary)]"
+                    }`}
+                >
+                    Komplex
+                </button>
+            </div>
+            <div ref={containerRef} className="w-full h-full mt-4">
+                {size.w > 0 && size.h > 0 && (
+                    <RadarChart width={size.w} height={size.h} cx="50%" cy="50%" outerRadius="70%" data={data}>
+                        <PolarGrid stroke="var(--chart-grid)" />
                         <PolarAngleAxis
                             dataKey="subject"
-                            tick={{ fill: "#ffffff", fontSize: 12, fontWeight: 500 }}
+                            tick={{ fill: "var(--text-color)", fontSize: tickFontSize, fontWeight: 500 }}
                         />
                         <PolarRadiusAxis angle={30} domain={[0, maxVal]} tick={false} axisLine={false} />
                         <Radar
@@ -134,26 +142,10 @@ export const MuscleSplitChart: React.FC<MuscleSplitChartProps> = ({ workouts }) 
                             strokeWidth={3}
                             fill="#007AFF"
                             fillOpacity={0.3}
-                        />
-                        <Tooltip
-                            cursor={false}
-                            content={({ active, payload }) => {
-                                if (active && payload && payload.length) {
-                                    const d = payload[0].payload;
-                                    return (
-                                        <div className="bg-[#1c1c1e] border border-white/10 rounded-3xl px-3 py-2 shadow-xl">
-                                            <p className="text-white font-semibold text-sm">{d.subject}</p>
-                                            <p className="text-white/60 text-xs">
-                                                {d.subject === 'Cardio' ? `${d.A} Points` : `${d.A} Sets`}
-                                            </p>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            }}
+                            isAnimationActive={false}
                         />
                     </RadarChart>
-                </ResponsiveContainer>
+                )}
             </div>
         </div>
     );

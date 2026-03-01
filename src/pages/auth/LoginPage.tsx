@@ -69,23 +69,19 @@ export default function LoginPage({
     }
   };
 
-  // --- Development Backdoor Select ---
-  // Only shows if localStorage dev flag is set or always hidden in prod.
-  // We'll keep it hidden unless specific email typed.
-
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-[var(--bg)] px-6 py-12 lg:px-8 text-[var(--text)]">
+    <div className="flex min-h-screen flex-col justify-center px-6 py-12 lg:px-8" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+        <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: "var(--text-color)" }}>
           Willkommen zurück
         </h1>
-        <p className="text-[var(--muted)]">
+        <p style={{ color: "var(--text-secondary)" }}>
           Melde dich an, um fortzufahren
         </p>
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+        <div className="backdrop-blur-xl rounded-2xl p-6 shadow-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
           {/* Backdoor UI (Hidden for normal users) */}
           {email === "testflight" && (
             <div className="mb-4 bg-yellow-500/20 p-2 rounded text-xs text-yellow-200">
@@ -94,20 +90,21 @@ export default function LoginPage({
           )}
 
           {error && (
-            <div className="mb-4 rounded-3xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            <div className="mb-4 rounded-3xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
               {error}
             </div>
           )}
 
           <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="on">
             <div className="space-y-2">
-              <label className="block text-sm text-gray-300">E-Mail</label>
+              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>E-Mail</label>
               <input
                 name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEmail((e) => e.trim())} // Auto-trim
-                className="w-full rounded-3xl bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base text-[var(--text)] placeholder-[var(--muted)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                onBlur={() => setEmail((e) => e.trim())}
+                className="w-full rounded-3xl px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/50"
+                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
                 placeholder="name@email.com"
                 type="email"
                 autoCapitalize="none"
@@ -119,13 +116,14 @@ export default function LoginPage({
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm text-gray-300">Passwort</label>
+              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>Passwort</label>
               <div className="relative">
                 <input
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-3xl bg-[var(--surface)] border border-[var(--border)] pl-4 pr-12 py-3 text-base text-[var(--text)] placeholder-[var(--muted)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  className="w-full rounded-3xl pl-4 pr-12 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/50"
+                  style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
@@ -133,7 +131,8 @@ export default function LoginPage({
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-2xl p-1.5 text-gray-300 hover:text-white hover:bg-white/10"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-2xl p-1.5 transition-colors"
+                  style={{ color: "var(--text-secondary)" }}
                   aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
                 >
                   {showPassword ? (
@@ -155,8 +154,8 @@ export default function LoginPage({
               <button
                 type="submit"
                 disabled={busy}
-                className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--primary)] text-white hover:opacity-90 shadow-lg"
-                  }`}
+                className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-90 shadow-lg"}`}
+                style={{ backgroundColor: busy ? "var(--button-bg)" : "var(--accent-color)", color: busy ? "var(--text-secondary)" : "#FFFFFF" }}
               >
                 {busy ? "Lädt..." : "Anmelden"}
               </button>
@@ -167,7 +166,8 @@ export default function LoginPage({
                 <button
                   type="button"
                   onClick={onGoToRegister}
-                  className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
+                  className="text-sm underline-offset-4 hover:underline"
+                  style={{ color: "var(--text-secondary)" }}
                 >
                   Neues Konto erstellen
                 </button>
@@ -179,7 +179,8 @@ export default function LoginPage({
                 <button
                   type="button"
                   onClick={onGoToForgotPassword}
-                  className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
+                  className="text-sm underline-offset-4 hover:underline"
+                  style={{ color: "var(--text-secondary)" }}
                 >
                   Passwort vergessen?
                 </button>
@@ -191,10 +192,10 @@ export default function LoginPage({
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-white/10"></div>
+              <div className="w-full border-t" style={{ borderColor: "var(--border-color)" }}></div>
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white/5 px-2 text-sm text-gray-400 backdrop-blur-md">ODER</span>
+              <span className="px-2 text-sm" style={{ backgroundColor: "var(--card-bg)", color: "var(--text-secondary)" }}>ODER</span>
             </div>
           </div>
 
@@ -203,10 +204,10 @@ export default function LoginPage({
               type="button"
               onClick={onApple}
               disabled={busy}
-              className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-colors ${busy ? "bg-[var(--surface)] text-[var(--muted)] cursor-not-allowed" : "bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface2)] border border-[var(--border)]"
-                }`}
+              className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-colors border ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-80"}`}
+              style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", borderColor: "var(--border-color)" }}
             >
-              {busy ? "Lädt..." : "Mit Apple anmelden"}
+              {busy ? "Lädt..." : " Mit Apple anmelden"}
             </button>
           </div>
         </div>

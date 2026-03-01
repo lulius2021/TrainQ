@@ -22,9 +22,9 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
         { label: '+1 Woche', value: 7 },
     ];
 
-    const handleConfirm = async () => {
+    const handleConfirm = () => {
         try {
-            await Haptics.impact({ style: ImpactStyle.Medium });
+            Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
         } catch { }
         onConfirm(selectedDays);
     };
@@ -33,26 +33,27 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in"
                 onClick={onClose}
             />
 
             {/* Modal Container */}
             <div
-                className="relative w-full max-w-sm max-h-[85vh] bg-[#1c1c1e] rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-white/10 ring-1 ring-white/5 flex flex-col"
+                className="relative w-full max-w-sm max-h-[85vh] rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-[var(--border-color)] flex flex-col"
+                style={{ backgroundColor: "var(--modal-bg)" }}
             >
                 {/* Fixed Header */}
-                <div className="flex items-center justify-between p-6 pb-2 bg-[#1c1c1e] z-10">
+                <div className="flex items-center justify-between p-6 pb-2 z-10" style={{ backgroundColor: "var(--modal-bg)" }}>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500">
                             <Calendar size={20} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-white leading-tight">Plan verschieben</h3>
-                            <p className="text-xs text-zinc-400">Ausfall kompensieren</p>
+                            <h3 className="text-lg font-bold leading-tight" style={{ color: "var(--text-color)" }}>Plan verschieben</h3>
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Ausfall kompensieren</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white">
+                    <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}>
                         <X size={18} />
                     </button>
                 </div>
@@ -69,9 +70,14 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
                                 key={opt.value}
                                 onClick={() => setSelectedDays(opt.value)}
                                 className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all active:scale-95 text-center ${selectedDays === opt.value
-                                    ? 'bg-white text-black border-white shadow-lg'
-                                    : 'bg-zinc-800 text-zinc-300 border-zinc-700/50 hover:bg-zinc-700'
+                                    ? 'shadow-lg'
+                                    : 'hover:opacity-80'
                                     }`}
+                                style={{
+                                    backgroundColor: selectedDays === opt.value ? 'var(--text-color)' : 'var(--button-bg)',
+                                    color: selectedDays === opt.value ? 'var(--bg-color)' : 'var(--text-muted)',
+                                    borderColor: selectedDays === opt.value ? 'var(--text-color)' : 'var(--border-color)'
+                                }}
                             >
                                 {opt.label}
                             </button>
@@ -79,13 +85,13 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
                     </div>
 
                     {/* Info Text */}
-                    <div className="bg-zinc-800/50 rounded-2xl p-4 mb-6 border border-white/5">
+                    <div className="rounded-2xl p-4 mb-6 border border-[var(--border-color)]" style={{ backgroundColor: "var(--card-bg)" }}>
                         <div className="flex items-start gap-3">
                             <div className="mt-1 min-w-[16px]">
-                                <ArrowRight size={16} className="text-zinc-500" />
+                                <ArrowRight size={16} style={{ color: "var(--text-muted)" }} />
                             </div>
-                            <p className="text-xs text-zinc-400 leading-relaxed">
-                                Alle geplanten Trainings <span className="text-zinc-200 font-bold">ab heute</span> werden um <span className="text-white font-bold">{selectedDays} {selectedDays === 1 ? 'Tag' : 'Tage'}</span> nach hinten geschoben.
+                            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                                Alle geplanten Trainings <span className="font-bold" style={{ color: "var(--text-color)" }}>ab heute</span> werden um <span className="font-bold" style={{ color: "var(--text-color)" }}>{selectedDays} {selectedDays === 1 ? 'Tag' : 'Tage'}</span> nach hinten geschoben.
                             </p>
                         </div>
                     </div>

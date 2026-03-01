@@ -6,7 +6,6 @@ import {
   getActiveLiveWorkout,
   persistActiveLiveWorkout,
   completeLiveWorkout,
-  abortLiveWorkout,
 } from "../../utils/trainingHistory";
 
 type Props = {
@@ -116,10 +115,14 @@ export default function MinimizedLiveTrainingDock({
     <div className="fixed left-0 right-0 z-[60] flex justify-center px-4" style={bottomStyle}>
       <div
         className="
-          w-full max-w-md rounded-2xl border backdrop-blur-2xl
-          bg-white/85 border-black/10 text-slate-900 shadow-lg shadow-black/10
-          dark:bg-brand-card/85 dark:border-white/10 dark:text-slate-100 dark:shadow-black/30
+          w-full max-w-md rounded-2xl border backdrop-blur-2xl shadow-lg
         "
+        style={{
+          backgroundColor: "var(--mini-bar-bg)",
+          borderColor: "var(--border-color)",
+          color: "var(--text-color)",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
+        }}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
@@ -128,12 +131,11 @@ export default function MinimizedLiveTrainingDock({
                 {formatHMMSS(elapsed)}
               </span>
               <span className="text-[11px] opacity-70">
-                {sport} {t("common.dot")}{" "}
-                {t(exCount === 1 ? "training.exercise.countOne" : "training.exercise.countOther", { count: exCount })}
+                {active.sport || "Training"} • {t(exCount === 1 ? "training.exercise.countOne" : "training.exercise.countOther", { count: exCount })}
               </span>
             </div>
 
-            <div className="truncate text-[13px] font-semibold">
+            <div className="truncate text-[13px] font-bold">
               {title}
             </div>
           </div>
@@ -146,50 +148,16 @@ export default function MinimizedLiveTrainingDock({
                 persistActiveLiveWorkout(next);
                 onResume(next);
               }}
-              className="
-                h-9 rounded-3xl px-3 text-[12px] font-semibold
-                bg-brand-primary text-black hover:bg-brand-primary/90
-              "
+              className="h-9 rounded-3xl px-3 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--accent-color)" }}
               title={t("live.resumeTitle")}
             >
               {t("live.resume")}
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                // Abbrechen: beendet aktives Workout ohne completed
-                abortLiveWorkout(active);
-                setActive(null);
-                onAborted?.(active);
-              }}
-              className="
-                h-9 rounded-3xl px-3 text-[12px]
-                border border-black/10 bg-black/5 text-slate-800 hover:bg-black/10
-                dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10
-              "
-              title={t("live.abortTitle")}
-            >
-              {t("common.cancel")}
-            </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                // Beenden: completed workout schreiben
-                const done = completeLiveWorkout(active);
-                setActive(null);
-                onFinished?.(done as any);
-              }}
-              className="
-                h-9 rounded-3xl px-3 text-[12px] font-semibold
-                border border-black/10 bg-black/5 text-slate-900 hover:bg-black/10
-                dark:border-white/15 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10
-              "
-              title={t("live.finishTitle")}
-            >
-              {t("common.finish")}
-            </button>
+
+
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Calendar,
@@ -11,21 +11,43 @@ import {
   Battery,
   Play,
   Footprints,
-  Bike
+  Bike,
+  Trophy,
+  Zap,
+  MapPin,
+  Route,
+  Timer
 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
+import { parseISODateLocal } from '../utils/calendarGeneration';
 import { de } from 'date-fns/locale';
 import { shiftWorkouts } from '../utils/trainingSchedule';
-import { generateAdaptiveOptions, persistAdaptiveWorkout, type AdaptiveOption } from '../services/AdaptiveService';
+
 import { useLiveTrainingStore } from '../store/useLiveTrainingStore';
 import { persistActiveLiveWorkout } from '../utils/trainingHistory';
 import { getScopedItem, setScopedItem } from '../utils/scopedStorage';
 import type { CalendarEvent, LiveWorkout } from '../types/training';
+import type { DeloadPlan } from '../types/deload';
+import type { AdaptiveSuggestion, AdaptiveAnswers } from '../types/adaptive';
+import { useTheme } from '../context/ThemeContext';
 import { getActiveUserId } from '../utils/session';
 import WorkoutPlannerModal from '../components/training/WorkoutPlannerModal';
 import ShiftPlanModal from '../components/training/ShiftPlanModal';
+import AdaptiveTrainingModal from '../components/adaptive/AdaptiveTrainingModal';
 import { ProfileService } from '../services/ProfileService';
+import { readDeloadPlan, readDeloadDismissedUntil, writeDeloadDismissedUntil, writeDeloadPlan } from '../utils/deload/storage';
+import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks, computeNextDueISO, isDeloadDue, getFirstTrainingDateISO, addDaysISO } from '../utils/deload/schedule';
+import DeloadBanner from '../components/deload/DeloadBanner';
+import DeloadPlanModal from '../components/deload/DeloadPlanModal';
+import { useChallenges } from '../hooks/useChallenges';
+import ChallengeProgressBar from '../components/challenges/ChallengeProgressBar';
+import { writeGlobalLiveSeed, type LiveTrainingSeed } from '../utils/liveTrainingSeed';
+import { applyAdaptiveToSeed } from '../utils/adaptiveSeed';
+import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHistory';
+import { startFreeTraining } from '../utils/startSession';
+import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
+import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
@@ -34,21 +56,259 @@ const formatNumber = (num: number) => {
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 
+// --- CHALLENGE WIDGET for Dashboard ---
+const DashboardChallengeWidget: React.FC = () => {
+  const { active } = useChallenges();
+
+  if (active.length === 0) {
+    // Show a teaser card to discover challenges
+    return (
+      <div>
+        <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Challenges</h3>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
+          className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
+            <Trophy size={22} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-[var(--text-color)]">Challenges entdecken</div>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">Setze dir Ziele und sammle Belohnungen.</p>
+          </div>
+          <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
+        </button>
+      </div>
+    );
+  }
+
+  // Show up to 2 active challenges
+  const shown = active.slice(0, 2);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2 pl-1">
+        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">Aktive Challenges</h3>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
+          className="text-xs font-semibold text-[var(--accent-color)]"
+        >
+          Alle anzeigen
+        </button>
+      </div>
+      <div className="space-y-2.5">
+        {shown.map((ac) => (
+          <button
+            key={ac.state.challengeId}
+            onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
+            className="w-full bg-[var(--card-bg)] rounded-[24px] p-4 border border-[var(--border-color)] active:scale-[0.98] transition-transform text-left"
+          >
+            <div className="flex items-center gap-3 mb-2.5">
+              <span className="text-xl leading-none">{ac.definition.emoji}</span>
+              <span className="text-sm font-bold text-[var(--text-color)] flex-1 min-w-0 truncate">{ac.definition.title}</span>
+              <span className="text-xs font-semibold text-[var(--accent-color)]">
+                {Math.round(ac.progress.progress01 * 100)}%
+              </span>
+            </div>
+            <ChallengeProgressBar
+              progress01={ac.progress.progress01}
+              current={ac.progress.current}
+              target={ac.progress.target}
+              unit={ac.definition.goal.type === "distance_km" ? "km" : ac.definition.goal.type === "volume_kg" ? "kg" : ""}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- LAST ACTIVITY CARD ---
+const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout }) => {
+  const sport = (workout.sport || "Gym").toLowerCase();
+  const isCardio = sport.includes("laufen") || sport.includes("radfahren");
+  const isRun = sport.includes("laufen");
+  const isCycle = sport.includes("radfahren");
+
+  const mins = Math.max(0, Math.round((workout.durationSec ?? 0) / 60));
+  const dateStr = (() => {
+    try {
+      const d = new Date(workout.endedAt || workout.startedAt);
+      if (isNaN(d.getTime())) return "";
+      const now = new Date();
+      const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+      if (diffDays === 0) return "Heute";
+      if (diffDays === 1) return "Gestern";
+      return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
+    } catch { return ""; }
+  })();
+
+  const sportConfig = isRun
+    ? { icon: <Footprints size={20} />, color: "#34C759", bg: "rgba(52,199,89,0.1)", label: "Lauf" }
+    : isCycle
+    ? { icon: <Bike size={20} />, color: "#FF9500", bg: "rgba(255,149,0,0.1)", label: "Radfahrt" }
+    : { icon: <Dumbbell size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: "Krafttraining" };
+
+  return (
+    <div
+      className="bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] active:scale-[0.98] transition-transform"
+    >
+      <div className="flex items-center gap-4 mb-3">
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ backgroundColor: sportConfig.bg, color: sportConfig.color }}
+        >
+          {sportConfig.icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-[15px] font-bold text-[var(--text-color)] truncate">
+            {workout.title || sportConfig.label}
+          </h4>
+          <p className="text-xs text-[var(--text-secondary)]">{dateStr}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 flex-wrap">
+        {/* Duration — always shown */}
+        <div className="flex items-center gap-1.5">
+          <Timer size={14} style={{ color: "var(--text-secondary)" }} />
+          <span className="text-sm font-semibold text-[var(--text-color)]">{mins} min</span>
+        </div>
+
+        {/* Cardio: Distance */}
+        {isCardio && workout.distanceKm != null && workout.distanceKm > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Route size={14} style={{ color: sportConfig.color }} />
+            <span className="text-sm font-semibold" style={{ color: sportConfig.color }}>
+              {formatDistanceKm(workout.distanceKm * 1000)}
+            </span>
+          </div>
+        )}
+
+        {/* Cardio: Pace */}
+        {isCardio && workout.paceSecPerKm != null && workout.paceSecPerKm > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Zap size={14} style={{ color: "var(--text-secondary)" }} />
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
+              {formatPace(workout.paceSecPerKm)}
+            </span>
+          </div>
+        )}
+
+        {/* Gym: Volume */}
+        {!isCardio && workout.totalVolume > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Dumbbell size={14} style={{ color: "var(--text-secondary)" }} />
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
+              {formatNumber(workout.totalVolume)} kg
+            </span>
+          </div>
+        )}
+
+        {/* Gym: Exercise count */}
+        {!isCardio && workout.exercises.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
+              {workout.exercises.length} Übungen
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const DashboardPage = () => {
-  const [showAdaptivModal, setShowAdaptivModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showTerminModal, setShowTerminModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showToast, setShowToast] = useState(false); // For visual feedback
+  const { mode } = useTheme();
 
   // Weekly Goal State
   const [weeklyMinutes, setWeeklyMinutes] = useState(0);
   const [weeklyCalories, setWeeklyCalories] = useState(0);
   const [weeklyGoal] = useState(300); // Default goal 300 min
+  const [weeklyDistanceKm, setWeeklyDistanceKm] = useState(0);
+  const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
+  const [lastActivity, setLastActivity] = useState<WorkoutHistoryEntry | null>(null);
 
   // Live Training Check
   const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
   const isWorkoutActive = !!activeWorkout?.isActive;
+
+  // Deload State
+  const [deloadBannerState, setDeloadBannerState] = useState<"recommended" | "active" | null>(null);
+  const [deloadPlan, setDeloadPlan] = useState<DeloadPlan | null>(null);
+  const [showDeloadModal, setShowDeloadModal] = useState(false);
+
+  const computeDeloadState = useCallback(() => {
+    try {
+      const userId = getActiveUserId();
+      const plan = readDeloadPlan(userId);
+      const todayISO = new Date().toISOString().slice(0, 10);
+
+      // Check if there is an active plan and today is within it
+      if (plan && todayISO >= plan.startISO && todayISO <= plan.endISO) {
+        setDeloadPlan(plan);
+        setDeloadBannerState("active");
+        return;
+      }
+
+      // Compute whether deload is due
+      const raw = getScopedItem("trainq_calendar_events", userId);
+      let calEvents: CalendarEvent[] = [];
+      if (raw) {
+        try { calEvents = JSON.parse(raw); } catch { /* ignore */ }
+      }
+
+      const avg = computeAvgSessionsPerWeek(calEvents);
+      const firstDate = getFirstTrainingDateISO(calEvents);
+      const dueISO = computeNextDueISO({
+        firstTrainingISO: firstDate,
+        lastDeloadStartISO: plan?.startISO ?? null,
+        avgSessionsPerWeek: avg,
+      });
+
+      const dismissedUntil = readDeloadDismissedUntil(userId);
+      const due = isDeloadDue({
+        todayISO,
+        dueISO,
+        dismissedUntilISO: dismissedUntil,
+        activePlan: plan ? { startISO: plan.startISO, endISO: plan.endISO } : null,
+      });
+
+      if (due) {
+        setDeloadPlan(null);
+        setDeloadBannerState("recommended");
+      } else {
+        setDeloadPlan(null);
+        setDeloadBannerState(null);
+      }
+    } catch {
+      setDeloadBannerState(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    computeDeloadState();
+  }, [computeDeloadState]);
+
+  const handleDeloadDismiss = useCallback(() => {
+    const userId = getActiveUserId();
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const dismissUntil = addDaysISO(todayISO, 7);
+    writeDeloadDismissedUntil(userId, dismissUntil);
+    setDeloadBannerState(null);
+  }, []);
+
+  const handleDeloadSave = useCallback((plan: DeloadPlan) => {
+    const userId = getActiveUserId();
+    writeDeloadPlan(userId, plan);
+    setDeloadPlan(plan);
+    setDeloadBannerState("active");
+    setShowDeloadModal(false);
+  }, []);
 
   useEffect(() => {
     const loadWeeklyStats = () => {
@@ -74,7 +334,7 @@ const DashboardPage = () => {
           events.forEach((ev: any) => {
             if (ev.type === 'training' && ev.trainingStatus === 'completed') {
               // Check date
-              if (ev.date && isWithinInterval(parseISO(ev.date), { start, end })) {
+              if (ev.date && isWithinInterval(parseISODateLocal(ev.date), { start, end })) {
                 // Sum duration
                 let dur = 0;
                 if (typeof ev.durationMinutes === 'number') {
@@ -118,6 +378,50 @@ const DashboardPage = () => {
     return () => window.removeEventListener("trainq:update_events", loadWeeklyStats);
   }, []);
 
+  // Load workout history for last activity + weekly distance
+  useEffect(() => {
+    const loadHistory = () => {
+      try {
+        const history = loadWorkoutHistory();
+        if (!history || history.length === 0) {
+          setLastActivity(null);
+          setWeeklyDistanceKm(0);
+          setWeeklyWorkouts(0);
+          return;
+        }
+
+        // Last activity
+        setLastActivity(history[0]);
+
+        // Weekly stats from history
+        const now = new Date();
+        const start = startOfWeek(now, { weekStartsOn: 1 });
+        const end = endOfWeek(now, { weekStartsOn: 1 });
+        let totalDist = 0;
+        let workoutCount = 0;
+
+        history.forEach((w) => {
+          try {
+            const d = parseISO(w.endedAt || w.startedAt);
+            if (isWithinInterval(d, { start, end })) {
+              workoutCount++;
+              if (w.distanceKm && w.distanceKm > 0) {
+                totalDist += w.distanceKm;
+              }
+            }
+          } catch { /* skip */ }
+        });
+
+        setWeeklyDistanceKm(Math.round(totalDist * 10) / 10);
+        setWeeklyWorkouts(workoutCount);
+      } catch { /* ignore */ }
+    };
+
+    loadHistory();
+    window.addEventListener("trainq:workoutHistoryUpdated", loadHistory);
+    return () => window.removeEventListener("trainq:workoutHistoryUpdated", loadHistory);
+  }, []);
+
   const handleShiftConfirm = async (days: number) => {
     try {
       await shiftWorkouts(days);
@@ -130,357 +434,37 @@ const DashboardPage = () => {
     }
   };
 
-  // --- ADAPTIVE MODAL ---
-  const AdaptivModal = () => {
-    if (!showAdaptivModal) return null;
+  // Adaptive Training State
+  const [showAdaptiveModal, setShowAdaptiveModal] = useState(false);
 
-    const [step, setStep] = useState(1);
+  const handleOpenAdaptive = () => {
+    // Fire-and-forget haptics — don't await (can hang on simulator)
+    try { Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}); } catch { /* ignore */ }
+    setShowAdaptiveModal(true);
+  };
 
-    // Selection State
-    const [time, setTime] = useState<number>(45);
-    const [sport, setSport] = useState<"Gym" | "Laufen" | "Radfahren">("Gym");
-    const [specialization, setSpecialization] = useState<string | string[]>([]);
-    const [energy, setEnergy] = useState<1 | 2 | 3>(2);
-
-    // Result
-    const [options, setOptions] = useState<AdaptiveOption[]>([]);
-
-    useEffect(() => {
-      // Prefill specialization defaults if empty
-      if (step === 3 && specialization.length === 0) {
-        if (sport === "Gym") setSpecialization([]); // Explicitly empty for user to pick
-        // For cardio we enforce user pick too, or set default?
-      }
-    }, [step, sport]);
-
-    useEffect(() => {
-      if (step === 5) {
-        const results = generateAdaptiveOptions(time, sport, specialization, energy);
-        setOptions(results);
-      }
-    }, [step, time, sport, specialization, energy]);
-
-    const handleNext = async () => {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      } catch { }
-      setStep(p => p + 1);
+  const handleAdaptiveSelect = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
+    // Build an adaptive seed and navigate to live training
+    const baseSeed: LiveTrainingSeed = {
+      title: "Training",
+      sport: "Gym",
+      isCardio: false,
+      exercises: [],
     };
-
-    const handleBack = async () => {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      } catch { }
-      setStep(p => Math.max(1, p - 1));
-    };
-
-    const handleTimeChange = async (val: number) => {
-      setTime(val);
-      // Debounce haptics potentially, but for now simple
-      if (val % 15 === 0) {
-        try { await Haptics.impact({ style: ImpactStyle.Light }); } catch { }
-      }
-    };
-
-    const handleAction = async (option: AdaptiveOption, action: "import" | "start") => {
-      // Use Service to persist
-      const { eventId, liveWorkout } = persistAdaptiveWorkout(option, sport, action);
-
-      setShowAdaptivModal(false);
-
-      if (action === "start") {
-        // Start Live Workout
-        persistActiveLiveWorkout(liveWorkout);
-        useLiveTrainingStore.getState().startWorkout(liveWorkout);
-        // Dispatch update event for Calendar
-        window.dispatchEvent(new CustomEvent("trainq:update_events"));
-
-        // Navigate
-        window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId } }));
-      } else {
-        // Import only
-        // Dispatch update event for Calendar
-        window.dispatchEvent(new CustomEvent("trainq:update_events"));
-
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-      }
-    };
-
-    const toggleGymSpec = (muscle: string) => {
-      setSpecialization(prev => {
-        const arr = Array.isArray(prev) ? prev : [];
-        if (arr.includes(muscle)) return arr.filter(m => m !== muscle);
-        return [...arr, muscle];
-      });
-    };
-
-    const renderContent = () => {
-      switch (step) {
-        case 1: // TIME SLIDER
-          return (
-            <div className="space-y-8 pt-6 px-2">
-              <h3 className="text-2xl font-black text-white text-center">Wie viel Zeit hast du?</h3>
-
-              <div className="text-center">
-                <div className="text-6xl font-black text-blue-500 mb-2 tracking-tighter">
-                  {time >= 120 ? "120+" : time}
-                  <span className="text-2xl text-zinc-500 font-bold ml-2">min</span>
-                </div>
-              </div>
-
-              <div className="px-4">
-                <input
-                  type="range"
-                  min="15"
-                  max="120"
-                  step="5"
-                  value={time}
-                  onChange={(e) => handleTimeChange(parseInt(e.target.value))}
-                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <div className="flex justify-between text-xs font-bold text-zinc-600 mt-4 uppercase tracking-wider">
-                  <span>15 min</span>
-                  <span>120+ min</span>
-                </div>
-              </div>
-
-              <button onClick={handleNext} className="w-full py-4 bg-white text-black rounded-2xl font-bold text-lg hover:bg-zinc-200 active:scale-95 transition-all">
-                Weiter
-              </button>
-            </div>
-          );
-
-        case 2: // SPORT
-          return (
-            <div className="space-y-6 pt-2">
-              <h3 className="text-xl font-bold text-white text-center">Was trainieren wir?</h3>
-              <div className="grid grid-cols-1 gap-3">
-                {[
-                  { l: "Gym", v: "Gym", i: <Dumbbell /> },
-                  { l: "Laufen", v: "Laufen", i: <Footprints /> },
-                  { l: "Radfahren", v: "Radfahren", i: <Bike /> },
-                ].map(item => (
-                  <button
-                    key={item.v}
-                    onClick={() => { setSport(item.v as any); handleNext(); }}
-                    className="p-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all flex items-center justify-between group border border-white/5"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-purple-500">{item.i}</div>
-                      <span className="text-lg font-bold text-white">{item.l}</span>
-                    </div>
-                    <ChevronRight className="text-zinc-600 group-hover:text-white" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-
-        case 3: // SPECIALIZATION
-          if (sport === "Gym") {
-            const muscles = ["chest", "back", "legs", "shoulders", "arms", "core"];
-            const current = Array.isArray(specialization) ? specialization : [];
-
-            return (
-              <div className="space-y-6 pt-2 flex flex-col h-full">
-                <h3 className="text-xl font-bold text-white text-center">Fokus Muskelgruppen</h3>
-                <div className="flex flex-wrap gap-2 justify-center content-start">
-                  {muscles.map(m => (
-                    <button
-                      key={m}
-                      onClick={() => toggleGymSpec(m)}
-                      className={`px-4 py-2 rounded-full border text-sm font-bold transition-all ${current.includes(m) ? "bg-white text-black border-white" : "bg-zinc-900 text-zinc-400 border-zinc-800"}`}
-                    >
-                      {m.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-auto">
-                  <button onClick={handleNext} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all">
-                    {current.length === 0 ? "Ganzkörper (Auto)" : "Weiter"}
-                  </button>
-                </div>
-              </div>
-            );
-          }
-
-          if (sport === "Laufen") {
-            const types = ["Recovery Run", "Long Run", "Sprints"];
-            return (
-              <div className="space-y-6 pt-2">
-                <h3 className="text-xl font-bold text-white text-center">Lauf-Typ</h3>
-                <div className="space-y-3">
-                  {types.map(t => (
-                    <button key={t} onClick={() => { setSpecialization(t); handleNext(); }} className="w-full p-4 bg-zinc-800 rounded-xl text-left font-bold text-white border border-white/5 hover:bg-zinc-700 active:scale-95 transition-all">
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          }
-
-          if (sport === "Radfahren") {
-            const types = ["Recovery Ride", "Long Ride", "Intervalle"];
-            return (
-              <div className="space-y-6 pt-2">
-                <h3 className="text-xl font-bold text-white text-center">Ride-Typ</h3>
-                <div className="space-y-3">
-                  {types.map(t => (
-                    <button key={t} onClick={() => { setSpecialization(t); handleNext(); }} className="w-full p-4 bg-zinc-800 rounded-xl text-left font-bold text-white border border-white/5 hover:bg-zinc-700 active:scale-95 transition-all">
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          }
-
-          return <div />;
-
-        case 4: // ENERGY
-          return (
-            <div className="space-y-6 pt-2">
-              <h3 className="text-xl font-bold text-white text-center">Wie viel Energie hast du?</h3>
-              <div className="flex flex-col gap-4">
-                {[
-                  { v: 1, l: "Wenig", d: "Ruhiges Tempo, Fokus auf Technik", c: "bg-red-500/10 text-red-500 border-red-500/20" },
-                  { v: 2, l: "Mittel", d: "Normales Training", c: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" },
-                  { v: 3, l: "Viel", d: "Gib mir alles! High Volume.", c: "bg-green-500/10 text-green-500 border-green-500/20" }
-                ].map((item) => (
-                  <button
-                    key={item.v}
-                    onClick={() => { setEnergy(item.v as any); handleNext(); }}
-                    className={`p-6 rounded-2xl border active:scale-95 transition-all text-left ${item.c} hover:brightness-125`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xl font-black uppercase tracking-wide">{item.l}</span>
-                      <Battery size={24} className={item.v === 1 ? "rotate-90 text-red-500" : item.v === 3 ? "rotate-0 text-green-500" : "rotate-0 text-yellow-500"} />
-                    </div>
-                    <p className="text-sm opacity-80 font-medium">{item.d}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-
-        case 5: // SELECTION
-          return (
-            <div
-              className="flex-1 overflow-y-auto pt-2 pb-[160px] px-1 space-y-6"
-              style={{ scrollbarWidth: 'none' }} // Hide scrollbar for cleaner look
-            >
-              <h3 className="text-2xl font-black text-white text-center mb-6">Dein Plan steht.</h3>
-
-              <div className="space-y-6">
-                {options.map((opt) => {
-                  const isQuick = opt.id.includes("quick");
-                  const isPower = opt.id.includes("power");
-                  const themeColor = isQuick ? "text-yellow-500" : isPower ? "text-purple-500" : "text-blue-500";
-                  const btnBg = isQuick ? "bg-yellow-500" : isPower ? "bg-purple-600" : "bg-blue-600";
-                  const gradient = isQuick ? "from-yellow-500/20 to-orange-500/20" : isPower ? "from-purple-500/20 to-violet-500/20" : "from-blue-500/20 to-cyan-500/20";
-                  const border = isQuick ? "border-yellow-500/30" : isPower ? "border-purple-500/30" : "border-blue-500/30";
-
-                  return (
-                    <div
-                      key={opt.id}
-                      className={`relative overflow-hidden rounded-[32px] bg-[#000000] border ${border} p-6 shadow-2xl flex flex-col gap-4 shrink-0`}
-                    >
-                      {/* Background Glow */}
-                      <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${gradient} blur-[80px] rounded-full opacity-40 pointer-events-none -translate-y-12 translate-x-12`} />
-
-                      {/* Header */}
-                      <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest border ${themeColor} ${themeColor.replace("text", "border").replace("500", "500/30")} bg-white/5`}>
-                            {opt.id.split("_")[1]}
-                          </span>
-                          <span className="text-sm font-bold text-white/60">{opt.durationMinutes} min</span>
-                        </div>
-                        <h4 className="text-3xl font-black text-white leading-tight mb-2">{opt.title}</h4>
-                        <p className="text-sm text-zinc-400 font-medium leading-relaxed max-w-[90%]">{opt.description}</p>
-                      </div>
-
-                      {/* Exercise Preview List */}
-                      <div className="relative z-10 bg-white/5 rounded-2xl p-4 border border-white/5 backdrop-blur-md">
-                        <h5 className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">Vorschau</h5>
-                        <ul className="space-y-2">
-                          {opt.exercises.slice(0, 3).map((ex, idx) => (
-                            <li key={idx} className="flex items-center justify-between text-sm">
-                              <span className="font-bold text-zinc-200 truncate pr-4">{ex.name}</span>
-                              <span className="text-xs font-mono text-zinc-500 bg-black/40 px-2 py-0.5 rounded-md whitespace-nowrap">
-                                {ex.sets.length} Sets
-                              </span>
-                            </li>
-                          ))}
-                          {opt.exercises.length > 3 && (
-                            <li className="text-xs text-center text-zinc-500 font-medium pt-1 italic">
-                              + {opt.exercises.length - 3} weitere Übungen
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="relative z-10 grid grid-cols-1 gap-3 mt-2">
-                        {/* Import Button */}
-                        <button
-                          onClick={() => handleAction(opt, "import")}
-                          className="w-full h-[60px] rounded-2xl bg-[#1c1c1e] border border-white/10 text-white text-[15px] font-bold hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center uppercase tracking-wide"
-                        >
-                          Importieren
-                        </button>
-
-                        {/* Start Button */}
-                        <button
-                          onClick={() => handleAction(opt, "start")}
-                          className={`w-full h-[60px] rounded-2xl ${btnBg} text-black text-[15px] font-black hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center uppercase tracking-wide shadow-lg shadow-${isQuick ? 'yellow' : isPower ? 'purple' : 'blue'}-500/20`}
-                        >
-                          Speichern & Starten
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowAdaptivModal(false)} />
-        <div className="relative w-full max-w-sm bg-[#121214] rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200 border border-white/10 min-h-[550px] max-h-[90vh] flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="text-purple-500" size={18} />
-              Adaptiv Generator
-            </h2>
-            <button onClick={() => setShowAdaptivModal(false)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {renderContent()}
-          </div>
-
-          {step > 1 && step < 5 && (
-            <button onClick={handleBack} className="mt-4 text-sm text-zinc-500 font-medium self-center hover:text-white">Zurück</button>
-          )}
-        </div>
-      </div>
-    );
+    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
+    writeGlobalLiveSeed(adaptedSeed);
+    setShowAdaptiveModal(false);
+    window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training" } }));
   };
 
 
 
 
+
+
   return (
-    <div className="min-h-screen bg-[#000000] text-white pb-32">
-      <AdaptivModal />
+    <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text-color)] pb-32">
+
       <ShiftPlanModal
         isOpen={showShiftModal}
         onClose={() => setShowShiftModal(false)}
@@ -489,17 +473,13 @@ const DashboardPage = () => {
 
       {/* TOAST */}
       {showToast && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] bg-white text-black px-6 py-3 rounded-full font-bold shadow-xl animate-in slide-in-from-top-4 fade-in">
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] bg-[var(--modal-bg)] text-[var(--text-color)] border border-[var(--border-color)] px-6 py-3 rounded-full font-bold shadow-xl animate-in slide-in-from-top-4 fade-in">
           Plan verschoben!
         </div>
       )}
 
-      {/* HEADER: Native iOS Sticky Header */}
-      <div className="sticky top-0 z-50 bg-[#000000]/95 backdrop-blur-xl border-b border-white/5 pt-[env(safe-area-inset-top)]">
-        <div className="px-6 pb-4 mt-[10px]">
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-0">Dashboard</h1>
-        </div>
-      </div>
+      {/* Safe area spacer */}
+      <div style={{ height: "env(safe-area-inset-top)" }} />
 
       {/* CONTENT */}
       {/* Dynamic padding bottom to account for MiniPlayer if active */}
@@ -508,61 +488,110 @@ const DashboardPage = () => {
         style={{ paddingBottom: isWorkoutActive ? "160px" : "120px" }}
       >
 
-        {/* HERO: ADAPTIV CARD */}
-        <button
-          onClick={() => setShowAdaptivModal(true)}
-          className="w-full relative overflow-hidden bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-[32px] p-6 border border-white/10 group active:scale-[0.98] transition-transform text-left"
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/20 blur-[60px] rounded-full" />
+        {/* DELOAD BANNER */}
+        {deloadBannerState && (
+          <DeloadBanner
+            state={deloadBannerState}
+            plan={deloadPlan}
+            onPlan={() => setShowDeloadModal(true)}
+            onDismiss={handleDeloadDismiss}
+            onAdjust={deloadBannerState === "active" ? () => setShowDeloadModal(true) : undefined}
+          />
+        )}
 
-          <div className="relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white mb-4 shadow-lg border border-white/10 group-hover:scale-110 transition-transform">
-              <Sparkles size={24} fill="currentColor" />
+        {/* HERO: ADAPTIVES TRAINING */}
+        <button
+          onClick={handleOpenAdaptive}
+          className="w-full relative overflow-hidden bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 rounded-[32px] p-6 border border-purple-500/20 group active:scale-[0.98] transition-transform text-left shadow-lg shadow-purple-500/20"
+          style={{ color: 'white' }}
+        >
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 blur-[60px] rounded-full" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-300/10 blur-[40px] rounded-full" />
+
+          <div className="relative z-10 flex flex-col items-start force-white">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4 shadow-inner border border-white/20 group-hover:scale-110 transition-transform">
+              <Sparkles size={28} />
             </div>
-            <h2 className="text-2xl font-black text-white mb-1">Adaptive Workout</h2>
-            <p className="text-zinc-300 text-sm font-medium leading-relaxed max-w-[240px]">
-              Wenig Zeit? Generiere sofort einen perfekten Trainingsplan für jetzt.
+            <h2 className="text-2xl font-black mb-1">Adaptives Training</h2>
+            <p className="text-sm font-medium leading-relaxed max-w-[260px] opacity-90 mb-6">
+              Dein Workout wird an deine Tagesform, Stress und Erholung angepasst.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-200">
-              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              Jetzt starten
+            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+              <Zap size={12} fill="currentColor" />
+              Training generieren
             </div>
           </div>
         </button>
 
-        {/* NÄCHSTES TRAINING (Placeholder for existing calendar logic if we had props, but reusing the static design for now since we don't have props passed in easily) */}
-        {/* Ideally this would read from Calendar Storage, but for MVP of Adaptive feature, we keep visual hierarchy */}
+        {/* QUICK START — alle Sportarten gleichwertig */}
+        <div>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Training starten</h3>
+          <div className="grid grid-cols-3 gap-2.5">
+            <button
+              onClick={() => startFreeTraining("gym")}
+              disabled={isWorkoutActive}
+              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <Dumbbell size={22} />
+              </div>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">Gym</span>
+            </button>
+
+            <button
+              onClick={() => startFreeTraining("laufen")}
+              disabled={isWorkoutActive}
+              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500">
+                <Footprints size={22} />
+              </div>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">Laufen</span>
+            </button>
+
+            <button
+              onClick={() => startFreeTraining("radfahren")}
+              disabled={isWorkoutActive}
+              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                <Bike size={22} />
+              </div>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">Radfahren</span>
+            </button>
+          </div>
+        </div>
 
         {/* AKTIONEN GRID */}
         <div>
-          <h3 className="text-sm font-bold text-zinc-400 mb-2 pl-1 uppercase tracking-wider text-[11px]">Schnellzugriff</h3>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Schnellzugriff</h3>
           <div className="grid grid-cols-2 gap-2.5">
-            <button onClick={() => setShowPlanModal(true)} className="bg-zinc-800 rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-zinc-700/30 h-28">
+            <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
               <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <Plus size={22} strokeWidth={3} />
               </div>
-              <span className="text-[13px] font-semibold text-zinc-200">Planen</span>
+              <span className="text-[13px] font-semibold text-[var(--text-color)]">Planen</span>
             </button>
 
-            <button onClick={() => setShowShiftModal(true)} className="bg-zinc-800 rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-zinc-700/30 h-28">
+            <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
               <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
                 <RefreshCw size={20} />
               </div>
-              <span className="text-[13px] font-semibold text-zinc-200">Verschieben</span>
+              <span className="text-[13px] font-semibold text-[var(--text-color)]">Verschieben</span>
             </button>
           </div>
         </div>
 
         {/* PROGRESS CARD */}
         <div>
-          <h3 className="text-sm font-bold text-zinc-400 mb-2 pl-1 uppercase tracking-wider text-[11px]">Status</h3>
-          <div className="bg-zinc-800 rounded-[24px] p-6 flex items-center gap-6 border border-zinc-700/30 relative overflow-hidden">
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Status</h3>
+          <div className="bg-[var(--card-bg)] rounded-[24px] p-6 flex items-center gap-6 border border-[var(--border-color)] relative overflow-hidden">
             <div className={`absolute right-0 top-0 w-32 h-32 blur-3xl rounded-full pointer-events-none ${weeklyMinutes >= weeklyGoal ? 'bg-green-500/10' : 'bg-blue-500/5'}`} />
 
             {/* Dynamic Progress Circle */}
             <div className="relative w-16 h-16 shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <path className="text-zinc-700/50" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                <path className="text-[var(--border-color)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                 <path
                   className={weeklyMinutes >= weeklyGoal ? "text-green-500" : "text-blue-500"}
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -573,30 +602,71 @@ const DashboardPage = () => {
                   strokeLinecap="round"
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center font-bold text-white text-xs">
+              <div className="absolute inset-0 flex items-center justify-center font-bold text-[var(--text-color)] text-xs">
                 {Math.round((weeklyMinutes / weeklyGoal) * 100)}%
               </div>
             </div>
 
-            <div>
-              <div className="text-lg font-bold text-white leading-tight mb-1">
+            <div className="flex-1 min-w-0">
+              <div className="text-lg font-bold text-[var(--text-color)] leading-tight mb-1">
                 {weeklyMinutes} / {weeklyGoal} min
               </div>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-[var(--text-secondary)]">
                 {weeklyMinutes === 0 ? "Woche beginnt erst!" :
                   weeklyMinutes >= weeklyGoal ? "Ziel erreicht! Starke Woche." :
                     "Du bist auf Kurs. Dranbleiben!"}
               </p>
-              <div className="mt-2 text-sm font-medium text-zinc-300 flex items-center gap-2">
-                <span className="text-orange-500">🔥</span> {weeklyCalories} kcal
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
+                  <span className="text-orange-500">🔥</span> {weeklyCalories} kcal
+                </span>
+                {weeklyDistanceKm > 0 && (
+                  <span className="text-xs font-medium text-green-500 flex items-center gap-1">
+                    <MapPin size={12} /> {weeklyDistanceKm} km
+                  </span>
+                )}
+                {weeklyWorkouts > 0 && (
+                  <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
+                    <Dumbbell size={12} /> {weeklyWorkouts}x
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
 
+        {/* LETZTE AKTIVITÄT */}
+        {lastActivity && (
+          <div>
+            <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Letzte Aktivität</h3>
+            <LastActivityCard workout={lastActivity} />
+          </div>
+        )}
+
+        {/* NUTRITION TRACKER */}
+        <NutritionDashboardWidget />
+
+        {/* ACTIVE CHALLENGES */}
+        <DashboardChallengeWidget />
+
       </div>
 
-      {showAdaptivModal && <AdaptivModal />}
+
+      <DeloadPlanModal
+        open={showDeloadModal}
+        onClose={() => setShowDeloadModal(false)}
+        onSave={handleDeloadSave}
+      />
+
+      <AdaptiveTrainingModal
+        open={showAdaptiveModal}
+        onClose={() => setShowAdaptiveModal(false)}
+        plannedWorkoutType="Push"
+        splitType="push_pull"
+        onSelect={handleAdaptiveSelect}
+        isPro={true}
+      />
+
       {showPlanModal && (
         <WorkoutPlannerModal
           onClose={() => setShowPlanModal(false)}

@@ -10,12 +10,10 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) return 'vendor';
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) return 'vendor';
             if (id.includes('recharts')) return 'charts';
-            if (id.includes('lucide-react')) return 'icons';
             if (id.includes('@supabase')) return 'supabase';
-            if (id.includes('framer-motion') || id.includes('date-fns')) return 'utils';
-            return 'libs'; // specific chunk for other libs to keep index small
+            if (id.includes('framer-motion')) return 'utils';
           }
         },
       },

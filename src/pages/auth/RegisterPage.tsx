@@ -47,18 +47,18 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center bg-[var(--bg)] px-6 py-12 lg:px-8">
+    <div className="min-h-screen flex flex-col justify-center px-6 py-12 lg:px-8" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-white">
+        <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight" style={{ color: "var(--text-color)" }}>
           Konto erstellen
         </h2>
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+        <div className="backdrop-blur-xl rounded-2xl p-6 shadow-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
           <form className="space-y-6" onSubmit={handleRegister}>
             {error && (
-              <div className="p-3 text-sm text-red-200 bg-red-900/40 border border-red-500/50 rounded-2xl">
+              <div className="p-3 text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-2xl">
                 {error}
               </div>
             )}
@@ -95,7 +95,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
               required
             />
 
-            <div className="text-xs text-gray-400">
+            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
               Durch die Registrierung stimmst du unseren Nutzungsbedingungen und Datenschutzrichtlinien zu.
             </div>
 
@@ -106,7 +106,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
             </div>
           </form>
 
-          <p className="mt-10 text-center text-sm text-gray-400">
+          <p className="mt-10 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
             Bereits ein Konto?{" "}
             <button
               onClick={onGoToLogin}

@@ -15,6 +15,9 @@ import PublicProfilePage from "../pages/PublicProfilePage";
 import ImpressumPage from "../pages/legal/ImpressumPage";
 import PrivacyPage from "../pages/legal/PrivacyPage";
 import TermsPage from "../pages/legal/TermsPage";
+import CsvImportPage from "../pages/CsvImportPage";
+import ChallengesPage from "../pages/ChallengesPage";
+import NutritionPage from "../pages/NutritionPage";
 
 // Components
 import { MainLayout } from "../layouts/MainLayout";
@@ -26,6 +29,8 @@ import { useTabSwipeNavigation } from "../hooks/useTabSwipeNavigation";
 import { useEntitlements } from "../hooks/useEntitlements";
 
 // Utils
+import { scheduleTrainingReminders } from "../utils/notificationScheduler";
+import { loadNotificationPrefs } from "../utils/notificationStorage";
 import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
@@ -69,7 +74,10 @@ type AppRoute =
     | "/public-profile"
     | "/impressum"
     | "/privacy"
-    | "/terms";
+    | "/terms"
+    | "/import-csv"
+    | "/challenges"
+    | "/nutrition";
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
@@ -182,6 +190,9 @@ function getRouteFromLocation(): AppRoute {
     if (path === "/impressum") return "/impressum";
     if (path === "/privacy") return "/privacy";
     if (path === "/terms") return "/terms";
+    if (path === "/import-csv") return "/import-csv";
+    if (path === "/challenges") return "/challenges";
+    if (path === "/nutrition") return "/nutrition";
     if (path.startsWith("/u/")) return "/public-profile";
     return "/";
 }
@@ -241,7 +252,10 @@ function readEventsFromStorage(userId?: string): CalendarEvent[] {
 
 function writeEventsToStorage(events: CalendarEvent[], userId?: string) {
     if (typeof window === "undefined") return;
-    try { setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId); } catch { }
+    try {
+        setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId);
+        window.dispatchEvent(new Event("trainq:update_events"));
+    } catch { }
 }
 
 function todayISO(): string {
@@ -294,23 +308,20 @@ const LiveTrainingMiniBar: React.FC<{
 
     return (
         <div className="fixed left-4 right-4 z-50" style={{ bottom: "calc(96px + env(safe-area-inset-bottom))" }}>
-            <div className="mx-auto max-w-5xl rounded-[32px] border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-3 backdrop-blur-xl shadow-lg shadow-black/40">
+            <div className="mx-auto max-w-5xl border focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-3 backdrop-blur-xl shadow-lg shadow-black/40" style={{ backgroundColor: "var(--mini-bar-bg)", borderColor: "var(--border-color)" }}>
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <div className="text-[11px] text-gray-400">{t("live.mini.running")}</div>
+                        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t("live.mini.running")}</div>
                         <div className="flex items-baseline gap-2">
-                            <div className="text-base font-bold tabular-nums text-white">
+                            <div className="text-base font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
                                 {formatElapsedFromISO(active.startedAt)}
                             </div>
-                            <div className="truncate text-[11px] text-gray-400">{active.title}</div>
+                            <div className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>{active.title}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button type="button" onClick={() => onMaximize(active.calendarEventId)} className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white">
                             {t("live.mini.maximize")}
-                        </button>
-                        <button type="button" onClick={onAbort} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white/80">
-                            {t("common.cancel")}
                         </button>
                     </div>
                 </div>
@@ -370,6 +381,29 @@ const MainAppShell: React.FC = () => {
     const [lastDeloadIntervalWeeks, setLastDeloadIntervalWeeks] = useState<number | null>(() => readLastDeloadIntervalWeeks(userId));
 
     useEffect(() => { writeEventsToStorage(events, userId); }, [events, userId]);
+
+    // Schedule local notifications when events change
+    useEffect(() => {
+        try {
+            const prefs = loadNotificationPrefs();
+            if (!prefs.trainingReminder) return;
+
+            const todayStr = todayISO();
+            const trainingEvents = events
+                .filter((e) => e.type === "training" && e.date >= todayStr)
+                .map((e) => ({
+                    date: e.date,
+                    startTime: e.startTime || undefined,
+                    title: e.title,
+                }));
+
+            scheduleTrainingReminders(trainingEvents).catch(() => {
+                // Non-blocking — silently ignore
+            });
+        } catch {
+            // Non-blocking
+        }
+    }, [events]);
 
     // ✅ CHECK AUTO-RESTORE ON MOUNT
     const restoreChecked = useRef(false);
@@ -677,6 +711,9 @@ const MainAppShell: React.FC = () => {
     if (route === "/impressum") return <div className="w-full h-full overflow-y-auto"><ImpressumPage /></div>;
     if (route === "/privacy") return <div className="w-full h-full overflow-y-auto"><PrivacyPage /></div>;
     if (route === "/terms") return <div className="w-full h-full overflow-y-auto"><TermsPage /></div>;
+    if (route === "/import-csv") return <div className="w-full h-full overflow-y-auto"><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></div>;
+    if (route === "/challenges") return <div className="w-full h-full overflow-y-auto"><ChallengesPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
+    if (route === "/nutrition") return <div className="w-full h-full overflow-y-auto"><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
 
     // ---------- App Layout via MainLayout ----------
 

@@ -5,6 +5,7 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import type { User, Session } from "@supabase/supabase-js";
@@ -120,6 +121,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
+    pullAndMerge().catch(() => {});
   }, []);
 
   const ensureLocalUser = useCallback(() => {
@@ -267,7 +269,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const logout = useCallback(async () => {
     const client = getSafeClient();
-    await client?.auth.signOut();
+    try {
+      await client?.auth.signOut();
+    } catch {
+      // signOut may fail if network is unavailable — proceed with local cleanup
+    }
     localStorage.removeItem("isDemoSession");
     localStorage.removeItem(LOCAL_USER_KEY); // Clear local user too
     setUser(null);

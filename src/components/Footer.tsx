@@ -14,15 +14,15 @@ export function Footer() {
     };
 
     return (
-        <footer className="w-full py-8 px-4 mt-8 border-t border-[var(--border)] text-center text-sm opacity-60">
+        <footer className="w-full py-8 px-4 mt-8 border-t border-[var(--border-color)] text-center text-sm opacity-60">
             <div className="flex flex-wrap justify-center gap-4 mb-4">
-                <a href="/impressum" onClick={(e) => handleNav(e, "/impressum")} className="hover:underline hover:text-[var(--primary)] transition-colors">
+                <a href="/impressum" onClick={(e) => handleNav(e, "/impressum")} className="hover:underline hover:text-[var(--accent-color)] transition-colors">
                     Impressum
                 </a>
-                <a href="/privacy" onClick={(e) => handleNav(e, "/privacy")} className="hover:underline hover:text-[var(--primary)] transition-colors">
+                <a href="/privacy" onClick={(e) => handleNav(e, "/privacy")} className="hover:underline hover:text-[var(--accent-color)] transition-colors">
                     {t("settings.legal.tab.privacy")}
                 </a>
-                <a href="/terms" onClick={(e) => handleNav(e, "/terms")} className="hover:underline hover:text-[var(--primary)] transition-colors">
+                <a href="/terms" onClick={(e) => handleNav(e, "/terms")} className="hover:underline hover:text-[var(--accent-color)] transition-colors">
                     {t("settings.legal.tab.terms")}
                 </a>
             </div>

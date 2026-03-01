@@ -30,11 +30,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-white px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
       <div className="w-full max-w-sm space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">Passwort vergessen</h1>
-          <p className="text-sm text-gray-400">
+          <h1 className="text-2xl font-semibold mb-1" style={{ color: "var(--text-color)" }}>Passwort vergessen</h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Gib deine E-Mail ein, um dein Passwort zurückzusetzen.
           </p>
         </div>
@@ -55,11 +55,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
 
         {info && <p className="text-xs text-green-400">{info}</p>}
 
-        <div className="text-xs text-center text-gray-400">
+        <div className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
           <button
             type="button"
             onClick={onGoBackToLogin}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-blue-500 hover:text-blue-400"
           >
             Zurück zum Login
           </button>

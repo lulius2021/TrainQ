@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { useAuth } from "../context/AuthContext";
 
+import { useTheme } from "../theme/ThemeContext";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User as UserIcon,
@@ -25,8 +27,13 @@ import {
     Info,
     Mail,
     FileText,
-    Building2
+    Building2,
+    Activity,
+    Bell
 } from "lucide-react";
+import NotificationSettings from "../components/settings/NotificationSettings";
+import { getMuscleDetailMode, setMuscleDetailMode, type MuscleDetailMode } from "../utils/muscleGrouping";
+import { loadWarmupConfig, saveWarmupConfig, getDefaultConfig, type WarmupConfig } from "../utils/warmupCalculator";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from "../context/OnboardingContext";
 
@@ -45,7 +52,7 @@ type SettingsRowProps = {
     isDestructive?: boolean;
 };
 
-type ModalType = 'profile' | 'subscription' | 'preferences' | 'legal' | null;
+type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 'legal' | null;
 
 // --- COMPONENTS ---
 
@@ -64,23 +71,23 @@ const SettingsRow: React.FC<SettingsRowProps> = ({
     return (
         <button
             onClick={onClick}
-            className="w-full flex items-center justify-between p-4 bg-[#1c1c1e] active:bg-[#2c2c2e] transition-colors border-b border-white/5 last:border-0 h-14 group"
+            className="w-full flex items-center justify-between p-4 bg-[var(--card-bg)] active:bg-[var(--button-bg)] transition-colors border-b border-[var(--border-color)] last:border-0 h-14 group"
         >
             <div className="flex items-center">
                 <div className={`w-8 h-8 rounded-2xl flex items-center justify-center mr-4 ${iconColor} shadow-lg`}>
                     <Icon size={18} className="text-white" />
                 </div>
-                <span className={`font-medium text-[17px] ${isDestructive ? 'text-red-500' : 'text-white'}`}>
+                <span className={`font-medium text-[17px] ${isDestructive ? 'text-red-500' : 'text-[var(--text-color)]'}`}>
                     {label}
                 </span>
             </div>
 
             <div className="flex items-center gap-2">
                 {value && (
-                    <span className="text-[17px] text-white/50">{value}</span>
+                    <span className="text-[17px] text-[var(--text-secondary)]">{value}</span>
                 )}
                 {!isDestructive && (
-                    <ChevronRight size={20} className="text-white/20 group-hover:text-white/40 transition-colors" />
+                    <ChevronRight size={20} className="text-[var(--text-secondary)] group-hover:text-[var(--text-color)] transition-colors" />
                 )}
             </div>
         </button>
@@ -91,11 +98,11 @@ const SettingsRow: React.FC<SettingsRowProps> = ({
 const Section: React.FC<{ title?: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="mb-8">
         {title && (
-            <h3 className="text-[13px] uppercase tracking-wider text-white/40 font-semibold mb-2 pl-4">
+            <h3 className="text-[13px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2 pl-4">
                 {title}
             </h3>
         )}
-        <div className="rounded-2xl overflow-hidden border border-white/5">
+        <div className="rounded-2xl overflow-hidden border border-[var(--border-color)]">
             {children}
         </div>
     </div>
@@ -136,14 +143,13 @@ const SettingsModal = ({
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed inset-x-0 bottom-0 z-[70] h-[92vh] rounded-t-[32px] bg-[#1c1c1e] overflow-hidden flex flex-col border-t border-white/10 shadow-2xl"
+                        className="fixed inset-x-0 bottom-0 z-[70] h-[92vh] rounded-t-[32px] bg-[var(--modal-bg)] overflow-hidden flex flex-col border-t border-[var(--border-color)] shadow-2xl"
                     >
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#1c1c1e] z-10">
-                            <h2 className="text-xl font-bold text-white">{title}</h2>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-[var(--modal-header)] z-10">
+                            <h2 className="text-xl font-bold text-[var(--text-color)]">{title}</h2>
                             <button
                                 onClick={onClose}
-                                className="p-2 -mr-2 bg-white/10 rounded-full hover:bg-white/20 text-white/60 hover:text-white transition-colors"
+                                className="p-2 -mr-2 bg-[var(--button-bg)] rounded-full hover:opacity-80 text-[var(--text-secondary)] hover:text-[var(--text-color)] transition-colors"
                             >
                                 <X size={20} />
                             </button>
@@ -162,14 +168,14 @@ const SettingsModal = ({
 
 // 4. Toggle Switch Component
 const ToggleSwitch = ({ checked, onChange, label, icon: Icon }: { checked: boolean; onChange: (v: boolean) => void; label: string; icon?: React.ElementType }) => (
-    <div className="flex items-center justify-between p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
+    <div className="flex items-center justify-between p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
         <div className="flex items-center gap-3">
-            {Icon && <Icon size={20} className="text-zinc-400" />}
-            <span className="text-base font-medium text-white">{label}</span>
+            {Icon && <Icon size={20} className="text-[var(--text-secondary)]" />}
+            <span className="text-base font-medium text-[var(--text-color)]">{label}</span>
         </div>
         <button
             onClick={() => onChange(!checked)}
-            className={`w-12 h-7 rounded-full relative transition-colors duration-200 ${checked ? 'bg-green-500' : 'bg-zinc-700'}`}
+            className={`w-12 h-7 rounded-full relative transition-colors duration-200 ${checked ? 'bg-green-500' : 'bg-[var(--button-bg)]'}`}
         >
             <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
@@ -186,10 +192,10 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", suffix
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="w-full bg-[#1c1c1e] border border-white/10 rounded-2xl p-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-2xl p-4 text-[var(--text-color)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
             />
             {suffix && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] pointer-events-none">
                     {suffix}
                 </span>
             )}
@@ -213,10 +219,10 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                         onClick={() => { setLang(opt.code as any); onClose(); }}
                         className={`flex items-center justify-between p-4 rounded-2xl transition-all border ${lang === opt.code
                             ? "bg-blue-600 text-white font-bold border-blue-400/30"
-                            : "bg-[#1c1c1e] border-white/5 text-zinc-400 hover:bg-white/5"
+                            : "bg-[var(--card-bg)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]"
                             }`}
                     >
-                        <span className="flex items-center gap-2" dangerouslySetInnerHTML={{ __html: opt.label }} />
+                        <span className="flex items-center gap-2 text-[var(--text-color)]" dangerouslySetInnerHTML={{ __html: opt.label }} />
                         {lang === opt.code && <Check size={20} className="text-white" />}
                     </button>
                 ))}
@@ -255,9 +261,10 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
     // -- Preferences State --
     const [hapticEnabled, setHapticEnabled] = useState(true);
-    // const [darkModeForce, setDarkModeForce] = useState(true); // Replaced by global theme
-    // const { theme, toggleTheme } = useTheme();
+    const { theme, setTheme, mode } = useTheme();
     const [soundEnabled, setSoundEnabled] = useState(true);
+    const [muscleDetail, setMuscleDetail] = useState<MuscleDetailMode>(() => getMuscleDetailMode());
+    const [warmupConfig, setWarmupConfigState] = useState<WarmupConfig>(() => loadWarmupConfig());
 
     // Initial Load
     useEffect(() => {
@@ -329,7 +336,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     const handleClearCalendarAction = async () => {
         if (!confirm("Alle geplanten Trainings aus dem Kalender löschen?")) return;
 
-        await Haptics.impact({ style: ImpactStyle.Heavy });
+        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
         DataService.clearCalendar();
         // Since onClearCalendar prop might just be a notify, we also call the service directly or rely on prop if it does specific UI updates
         // The service dispatches event, so UI should update.
@@ -340,43 +347,25 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     const handleClearHistoryAction = async () => {
         if (!confirm("Kompletten Trainingsverlauf unwiderruflich löschen?")) return;
 
-        await Haptics.impact({ style: ImpactStyle.Heavy });
+        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
         DataService.clearWorkoutHistory();
         alert("Verlauf gelöscht.");
     };
 
-    // Theme Toggle Logic
-    const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
-        if (typeof localStorage !== 'undefined') {
-            return (localStorage.getItem('trainq_theme') as 'dark' | 'light') || 'dark';
-        }
-        return 'dark';
-    });
 
-    useEffect(() => {
-        const root = document.documentElement;
-        if (themeMode === 'dark') {
-            root.classList.add('dark');
-            root.style.colorScheme = 'dark';
-        } else {
-            root.classList.remove('dark');
-            root.style.colorScheme = 'light';
-        }
-        localStorage.setItem('trainq_theme', themeMode);
-    }, [themeMode]);
 
     return (
-        <div className="flex flex-col h-full bg-black text-white overflow-hidden">
+        <div className="flex flex-col h-full bg-[var(--bg-color)] text-[var(--text-color)] overflow-hidden">
 
             {/* HEADER */}
-            <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-6 bg-black shrink-0 z-10">
+            <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-6 bg-[var(--bg-color)] shrink-0 z-10">
                 <div className="flex items-center mb-2">
-                    <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-white/10 transition-colors text-white">
+                    <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--text-color)]">
                         <ChevronLeft size={32} />
                     </button>
                 </div>
                 <div className="flex justify-between items-end">
-                    <h1 className="text-4xl font-bold text-white tracking-tight">{t("settings.title")}</h1>
+                    <h1 className="text-4xl font-bold text-[var(--text-color)] tracking-tight">{t("settings.title")}</h1>
                     {isPro && (
                         <div className="bg-gradient-to-r from-amber-300 to-amber-500 text-black text-[10px] font-black px-2 py-1 rounded-md mb-2 shadow-lg shadow-amber-500/20">
                             PRO
@@ -406,25 +395,31 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                 {/* SECTION 2: APPEARANCE */}
                 <Section title="Erscheinungsbild">
-                    <div className="flex items-center justify-between p-4 bg-[#1c1c1e] border-b border-white/5 last:border-0 h-16">
+                    <div className="flex items-center justify-between p-4 bg-[var(--card-bg)] border-b border-[var(--border-color)] last:border-0 h-16">
                         <div className="flex items-center gap-4">
                             <div className="w-8 h-8 rounded-2xl flex items-center justify-center bg-indigo-500 shadow-lg">
-                                {themeMode === 'dark' ? <Moon size={18} className="text-white" /> : <Sun size={18} className="text-white" />}
+                                {theme.mode === 'dark' ? <Moon size={18} className="text-white" /> : <Sun size={18} className="text-white" />}
                             </div>
-                            <span className="font-medium text-[17px] text-white">Design</span>
+                            <span className="font-medium text-[17px] text-[var(--text-color)]">Design</span>
                         </div>
-                        <div className="flex bg-[#2c2c2e] p-1 rounded-lg">
+                        <div className="flex bg-[var(--button-bg)] p-1 rounded-lg">
                             <button
-                                onClick={() => setThemeMode('light')}
-                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${themeMode === 'light' ? 'bg-white text-black shadow-sm' : 'text-zinc-400'}`}
+                                onClick={() => setTheme('light')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${theme.mode === 'light' && mode !== 'system' ? 'bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
                                 Hell
                             </button>
                             <button
-                                onClick={() => setThemeMode('dark')}
-                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${themeMode === 'dark' ? 'bg-zinc-600 text-white shadow-sm' : 'text-zinc-400'}`}
+                                onClick={() => setTheme('dark')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${theme.mode === 'dark' && mode !== 'system' ? 'bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
                                 Dunkel
+                            </button>
+                            <button
+                                onClick={() => setTheme('system')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === 'system' ? 'bg-blue-500 text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}
+                            >
+                                Auto
                             </button>
                         </div>
                     </div>
@@ -439,10 +434,27 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         value=""
                         onClick={() => setActiveModal('preferences')}
                     />
+                    <SettingsRow
+                        icon={Bell}
+                        iconColor="bg-orange-500"
+                        label="Mitteilungen"
+                        value=""
+                        onClick={() => setActiveModal('notifications')}
+                    />
                 </Section>
 
                 {/* SECTION 4: DATA & PRIVACY */}
                 <Section title="Daten & Sicherheit">
+                    <SettingsRow
+                        icon={FileText}
+                        iconColor="bg-blue-500"
+                        label="Daten importieren"
+                        onClick={() => {
+                            window.dispatchEvent(
+                                new CustomEvent("trainq:navigate", { detail: { path: "/import-csv" } })
+                            );
+                        }}
+                    />
                     <SettingsRow
                         icon={CalendarX}
                         iconColor="bg-red-500"
@@ -469,11 +481,11 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                 {/* SECTION 6: DANGER ZONE */}
                 <div className="px-2 space-y-4">
-                    <button onClick={handleLogout} className="w-full h-14 bg-[#1c1c1e] active:bg-[#2c2c2e] rounded-2xl border border-white/5 flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg">
+                    <button onClick={handleLogout} className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg">
                         {t("settings.account.logout")}
                     </button>
                     <div className="text-center pt-4">
-                        <p className="text-xs text-white/20 font-mono">TrainQ v1.0.2 (Build 2026)</p>
+                        <p className="text-xs text-[var(--text-secondary)] opacity-40 font-mono">TrainQ v1.0.2 (Build 2026)</p>
                     </div>
                 </div>
             </div>
@@ -513,7 +525,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                             onChange={handleImagePick}
                         />
                     </div>
-                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-300 text-sm">
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-500 text-sm">
                         Deine Profildaten werden lokal und privat gespeichert. Sie helfen uns, dein Training zu personalisieren.
                     </div>
                     <div className="space-y-4">
@@ -532,12 +544,12 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             {/* SUBSCRIPTION MODAL */}
             <SettingsModal isOpen={activeModal === 'subscription'} onClose={() => setActiveModal(null)} title={t("settings.pro.title")}>
                 <div className="flex flex-col items-center text-center space-y-6 pt-6">
-                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl ${isPro ? 'bg-amber-500' : 'bg-[#1c1c1e] border border-white/10'}`}>
+                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl ${isPro ? 'bg-amber-500' : 'bg-[var(--card-bg)] border border-[var(--border-color)]'}`}>
                         <Star size={40} className="text-white" fill={isPro ? "white" : "none"} />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-bold text-white mb-2">{isPro ? "TrainQ Pro Aktiviert" : "Free Plan"}</h3>
-                        <p className="text-zinc-400 max-w-xs mx-auto">
+                        <h3 className="text-2xl font-bold text-[var(--text-color)] mb-2">{isPro ? "TrainQ Pro Aktiviert" : "Free Plan"}</h3>
+                        <p className="text-[var(--text-secondary)] max-w-xs mx-auto">
                             {isPro
                                 ? "Du hast Zugriff auf alle Premium-Funktionen. Dein Training kennt keine Grenzen."
                                 : "Upgrade auf Pro für unbegrenzte Workouts, Statistiken und KI-Analysen."}
@@ -547,7 +559,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     {!isPro && (
                         <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
                             <h4 className="font-bold text-amber-400 mb-2">Pro Vorteile:</h4>
-                            <ul className="space-y-2 text-sm text-zinc-400">
+                            <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
                                 <li className="flex gap-2"><span>✨</span> Unbegrenzter Verlauf</li>
                                 <li className="flex gap-2"><span>📈</span> Erweiterte Statistiken</li>
                                 <li className="flex gap-2"><span>🤖</span> KI-Trainingspläne</li>
@@ -557,12 +569,12 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                     <button
                         onClick={() => { setActiveModal(null); onOpenPaywall(); }}
-                        className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-[#1c1c1e] text-white border border-white/10' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
+                        className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
                     >
                         {isPro ? "Abo verwalten" : "Jetzt Upgraden"}
                     </button>
 
-                    {isPro && <p className="text-xs text-zinc-500">Verwaltung läuft über deinen App Store Account.</p>}
+                    {isPro && <p className="text-xs text-[var(--text-secondary)]">Verwaltung läuft über deinen App Store Account.</p>}
                 </div>
             </SettingsModal>
 
@@ -571,8 +583,8 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 <div className="space-y-4">
 
 
-                    <div className="px-1 py-2 border-t border-white/5 pt-6">
-                        <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Interaktion</h3>
+                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Interaktion</h3>
                         <div className="space-y-3">
                             <ToggleSwitch
                                 label="Haptisches Feedback"
@@ -589,14 +601,99 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         </div>
                     </div>
 
-                    <div className="px-1 py-2 border-t border-white/5 pt-6">
-                        <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Einheiten</h3>
-                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl flex justify-between items-center opacity-70">
-                            <span className="text-white">Gewichtseinheit</span>
-                            <span className="text-zinc-400 font-mono">KG (Metrisch)</span>
+                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Einheiten</h3>
+                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center opacity-70">
+                            <span className="text-[var(--text-color)]">Gewichtseinheit</span>
+                            <span className="text-[var(--text-secondary)] font-mono">KG (Metrisch)</span>
+                        </div>
+                    </div>
+
+                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Anzeige</h3>
+                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <Activity size={20} className="text-[var(--text-secondary)]" />
+                                <span className="text-base font-medium text-[var(--text-color)]">Muskeldetail</span>
+                            </div>
+                            <div className="flex bg-[var(--button-bg)] p-0.5 rounded-lg">
+                                <button
+                                    onClick={() => { setMuscleDetail("einfach"); setMuscleDetailMode("einfach"); }}
+                                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                                        muscleDetail === "einfach"
+                                            ? "bg-blue-500 text-white shadow-sm"
+                                            : "text-[var(--text-secondary)]"
+                                    }`}
+                                >
+                                    Einfach
+                                </button>
+                                <button
+                                    onClick={() => { setMuscleDetail("komplex"); setMuscleDetailMode("komplex"); }}
+                                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                                        muscleDetail === "komplex"
+                                            ? "bg-blue-500 text-white shadow-sm"
+                                            : "text-[var(--text-secondary)]"
+                                    }`}
+                                >
+                                    Komplex
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Aufwärmsätze</h3>
+                        <div className="space-y-3">
+                            <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
+                                <span className="text-sm font-medium text-[var(--text-color)]">Stangengewicht</span>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        inputMode="decimal"
+                                        value={warmupConfig.barWeight}
+                                        onChange={(e) => {
+                                            const v = Number(e.target.value);
+                                            if (!Number.isFinite(v) || v < 0) return;
+                                            const next = { ...warmupConfig, barWeight: v };
+                                            setWarmupConfigState(next);
+                                            saveWarmupConfig(next);
+                                        }}
+                                        className="w-16 h-8 text-center text-sm font-bold rounded-lg bg-[var(--input-bg)] text-[var(--text-color)] outline-none border border-[var(--border-color)]"
+                                    />
+                                    <span className="text-xs text-[var(--text-secondary)]">kg</span>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
+                                <span className="text-sm font-medium text-[var(--text-color)]">Scheiben-Inkrement</span>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        inputMode="decimal"
+                                        step="0.5"
+                                        value={warmupConfig.plateIncrement}
+                                        onChange={(e) => {
+                                            const v = Number(e.target.value);
+                                            if (!Number.isFinite(v) || v <= 0) return;
+                                            const next = { ...warmupConfig, plateIncrement: v };
+                                            setWarmupConfigState(next);
+                                            saveWarmupConfig(next);
+                                        }}
+                                        className="w-16 h-8 text-center text-sm font-bold rounded-lg bg-[var(--input-bg)] text-[var(--text-color)] outline-none border border-[var(--border-color)]"
+                                    />
+                                    <span className="text-xs text-[var(--text-secondary)]">kg</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] px-1">
+                                Stufen: Leere Stange, 50%, 70%, 85% des Arbeitsgewichts
+                            </p>
                         </div>
                     </div>
                 </div>
+            </SettingsModal>
+
+            {/* NOTIFICATIONS MODAL */}
+            <SettingsModal isOpen={activeModal === 'notifications'} onClose={() => setActiveModal(null)} title="Mitteilungen">
+                <NotificationSettings />
             </SettingsModal>
 
             {/* LEGAL MODAL */}
@@ -610,23 +707,23 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                 Q
                             </div>
                             <div>
-                                <h3 className="font-bold text-white text-lg">Über TrainQ</h3>
+                                <h3 className="font-bold text-[var(--text-color)] text-lg">Über TrainQ</h3>
                                 <p className="text-blue-400 text-xs font-medium">Vision & Mission</p>
                             </div>
                         </div>
-                        <p className="text-sm text-zinc-400 leading-relaxed">
+                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                             TrainQ wurde entwickelt, um ambitionierten Athleten die Werkzeuge an die Hand zu geben, die sie für echte Fortschritte benötigen. Keine Ablenkungen, reiner Fokus auf Performance und Daten.
                         </p>
-                        <p className="text-sm text-zinc-400 leading-relaxed">
+                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                             Wir glauben daran, dass Training eine Wissenschaft und eine Kunst zugleich ist. TrainQ verbindet beides in einer nahtlosen Erfahrung.
                         </p>
                     </div>
 
                     {/* CONTACT */}
-                    <div className="border-t border-white/5 pt-6 space-y-3">
-                        <h3 className="font-bold text-white mb-2">Kontakt & Support</h3>
-                        <div className="bg-[#1c1c1e] p-4 rounded-2xl border border-white/5 space-y-3">
-                            <p className="text-zinc-400 text-xs">
+                    <div className="border-t border-[var(--border-color)] pt-6 space-y-3">
+                        <h3 className="font-bold text-[var(--text-color)] mb-2">Kontakt & Support</h3>
+                        <div className="bg-[var(--card-bg)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
+                            <p className="text-[var(--text-secondary)] text-xs">
                                 Hast du Fragen, Feedback oder benötigst Hilfe?
                             </p>
                             <a href="mailto:support@trainq.app" className="flex items-center justify-center w-full py-3 bg-blue-600/10 text-blue-400 font-bold rounded-xl text-sm hover:bg-blue-600/20 transition-colors gap-2">
@@ -637,15 +734,15 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     </div>
 
                     {/* LEGAL LINKS */}
-                    <div className="border-t border-white/5 pt-6 space-y-4">
-                        <h3 className="font-bold text-white">Rechtliches</h3>
+                    <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
+                        <h3 className="font-bold text-[var(--text-color)]">Rechtliches</h3>
 
                         {/* Impressum */}
-                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2">
-                                <Building2 size={16} className="text-zinc-500" /> Impressum
+                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
+                            <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
+                                <Building2 size={16} className="text-[var(--text-secondary)]" /> Impressum
                             </h4>
-                            <p className="text-xs text-zinc-500 leading-relaxed font-mono">
+                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-mono">
                                 TrainQ Inc.<br />
                                 Musterstraße 1<br />
                                 10115 Berlin<br />
@@ -656,21 +753,21 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         </div>
 
                         {/* Privacy */}
-                        <div className="p-4 bg-[#1c1c1e] border border-white/5 rounded-2xl">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2">
-                                <FileText size={16} className="text-zinc-500" /> Datenschutz
+                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
+                            <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
+                                <FileText size={16} className="text-[var(--text-secondary)]" /> Datenschutz
                             </h4>
-                            <p className="text-xs text-zinc-500 mb-4">
+                            <p className="text-xs text-[var(--text-secondary)] mb-4">
                                 Deine Daten gehören dir. Wir speichern Trainingsdaten lokal auf deinem Gerät und nutzen Ende-zu-Ende Verschlüsselung für Backups.
                             </p>
-                            <button onClick={() => window.open("/privacy", "_system")} className="w-full py-2 bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg hover:bg-zinc-700 transition-colors">
+                            <button onClick={() => window.open("/privacy", "_system")} className="w-full py-2 bg-[var(--button-bg)] text-[var(--text-color)] text-xs font-bold rounded-lg hover:bg-[var(--button-bg)]/80 transition-colors">
                                 Datenschutzerklärung öffnen
                             </button>
                         </div>
                     </div>
 
                     <div className="pt-6 pb-8 text-center">
-                        <p className="text-[10px] text-zinc-700 font-mono uppercase tracking-widest">
+                        <p className="text-[10px] text-[var(--text-secondary)] opacity-50 font-mono uppercase tracking-widest">
                             © 2026 TrainQ Inc.
                         </p>
                     </div>

@@ -67,7 +67,7 @@ export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
                     <div className="text-3xl font-bold text-[var(--text)] mb-3">
                         {getLabel(current)}
                     </div>
-                    <p className="text-[var(--muted)] max-w-xs mx-auto text-base leading-relaxed">
+                    <p className="text-[var(--text-muted)] max-w-xs mx-auto text-base leading-relaxed">
                         {getDesc(current)}
                     </p>
                 </div>
@@ -82,8 +82,8 @@ const StarIcon: React.FC<{ filled: boolean }> = ({ filled }) => (
         width="44"
         height="44"
         viewBox="0 0 24 24"
-        fill={filled ? "var(--primary)" : "none"}
-        stroke={filled ? "var(--primary)" : "#64748B"}
+        fill={filled ? "var(--accent-color)" : "none"}
+        stroke={filled ? "var(--accent-color)" : "#64748B"}
         strokeWidth="1.5"
         className="transition-colors duration-300"
     >

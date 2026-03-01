@@ -73,7 +73,8 @@ function useRangeState() {
 }
 
 function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyValue[]; labelFormatter: (label: string) => string; }) {
-  const max = Math.max(1, ...series.map(s => s.value));
+  const seriesValues = series.map(s => s.value);
+  const max = seriesValues.length > 0 ? Math.max(1, ...seriesValues) : 1;
   return (
     <div className="h-40 flex items-end gap-2">
       {series.map(s => {
@@ -81,10 +82,10 @@ function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyVal
         const height = Math.max(2, (s.value / max) * 100);
         return (
           <div key={label} className="flex flex-1 flex-col items-center gap-2">
-            <div className="w-full bg-white/10 rounded-2xl" style={{ height: `${height}%`, minHeight: '4px' }}>
-              <div className="h-full w-full rounded-2xl bg-[var(--primary)]" style={{ boxShadow: "0 0 12px 0px var(--primarySoft)" }} />
+            <div className="w-full rounded-2xl" style={{ height: `${height}%`, minHeight: '4px', backgroundColor: "var(--input-bg)" }}>
+              <div className="h-full w-full rounded-2xl" style={{ backgroundColor: "var(--accent-color)", boxShadow: "0 0 12px 0px rgba(0, 122, 255, 0.3)" }} />
             </div>
-            <span className="text-xs text-gray-400 tabular-nums">{labelFormatter(label)}</span>
+            <span className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{labelFormatter(label)}</span>
           </div>
         );
       })}
@@ -125,11 +126,11 @@ function LineChart({ series }: { series: DailyValue[] }) {
 }
 
 const StatWidget: React.FC<{ title: string; value?: string; hint?: string; children?: React.ReactNode; className?: string; }> = ({ title, value = "—", hint, children, className }) => (
-  <div className={`rounded-[32px] p-8 bg-white/5 border border-white/10 backdrop-blur-xl flex flex-col justify-between ${className}`}>
+  <div className={`rounded-[32px] p-8 backdrop-blur-xl flex flex-col justify-between border ${className}`} style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
     <div>
-      <h3 className="text-lg font-bold text-gray-400">{title}</h3>
-      <p className="text-6xl font-black text-white tabular-nums mt-2">{value}</p>
-      {hint && <p className="text-sm text-gray-500 mt-1">{hint}</p>}
+      <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>{title}</h3>
+      <p className="text-6xl font-black tabular-nums mt-2" style={{ color: "var(--text-color)" }}>{value}</p>
+      {hint && <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{hint}</p>}
     </div>
     {children && <div className="mt-6">{children}</div>}
   </div>
@@ -183,7 +184,14 @@ export default function ProfileStatsDashboard(props: Props) {
     <div className="space-y-6 px-2">
       <div className="flex flex-wrap items-center gap-2">
         {(["7d", "4w", "12w"] as RangePreset[]).map(k => (
-          <button key={k} type="button" onClick={() => setPreset(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${preset === k ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface2)] border border-[var(--border)]'}`}>
+          <button key={k} type="button" onClick={() => setPreset(k)}
+            className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors border ${preset === k ? 'text-white shadow-lg' : 'hover:opacity-80'}`}
+            style={{
+              backgroundColor: preset === k ? "var(--accent-color)" : "var(--card-bg)",
+              borderColor: "var(--border-color)",
+              color: preset === k ? "#FFFFFF" : "var(--text-muted)"
+            }}
+          >
             {k === "7d" ? "7 Tage" : k === "4w" ? "4 Wochen" : "12 Wochen"}
           </button>
         ))}
@@ -191,7 +199,14 @@ export default function ProfileStatsDashboard(props: Props) {
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {(["overview", "strength", "volume", "load"] as StatsTab[]).map(k => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${tab === k ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface2)] border border-[var(--border)]'}`}>
+          <button key={k} type="button" onClick={() => setTab(k)}
+            className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors border ${tab === k ? 'text-white shadow-lg' : 'hover:opacity-80'}`}
+            style={{
+              backgroundColor: tab === k ? "var(--accent-color)" : "var(--card-bg)",
+              borderColor: "var(--border-color)",
+              color: tab === k ? "#FFFFFF" : "var(--text-muted)"
+            }}
+          >
             {k === "overview" ? "Übersicht" : k === "strength" ? "Kraft" : k === "volume" ? "Volumen" : "Belastung"}
           </button>
         ))}
@@ -210,9 +225,12 @@ export default function ProfileStatsDashboard(props: Props) {
 
         {tab === "strength" && (
           <>
-            <div className="rounded-[32px] p-8 bg-white/5 border border-white/10 backdrop-blur-xl md:col-span-2 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-400">Übung für e1RM</h3>
-              <select value={selectedExercise} onChange={e => setSelectedExercise(e.target.value)} className="rounded-2xl px-4 py-3 bg-black/20 border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500">
+            <div className="rounded-[32px] p-8 backdrop-blur-xl md:col-span-2 flex items-center justify-between border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+              <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>Übung für e1RM</h3>
+              <select value={selectedExercise} onChange={e => setSelectedExercise(e.target.value)}
+                className="rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 border"
+                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)", borderColor: "var(--border-color)" }}
+              >
                 {allExercises.length === 0 && <option value="">Keine Übungen</option>}
                 {allExercises.map(name => <option key={name} value={name}>{name}</option>)}
               </select>
@@ -240,14 +258,14 @@ export default function ProfileStatsDashboard(props: Props) {
             {hasSrpeData ? (
               <>
                 <div className="flex items-baseline gap-3">
-                  <p className="text-6xl font-black text-white tabular-nums">{Math.round(thisWeekLoad)} <span className="text-4xl">AU</span></p>
+                  <p className="text-6xl font-black tabular-nums" style={{ color: "var(--text-color)" }}>{Math.round(thisWeekLoad)} <span className="text-4xl">AU</span></p>
                   <div className={`text-lg font-bold px-3 py-1 rounded-full inline-block ${loadBadgeClass}`}>Δ {Math.round(loadDeltaPct)}%</div>
                 </div>
                 <div className="mt-6">
                   <BarChart series={loadByWeek} labelFormatter={formatWeekLabel} />
                 </div>
               </>
-            ) : <p className="text-lg text-gray-400">Keine sRPE Daten in Trainings erfasst.</p>}
+            ) : <p className="text-lg" style={{ color: "var(--text-muted)" }}>Keine sRPE Daten in Trainings erfasst.</p>}
           </StatWidget>
         )}
       </div>

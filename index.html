@@ -18,6 +18,39 @@
 
 <body>
   <div id="root"></div>
+  <!-- Persistent error overlay - always visible, outside React -->
+  <div id="trainq-error-overlay" style="display:none;position:fixed;inset:0;z-index:99999;padding:60px 20px 40px;font-family:system-ui;color:#ff3b30;background:#000;overflow-y:auto;"></div>
+  <script>
+    // Aggressive error catcher - shows ALL errors visually
+    var _errors = [];
+    function _showError(type, msg, detail) {
+      _errors.push({ type: type, msg: msg, detail: detail, time: new Date().toLocaleTimeString() });
+      var overlay = document.getElementById('trainq-error-overlay');
+      if (!overlay) return;
+      overlay.style.display = 'block';
+      var html = '<h2 style="color:white;margin-bottom:16px;font-size:18px;">TrainQ Crash (' + _errors.length + ' Fehler)</h2>';
+      for (var i = _errors.length - 1; i >= 0; i--) {
+        var e = _errors[i];
+        html += '<div style="margin-bottom:16px;padding:12px;background:rgba(255,59,48,0.15);border:1px solid rgba(255,59,48,0.3);border-radius:12px;">' +
+          '<div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">[' + e.time + '] ' + e.type + '</div>' +
+          '<p style="font-size:13px;word-break:break-all;margin:0;">' + e.msg + '</p>' +
+          (e.detail ? '<p style="font-size:10px;opacity:0.6;margin-top:6px;word-break:break-all;">' + e.detail + '</p>' : '') +
+          '</div>';
+      }
+      html += '<button onclick="document.getElementById(\'trainq-error-overlay\').style.display=\'none\'" style="margin-top:12px;padding:10px 24px;background:#333;color:white;border:none;border-radius:12px;font-weight:bold;margin-right:8px;">Schließen</button>';
+      html += '<button onclick="location.reload()" style="margin-top:12px;padding:10px 24px;background:#007AFF;color:white;border:none;border-radius:12px;font-weight:bold;">Neu laden</button>';
+      overlay.innerHTML = html;
+    }
+    window.onerror = function(msg, url, line, col, error) {
+      _showError('JS Error', String(msg), (url||'') + ':' + (line||'') + ':' + (col||'') + (error && error.stack ? '\n' + error.stack.substring(0, 500) : ''));
+    };
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e.reason;
+      var msg = reason ? (reason.message || String(reason)) : 'Unknown rejection';
+      var stack = reason && reason.stack ? reason.stack.substring(0, 500) : '';
+      _showError('Unhandled Promise', msg, stack);
+    });
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

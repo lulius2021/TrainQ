@@ -90,7 +90,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
           </div>
 
           <div className="flex-1 space-y-1">
-            <div className="text-[11px] text-[var(--muted)]">
+            <div className="text-[11px] text-[var(--text-muted)]">
               Benutzername
             </div>
             <input
@@ -98,7 +98,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
               placeholder="@deinname"
               value={profile.username}
               onChange={(e) => setProfileSafe((prev) => ({ ...prev, username: e.target.value }))}
-              className="w-full rounded-3xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--surface)] border border-white/10 text-[var(--text)] placeholder:text-[var(--muted)]"
+              className="w-full rounded-3xl px-3 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--card-bg)] border border-white/10 text-[var(--text)] placeholder:text-[var(--text-muted)]"
               autoCapitalize="none"
               autoCorrect="off"
             />
@@ -112,7 +112,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
           <div className="text-sm font-semibold text-[var(--text)]">
             Öffentlich
           </div>
-          <div className="text-[11px] text-[var(--muted)]">
+          <div className="text-[11px] text-[var(--text-muted)]">
             Profil sichtbar
           </div>
         </div>
@@ -121,7 +121,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
           type="button"
           onClick={() => setProfileSafe((prev) => ({ ...prev, isPublic: !prev.isPublic }))}
           aria-label="Profil öffentlich"
-          className={`w-[44px] h-[26px] rounded-full p-0.5 flex items-center border border-[var(--border)] transition-colors duration-200 ${profile.isPublic ? "bg-[var(--primary)] justify-end" : "bg-white/10 justify-start"}`}
+          className={`w-[44px] h-[26px] rounded-full p-0.5 flex items-center border border-[var(--border-color)] transition-colors duration-200 ${profile.isPublic ? "bg-[var(--accent-color)] justify-end" : "bg-white/10 justify-start"}`}
         >
           <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
         </button>
@@ -129,7 +129,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
 
       {/* Optional: Mini-Vorschau (kurz, kein Textblock) */}
       <AppCard variant="soft">
-        <div className="text-[11px] mb-2 text-[var(--muted)]">
+        <div className="text-[11px] mb-2 text-[var(--text-muted)]">
           Vorschau
         </div>
         <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export const Step5Profile: React.FC<Step5ProfileProps> = ({ onBack, onFinish }) 
             <div className="text-sm font-semibold truncate text-[var(--text)]">
               {usernameTrim || "Dein Name"}
             </div>
-            <div className="text-[11px] truncate text-[var(--muted)]">
+            <div className="text-[11px] truncate text-[var(--text-muted)]">
               {profile.isPublic ? "öffentlich" : "privat"}
             </div>
           </div>

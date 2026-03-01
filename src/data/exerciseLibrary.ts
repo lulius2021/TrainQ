@@ -475,7 +475,7 @@ function normalizeString(str: string): string {
 }
 
 // Helper: Levenshtein Distance for fuzzy matching
-function getLevenshteinDistance(a: string, b: string): number {
+export function getLevenshteinDistance(a: string, b: string): number {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
 

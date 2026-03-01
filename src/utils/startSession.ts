@@ -92,6 +92,19 @@ function toLocalISODate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+export function startFreeTraining(sport: TrainingType = "gym"): void {
+  const seedSport = mapTrainingTypeToSport(sport);
+  const isCardio = sport === "laufen" || sport === "radfahren";
+  const title =
+    sport === "laufen" ? "Laufen" :
+    sport === "radfahren" ? "Radfahren" :
+    sport === "custom" ? "Custom Training" :
+    "Freies Training";
+  const seed: LiveTrainingSeed = { title, sport: seedSport, isCardio, exercises: [] };
+  writeGlobalLiveSeed(seed);
+  navigateToLiveTraining();
+}
+
 export function startTrainingTemplate(template: TrainingTemplateLite): void {
   const seed = templateToSeed(template);
   const dateISO = toLocalISODate(new Date());

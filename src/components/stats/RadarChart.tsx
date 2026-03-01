@@ -85,8 +85,8 @@ export const RadarChart: React.FC<RadarChartProps> = ({
     if (!points) {
         return (
             <div
-                className={`flex items-center justify-center text-xs text-white/20 ${className}`}
-                style={{ width: size, height: size }}
+                className={`flex items-center justify-center text-xs ${className}`}
+                style={{ width: size, height: size, color: "var(--text-muted)" }}
             >
                 Zu wenig Daten
             </div>
@@ -116,7 +116,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({
                         y1={axis.y1}
                         x2={axis.x2}
                         y2={axis.y2}
-                        stroke="rgba(255,255,255,0.1)"
+                        stroke="var(--chart-grid)"
                         strokeWidth="1"
                         strokeDasharray="4 4"
                     />
@@ -128,7 +128,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({
                         key={`grid-${i}`}
                         d={pathStr}
                         fill="none"
-                        stroke="rgba(255,255,255,0.15)"
+                        stroke="var(--chart-grid)"
                         strokeWidth="1"
                     />
                 ))}

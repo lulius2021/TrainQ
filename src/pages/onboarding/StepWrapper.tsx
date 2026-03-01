@@ -51,7 +51,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
     <div
       className="h-full w-full flex flex-col"
       style={{
-        background: "var(--bg)",
+        background: "var(--bg-color)",
         // Padding top handled by content spacing mostly, but safe area needed
         paddingTop: "calc(env(safe-area-inset-top) + 12px)",
         paddingBottom: "120px", // space for fixed footer
@@ -80,14 +80,14 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
           {!hideProgress && (progressLabel || typeof progressValue === "number") && (
             <div className="mt-4">
               {progressLabel && (
-                <div className="text-xs font-medium text-[var(--muted)] mb-2">
+                <div className="text-xs font-medium text-[var(--text-muted)] mb-2">
                   {progressLabel}
                 </div>
               )}
               {typeof progressValue === "number" && (
-                <div className="h-1.5 w-full rounded-full bg-[var(--surface2)] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-[var(--button-bg)] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-all duration-300 ease-out"
+                    className="h-full rounded-full bg-[var(--accent-color)] transition-all duration-300 ease-out"
                     style={{
                       width: `${Math.round(Math.min(1, Math.max(0, progressValue)) * 100)}%`,
                     }}
@@ -106,7 +106,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
                 </h1>
               )}
               {subtitle && (
-                <p className="text-base text-[var(--muted)] leading-relaxed">
+                <p className="text-base text-[var(--text-muted)] leading-relaxed">
                   {subtitle}
                 </p>
               )}
