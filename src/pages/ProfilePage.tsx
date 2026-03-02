@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from "../hooks/useAuth";
 import { useEntitlements } from "../hooks/useEntitlements";
+import { track } from "../analytics/track";
 import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
 import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/shareProfile";
 
@@ -26,6 +27,9 @@ import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/s
 import SettingPage from "./SettingPage";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
+import RobotAvatarSvg from "../components/avatar/RobotAvatarSvg";
+import { useAvatarState } from "../store/useAvatarStore";
+import { STAGE_NAMES } from "../utils/avatarProgression";
 import { useStatistics, type TimeRange } from "../hooks/useStatistics";
 import { StatsChart } from "../components/stats/StatsChart";
 import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
@@ -194,13 +198,15 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
 
 const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
   const { user, logout } = useAuth();
-  const { isPro } = useEntitlements(user?.id);
+  const { isPro, canViewStatsRange } = useEntitlements(user?.id);
 
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
   }, [onOpenPaywall]);
+
+  const avatarState = useAvatarState();
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
@@ -626,8 +632,23 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               </div>
             </AppCard>
 
-            {/* ... rest of the page ... */}
-
+            {/* Robot Avatar */}
+            <AppCard variant="glass" className="flex items-center gap-4">
+              <div className="shrink-0">
+                <RobotAvatarSvg stage={avatarState.stage} variant={avatarState.variant} size={100} animate />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                  Stufe {avatarState.stage}
+                </p>
+                <p className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>
+                  {STAGE_NAMES[avatarState.stage] ?? "Prototyp"}
+                </p>
+                <p className="text-sm tabular-nums" style={{ color: "var(--text-secondary)" }}>
+                  {avatarState.totalXp} XP gesamt
+                </p>
+              </div>
+            </AppCard>
 
             {(copyFeedback || shareFeedback) && (
               <AppCard variant="soft" className="px-4 py-2 text-sm text-center">
@@ -662,20 +683,32 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 <div className="flex items-center justify-between px-1 mt-6">
                   <h3 className="text-lg font-semibold text-[var(--text-color)]">Dein Fortschritt</h3>
                   <div className="flex items-center p-1 rounded-lg border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
-                    {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
-                      <button
-                        key={tr}
-                        onClick={() => setTimeRange(tr)}
-                        className="px-3 py-1 text-xs font-medium rounded-md transition-all"
-                        style={{
-                          backgroundColor: timeRange === tr ? "var(--card-bg)" : "transparent",
-                          color: timeRange === tr ? "var(--text-color)" : "var(--text-muted)",
-                          boxShadow: timeRange === tr ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
-                        }}
-                      >
-                        {tr}
-                      </button>
-                    ))}
+                    {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => {
+                      const locked = !canViewStatsRange(tr);
+                      return (
+                        <button
+                          key={tr}
+                          onClick={() => {
+                            if (locked) {
+                              window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "stats_history_limit" } }));
+                              track("feature_blocked", { featureKey: "HISTORY_BEYOND_30_DAYS", contextScreen: "profile" });
+                              return;
+                            }
+                            setTimeRange(tr);
+                          }}
+                          className="px-3 py-1 text-xs font-medium rounded-md transition-all relative"
+                          style={{
+                            backgroundColor: timeRange === tr ? "var(--card-bg)" : "transparent",
+                            color: locked ? "var(--text-muted)" : timeRange === tr ? "var(--text-color)" : "var(--text-muted)",
+                            boxShadow: timeRange === tr ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          {tr}
+                          {locked && <span className="ml-0.5 text-[9px] align-super">Pro</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

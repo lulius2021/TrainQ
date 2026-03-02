@@ -56,6 +56,8 @@ import {
 } from "../../utils/trainingHistory";
 
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
+import { grantWorkoutXp } from "../../store/useAvatarStore";
+import AvatarStageUpModal from "../../components/avatar/AvatarStageUpModal";
 import { buildPRBaseline, checkSetPR, type PRBaseline } from "../../utils/prDetection";
 import { getWeightSuggestion, type WeightSuggestion } from "../../utils/weightSuggestion";
 import { calculateWarmupSets } from "../../utils/warmupCalculator";
@@ -247,6 +249,8 @@ export default function LiveTrainingPage({
   const [prBaseline, setPrBaseline] = useState<Map<string, PRBaseline> | null>(null);
   const [prSets, setPrSets] = useState<Set<string>>(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
+  const [stageUpData, setStageUpData] = useState<{ stage: number; variant: "bulk" | "speed" } | null>(null);
+  const [xpToast, setXpToast] = useState<number | null>(null);
 
   const { theme } = useTheme();
 
@@ -1119,6 +1123,17 @@ export default function LiveTrainingPage({
     markCalendarEvent("completed", completed.id);
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
+
+    // Grant avatar XP
+    const { granted, stageUp } = grantWorkoutXp(completed);
+    if (granted > 0) setXpToast(granted);
+
+    if (stageUp) {
+      setStageUpData(stageUp);
+      // Delay exit until modal is dismissed
+      return;
+    }
+
     if (typeof onShareWorkout === "function") {
       onShareWorkout(completed.id);
     } else {
@@ -1490,6 +1505,29 @@ export default function LiveTrainingPage({
             </div>
           </div>
         )}
+
+        {/* XP Toast */}
+        {xpToast !== null && (
+          <div
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-green-500/90 text-white font-bold text-sm shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
+            onAnimationEnd={() => setTimeout(() => setXpToast(null), 1500)}
+          >
+            +{xpToast} XP
+          </div>
+        )}
+
+        {/* Stage-Up Modal */}
+        <AvatarStageUpModal
+          data={stageUpData}
+          onDismiss={() => {
+            setStageUpData(null);
+            if (typeof onShareWorkout === "function" && workout) {
+              // workout was already completed; completed entry id is in lastWorkoutId
+            } else {
+              onExit();
+            }
+          }}
+        />
 
       </LiveTrainingErrorBoundary>
     </>

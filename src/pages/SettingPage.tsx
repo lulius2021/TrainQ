@@ -41,6 +41,8 @@ import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { DataService } from "../services/DataService";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { ProfileService } from "../services/ProfileService"; // Import ProfileService
+import GarminIntegrationModal from "../components/settings/GarminIntegrationModal";
+import { useGarminConnection } from "../hooks/useGarminConnection";
 
 // --- TYPES ---
 type SettingsRowProps = {
@@ -52,7 +54,7 @@ type SettingsRowProps = {
     isDestructive?: boolean;
 };
 
-type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 'legal' | null;
+type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 'legal' | 'integrations' | null;
 
 // --- COMPONENTS ---
 
@@ -250,6 +252,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [showLangModal, setShowLangModal] = useState(false);
+    const { connected: garminConnected } = useGarminConnection();
 
     // -- Profile State --
     const [profileName, setProfileName] = useState("");
@@ -468,6 +471,17 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         label="Verlauf löschen"
                         onClick={handleClearHistoryAction}
                         isDestructive
+                    />
+                </Section>
+
+                {/* SECTION: INTEGRATIONS */}
+                <Section title={t("settings.section.integrations", "Integrationen")}>
+                    <SettingsRow
+                        icon={Activity}
+                        iconColor="bg-emerald-500"
+                        label={t("settings.integrations.garmin")}
+                        value={garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
+                        onClick={() => setActiveModal('integrations')}
                     />
                 </Section>
 
@@ -773,6 +787,9 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     </div>
                 </div>
             </SettingsModal>
+
+            {/* GARMIN INTEGRATION MODAL */}
+            <GarminIntegrationModal isOpen={activeModal === 'integrations'} onClose={() => setActiveModal(null)} />
 
         </div>
     );

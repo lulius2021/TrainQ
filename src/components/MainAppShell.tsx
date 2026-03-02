@@ -18,6 +18,10 @@ import TermsPage from "../pages/legal/TermsPage";
 import CsvImportPage from "../pages/CsvImportPage";
 import ChallengesPage from "../pages/ChallengesPage";
 import NutritionPage from "../pages/NutritionPage";
+import CommunityPage from "../pages/community/CommunityPage";
+import PostDetailPage from "../pages/community/PostDetailPage";
+import CommunityProfilePage from "../pages/community/CommunityProfilePage";
+import NotificationsPage from "../pages/community/NotificationsPage";
 
 // Components
 import { MainLayout } from "../layouts/MainLayout";
@@ -32,6 +36,7 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
 import { loadNotificationPrefs } from "../utils/notificationStorage";
 import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
+import { track } from "../analytics/track";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
 import { resolveLiveSeed, writeLiveSeedForEventOrKey } from "../utils/liveTrainingSeed";
@@ -68,6 +73,10 @@ type AppRoute =
     | "/calendar"
     | "/plan"
     | "/profile"
+    | "/community"
+    | "/community/post"
+    | "/community/profile"
+    | "/community/notifications"
     | "/live-training"
     | "/debug/trainq"
     | "/workout-share"
@@ -193,6 +202,10 @@ function getRouteFromLocation(): AppRoute {
     if (path === "/import-csv") return "/import-csv";
     if (path === "/challenges") return "/challenges";
     if (path === "/nutrition") return "/nutrition";
+    if (path === "/community/post") return "/community/post";
+    if (path === "/community/profile") return "/community/profile";
+    if (path === "/community/notifications") return "/community/notifications";
+    if (path === "/community") return "/community";
     if (path.startsWith("/u/")) return "/public-profile";
     return "/";
 }
@@ -344,6 +357,7 @@ const MainAppShell: React.FC = () => {
         if (path === "/dashboard") return "dashboard";
         if (path === "/calendar") return "calendar";
         if (path === "/plan") return "plan";
+        if (path === "/community" || path.startsWith("/community/")) return "community";
         if (path === "/profile") return "profile";
         return "today"; // Default /train -> today tab
     });
@@ -360,7 +374,11 @@ const MainAppShell: React.FC = () => {
 
     const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
 
-    const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining } = useEntitlements(userId);
+    // Community sub-navigation state
+    const [communityPostId, setCommunityPostId] = useState<string | null>(null);
+    const [communityProfileId, setCommunityProfileId] = useState<string | null>(null);
+
+    const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining, suggestionsRemaining } = useEntitlements(userId);
     const [paywallOpen, setPaywallOpen] = useState(false);
     const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
 
@@ -456,6 +474,8 @@ const MainAppShell: React.FC = () => {
                 setActiveTab("calendar");
             } else if (nextRoute === "/plan") {
                 setActiveTab("plan");
+            } else if (nextRoute === "/community") {
+                setActiveTab("community");
             } else if (nextRoute === "/profile") {
                 setActiveTab("profile");
             } else if (nextRoute === "/workout-share") {
@@ -487,6 +507,8 @@ const MainAppShell: React.FC = () => {
                 setActiveTab("calendar");
             } else if (next === "/plan") {
                 setActiveTab("plan");
+            } else if (next === "/community") {
+                setActiveTab("community");
             } else if (next === "/profile") {
                 setActiveTab("profile");
             } else if (next === "/workout-share") {
@@ -520,6 +542,34 @@ const MainAppShell: React.FC = () => {
         };
     }, [userId]);
 
+    // Deep link listener for Garmin OAuth callback
+    useEffect(() => {
+        let cleanup: (() => void) | undefined;
+        import("@capacitor/app").then(({ App: CapApp }) => {
+            const promise = CapApp.addListener("appUrlOpen", (event: { url: string }) => {
+                if (event.url.includes("garmin-callback")) {
+                    try {
+                        const url = new URL(event.url);
+                        const status = url.searchParams.get("status");
+                        if (status === "success") {
+                            window.dispatchEvent(new CustomEvent("trainq:garmin_connected"));
+                        } else {
+                            window.dispatchEvent(new CustomEvent("trainq:garmin_error", {
+                                detail: { message: url.searchParams.get("message") },
+                            }));
+                        }
+                    } catch {
+                        // URL parsing failed, ignore
+                    }
+                }
+            });
+            cleanup = () => { promise.then((l) => l.remove()); };
+        }).catch(() => {
+            // @capacitor/app not available (web-only)
+        });
+        return () => { cleanup?.(); };
+    }, []);
+
     // Redirect root to /train
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -548,7 +598,7 @@ const MainAppShell: React.FC = () => {
     useEffect(() => {
         if (typeof window === "undefined") return;
         const onOpenSettings = () => { setActiveTab("profile"); setProfileScreen("settings"); };
-        const onOpenPaywall = () => { if (isPro) return; setPaywallReason("calendar_7days"); setPaywallOpen(true); };
+        const onOpenPaywall = (e: Event) => { if (isPro) return; const reason = (e as CustomEvent)?.detail?.reason; setPaywallReason(reason || "calendar_7days"); setPaywallOpen(true); };
         window.addEventListener("trainq:open_settings", onOpenSettings as EventListener);
         window.addEventListener("trainq:open_paywall", onOpenPaywall as EventListener);
         return () => {
@@ -572,8 +622,8 @@ const MainAppShell: React.FC = () => {
         return !!document.querySelector('[data-overlay-open="true"]');
     }, [paywallOpen]);
 
-    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
-    const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/profile";
+    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "community", "profile"];
+    const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/community" || route === "/profile";
     const tabSwipeEnabled = isTabRoute && profileScreen === "profile" && !paywallOpen;
 
     useTabSwipeNavigation({
@@ -682,8 +732,9 @@ const MainAppShell: React.FC = () => {
             await purchaseSubscription(plan);
             const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
             if (!nextIsPro) alert("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
+            else track("monetization_purchase_success", { plan });
             setPaywallOpen(false);
-        } catch (e: any) { alert(String(e?.message ?? "Kauf fehlgeschlagen.")); }
+        } catch (e: any) { track("monetization_purchase_failed", { plan, error: String(e?.message ?? "unknown") }); alert(String(e?.message ?? "Kauf fehlgeschlagen.")); }
     }, [user]);
 
     const handleRestorePurchases = useCallback(async () => {
@@ -694,6 +745,7 @@ const MainAppShell: React.FC = () => {
             const nextIsPro = await restorePurchases();
             await syncProToSession({ id: user.id, email: user.email });
             if (!nextIsPro) alert("Kein aktives Abo gefunden.");
+            else track("monetization_restore_success", {});
             setPaywallOpen(false);
         } catch (e: any) { alert(String(e?.message ?? "Wiederherstellung fehlgeschlagen.")); }
     }, [user]);
@@ -714,6 +766,9 @@ const MainAppShell: React.FC = () => {
     if (route === "/import-csv") return <div className="w-full h-full overflow-y-auto"><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></div>;
     if (route === "/challenges") return <div className="w-full h-full overflow-y-auto"><ChallengesPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
     if (route === "/nutrition") return <div className="w-full h-full overflow-y-auto"><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
+    if (route === "/community/post" && communityPostId && userId) return <div className="w-full h-full overflow-hidden"><PostDetailPage postId={communityPostId} viewerId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); setCommunityPostId(null); }} onAuthorTap={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} onPostDeleted={() => {}} /></div>;
+    if (route === "/community/profile" && communityProfileId && userId) return <div className="w-full h-full overflow-hidden"><CommunityProfilePage profileUserId={communityProfileId} viewerId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); setCommunityProfileId(null); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} /></div>;
+    if (route === "/community/notifications" && userId) return <div className="w-full h-full overflow-hidden"><NotificationsPage userId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} /></div>;
 
     // ---------- App Layout via MainLayout ----------
 
@@ -726,6 +781,7 @@ const MainAppShell: React.FC = () => {
                 else if (next === "dashboard") { pushRoute("/dashboard"); setRoute("/dashboard"); }
                 else if (next === "calendar") { pushRoute("/calendar"); setRoute("/calendar"); }
                 else if (next === "plan") { pushRoute("/plan"); setRoute("/plan"); }
+                else if (next === "community") { pushRoute("/community"); setRoute("/community"); }
                 else if (next === "profile") { pushRoute("/profile"); setRoute("/profile"); }
 
                 if (next !== "profile") setProfileScreen("profile");
@@ -762,6 +818,14 @@ const MainAppShell: React.FC = () => {
 
             {isTabRoute && activeTab === "plan" && (
                 <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />
+            )}
+
+            {isTabRoute && activeTab === "community" && userId && (
+                <CommunityPage
+                    onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }}
+                    onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }}
+                    onOpenNotifications={() => { pushRoute("/community/notifications"); setRoute("/community/notifications"); }}
+                />
             )}
 
             {isTabRoute && activeTab === "profile" && (

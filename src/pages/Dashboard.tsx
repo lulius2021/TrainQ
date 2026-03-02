@@ -16,7 +16,8 @@ import {
   Zap,
   MapPin,
   Route,
-  Timer
+  Timer,
+  Users
 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
@@ -32,6 +33,8 @@ import type { DeloadPlan } from '../types/deload';
 import type { AdaptiveSuggestion, AdaptiveAnswers } from '../types/adaptive';
 import { useTheme } from '../context/ThemeContext';
 import { getActiveUserId } from '../utils/session';
+import { useEntitlements } from '../hooks/useEntitlements';
+import { track } from '../analytics/track';
 import WorkoutPlannerModal from '../components/training/WorkoutPlannerModal';
 import ShiftPlanModal from '../components/training/ShiftPlanModal';
 import AdaptiveTrainingModal from '../components/adaptive/AdaptiveTrainingModal';
@@ -48,6 +51,7 @@ import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHi
 import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
+import AvatarDashboardSection from '../components/avatar/AvatarDashboardSection';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
@@ -224,6 +228,8 @@ const DashboardPage = () => {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showToast, setShowToast] = useState(false); // For visual feedback
   const { mode } = useTheme();
+  const userId = getActiveUserId();
+  const { isPro, adaptiveBCRemaining, canUseSuggestion, consumeSuggestion } = useEntitlements(userId ?? undefined);
 
   // Weekly Goal State
   const [weeklyMinutes, setWeeklyMinutes] = useState(0);
@@ -438,6 +444,11 @@ const DashboardPage = () => {
   const [showAdaptiveModal, setShowAdaptiveModal] = useState(false);
 
   const handleOpenAdaptive = () => {
+    if (!canUseSuggestion()) {
+      window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "suggestion_weekly_limit" } }));
+      track("feature_blocked", { featureKey: "ADAPTIVE_SUGGESTION", contextScreen: "dashboard" });
+      return;
+    }
     // Fire-and-forget haptics — don't await (can hang on simulator)
     try { Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}); } catch { /* ignore */ }
     setShowAdaptiveModal(true);
@@ -453,6 +464,8 @@ const DashboardPage = () => {
     };
     const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
     writeGlobalLiveSeed(adaptedSeed);
+    consumeSuggestion();
+    track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile });
     setShowAdaptiveModal(false);
     window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training" } }));
   };
@@ -649,6 +662,27 @@ const DashboardPage = () => {
         {/* ACTIVE CHALLENGES */}
         <DashboardChallengeWidget />
 
+        {/* COMMUNITY */}
+        <div>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Community</h3>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/community" } }))}
+            className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shrink-0">
+              <Users size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-[var(--text-color)]">Community entdecken</div>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">Teile Workouts und folge anderen Athleten.</p>
+            </div>
+            <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
+          </button>
+        </div>
+
+        {/* ROBOT AVATAR PROGRESSION */}
+        <AvatarDashboardSection />
+
       </div>
 
 
@@ -664,7 +698,8 @@ const DashboardPage = () => {
         plannedWorkoutType="Push"
         splitType="push_pull"
         onSelect={handleAdaptiveSelect}
-        isPro={true}
+        isPro={isPro}
+        adaptiveLeftBC={adaptiveBCRemaining}
       />
 
       {showPlanModal && (

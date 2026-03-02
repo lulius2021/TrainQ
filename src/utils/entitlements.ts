@@ -9,7 +9,14 @@ import { getActiveIsPro, userScopedKey } from "./session";
 
 /* ---------------------------------- Types --------------------------------- */
 
-export type PaywallReason = "plan_shift" | "calendar_7days" | "adaptive_limit";
+export type PaywallReason =
+  | "plan_shift"
+  | "calendar_7days"
+  | "adaptive_limit"
+  | "suggestion_weekly_limit"
+  | "stats_history_limit"
+  | "active_plan_limit"
+  | "template_limit";
 
 export type EntitlementsState = {
   // ⚠️ NICHT persisted – wird beim Laden aus Account/Session gesetzt
@@ -23,6 +30,9 @@ export type EntitlementsState = {
 
   calendar7DaysUsedThisMonth: number;
   calendar7DaysMonthKey: string;
+
+  suggestionsUsedThisWeek: number;
+  suggestionsWeekKey: string; // z.B. "2026-W10"
 };
 
 type PersistedEntitlementsState = Omit<EntitlementsState, "isPro">;
@@ -36,6 +46,10 @@ export const FREE_LIMITS = {
   adaptiveBCPerMonth: 5,
   planShiftPerMonth: 5,
   calendar7DaysPerMonth: 3,
+  suggestionsPerWeek: 3,
+  historyDaysFree: 30,
+  savedPlansFree: 2,
+  templatesFree: 5,
 } as const;
 
 /* --------------------------------- Helpers --------------------------------- */
@@ -44,6 +58,15 @@ function getMonthKey(date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   return `${y}-${m}`;
+}
+
+function getWeekKey(date = new Date()): string {
+  const d = new Date(date.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+  const dayOfWeek = d.getDay() || 7; // Monday=1 ... Sunday=7
+  d.setDate(d.getDate() + 4 - dayOfWeek); // Thursday of this week
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
 
 function isBCProfile(profile: AdaptiveSuggestion["profile"]): boolean {
@@ -66,6 +89,7 @@ function emitEntitlementsChanged(): void {
 
 function makeDefaultPersisted(): PersistedEntitlementsState {
   const mk = getMonthKey();
+  const wk = getWeekKey();
   return {
     adaptiveBCUsedThisMonth: 0,
     adaptiveMonthKey: mk,
@@ -73,6 +97,8 @@ function makeDefaultPersisted(): PersistedEntitlementsState {
     planShiftMonthKey: mk,
     calendar7DaysUsedThisMonth: 0,
     calendar7DaysMonthKey: mk,
+    suggestionsUsedThisWeek: 0,
+    suggestionsWeekKey: wk,
   };
 }
 
@@ -102,6 +128,7 @@ export function loadEntitlements(userId?: string, isProOverride?: boolean): Enti
 
     const parsed = JSON.parse(raw) as Partial<PersistedEntitlementsState>;
     const currentMonth = getMonthKey();
+    const currentWeek = getWeekKey();
 
     const nextPersisted: PersistedEntitlementsState = {
       adaptiveBCUsedThisMonth:
@@ -115,15 +142,21 @@ export function loadEntitlements(userId?: string, isProOverride?: boolean): Enti
       calendar7DaysUsedThisMonth:
         parsed.calendar7DaysMonthKey === currentMonth ? clampInt(parsed.calendar7DaysUsedThisMonth, 0) : 0,
       calendar7DaysMonthKey: currentMonth,
+
+      suggestionsUsedThisWeek:
+        parsed.suggestionsWeekKey === currentWeek ? clampInt(parsed.suggestionsUsedThisWeek, 0) : 0,
+      suggestionsWeekKey: currentWeek,
     };
 
     const needsPersist =
       parsed.adaptiveMonthKey !== currentMonth ||
       parsed.planShiftMonthKey !== currentMonth ||
       parsed.calendar7DaysMonthKey !== currentMonth ||
+      parsed.suggestionsWeekKey !== currentWeek ||
       typeof parsed.adaptiveBCUsedThisMonth !== "number" ||
       typeof parsed.planShiftUsedThisMonth !== "number" ||
-      typeof parsed.calendar7DaysUsedThisMonth !== "number";
+      typeof parsed.calendar7DaysUsedThisMonth !== "number" ||
+      typeof parsed.suggestionsUsedThisWeek !== "number";
 
     if (needsPersist) {
       saveEntitlements(mergeIsPro(nextPersisted, isPro), userId);
@@ -148,6 +181,8 @@ export function saveEntitlements(state: EntitlementsState, userId?: string): voi
     planShiftMonthKey: String(state.planShiftMonthKey || getMonthKey()),
     calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0),
     calendar7DaysMonthKey: String(state.calendar7DaysMonthKey || getMonthKey()),
+    suggestionsUsedThisWeek: clampInt(state.suggestionsUsedThisWeek, 0),
+    suggestionsWeekKey: String(state.suggestionsWeekKey || getWeekKey()),
   };
 
   try {
@@ -222,6 +257,46 @@ export function consumeCalendar7Days(state: EntitlementsState): EntitlementsStat
   }
 
   return { ...state, calendar7DaysUsedThisMonth: clampInt(state.calendar7DaysUsedThisMonth, 0) + 1 };
+}
+
+/* ----------------------------- Suggestion Logic ----------------------------- */
+
+export function canUseSuggestion(state: EntitlementsState): boolean {
+  if (state.isPro) return true;
+  const currentWeek = getWeekKey();
+  const used = state.suggestionsWeekKey === currentWeek
+    ? clampInt(state.suggestionsUsedThisWeek, 0) : 0;
+  return used < FREE_LIMITS.suggestionsPerWeek;
+}
+
+export function consumeSuggestion(state: EntitlementsState): EntitlementsState {
+  if (state.isPro) return state;
+  const currentWeek = getWeekKey();
+  if (state.suggestionsWeekKey !== currentWeek) {
+    return { ...state, suggestionsUsedThisWeek: 1, suggestionsWeekKey: currentWeek };
+  }
+  return { ...state, suggestionsUsedThisWeek: clampInt(state.suggestionsUsedThisWeek, 0) + 1 };
+}
+
+/* --------------------------- Stats History Logic --------------------------- */
+
+export function canViewStatsRange(state: EntitlementsState, range: string): boolean {
+  if (state.isPro) return true;
+  return range === "1W" || range === "1M";
+}
+
+/* ----------------------------- Plan Count Logic ----------------------------- */
+
+export function canCreatePlan(state: EntitlementsState, currentCount: number): boolean {
+  if (state.isPro) return true;
+  return currentCount < FREE_LIMITS.savedPlansFree;
+}
+
+/* --------------------------- Template Count Logic --------------------------- */
+
+export function canCreateTemplate(state: EntitlementsState, currentCount: number): boolean {
+  if (state.isPro) return true;
+  return currentCount < FREE_LIMITS.templatesFree;
 }
 
 /* --------------------- Backward-compat (alte Imports) ---------------------- */

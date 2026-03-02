@@ -12,6 +12,11 @@ import {
   consumePlanShift,
   canUseCalendar7Days,
   consumeCalendar7Days,
+  canUseSuggestion as canUseSuggestionUtil,
+  consumeSuggestion as consumeSuggestionUtil,
+  canViewStatsRange as canViewStatsRangeUtil,
+  canCreatePlan as canCreatePlanUtil,
+  canCreateTemplate as canCreateTemplateUtil,
   type EntitlementsState,
 } from "../utils/entitlements";
 import { onSessionChanged } from "../utils/session";
@@ -81,6 +86,12 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
     return Math.max(0, FREE_LIMITS.calendar7DaysPerMonth - used);
   }, [isPro, state.calendar7DaysUsedThisMonth]);
 
+  const suggestionsRemaining = useMemo(() => {
+    if (isPro) return Number.MAX_SAFE_INTEGER;
+    const used = typeof state.suggestionsUsedThisWeek === "number" ? state.suggestionsUsedThisWeek : 0;
+    return Math.max(0, FREE_LIMITS.suggestionsPerWeek - used);
+  }, [isPro, state.suggestionsUsedThisWeek]);
+
   // ---------- Checks ----------
 
   const canUseAdaptive = useCallback(
@@ -91,6 +102,23 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
   const canUseShift = useCallback(() => canUsePlanShift(state), [state]);
 
   const canUseCalendar7 = useCallback(() => canUseCalendar7Days(state), [state]);
+
+  const canUseSuggestion = useCallback(() => canUseSuggestionUtil(state), [state]);
+
+  const canViewStatsRange = useCallback(
+    (range: string) => canViewStatsRangeUtil(state, range),
+    [state]
+  );
+
+  const canCreatePlan = useCallback(
+    (count: number) => canCreatePlanUtil(state, count),
+    [state]
+  );
+
+  const canCreateTemplate = useCallback(
+    (count: number) => canCreateTemplateUtil(state, count),
+    [state]
+  );
 
   // ---------- Consume ----------
 
@@ -118,12 +146,20 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
     return next;
   }, [state, userId]);
 
+  const consumeSuggestion = useCallback(() => {
+    const next = consumeSuggestionUtil(state);
+    saveEntitlements(next, userId);
+    setState(next);
+    return next;
+  }, [state, userId]);
+
   return {
     isPro,
 
     adaptiveBCRemaining,
     planShiftRemaining,
     calendar7DaysRemaining,
+    suggestionsRemaining,
 
     canUseAdaptive,
     consumeAdaptive,
@@ -133,5 +169,12 @@ export function useEntitlements(userId?: string, isProFromAccount?: boolean) {
 
     canUseCalendar7,
     consumeCalendar7,
+
+    canUseSuggestion,
+    consumeSuggestion,
+
+    canViewStatsRange,
+    canCreatePlan,
+    canCreateTemplate,
   };
 }

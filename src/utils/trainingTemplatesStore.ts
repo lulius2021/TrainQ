@@ -7,6 +7,7 @@ export type TemplateSet = {
 };
 
 export type TemplateExercise = {
+  exerciseId?: string;
   name: string;
   sets?: TemplateSet[];
 };
@@ -71,6 +72,7 @@ function normalizeTemplate(input: any): TrainingTemplateLite | null {
     description: typeof input.description === "string" ? input.description : undefined,
     exercises: Array.isArray(input.exercises)
       ? input.exercises.map((ex: any) => ({
+          exerciseId: typeof ex?.exerciseId === "string" ? ex.exerciseId : undefined,
           name: String(ex?.name || "Übung"),
           sets: Array.isArray(ex?.sets)
             ? ex.sets.map((s: any) => ({

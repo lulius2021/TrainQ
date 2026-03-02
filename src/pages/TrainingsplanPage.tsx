@@ -34,6 +34,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../theme/ThemeContext";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { FREE_LIMITS } from "../utils/entitlements";
+import { track } from "../analytics/track";
 
 import type { TranslationKey } from "../i18n/index";
 import {
@@ -1008,7 +1009,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [previewTemplate, setPreviewTemplate] = useState<WeeklyPlanTemplate | RoutinePlanTemplate | null>(null);
 
   // ✅ Entitlements
-  const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
+  const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining, canCreatePlan } = useEntitlements();
   const effectiveIsPro = isProEnt || isProProp;
   const requirePro = useProGuard();
 
@@ -1323,6 +1324,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       const existingPlans = loadTrainingPlanTemplates(userId ?? "");
       const existingPlan = existingPlans.find((p) => p.kind === "weekly" && p.name === planName);
+
+      // Gate: max saved plans for free users (only when creating new, not updating existing)
+      if (!existingPlan && !canCreatePlan(existingPlans.length)) {
+        window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "active_plan_limit" } }));
+        track("feature_blocked", { featureKey: "CREATE_ACTIVE_PLAN", contextScreen: "plan" });
+        return;
+      }
       const planId = existingPlan?.id ?? makeTemplateId();
 
       const now = new Date().toISOString();
@@ -1513,6 +1521,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
       const existingPlans = loadTrainingPlanTemplates(userId ?? "");
       const existingPlan = existingPlans.find((p) => p.kind === "routine" && p.name === planName);
+
+      // Gate: max saved plans for free users (only when creating new, not updating existing)
+      if (!existingPlan && !canCreatePlan(existingPlans.length)) {
+        window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "active_plan_limit" } }));
+        track("feature_blocked", { featureKey: "CREATE_ACTIVE_PLAN", contextScreen: "plan" });
+        return;
+      }
       const planId = existingPlan?.id ?? makeTemplateId();
 
       const now = new Date().toISOString();

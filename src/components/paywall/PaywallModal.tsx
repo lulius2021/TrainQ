@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import type { PaywallReason } from "../../utils/entitlements";
 import { useI18n } from "../../i18n/useI18n";
+import { track } from "../../analytics/track";
 
 type Props = {
   open: boolean;
@@ -25,6 +26,10 @@ type Props = {
 function reasonTitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
   if (reason === "adaptive_limit") return t("paywall.reason.adaptive");
   if (reason === "plan_shift") return t("paywall.reason.planShift");
+  if (reason === "suggestion_weekly_limit") return t("paywall.reason.suggestionLimit");
+  if (reason === "stats_history_limit") return t("paywall.reason.statsLimit");
+  if (reason === "active_plan_limit") return t("paywall.reason.planLimit");
+  if (reason === "template_limit") return t("paywall.reason.templateLimit");
   return t("paywall.reason.calendar");
 }
 
@@ -53,11 +58,12 @@ export default function PaywallModal(props: Props) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
+      track("monetization_paywall_viewed", { reason });
     }
     return () => {
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, [open, reason]);
 
   if (!open) return null;
 
@@ -96,7 +102,7 @@ export default function PaywallModal(props: Props) {
           </h2>
 
           <p className="max-w-[85%] mx-auto text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-            {reason === "adaptive_limit" || reason === "plan_shift" ? reasonTitle(t, reason) : t("paywall.title")}
+            {reason !== "calendar_7days" ? reasonTitle(t, reason) : t("paywall.title")}
           </p>
 
           {/* Feature List */}
@@ -118,7 +124,7 @@ export default function PaywallModal(props: Props) {
             {/* Yearly - HERO */}
             <button
               type="button"
-              onClick={onBuyYearly}
+              onClick={() => { track("monetization_upgrade_clicked", { plan: "yearly", reason }); onBuyYearly(); }}
               className="relative w-full group overflow-hidden rounded-2xl border-2 border-[#007AFF] bg-[#007AFF]/20 p-4 text-left transition-all active:scale-[0.98]"
             >
               <div className="absolute top-0 right-0 rounded-bl-xl bg-[#007AFF] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
@@ -139,7 +145,7 @@ export default function PaywallModal(props: Props) {
             {/* Monthly */}
             <button
               type="button"
-              onClick={onBuyMonthly}
+              onClick={() => { track("monetization_upgrade_clicked", { plan: "monthly", reason }); onBuyMonthly(); }}
               className="relative w-full rounded-2xl border border-[var(--border-color)] bg-[var(--button-bg)] p-4 text-left transition-all hover:opacity-80 active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
@@ -154,7 +160,7 @@ export default function PaywallModal(props: Props) {
           {/* Main CTA */}
           <button
             type="button"
-            onClick={onBuyYearly}
+            onClick={() => { track("monetization_upgrade_clicked", { plan: "yearly", reason }); onBuyYearly(); }}
             className="mt-6 w-full rounded-2xl bg-gradient-to-r from-[#007AFF] to-[#0055BB] py-4 text-lg font-bold text-white shadow-lg shadow-blue-500/30 transition-transform active:scale-[0.97] hover:scale-[1.01]"
           >
             Jetzt Pro aktivieren

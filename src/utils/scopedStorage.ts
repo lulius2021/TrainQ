@@ -80,6 +80,7 @@ export function migrateUserStorage(userId: string): void {
     "trainq_nutrition_goals_v1",
     "trainq_custom_foods_v1",
     "trainq_nutrition_last_sync_v1",
+    "trainq_avatar_v1",
   ];
 
   keys.forEach((k) => migrateLegacyKey(k, userId));
@@ -123,6 +124,7 @@ export function clearUserScopedData(userId: string): void {
     "trainq_nutrition_goals_v1",
     "trainq_custom_foods_v1",
     "trainq_nutrition_last_sync_v1",
+    "trainq_avatar_v1",
   ];
 
   keys.forEach((k) => removeScopedItem(k, userId));
