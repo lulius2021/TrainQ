@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
 import { useI18n } from "../../i18n/useI18n";
-import { motion, AnimatePresence, useAnimation } from "framer-motion";
+import { AnimatePresence, useAnimation } from "framer-motion";
+import { MotionDiv } from "../ui/Motion";
 import { Info, MoreHorizontal, X, Plus, Trash2 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import type { WeightSuggestion } from "../../utils/weightSuggestion";
@@ -27,6 +28,7 @@ function uid(): string {
 
 function useSwipeToDismiss(onDelete: () => void) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const state = useRef({
     startX: 0,
     startY: 0,
@@ -34,6 +36,10 @@ function useSwipeToDismiss(onDelete: () => void) {
     locked: null as "h" | "v" | null,
     active: false,
   });
+
+  useEffect(() => {
+    return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
+  }, []);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     const el = contentRef.current;
@@ -89,7 +95,7 @@ function useSwipeToDismiss(onDelete: () => void) {
       el.style.transition = "transform 0.18s ease-out, opacity 0.18s ease-out";
       el.style.transform = "translateX(-110%)";
       el.style.opacity = "0";
-      setTimeout(() => onDelete(), 180);
+      dismissTimer.current = setTimeout(() => onDelete(), 180);
     } else {
       // Snap back
       el.style.transition = "transform 0.2s ease";
@@ -419,9 +425,7 @@ const SwipeableSetRow = ({
 
   if (isDropset) {
     return (
-      // @ts-ignore: Framer motion props
-      <motion.div
-        // @ts-ignore
+      <MotionDiv
         layout
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
@@ -483,20 +487,18 @@ const SwipeableSetRow = ({
             DROP
           </button>
         </div>
-      </motion.div>
+      </MotionDiv>
     );
   }
 
   return (
-    // @ts-ignore: Framer motion prop types workaround
-    <motion.div
-      // @ts-ignore
+    <MotionDiv
       layout
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0, overflow: "hidden" }}
       transition={{ duration: 0.2 }}
-      className="relative mb-2" // Add margin bottom for spacing
+      className="relative mb-2"
     >
       {/* Background Layer (Delete Reveal) */}
       <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-2xl flex items-center justify-end px-4 z-0 h-full">
@@ -674,7 +676,7 @@ const SwipeableSetRow = ({
           </div>
         )}
       </div>
-    </motion.div>
+    </MotionDiv>
   );
 };
 

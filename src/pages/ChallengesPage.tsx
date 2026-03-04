@@ -1,6 +1,7 @@
 // src/pages/ChallengesPage.tsx
 import React, { useState, useCallback } from "react";
 import { ChevronLeft, Plus } from "lucide-react";
+import { useI18n } from "../i18n/useI18n";
 import { useChallenges } from "../hooks/useChallenges";
 import ChallengeCard from "../components/challenges/ChallengeCard";
 import ChallengeCompletionModal from "../components/challenges/ChallengeCompletionModal";
@@ -13,13 +14,8 @@ interface ChallengesPageProps {
 
 type TabId = "available" | "active" | "completed";
 
-const TAB_LABELS: { id: TabId; label: string }[] = [
-  { id: "available", label: "Verfuegbar" },
-  { id: "active", label: "Aktiv" },
-  { id: "completed", label: "Abgeschlossen" },
-];
-
 const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
+  const { t } = useI18n();
   const {
     available,
     active,
@@ -29,6 +25,12 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
     createSolo,
     allDefinitions,
   } = useChallenges();
+
+  const TAB_LABELS: { id: TabId; label: string }[] = [
+    { id: "available", label: t("challenges.tabs.available") },
+    { id: "active", label: t("challenges.tabs.active") },
+    { id: "completed", label: t("challenges.tabs.completed") },
+  ];
 
   const [tab, setTab] = useState<TabId>(() => {
     // Default to "active" if there are active challenges
@@ -89,24 +91,24 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
           </button>
         </div>
         <h1 className="text-3xl font-bold text-[var(--text-color)] tracking-tight mb-4">
-          Challenges
+          {t("challenges.title")}
         </h1>
 
         {/* Tab bar */}
         <div className="flex gap-1 bg-[var(--button-bg)] rounded-2xl p-1">
-          {TAB_LABELS.map((t) => (
+          {TAB_LABELS.map((tb) => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                tab === t.id
+                tab === tb.id
                   ? "bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm"
                   : "text-[var(--text-secondary)]"
               }`}
             >
-              {t.label}
-              {tabCounts[t.id] > 0 && (
-                <span className="ml-1 opacity-60">({tabCounts[t.id]})</span>
+              {tb.label}
+              {tabCounts[tb.id] > 0 && (
+                <span className="ml-1 opacity-60">({tabCounts[tb.id]})</span>
               )}
             </button>
           ))}
@@ -121,8 +123,8 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
             <>
               {available.length === 0 ? (
                 <div className="text-center py-12 text-[var(--text-secondary)]">
-                  <p className="text-sm">Keine neuen Challenges verfuegbar.</p>
-                  <p className="text-xs mt-1">Erstelle eine eigene Solo-Challenge!</p>
+                  <p className="text-sm">{t("challenges.empty.available")}</p>
+                  <p className="text-xs mt-1">{t("challenges.empty.availableHint")}</p>
                 </div>
               ) : (
                 available.map((def) => (
@@ -142,8 +144,8 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
             <>
               {active.length === 0 ? (
                 <div className="text-center py-12 text-[var(--text-secondary)]">
-                  <p className="text-sm">Keine aktiven Challenges.</p>
-                  <p className="text-xs mt-1">Tritt einer Challenge bei!</p>
+                  <p className="text-sm">{t("challenges.empty.active")}</p>
+                  <p className="text-xs mt-1">{t("challenges.empty.activeHint")}</p>
                 </div>
               ) : (
                 active.map((ac) => (
@@ -164,7 +166,7 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
             <>
               {completed.length === 0 ? (
                 <div className="text-center py-12 text-[var(--text-secondary)]">
-                  <p className="text-sm">Noch keine abgeschlossenen Challenges.</p>
+                  <p className="text-sm">{t("challenges.empty.completed")}</p>
                 </div>
               ) : (
                 completed.map((cc) => (
@@ -189,7 +191,7 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
           >
             <Plus size={18} />
             <span className="text-sm font-semibold">
-              Solo-Challenge erstellen
+              {t("challenges.createSolo")}
             </span>
           </button>
         </div>

@@ -40,7 +40,7 @@ export const Onboarding: React.FC = () => {
             window.history.replaceState({}, "", "/");
             window.dispatchEvent(new PopStateEvent("popstate"));
         } catch (e) {
-            console.error('Onboarding error:', e);
+            if (import.meta.env.DEV) console.error('Onboarding error:', e);
             setLoading(false);
         }
     };

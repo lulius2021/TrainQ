@@ -19,7 +19,7 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
   }
 
   componentDidCatch(error: unknown, errorInfo: unknown) {
-    console.error("Global Error Boundary caught:", error, errorInfo);
+    if (import.meta.env.DEV) console.error("Global Error Boundary caught:", error, errorInfo);
   }
 
   handleReload = () => {

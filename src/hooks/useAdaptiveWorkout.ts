@@ -52,7 +52,7 @@ export function useAdaptiveWorkout(): UseAdaptiveWorkoutResult {
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Failed to generate adaptive workout";
             setError(errorMessage);
-            console.error("[useAdaptiveWorkout] Error:", err);
+            if (import.meta.env.DEV) console.error("[useAdaptiveWorkout] Error:", err);
             return null;
         } finally {
             setLoading(false);

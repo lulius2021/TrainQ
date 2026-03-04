@@ -35,6 +35,7 @@ import { StatsChart } from "../components/stats/StatsChart";
 import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
 import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
+import { useI18n } from "../i18n/useI18n";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -173,7 +174,7 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
     return { hasError: true, error: msg, stack };
   }
   componentDidCatch(error: unknown, info: unknown) {
-    console.error("ProfilePage Error:", error, info);
+    if (import.meta.env.DEV) console.error("ProfilePage Error:", error, info);
   }
   render() {
     if (this.state.hasError) {
@@ -197,6 +198,7 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
 }
 
 const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
+  const { t } = useI18n();
   const { user, logout } = useAuth();
   const { isPro, canViewStatsRange } = useEntitlements(user?.id);
 
@@ -250,17 +252,17 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
   // -------- Profile basics from storage --------
   const initialName = useMemo(
-    () => (onboarding.profile?.username || "").trim() || "Dein Name",
+    () => (onboarding.profile?.username || "").trim() || t("profile.defaultName"),
     [onboarding.profile?.username]
   );
 
   const derivedBioFallback = useMemo(() => {
     const goals = onboarding.goals?.selectedGoals ?? [];
     const sports = onboarding.goals?.sports ?? [];
-    const g = goals.length ? `Ziele: ${goals.join(", ")}` : "";
-    const s = sports.length ? `Sport: ${sports.join(", ")}` : "";
+    const g = goals.length ? `${t("profile.goals")}: ${goals.join(", ")}` : "";
+    const s = sports.length ? `${t("profile.sports")}: ${sports.join(", ")}` : "";
     const combined = [g, s].filter(Boolean).join(" • ");
-    return combined || "Kurzbeschreibung deines Trainings.";
+    return combined || t("profile.defaultBio");
   }, [onboarding.goals?.selectedGoals, onboarding.goals?.sports]);
 
   const initialBio = useMemo(() => {
@@ -282,7 +284,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     const obName = (onboarding.profile?.username || "").trim();
     if (!obName) return;
 
-    const isDefaultOrAuto = profileName.trim() === "" || profileName === "Dein Name" || profileName === initialName;
+    const isDefaultOrAuto = profileName.trim() === "" || profileName === t("profile.defaultName") || profileName === initialName;
     if (isDefaultOrAuto) setProfileName(obName);
   }, [onboarding.profile?.username, initialName, profileName]);
 
@@ -291,7 +293,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
     const isDefaultOrAuto =
       profileBio.trim() === "" ||
-      profileBio === "Kurzbeschreibung deines Trainings."
+      profileBio === t("profile.defaultBio")
       || profileBio === initialBio ||
       profileBio === derivedBioFallback;
 
@@ -481,8 +483,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     const id = user?.id ?? "";
     if (!id) return;
     const ok = await copyText(id);
-    setCopyFeedback(ok ? "Kopiert" : "Kopieren fehlgeschlagen");
-    window.setTimeout(() => setCopyFeedback(null), 1600);
+    setCopyFeedback(ok ? t("profile.copied") : t("profile.copyFailed"));
+    window.setTimeout(() => setCopyFeedback(null), 2500);
   }, [user?.id]);
 
   const handleShareProfile = useCallback(async () => {
@@ -490,11 +492,11 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     if (!id) return;
     try {
       const result = await shareProfile({ userId: id, displayName: profileName });
-      if (result === "copied") setShareFeedback("Link kopiert");
-      else if (result === "shared") setShareFeedback("Geteilt");
-      else setShareFeedback("Teilen fehlgeschlagen");
+      if (result === "copied") setShareFeedback(t("profile.linkCopied"));
+      else if (result === "shared") setShareFeedback(t("profile.shared"));
+      else setShareFeedback(t("profile.shareFailed"));
     } catch {
-      setShareFeedback("Teilen fehlgeschlagen");
+      setShareFeedback(t("profile.shareFailed"));
     } finally {
       window.setTimeout(() => setShareFeedback(null), 1800);
     }
@@ -504,7 +506,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     if (typeof window === "undefined") return;
 
     const ok = window.confirm(
-      "Onboarding wirklich erneut starten?\n\nDeine Onboarding-Daten werden auf Standard zurückgesetzt."
+      t("profile.confirmRestartOnboarding")
     );
     if (!ok) return;
 
@@ -515,12 +517,12 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
   const handleClearHistory = useCallback(() => {
     if (typeof window === "undefined") return;
     const ok = window.confirm(
-      "Trainingsverlauf wirklich löschen?\n\nAlle gemachten Trainings werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden."
+      t("profile.confirmClearHistory")
     );
     if (!ok) return;
     clearWorkoutHistory();
     setWorkouts([]);
-    alert("Trainingsverlauf wurde gelöscht.");
+    alert(t("profile.historyCleared"));
   }, []);
 
   // -------------------- Theme-safe style helpers --------------------
@@ -555,8 +557,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   onClick={handleShareProfile}
                   variant="ghost"
                   className="rounded-full !p-0 w-10 h-10"
-                  title="Profil teilen"
-                  aria-label="Profil teilen"
+                  title={t("profile.shareProfile")}
+                  aria-label={t("profile.shareProfile")}
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" style={{ color: "var(--text-main)" }}>
                     <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -567,8 +569,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   onClick={() => setSettingsOpen(true)}
                   variant="ghost"
                   className="rounded-full !p-0 w-11 h-11 flex items-center justify-center"
-                  title="Einstellungen"
-                  aria-label="Einstellungen"
+                  title={t("profile.settings")}
+                  aria-label={t("profile.settings")}
                 >
                   <Settings className="w-7 h-7" style={{ color: "var(--text-main)" }} />
                 </AppButton>
@@ -586,8 +588,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 }}
               >
                 <div className="flex flex-col">
-                  <span className="text-[#007AFF] text-xs font-bold uppercase tracking-wider mb-0.5">Highlights</span>
-                  <span className="font-semibold text-lg" style={{ color: "var(--text-color)" }}>Dein {lastMonthName} {lastMonthYear} ist fertig.</span>
+                  <span className="text-[#007AFF] text-xs font-bold uppercase tracking-wider mb-0.5">{t("profile.highlights")}</span>
+                  <span className="font-semibold text-lg" style={{ color: "var(--text-color)" }}>{t("profile.monthReady", { month: lastMonthName, year: lastMonthYear })}</span>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-[#007AFF]/20 flex items-center justify-center text-[#007AFF]">
                   <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
@@ -601,7 +603,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600">
                   {avatarDataUrl ? (
-                    <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
+                    <img src={avatarDataUrl} alt={t("profile.profilePicture")} className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-3xl font-semibold text-white">{safeInitials(profileName)}</span>
                   )}
@@ -612,7 +614,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                     {isPro ? (
                       <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-500">Pro</span>
                     ) : (
-                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title="Upgrade auf Pro">
+                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title={t("profile.upgradeToPro")}>
                         Free
                       </button>
                     )}
@@ -620,14 +622,14 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   <p className="text-base max-w-xs text-[var(--text-secondary)]">{profileBio}</p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm pt-1" style={{ color: "var(--text-main)" }}>
                     {user?.email && <span className="truncate">Account: <span className="font-medium">{user.email}</span></span>}
-                    <span>Trainings: <span className="font-medium">{weekTotalSessions}</span></span>
-                    <span>Zeit: <span className="font-medium">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
+                    <span>{t("profile.workouts")}: <span className="font-medium">{weekTotalSessions}</span></span>
+                    <span>{t("profile.time")}: <span className="font-medium">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
                   </div>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center self-end sm:self-center">
                 <AppButton onClick={openEdit} variant="secondary" size="sm" style={{ color: "var(--text-main)" }}>
-                  Bearbeiten
+                  {t("profile.editProfile")}
                 </AppButton>
               </div>
             </AppCard>
@@ -639,13 +641,13 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                  Stufe {avatarState.stage}
+                  {t("profile.stage")} {avatarState.stage}
                 </p>
                 <p className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>
                   {STAGE_NAMES[avatarState.stage] ?? "Prototyp"}
                 </p>
                 <p className="text-sm tabular-nums" style={{ color: "var(--text-secondary)" }}>
-                  {avatarState.totalXp} XP gesamt
+                  {avatarState.totalXp} {t("profile.xpTotal")}
                 </p>
               </div>
             </AppCard>
@@ -661,11 +663,11 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               <AppCard variant="glass">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-[var(--text-color)]">Auf PRO upgraden</h3>
-                    <p className="mt-1 text-sm text-[var(--text-secondary)]">Schalte alle Funktionen frei und entferne Limits.</p>
+                    <h3 className="text-base font-semibold text-[var(--text-color)]">{t("profile.upgradeTitle")}</h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("profile.upgradeSubtitle")}</p>
                   </div>
                   <AppButton onClick={openPaywall} variant="primary" size="sm">
-                    Upgrade
+                    {t("profile.upgrade")}
                   </AppButton>
                 </div>
               </AppCard>
@@ -681,7 +683,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 </SectionErrorBoundary>
 
                 <div className="flex items-center justify-between px-1 mt-6">
-                  <h3 className="text-lg font-semibold text-[var(--text-color)]">Dein Fortschritt</h3>
+                  <h3 className="text-lg font-semibold text-[var(--text-color)]">{t("profile.progress")}</h3>
                   <div className="flex items-center p-1 rounded-lg border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
                     {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => {
                       const locked = !canViewStatsRange(tr);
@@ -715,7 +717,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SectionErrorBoundary name="AreaChart-Volume">
                     <StatsChart
-                      title="Trainingslast"
+                      title={t("profile.stats.trainingLoad")}
                       valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
                       unit="kg"
                       data={stats.volumeData}
@@ -726,7 +728,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
                   <SectionErrorBoundary name="BarChart-Duration">
                     <StatsChart
-                      title="Zeit im Training"
+                      title={t("profile.stats.trainingTime")}
                       valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
                       unit="min"
                       data={stats.durationData}
@@ -738,7 +740,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   {stats.totals.distance > 0 && (
                     <SectionErrorBoundary name="AreaChart-Distance">
                       <StatsChart
-                        title="Distanz"
+                        title={t("profile.stats.distance")}
                         valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
                         unit="km"
                         data={stats.distanceData}
@@ -750,7 +752,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
                   <SectionErrorBoundary name="PieChart-Sports">
                     <StatsChart
-                      title="Sportarten & Fokus"
+                      title={t("profile.stats.sportsFocus")}
                       type="pie"
                       data={stats.sportSplitData}
                       unit="x"
@@ -772,8 +774,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   <History className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <div className="font-medium" style={{ color: "var(--text-color)" }}>Alle Trainings anzeigen</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{workouts.length} gesamt</div>
+                  <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("profile.showAllWorkouts")}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{workouts.length} {t("profile.total")}</div>
                 </div>
               </div>
               <div style={{ color: "var(--text-muted)" }}>
@@ -808,7 +810,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
           <AppCard variant="glass" className="w-full max-w-md p-5 space-y-6 max-h-[85vh] overflow-y-auto pb-[140px]" style={{ backgroundColor: "var(--modal-bg)" }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Profil bearbeiten</h2>
+              <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>{t("profile.editProfileTitle")}</h2>
               <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full hover:opacity-80" style={{ color: "var(--text-muted)" }}>✕</AppButton>
             </div>
 
@@ -819,11 +821,11 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               <div className="flex flex-col gap-2">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
                 <AppButton onClick={onPickAvatar} className="border hover:opacity-90" style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} size="sm">
-                  Bild wählen
+                  {t("profile.chooseImage")}
                 </AppButton>
                 {avatarDataUrl && (
                   <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20" size="sm">
-                    Bild entfernen
+                    {t("profile.removeImage")}
                   </AppButton>
                 )}
               </div>
@@ -831,50 +833,50 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Dein Name" />
+                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.nameLabel")}</label>
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder={t("profile.defaultName")} />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none min-h-[100px] focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Erzähle etwas über dein Training..." />
+                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.descriptionLabel")}</label>
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none min-h-[100px] focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder={t("profile.descriptionPlaceholder")} />
               </div>
             </div>
 
             <div className="space-y-4 pt-2">
-              <h3 className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>Deine Daten</h3>
+              <h3 className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>{t("profile.yourData")}</h3>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Alter</label>
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.age")}</label>
                   <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Größe (cm)</label>
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.heightCm")}</label>
                   <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Gewicht (kg)</label>
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.weightKg")}</label>
                   <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Stunden/Woche</label>
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.hoursPerWeek")}</label>
                   <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="h" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Einheiten/Woche</label>
+                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.sessionsPerWeek")}</label>
                   <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="#" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Sportarten (CSV)</label>
+                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.sportsCsv")}</label>
                 <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Laufen, Gym..." />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>Ziele (CSV)</label>
+                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.goalsCsv")}</label>
                 <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Marathon, Kraft..." />
               </div>
             </div>
@@ -884,7 +886,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 onClick={saveProfileEdits}
                 className="w-full bg-[#007AFF] hover:bg-[#0066CC] text-white font-bold py-4 rounded-3xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
               >
-                Speichern
+                {t("common.save")}
               </button>
             </div>
           </AppCard>
@@ -896,7 +898,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setStatsOpen(false); }}>
           <AppCard variant="glass" className="w-full max-w-5xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text-color)]">Statistiken</h2>
+              <h2 className="text-lg font-semibold text-[var(--text-color)]">{t("profile.statistics")}</h2>
               <AppButton onClick={() => setStatsOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full text-[var(--text-secondary)]">✕</AppButton>
             </div>
             <ProfileStatsDashboard workouts={workouts} weeklyGoalMinutes={WEEKLY_GOAL_MINUTES} />

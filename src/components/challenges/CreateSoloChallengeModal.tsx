@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { useI18n } from "../../i18n/useI18n";
 
 // Workaround for Framer Motion typing issues with motion.div
 const MotionDiv = motion.div as any;
@@ -14,10 +15,10 @@ interface CreateSoloChallengeModalProps {
   onCreate: (def: Omit<ChallengeDefinition, "id" | "isAdmin">) => void;
 }
 
-const GOAL_TYPES: { value: ChallengeGoalType; label: string }[] = [
-  { value: "workout_count", label: "Anzahl Workouts" },
-  { value: "distance_km", label: "Distanz (km)" },
-  { value: "volume_kg", label: "Volumen (kg)" },
+const GOAL_TYPE_KEYS: { value: ChallengeGoalType; key: string }[] = [
+  { value: "workout_count", key: "challenges.goalType.workoutCount" },
+  { value: "distance_km", key: "challenges.goalType.distance" },
+  { value: "volume_kg", key: "challenges.goalType.volume" },
 ];
 
 const DURATIONS = [7, 14, 30, 60, 90];
@@ -38,6 +39,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [goalType, setGoalType] = useState<ChallengeGoalType>("workout_count");
   const [target, setTarget] = useState("");
@@ -50,7 +52,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
     if (!canCreate) return;
     onCreate({
       title: title.trim(),
-      description: `Eigene Challenge: ${title.trim()}`,
+      description: t("createChallenge.descriptionTemplate", { title: title.trim() }),
       goal: { type: goalType, target: Number(target) },
       durationDays,
       emoji,
@@ -88,7 +90,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[var(--text-color)]">
-                Solo-Challenge erstellen
+                {t("challenges.createSolo")}
               </h2>
               <button
                 onClick={onClose}
@@ -123,13 +125,13 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
             {/* Title */}
             <div className="mb-5">
               <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
-                Titel
+                {t("challenges.form.title")}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="z.B. 15 Workouts schaffen"
+                placeholder={t("challenges.form.titlePlaceholder")}
                 maxLength={50}
                 className="w-full px-4 py-3 rounded-2xl bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-color)] placeholder:text-[var(--text-secondary)]/50 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
               />
@@ -138,10 +140,10 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
             {/* Goal type */}
             <div className="mb-5">
               <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
-                Ziel-Typ
+                {t("challenges.form.goalType")}
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {GOAL_TYPES.map((gt) => (
+                {GOAL_TYPE_KEYS.map((gt) => (
                   <button
                     key={gt.value}
                     onClick={() => setGoalType(gt.value)}
@@ -151,7 +153,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
                         : "bg-[var(--button-bg)] text-[var(--text-color)] border-[var(--border-color)]"
                     }`}
                   >
-                    {gt.label}
+                    {t(gt.key)}
                   </button>
                 ))}
               </div>
@@ -160,7 +162,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
             {/* Target value */}
             <div className="mb-5">
               <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
-                Zielwert
+                {t("challenges.form.targetValue")}
               </label>
               <input
                 type="number"
@@ -169,10 +171,10 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
                 onChange={(e) => setTarget(e.target.value)}
                 placeholder={
                   goalType === "workout_count"
-                    ? "z.B. 15"
+                    ? t("createChallenge.placeholder.workoutCount")
                     : goalType === "distance_km"
-                    ? "z.B. 100"
-                    : "z.B. 50000"
+                    ? t("createChallenge.placeholder.distanceKm")
+                    : t("createChallenge.placeholder.volumeKg")
                 }
                 className="w-full px-4 py-3 rounded-2xl bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-color)] placeholder:text-[var(--text-secondary)]/50 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
               />
@@ -181,7 +183,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
             {/* Duration */}
             <div className="mb-6">
               <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
-                Dauer
+                {t("challenges.form.duration")}
               </label>
               <div className="flex gap-2 flex-wrap">
                 {DURATIONS.map((d) => (
@@ -194,7 +196,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
                         : "bg-[var(--button-bg)] text-[var(--text-color)] border-[var(--border-color)]"
                     }`}
                   >
-                    {d} Tage
+                    {t("challenges.form.days", { count: d })}
                   </button>
                 ))}
               </div>
@@ -207,7 +209,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
               disabled={!canCreate}
               onClick={handleCreate}
             >
-              Challenge erstellen
+              {t("challenges.create")}
             </AppButton>
           </MotionDiv>
         </MotionDiv>

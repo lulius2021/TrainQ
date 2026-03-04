@@ -1,6 +1,7 @@
 // src/pages/auth/LoginPage.tsx
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
+import { useI18n } from "../../i18n/useI18n";
 
 interface LoginPageProps {
   onGoToRegister: () => void;
@@ -12,6 +13,7 @@ export default function LoginPage({
   onGoToForgotPassword,
 }: LoginPageProps) {
   const { login, loginWithApple } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export default function LoginPage({
     if (isBackdoor) return onMagic(e);
 
     if (!email || !password) {
-      setError("Bitte E-Mail und Passwort eingeben.");
+      setError(t("auth.login.empty"));
       return;
     }
 
@@ -43,11 +45,11 @@ export default function LoginPage({
       // If error
       if (res.error) {
         let msg = res.error;
-        if (msg.includes("Invalid login credentials")) msg = "E-Mail oder Passwort falsch.";
+        if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid");
         setError(msg);
       }
     } catch (e: any) {
-      setError(e?.message ?? "Ein Fehler ist aufgetreten.");
+      setError(e?.message ?? t("auth.login.error"));
     } finally {
       setBusy(false);
     }
@@ -55,15 +57,15 @@ export default function LoginPage({
 
   const onApple = async () => {
     if (typeof window === "undefined" || !(window as any).AppleID) {
-      setError("Apple Login ist in dieser Umgebung momentan nicht verfügbar.");
+      setError(t("auth.login.appleUnavailable"));
       return;
     }
     setBusy(true);
     try {
       const res = await loginWithApple();
-      if (!res.ok) setError(res.error ?? "Apple Login fehlgeschlagen.");
+      if (!res.ok) setError(res.error ?? t("auth.login.appleError"));
     } catch (e: any) {
-      setError(e?.message ?? "Apple Login fehlgeschlagen.");
+      setError(e?.message ?? t("auth.login.appleError"));
     } finally {
       setBusy(false);
     }
@@ -73,10 +75,10 @@ export default function LoginPage({
     <div className="flex min-h-screen flex-col justify-center px-6 py-12 lg:px-8" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
         <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: "var(--text-color)" }}>
-          Willkommen zurück
+          {t("auth.login.welcomeBack")}
         </h1>
         <p style={{ color: "var(--text-secondary)" }}>
-          Melde dich an, um fortzufahren
+          {t("auth.login.subtitle")}
         </p>
       </div>
 
@@ -97,7 +99,7 @@ export default function LoginPage({
 
           <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="on">
             <div className="space-y-2">
-              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>E-Mail</label>
+              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>{t("auth.email")}</label>
               <input
                 name="email"
                 value={email}
@@ -116,7 +118,7 @@ export default function LoginPage({
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>Passwort</label>
+              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>{t("auth.password")}</label>
               <div className="relative">
                 <input
                   name="password"
@@ -133,7 +135,7 @@ export default function LoginPage({
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-2xl p-1.5 transition-colors"
                   style={{ color: "var(--text-secondary)" }}
-                  aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+                  aria-label={showPassword ? t("auth.passwordHide") : t("auth.passwordShow")}
                 >
                   {showPassword ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -157,7 +159,7 @@ export default function LoginPage({
                 className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-90 shadow-lg"}`}
                 style={{ backgroundColor: busy ? "var(--button-bg)" : "var(--accent-color)", color: busy ? "var(--text-secondary)" : "#FFFFFF" }}
               >
-                {busy ? "Lädt..." : "Anmelden"}
+                {busy ? t("auth.login.loading") : t("auth.login.title")}
               </button>
             </div>
 
@@ -169,7 +171,7 @@ export default function LoginPage({
                   className="text-sm underline-offset-4 hover:underline"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Neues Konto erstellen
+                  {t("auth.login.register")}
                 </button>
               ) : (
                 <div />
@@ -182,7 +184,7 @@ export default function LoginPage({
                   className="text-sm underline-offset-4 hover:underline"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Passwort vergessen?
+                  {t("auth.login.forgot")}
                 </button>
               ) : (
                 <div />
@@ -195,7 +197,7 @@ export default function LoginPage({
               <div className="w-full border-t" style={{ borderColor: "var(--border-color)" }}></div>
             </div>
             <div className="relative flex justify-center">
-              <span className="px-2 text-sm" style={{ backgroundColor: "var(--card-bg)", color: "var(--text-secondary)" }}>ODER</span>
+              <span className="px-2 text-sm" style={{ backgroundColor: "var(--card-bg)", color: "var(--text-secondary)" }}>{t("auth.login.or")}</span>
             </div>
           </div>
 
@@ -207,7 +209,7 @@ export default function LoginPage({
               className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-colors border ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-80"}`}
               style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", borderColor: "var(--border-color)" }}
             >
-              {busy ? "Lädt..." : " Mit Apple anmelden"}
+              {busy ? t("auth.login.loading") : t("auth.login.apple")}
             </button>
           </div>
         </div>

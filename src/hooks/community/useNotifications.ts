@@ -23,7 +23,7 @@ export function useNotifications(userId: string | undefined) {
       setNotifications(result);
       await refreshCount();
     } catch (e) {
-      console.error("Notifications load error:", e);
+      if (import.meta.env.DEV) console.error("Notifications load error:", e);
     } finally {
       setLoading(false);
     }

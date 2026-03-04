@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { MotionDiv } from "../ui/Motion";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { AppButton } from "../ui/AppButton";
 import { captureAndShare } from "../../utils/shareUtils";
@@ -105,12 +106,9 @@ export default function MonthlyRecapModal({ isOpen, year, month, workouts, onClo
 
     if (!isOpen) return null;
 
-    const MotionDiv = motion.div as any;
-
     return (
         <AnimatePresence>
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl">
-                {/* @ts-ignore: Framer Motion types conflict with React 18/19 in this setup */}
                 <MotionDiv
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -52,6 +52,7 @@ import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
 import AvatarDashboardSection from '../components/avatar/AvatarDashboardSection';
+import { useI18n } from '../i18n/useI18n';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
@@ -63,12 +64,13 @@ const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 // --- CHALLENGE WIDGET for Dashboard ---
 const DashboardChallengeWidget: React.FC = () => {
   const { active } = useChallenges();
+  const { t } = useI18n();
 
   if (active.length === 0) {
     // Show a teaser card to discover challenges
     return (
       <div>
-        <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Challenges</h3>
+        <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.challenges.title")}</h3>
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
           className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
@@ -77,8 +79,8 @@ const DashboardChallengeWidget: React.FC = () => {
             <Trophy size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-[var(--text-color)]">Challenges entdecken</div>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">Setze dir Ziele und sammle Belohnungen.</p>
+            <div className="text-sm font-bold text-[var(--text-color)]">{t("dashboard.challenges.discover")}</div>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t("dashboard.challenges.discoverSubtitle")}</p>
           </div>
           <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
         </button>
@@ -92,12 +94,12 @@ const DashboardChallengeWidget: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-2 pl-1">
-        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">Aktive Challenges</h3>
+        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">{t("dashboard.challenges.active")}</h3>
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
           className="text-xs font-semibold text-[var(--accent-color)]"
         >
-          Alle anzeigen
+          {t("dashboard.challenges.showAll")}
         </button>
       </div>
       <div className="space-y-2.5">
@@ -129,6 +131,7 @@ const DashboardChallengeWidget: React.FC = () => {
 
 // --- LAST ACTIVITY CARD ---
 const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout }) => {
+  const { t } = useI18n();
   const sport = (workout.sport || "Gym").toLowerCase();
   const isCardio = sport.includes("laufen") || sport.includes("radfahren");
   const isRun = sport.includes("laufen");
@@ -141,17 +144,17 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
       if (isNaN(d.getTime())) return "";
       const now = new Date();
       const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-      if (diffDays === 0) return "Heute";
-      if (diffDays === 1) return "Gestern";
+      if (diffDays === 0) return t("dashboard.lastActivity.today");
+      if (diffDays === 1) return t("dashboard.lastActivity.yesterday");
       return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
     } catch { return ""; }
   })();
 
   const sportConfig = isRun
-    ? { icon: <Footprints size={20} />, color: "#34C759", bg: "rgba(52,199,89,0.1)", label: "Lauf" }
+    ? { icon: <Footprints size={20} />, color: "#34C759", bg: "rgba(52,199,89,0.1)", label: t("dashboard.lastActivity.run") }
     : isCycle
-    ? { icon: <Bike size={20} />, color: "#FF9500", bg: "rgba(255,149,0,0.1)", label: "Radfahrt" }
-    : { icon: <Dumbbell size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: "Krafttraining" };
+    ? { icon: <Bike size={20} />, color: "#FF9500", bg: "rgba(255,149,0,0.1)", label: t("dashboard.lastActivity.ride") }
+    : { icon: <Dumbbell size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.strength") };
 
   return (
     <div
@@ -213,7 +216,7 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
         {!isCardio && workout.exercises.length > 0 && (
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-[var(--text-secondary)]">
-              {workout.exercises.length} Übungen
+              {workout.exercises.length} {t("dashboard.lastActivity.exercises")}
             </span>
           </div>
         )}
@@ -223,6 +226,7 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
 };
 
 const DashboardPage = () => {
+  const { t } = useI18n();
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showTerminModal, setShowTerminModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
@@ -373,8 +377,8 @@ const DashboardPage = () => {
           });
           setWeeklyMinutes(totalMin);
           setWeeklyCalories(Math.round(totalCalories));
-        } catch (e) {
-          console.error("Error calculating weekly stats", e);
+        } catch {
+          // weekly stats calculation failed — ignore
         }
       }, 0);
     };
@@ -433,10 +437,10 @@ const DashboardPage = () => {
       await shiftWorkouts(days);
       setShowShiftModal(false);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      console.log(`Plan shifted by +${days} days`);
-    } catch (err) {
-      console.error("Shift failed", err);
+      setTimeout(() => setShowToast(false), 2500);
+    } catch {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2500);
     }
   };
 
@@ -487,7 +491,7 @@ const DashboardPage = () => {
       {/* TOAST */}
       {showToast && (
         <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] bg-[var(--modal-bg)] text-[var(--text-color)] border border-[var(--border-color)] px-6 py-3 rounded-full font-bold shadow-xl animate-in slide-in-from-top-4 fade-in">
-          Plan verschoben!
+          {t("dashboard.planShifted")}
         </div>
       )}
 
@@ -525,20 +529,20 @@ const DashboardPage = () => {
             <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4 shadow-inner border border-white/20 group-hover:scale-110 transition-transform">
               <Sparkles size={28} />
             </div>
-            <h2 className="text-2xl font-black mb-1">Adaptives Training</h2>
+            <h2 className="text-2xl font-black mb-1">{t("dashboard.adaptive.title")}</h2>
             <p className="text-sm font-medium leading-relaxed max-w-[260px] opacity-90 mb-6">
-              Dein Workout wird an deine Tagesform, Stress und Erholung angepasst.
+              {t("dashboard.adaptive.subtitle")}
             </p>
             <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
               <Zap size={12} fill="currentColor" />
-              Training generieren
+              {t("dashboard.adaptive.generate")}
             </div>
           </div>
         </button>
 
         {/* QUICK START — alle Sportarten gleichwertig */}
         <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Training starten</h3>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.startTraining")}</h3>
           <div className="grid grid-cols-3 gap-2.5">
             <button
               onClick={() => startFreeTraining("gym")}
@@ -548,7 +552,7 @@ const DashboardPage = () => {
               <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <Dumbbell size={22} />
               </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">Gym</span>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.gym")}</span>
             </button>
 
             <button
@@ -559,7 +563,7 @@ const DashboardPage = () => {
               <div className="w-11 h-11 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500">
                 <Footprints size={22} />
               </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">Laufen</span>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.running")}</span>
             </button>
 
             <button
@@ -570,34 +574,34 @@ const DashboardPage = () => {
               <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
                 <Bike size={22} />
               </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">Radfahren</span>
+              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.cycling")}</span>
             </button>
           </div>
         </div>
 
         {/* AKTIONEN GRID */}
         <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Schnellzugriff</h3>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.quickAccess")}</h3>
           <div className="grid grid-cols-2 gap-2.5">
             <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
               <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <Plus size={22} strokeWidth={3} />
               </div>
-              <span className="text-[13px] font-semibold text-[var(--text-color)]">Planen</span>
+              <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
             </button>
 
             <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
               <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
                 <RefreshCw size={20} />
               </div>
-              <span className="text-[13px] font-semibold text-[var(--text-color)]">Verschieben</span>
+              <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
             </button>
           </div>
         </div>
 
         {/* PROGRESS CARD */}
         <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Status</h3>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.status")}</h3>
           <div className="bg-[var(--card-bg)] rounded-[24px] p-6 flex items-center gap-6 border border-[var(--border-color)] relative overflow-hidden">
             <div className={`absolute right-0 top-0 w-32 h-32 blur-3xl rounded-full pointer-events-none ${weeklyMinutes >= weeklyGoal ? 'bg-green-500/10' : 'bg-blue-500/5'}`} />
 
@@ -625,9 +629,9 @@ const DashboardPage = () => {
                 {weeklyMinutes} / {weeklyGoal} min
               </div>
               <p className="text-xs text-[var(--text-secondary)]">
-                {weeklyMinutes === 0 ? "Woche beginnt erst!" :
-                  weeklyMinutes >= weeklyGoal ? "Ziel erreicht! Starke Woche." :
-                    "Du bist auf Kurs. Dranbleiben!"}
+                {weeklyMinutes === 0 ? t("dashboard.status.weekStart") :
+                  weeklyMinutes >= weeklyGoal ? t("dashboard.status.goalReached") :
+                    t("dashboard.status.onTrack")}
               </p>
               <div className="mt-2 flex items-center gap-3 flex-wrap">
                 <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
@@ -651,7 +655,7 @@ const DashboardPage = () => {
         {/* LETZTE AKTIVITÄT */}
         {lastActivity && (
           <div>
-            <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Letzte Aktivität</h3>
+            <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.lastActivity.title")}</h3>
             <LastActivityCard workout={lastActivity} />
           </div>
         )}
@@ -664,7 +668,7 @@ const DashboardPage = () => {
 
         {/* COMMUNITY */}
         <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">Community</h3>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.community.title")}</h3>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/community" } }))}
             className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
@@ -673,8 +677,8 @@ const DashboardPage = () => {
               <Users size={22} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[var(--text-color)]">Community entdecken</div>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5">Teile Workouts und folge anderen Athleten.</p>
+              <div className="text-sm font-bold text-[var(--text-color)]">{t("dashboard.community.discover")}</div>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t("dashboard.community.discoverSubtitle")}</p>
             </div>
             <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
           </button>

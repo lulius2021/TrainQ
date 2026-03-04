@@ -2,6 +2,7 @@ import React from "react";
 import { StepWrapper } from "../StepWrapper";
 import { AppCard } from "../../../components/ui/AppCard";
 import { AppButton } from "../../../components/ui/AppButton";
+import { useI18n } from "../../../i18n/useI18n";
 
 interface StepWelcomeProps {
     onNext: () => void;
@@ -9,25 +10,25 @@ interface StepWelcomeProps {
 }
 
 export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
+    const { t } = useI18n();
 
     return (
         <StepWrapper
-            title="Willkommen bei TrainQ"
-            subtitle="Dein intelligenter Trainingsbegleiter."
+            title={t("onboarding.welcome.title")}
+            subtitle={t("onboarding.welcome.subtitle")}
             onNext={onNext}
-            nextLabel="Loslegen"
+            nextLabel={t("onboarding.welcome.start")}
             showBack={false}
             hideProgress
         >
             <AppCard variant="soft" className="space-y-4 p-5">
                 <p className="text-sm leading-relaxed text-[var(--text)]">
-                    TrainQ hilft dir, dein Training basierend auf deinen Zielen und deiner Erholung zu optimieren.
+                    {t("onboarding.welcome.description")}
                 </p>
 
                 <div className="text-xs space-y-2 text-[var(--text-muted)]">
                     <p>
-                        Wir stellen dir ein paar kurze Fragen, um die App für dich einzurichten.
-                        Das dauert weniger als eine Minute.
+                        {t("onboarding.welcome.setupNote")}
                     </p>
                 </div>
             </AppCard>
@@ -38,7 +39,7 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ onNext, onSkip }) => {
                     variant="ghost"
                     className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                 >
-                    Überspringen & Standardwerte nutzen
+                    {t("onboarding.welcome.skip")}
                 </AppButton>
             </div>
         </StepWrapper>

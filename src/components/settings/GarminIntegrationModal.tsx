@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { MotionDiv } from "../ui/Motion";
 import { X, RefreshCw, Unlink, Link, Loader2, AlertCircle } from "lucide-react";
 import { useGarminConnection } from "../../hooks/useGarminConnection";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
-
-// @ts-ignore
-const MotionDiv = motion.div as any;
 
 interface Props {
   isOpen: boolean;
@@ -33,7 +31,6 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* @ts-ignore */}
           <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -42,7 +39,6 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
             className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md"
           />
 
-          {/* @ts-ignore */}
           <MotionDiv
             initial={{ y: "100%" }}
             animate={{ y: 0 }}

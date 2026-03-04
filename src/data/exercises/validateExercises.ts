@@ -287,16 +287,18 @@ if (avgAliasDe < 1.5) {
   errors.push(`Average aliases.de ${avgAliasDe.toFixed(2)} < 1.5`);
 }
 
-console.log("Exercise dataset validation report");
-console.log(`Total exercises: ${total}`);
-console.log(`Avg aliases.en: ${avgAliasEn.toFixed(2)}`);
-console.log(`Avg aliases.de: ${avgAliasDe.toFixed(2)}`);
-console.log("Equipment counts:", Object.fromEntries(equipmentCounts.entries()));
-console.log("Primary muscle counts:", Object.fromEntries(muscleCounts.entries()));
+if (import.meta.env.DEV) {
+  console.log("Exercise dataset validation report");
+  console.log(`Total exercises: ${total}`);
+  console.log(`Avg aliases.en: ${avgAliasEn.toFixed(2)}`);
+  console.log(`Avg aliases.de: ${avgAliasDe.toFixed(2)}`);
+  console.log("Equipment counts:", Object.fromEntries(equipmentCounts.entries()));
+  console.log("Primary muscle counts:", Object.fromEntries(muscleCounts.entries()));
+}
 
 if (errors.length) {
-  console.error("Validation failed:\n" + errors.map((e) => `- ${e}`).join("\n"));
+  if (import.meta.env.DEV) console.error("Validation failed:\n" + errors.map((e) => `- ${e}`).join("\n"));
   process.exit(1);
 }
 
-console.log("Validation passed.");
+if (import.meta.env.DEV) console.log("Validation passed.");

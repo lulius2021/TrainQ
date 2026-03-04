@@ -431,7 +431,6 @@ const MainAppShell: React.FC = () => {
 
         const stored = useLiveTrainingStore.getState().activeWorkout;
         if (stored && stored.isActive) {
-            console.log("🔄 Auto-Restoring Active Workout:", stored.title);
             if (stored.calendarEventId) setActiveLiveEventId(stored.calendarEventId);
             setRoute("/live-training");
             window.history.replaceState(null, "", "/live-training");
@@ -529,7 +528,6 @@ const MainAppShell: React.FC = () => {
 
         const onEventsUpdated = () => {
             // Force refresh from storage
-            console.log("🔄 Global Event Refresh Triggered");
             setEvents(readEventsFromStorage(userId));
         };
         window.addEventListener("trainq:update_events", onEventsUpdated as EventListener);

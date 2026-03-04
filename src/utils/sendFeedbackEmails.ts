@@ -9,7 +9,7 @@ const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string;
 
 export async function sendFeedbackEmail(data: FeedbackData): Promise<void> {
   if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) {
-    console.error(
+    if (import.meta.env.DEV) console.error(
       "EmailJS ist nicht konfiguriert. Prüfe .env: VITE_EMAILJS_SERVICE_ID / TEMPLATE_ID / PUBLIC_KEY"
     );
     throw new Error("Email-Konfiguration fehlt");

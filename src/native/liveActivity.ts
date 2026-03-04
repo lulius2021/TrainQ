@@ -47,7 +47,6 @@ export async function setLiveTrainingState(payload: LiveActivityPayload): Promis
       });
     }
   } catch (error) {
-    console.warn("LiveActivity update failed:", error);
   }
 }
 
@@ -65,6 +64,5 @@ export async function clearLiveTrainingState(): Promise<void> {
       dismissalDate: Math.floor(Date.now() / 1000) + 2, // Dismiss after 2s
     });
   } catch (error) {
-    console.warn("LiveActivity end failed:", error);
   }
 }

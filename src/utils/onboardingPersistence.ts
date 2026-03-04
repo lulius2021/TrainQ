@@ -74,7 +74,7 @@ export function cacheOnboardingCompleted(userId: string): void {
 
         setScopedItem(STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
-        console.error("[OnboardingPersistence] Failed to cache completion:", error);
+        if (import.meta.env.DEV) console.error("[OnboardingPersistence] Failed to cache completion:", error);
     }
 }
 
@@ -85,7 +85,7 @@ export function clearOnboardingCache(): void {
     try {
         removeScopedItem(STORAGE_KEY);
     } catch (error) {
-        console.error("[OnboardingPersistence] Failed to clear cache:", error);
+        if (import.meta.env.DEV) console.error("[OnboardingPersistence] Failed to clear cache:", error);
     }
 }
 

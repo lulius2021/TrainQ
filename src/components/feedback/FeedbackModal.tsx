@@ -78,7 +78,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
         onClose();
       }, 1200);
     } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) console.error(err);
       setErrorMessage(t("feedback.error.sendFailed"));
     } finally {
       setIsSending(false);

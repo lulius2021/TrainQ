@@ -5,7 +5,8 @@ import { useAuth } from "../context/AuthContext";
 
 import { useTheme } from "../theme/ThemeContext";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { MotionDiv } from "../components/ui/Motion";
 import {
     User as UserIcon,
     Star,
@@ -59,9 +60,6 @@ type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 
 // --- COMPONENTS ---
 
 // 1. Reusable Settings Row
-// @ts-ignore
-const MotionDiv = motion.div as any;
-
 const SettingsRow: React.FC<SettingsRowProps> = ({
     icon: Icon,
     iconColor,
@@ -129,7 +127,6 @@ const SettingsModal = ({
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    {/* @ts-ignore */}
                     <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -139,7 +136,6 @@ const SettingsModal = ({
                     />
 
                     {/* Modal Panel */}
-                    {/* @ts-ignore */}
                     <MotionDiv
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
@@ -213,8 +209,8 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
         <SettingsModal isOpen={open} onClose={onClose} title={t("settings.language.subtitle")}>
             <div className="flex flex-col gap-2">
                 {[
-                    { code: "de", label: "Deutsch <span class='text-xl'>🇩🇪</span>" },
-                    { code: "en", label: "English <span class='text-xl'>🇺🇸</span>" }
+                    { code: "de", name: "Deutsch", flag: "🇩🇪" },
+                    { code: "en", name: "English", flag: "🇺🇸" }
                 ].map((opt) => (
                     <button
                         key={opt.code}
@@ -224,7 +220,7 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                             : "bg-[var(--card-bg)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]"
                             }`}
                     >
-                        <span className="flex items-center gap-2 text-[var(--text-color)]" dangerouslySetInnerHTML={{ __html: opt.label }} />
+                        <span className="flex items-center gap-2 text-[var(--text-color)]">{opt.name} <span className="text-xl">{opt.flag}</span></span>
                         {lang === opt.code && <Check size={20} className="text-white" />}
                     </button>
                 ))}
@@ -325,8 +321,8 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             // Optional: Auto-save immediately to ensure image works if app crashes
             ProfileService.updateUserProfile({ profileImageUrl: dbRef });
         } catch (err) {
-            console.error("Image upload failed", err);
-            alert("Bild konnte nicht gespeichert werden.");
+            if (import.meta.env.DEV) console.error("Image upload failed", err);
+            alert(t("settings.profile.imageSaveError"));
         }
     };
 
@@ -337,22 +333,22 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     };
 
     const handleClearCalendarAction = async () => {
-        if (!confirm("Alle geplanten Trainings aus dem Kalender löschen?")) return;
+        if (!confirm(t("settings.confirm.clearCalendarAll"))) return;
 
         Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
         DataService.clearCalendar();
         // Since onClearCalendar prop might just be a notify, we also call the service directly or rely on prop if it does specific UI updates
         // The service dispatches event, so UI should update.
         if (onClearCalendar) onClearCalendar();
-        alert("Kalender geleert.");
+        alert(t("settings.alert.calendarCleared"));
     };
 
     const handleClearHistoryAction = async () => {
-        if (!confirm("Kompletten Trainingsverlauf unwiderruflich löschen?")) return;
+        if (!confirm(t("settings.confirm.clearHistoryAll"))) return;
 
         Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
         DataService.clearWorkoutHistory();
-        alert("Verlauf gelöscht.");
+        alert(t("settings.alert.historyCleared"));
     };
 
 
@@ -397,32 +393,32 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 </Section>
 
                 {/* SECTION 2: APPEARANCE */}
-                <Section title="Erscheinungsbild">
+                <Section title={t("settings.section.appearance")}>
                     <div className="flex items-center justify-between p-4 bg-[var(--card-bg)] border-b border-[var(--border-color)] last:border-0 h-16">
                         <div className="flex items-center gap-4">
                             <div className="w-8 h-8 rounded-2xl flex items-center justify-center bg-indigo-500 shadow-lg">
                                 {theme.mode === 'dark' ? <Moon size={18} className="text-white" /> : <Sun size={18} className="text-white" />}
                             </div>
-                            <span className="font-medium text-[17px] text-[var(--text-color)]">Design</span>
+                            <span className="font-medium text-[17px] text-[var(--text-color)]">{t("settings.appearance.design")}</span>
                         </div>
                         <div className="flex bg-[var(--button-bg)] p-1 rounded-lg">
                             <button
                                 onClick={() => setTheme('light')}
                                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${theme.mode === 'light' && mode !== 'system' ? 'bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
-                                Hell
+                                {t("settings.appearance.light")}
                             </button>
                             <button
                                 onClick={() => setTheme('dark')}
                                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${theme.mode === 'dark' && mode !== 'system' ? 'bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
-                                Dunkel
+                                {t("settings.appearance.dark")}
                             </button>
                             <button
                                 onClick={() => setTheme('system')}
                                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === 'system' ? 'bg-blue-500 text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
-                                Auto
+                                {t("settings.appearance.auto")}
                             </button>
                         </div>
                     </div>
@@ -433,25 +429,25 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <SettingsRow
                         icon={Scale}
                         iconColor="bg-green-500"
-                        label="Präferenzen & Einheiten"
+                        label={t("settings.section.preferencesUnits")}
                         value=""
                         onClick={() => setActiveModal('preferences')}
                     />
                     <SettingsRow
                         icon={Bell}
                         iconColor="bg-orange-500"
-                        label="Mitteilungen"
+                        label={t("settings.section.notifications")}
                         value=""
                         onClick={() => setActiveModal('notifications')}
                     />
                 </Section>
 
                 {/* SECTION 4: DATA & PRIVACY */}
-                <Section title="Daten & Sicherheit">
+                <Section title={t("settings.section.dataSecurity")}>
                     <SettingsRow
                         icon={FileText}
                         iconColor="bg-blue-500"
-                        label="Daten importieren"
+                        label={t("settings.data.importData")}
                         onClick={() => {
                             window.dispatchEvent(
                                 new CustomEvent("trainq:navigate", { detail: { path: "/import-csv" } })
@@ -461,14 +457,14 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <SettingsRow
                         icon={CalendarX}
                         iconColor="bg-red-500"
-                        label="Kalender leeren"
+                        label={t("settings.data.clearCalendar")}
                         onClick={handleClearCalendarAction}
                         isDestructive
                     />
                     <SettingsRow
                         icon={Trash2}
                         iconColor="bg-red-500"
-                        label="Verlauf löschen"
+                        label={t("settings.data.deleteHistory")}
                         onClick={handleClearHistoryAction}
                         isDestructive
                     />
@@ -487,10 +483,10 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                 {/* SECTION 5: LEGAL */}
                 <Section title={t("settings.section.legal")}>
-                    <SettingsRow icon={Building2} iconColor="bg-zinc-500" label="Impressum" onClick={() => setActiveModal('legal')} />
-                    <SettingsRow icon={FileText} iconColor="bg-zinc-500" label="Datenschutzerklärung" onClick={() => setActiveModal('legal')} />
-                    <SettingsRow icon={Info} iconColor="bg-blue-500" label="Über uns" onClick={() => setActiveModal('legal')} />
-                    <SettingsRow icon={Mail} iconColor="bg-blue-500" label="Kontakt Support" onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Building2} iconColor="bg-zinc-500" label={t("settings.legal.imprint")} onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={FileText} iconColor="bg-zinc-500" label={t("settings.legal.privacy")} onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Info} iconColor="bg-blue-500" label={t("settings.legal.aboutUs")} onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Mail} iconColor="bg-blue-500" label={t("settings.legal.contactSupport")} onClick={() => setActiveModal('legal')} />
                 </Section>
 
                 {/* SECTION 6: DANGER ZONE */}
@@ -529,7 +525,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                             onClick={() => fileInputRef.current?.click()}
                             className="text-blue-400 text-sm font-medium"
                         >
-                            Bild ändern
+                            {t("settings.profile.changeImage")}
                         </button>
                         <input
                             ref={fileInputRef}
@@ -540,17 +536,17 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         />
                     </div>
                     <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-500 text-sm">
-                        Deine Profildaten werden lokal und privat gespeichert. Sie helfen uns, dein Training zu personalisieren.
+                        {t("settings.profile.dataPrivacyNote")}
                     </div>
                     <div className="space-y-4">
-                        <InputField label="Anzeigename" value={profileName} onChange={setProfileName} placeholder="Dein Name" />
+                        <InputField label={t("settings.profile.displayName")} value={profileName} onChange={setProfileName} placeholder={t("settings.profile.yourName")} />
                         <div className="grid grid-cols-2 gap-4">
-                            <InputField label="Gewicht" value={profileWeight} onChange={setProfileWeight} placeholder="0" type="number" suffix="kg" />
-                            <InputField label="Größe" value={profileHeight} onChange={setProfileHeight} placeholder="0" type="number" suffix="cm" />
+                            <InputField label={t("settings.profile.weight")} value={profileWeight} onChange={setProfileWeight} placeholder="0" type="number" suffix="kg" />
+                            <InputField label={t("settings.profile.height")} value={profileHeight} onChange={setProfileHeight} placeholder="0" type="number" suffix="cm" />
                         </div>
                     </div>
                     <button onClick={handleSaveProfile} className="w-full py-4 mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98]">
-                        Speichern
+                        {t("common.save")}
                     </button>
                 </div>
             </SettingsModal>
@@ -562,21 +558,21 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         <Star size={40} className="text-white" fill={isPro ? "white" : "none"} />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-bold text-[var(--text-color)] mb-2">{isPro ? "TrainQ Pro Aktiviert" : "Free Plan"}</h3>
+                        <h3 className="text-2xl font-bold text-[var(--text-color)] mb-2">{isPro ? t("settings.subscription.proActive") : t("settings.subscription.freePlan")}</h3>
                         <p className="text-[var(--text-secondary)] max-w-xs mx-auto">
                             {isPro
-                                ? "Du hast Zugriff auf alle Premium-Funktionen. Dein Training kennt keine Grenzen."
-                                : "Upgrade auf Pro für unbegrenzte Workouts, Statistiken und KI-Analysen."}
+                                ? t("settings.subscription.proDescription")
+                                : t("settings.subscription.freeDescription")}
                         </p>
                     </div>
 
                     {!isPro && (
                         <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
-                            <h4 className="font-bold text-amber-400 mb-2">Pro Vorteile:</h4>
+                            <h4 className="font-bold text-amber-400 mb-2">{t("settings.subscription.proBenefits")}</h4>
                             <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
-                                <li className="flex gap-2"><span>✨</span> Unbegrenzter Verlauf</li>
-                                <li className="flex gap-2"><span>📈</span> Erweiterte Statistiken</li>
-                                <li className="flex gap-2"><span>🤖</span> KI-Trainingspläne</li>
+                                <li className="flex gap-2"><span>✨</span> {t("settings.subscription.benefitHistory")}</li>
+                                <li className="flex gap-2"><span>📈</span> {t("settings.subscription.benefitStats")}</li>
+                                <li className="flex gap-2"><span>🤖</span> {t("settings.subscription.benefitAI")}</li>
                             </ul>
                         </div>
                     )}
@@ -585,29 +581,29 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         onClick={() => { setActiveModal(null); onOpenPaywall(); }}
                         className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
                     >
-                        {isPro ? "Abo verwalten" : "Jetzt Upgraden"}
+                        {isPro ? t("settings.subscription.manage") : t("settings.subscription.upgradeNow")}
                     </button>
 
-                    {isPro && <p className="text-xs text-[var(--text-secondary)]">Verwaltung läuft über deinen App Store Account.</p>}
+                    {isPro && <p className="text-xs text-[var(--text-secondary)]">{t("settings.subscription.managedByAppStore")}</p>}
                 </div>
             </SettingsModal>
 
             {/* PREFERENCES MODAL */}
-            <SettingsModal isOpen={activeModal === 'preferences'} onClose={() => setActiveModal(null)} title="App Einstellungen">
+            <SettingsModal isOpen={activeModal === 'preferences'} onClose={() => setActiveModal(null)} title={t("settings.preferences.title")}>
                 <div className="space-y-4">
 
 
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Interaktion</h3>
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.interaction")}</h3>
                         <div className="space-y-3">
                             <ToggleSwitch
-                                label="Haptisches Feedback"
+                                label={t("settings.preferences.hapticFeedback")}
                                 checked={hapticEnabled}
                                 onChange={setHapticEnabled}
                                 icon={Vibrate}
                             />
                             <ToggleSwitch
-                                label="Töne & Soundeffekte"
+                                label={t("settings.preferences.sounds")}
                                 checked={soundEnabled}
                                 onChange={setSoundEnabled}
                                 icon={Volume2}
@@ -616,19 +612,19 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     </div>
 
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Einheiten</h3>
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.units")}</h3>
                         <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center opacity-70">
-                            <span className="text-[var(--text-color)]">Gewichtseinheit</span>
-                            <span className="text-[var(--text-secondary)] font-mono">KG (Metrisch)</span>
+                            <span className="text-[var(--text-color)]">{t("settings.preferences.weightUnit")}</span>
+                            <span className="text-[var(--text-secondary)] font-mono">{t("settings.preferences.kgMetric")}</span>
                         </div>
                     </div>
 
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Anzeige</h3>
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.display")}</h3>
                         <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <Activity size={20} className="text-[var(--text-secondary)]" />
-                                <span className="text-base font-medium text-[var(--text-color)]">Muskeldetail</span>
+                                <span className="text-base font-medium text-[var(--text-color)]">{t("settings.preferences.muscleDetail")}</span>
                             </div>
                             <div className="flex bg-[var(--button-bg)] p-0.5 rounded-lg">
                                 <button
@@ -639,7 +635,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                             : "text-[var(--text-secondary)]"
                                     }`}
                                 >
-                                    Einfach
+                                    {t("settings.preferences.simple")}
                                 </button>
                                 <button
                                     onClick={() => { setMuscleDetail("komplex"); setMuscleDetailMode("komplex"); }}
@@ -649,17 +645,17 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                             : "text-[var(--text-secondary)]"
                                     }`}
                                 >
-                                    Komplex
+                                    {t("settings.preferences.complex")}
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Aufwärmsätze</h3>
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.warmupSets")}</h3>
                         <div className="space-y-3">
                             <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
-                                <span className="text-sm font-medium text-[var(--text-color)]">Stangengewicht</span>
+                                <span className="text-sm font-medium text-[var(--text-color)]">{t("settings.preferences.barWeight")}</span>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="number"
@@ -678,7 +674,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                 </div>
                             </div>
                             <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl flex justify-between items-center">
-                                <span className="text-sm font-medium text-[var(--text-color)]">Scheiben-Inkrement</span>
+                                <span className="text-sm font-medium text-[var(--text-color)]">{t("settings.preferences.plateIncrement")}</span>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="number"
@@ -698,7 +694,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                 </div>
                             </div>
                             <p className="text-xs text-[var(--text-secondary)] px-1">
-                                Stufen: Leere Stange, 50%, 70%, 85% des Arbeitsgewichts
+                                {t("settings.preferences.warmupSteps")}
                             </p>
                         </div>
                     </div>
@@ -706,12 +702,12 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
             </SettingsModal>
 
             {/* NOTIFICATIONS MODAL */}
-            <SettingsModal isOpen={activeModal === 'notifications'} onClose={() => setActiveModal(null)} title="Mitteilungen">
+            <SettingsModal isOpen={activeModal === 'notifications'} onClose={() => setActiveModal(null)} title={t("settings.section.notifications")}>
                 <NotificationSettings />
             </SettingsModal>
 
             {/* LEGAL MODAL */}
-            <SettingsModal isOpen={activeModal === 'legal'} onClose={() => setActiveModal(null)} title="Rechtliches & Hilfe">
+            <SettingsModal isOpen={activeModal === 'legal'} onClose={() => setActiveModal(null)} title={t("settings.legal.title")}>
                 <div className="space-y-8">
 
                     {/* ABOUT US */}
@@ -721,24 +717,24 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                                 Q
                             </div>
                             <div>
-                                <h3 className="font-bold text-[var(--text-color)] text-lg">Über TrainQ</h3>
-                                <p className="text-blue-400 text-xs font-medium">Vision & Mission</p>
+                                <h3 className="font-bold text-[var(--text-color)] text-lg">{t("settings.legal.aboutTrainQ")}</h3>
+                                <p className="text-blue-400 text-xs font-medium">{t("settings.legal.visionMission")}</p>
                             </div>
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                            TrainQ wurde entwickelt, um ambitionierten Athleten die Werkzeuge an die Hand zu geben, die sie für echte Fortschritte benötigen. Keine Ablenkungen, reiner Fokus auf Performance und Daten.
+                            {t("settings.legal.aboutText1")}
                         </p>
                         <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                            Wir glauben daran, dass Training eine Wissenschaft und eine Kunst zugleich ist. TrainQ verbindet beides in einer nahtlosen Erfahrung.
+                            {t("settings.legal.aboutText2")}
                         </p>
                     </div>
 
                     {/* CONTACT */}
                     <div className="border-t border-[var(--border-color)] pt-6 space-y-3">
-                        <h3 className="font-bold text-[var(--text-color)] mb-2">Kontakt & Support</h3>
+                        <h3 className="font-bold text-[var(--text-color)] mb-2">{t("settings.legal.contactAndSupport")}</h3>
                         <div className="bg-[var(--card-bg)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
                             <p className="text-[var(--text-secondary)] text-xs">
-                                Hast du Fragen, Feedback oder benötigst Hilfe?
+                                {t("settings.legal.contactText")}
                             </p>
                             <a href="mailto:support@trainq.app" className="flex items-center justify-center w-full py-3 bg-blue-600/10 text-blue-400 font-bold rounded-xl text-sm hover:bg-blue-600/20 transition-colors gap-2">
                                 <Mail size={16} />
@@ -749,12 +745,12 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
 
                     {/* LEGAL LINKS */}
                     <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
-                        <h3 className="font-bold text-[var(--text-color)]">Rechtliches</h3>
+                        <h3 className="font-bold text-[var(--text-color)]">{t("settings.legal.legalSection")}</h3>
 
                         {/* Impressum */}
                         <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
                             <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
-                                <Building2 size={16} className="text-[var(--text-secondary)]" /> Impressum
+                                <Building2 size={16} className="text-[var(--text-secondary)]" /> {t("settings.legal.imprint")}
                             </h4>
                             <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-mono">
                                 TrainQ Inc.<br />
@@ -769,13 +765,13 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         {/* Privacy */}
                         <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
                             <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
-                                <FileText size={16} className="text-[var(--text-secondary)]" /> Datenschutz
+                                <FileText size={16} className="text-[var(--text-secondary)]" /> {t("settings.legal.privacyTitle")}
                             </h4>
                             <p className="text-xs text-[var(--text-secondary)] mb-4">
-                                Deine Daten gehören dir. Wir speichern Trainingsdaten lokal auf deinem Gerät und nutzen Ende-zu-Ende Verschlüsselung für Backups.
+                                {t("settings.legal.privacyText")}
                             </p>
                             <button onClick={() => window.open("/privacy", "_system")} className="w-full py-2 bg-[var(--button-bg)] text-[var(--text-color)] text-xs font-bold rounded-lg hover:bg-[var(--button-bg)]/80 transition-colors">
-                                Datenschutzerklärung öffnen
+                                {t("settings.legal.openPrivacyPolicy")}
                             </button>
                         </div>
                     </div>

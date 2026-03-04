@@ -37,6 +37,7 @@ import { FREE_LIMITS } from "../utils/entitlements";
 import { track } from "../analytics/track";
 
 import type { TranslationKey } from "../i18n/index";
+import { useI18n } from "../i18n/useI18n";
 import {
   buildTrainingTemplateSignature,
   deleteTrainingTemplate,
@@ -475,6 +476,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -525,7 +527,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const handleAddCustomExercise = () => {
     const newBlockExercise: BlockExercise = {
       id: nextBlockExerciseId(),
-      name: isCardioLibrary ? "Neue Einheit" : "Neue Übung",
+      name: isCardioLibrary ? t("trainingPlan.newCardioUnit" as TranslationKey) : t("trainingPlan.newExercise" as TranslationKey),
       sets: [
         {
           id: nextExerciseSetId(),
@@ -606,7 +608,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
   const handleSaveClick = () => {
     // Determine final label
-    const finalLabel = templateName.trim() || "Trainingstag";
+    const finalLabel = templateName.trim() || t("trainingPlan.trainingDay" as TranslationKey);
     onSave({ ...draft, label: finalLabel });
     onClose();
   };
@@ -654,9 +656,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     }
   };
 
-  const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
-  const weightPlaceholder = isCardioLibrary ? "Distanz (km)" : "kg";
-  const notesPlaceholder = isCardioLibrary ? "Pace / Intervall" : "Notizen";
+  const repsPlaceholder = isCardioLibrary ? t("trainingPlan.durationMin" as TranslationKey) : t("trainingPlan.reps" as TranslationKey);
+  const weightPlaceholder = isCardioLibrary ? t("trainingPlan.distanceKm" as TranslationKey) : t("trainingPlan.kg" as TranslationKey);
+  const notesPlaceholder = isCardioLibrary ? t("trainingPlan.paceInterval" as TranslationKey) : t("trainingPlan.notes" as TranslationKey);
 
   const existingExerciseIds = draft.exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[];
 
@@ -670,16 +672,16 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             onClick={onClose}
             className="text-[17px] text-red-500 hover:text-red-400 transition-colors font-medium"
           >
-            Abbrechen
+            {t("common.cancel" as TranslationKey)}
           </button>
           <div className="text-[17px] font-bold text-center truncate px-2" style={{ color: "var(--text-color)" }}>
-            {isCardioLibrary ? "Einheit bearbeiten" : "Training bearbeiten"}
+            {isCardioLibrary ? t("trainingPlan.editUnit" as TranslationKey) : t("trainingPlan.editTraining" as TranslationKey)}
           </div>
           <button
             onClick={handleSaveClick}
             className="text-[17px] font-bold text-[#007AFF] hover:text-[#007AFF]/80 transition-colors"
           >
-            Speichern
+            {t("common.save" as TranslationKey)}
           </button>
         </div>
 
@@ -691,7 +693,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Name der Vorlage (optional)"
+                placeholder={t("trainingPlan.templateNamePlaceholder" as TranslationKey)}
                 className="w-full border p-4 rounded-3xl placeholder-opacity-40 focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-base"
                 style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
               />
@@ -702,13 +704,13 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   className="text-xs text-[#007AFF] font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
-                  Als Vorlage speichern
+                  {t("trainingPlan.saveAsTemplate" as TranslationKey)}
                 </button>
               </div>
             </div>
 
             <div className="flex items-center justify-between border p-4 rounded-3xl" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-              <span className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>Vorlage laden</span>
+              <span className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>{t("trainingPlan.loadTemplate" as TranslationKey)}</span>
               <div className="relative">
                 <select
                   value={selectedWorkoutTemplateId}
@@ -716,7 +718,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   className="bg-transparent text-[#007AFF] font-medium outline-none text-right pr-6 cursor-pointer text-sm appearance-none"
                   style={{ minWidth: '100px' }}
                 >
-                  <option value="">Auswählen</option>
+                  <option value="">{t("trainingPlan.select" as TranslationKey)}</option>
                   {compatibleWorkoutTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -739,7 +741,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <span className="text-[#007AFF] font-medium text-sm">Bibliothek öffnen</span>
+              <span className="text-[#007AFF] font-medium text-sm">{t("trainingPlan.openLibrary" as TranslationKey)}</span>
             </button>
 
             <button
@@ -749,20 +751,20 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#007AFF] mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-[#007AFF] font-medium text-sm">Eigene Übung</span>
+              <span className="text-[#007AFF] font-medium text-sm">{t("trainingPlan.customExercise" as TranslationKey)}</span>
             </button>
           </div>
 
           {/* Exercise List */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider pl-1" style={{ color: "var(--text-secondary)" }}>
-              {isCardioLibrary ? "Einheiten" : "Übungen"} ({draft.exercises.length})
+              {isCardioLibrary ? t("trainingPlan.units" as TranslationKey) : t("trainingPlan.exercises" as TranslationKey)} ({draft.exercises.length})
             </h3>
 
             {draft.exercises.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center rounded-3xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                 <span className="opacity-20 mb-3 text-3xl">🏋️</span>
-                <p className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>Keine Übungen. Füge welche hinzu!</p>
+                <p className="font-medium text-sm" style={{ color: "var(--text-muted)" }}>{t("trainingPlan.noExercisesAddSome" as TranslationKey)}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -774,14 +776,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                         value={ex.name}
                         onChange={(e) => handleUpdateExerciseName(ex.id, e.target.value)}
                         className="w-full bg-transparent font-semibold outline-none border-b border-transparent focus:border-[#007AFF]/50 transition-colors py-1"
-                        placeholder="Übungsname"
+                        placeholder={t("trainingPlan.exerciseName" as TranslationKey)}
                         style={{ color: "var(--text-color)" }}
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveBlockExercise(ex.id)}
                         className="p-2 -mr-2 hover:text-red-400 transition-colors"
-                        title="Entfernen"
+                        title={t("common.remove" as TranslationKey)}
                         style={{ color: "var(--text-muted)" }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
@@ -849,7 +851,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                       onClick={() => handleAddSet(ex.id)}
                       className="mt-3 w-full py-2 rounded-2xl bg-white/5 border border-white/5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors flex items-center justify-center gap-1"
                     >
-                      + {isCardioLibrary ? "Intervall hinzufügen" : "Satz hinzufügen"}
+                      + {isCardioLibrary ? t("trainingPlan.addInterval" as TranslationKey) : t("trainingPlan.addSet" as TranslationKey)}
                     </button>
                   </div>
                 ))}
@@ -863,7 +865,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       <ExerciseLibraryModal
         open={libraryOpen}
         category={defaultSport === "Laufen" ? "running" : defaultSport === "Radfahren" ? "cycling" : "gym"}
-        title={isCardioLibrary ? "Cardio-Bibliothek" : "Übungsbibliothek"}
+        title={isCardioLibrary ? t("trainingPlan.cardioLibrary" as TranslationKey) : t("trainingPlan.exerciseLibrary" as TranslationKey)}
         onClose={() => setLibraryOpen(false)}
         existingExerciseIds={existingExerciseIds}
         onPick={(exercise: Exercise) => handleAddExerciseFromLibrary(exercise)}
@@ -886,6 +888,7 @@ type PreviewModalState =
   };
 
 const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => void }> = ({ state, onClose }) => {
+  const { t } = useI18n();
   const isOpen = !!state;
 
   if (!state) return null;
@@ -899,7 +902,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white">{state.title}</div>
             <div className="mt-0.5 text-[11px] text-zinc-400">
-              {state.subtitle} · ca. {estMin} min
+              {state.subtitle} · {t("trainingPlan.approxMinutes" as TranslationKey, { count: estMin })}
             </div>
           </div>
           <AppButton onClick={onClose} variant="secondary" size="sm" className="py-1 px-2 text-xs">
@@ -910,7 +913,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-4 pb-[160px]">
           {state.exercises.length === 0 ? (
             <div className="rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-4 text-sm text-zinc-400">
-              Keine Übungen
+              {t("trainingPlan.noExercises" as TranslationKey)}
             </div>
           ) : (
             <div className="space-y-3">
@@ -929,17 +932,17 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                           <div className="mt-0.5 text-[11px] text-zinc-400">
                             {state.isCardio ? (
                               <>
-                                Letztes Mal:
+                                {t("trainingPlan.lastTime" as TranslationKey)}:
                                 {last.weight !== undefined ? ` ${last.weight} km` : ""}
                                 {last.weight !== undefined && last.reps !== undefined ? " ·" : ""}
                                 {last.reps !== undefined ? ` ${last.reps} min` : ""}
                               </>
                             ) : (
                               <>
-                                Letztes Mal:
+                                {t("trainingPlan.lastTime" as TranslationKey)}:
                                 {last.weight !== undefined ? ` ${last.weight} kg` : ""}
                                 {last.weight !== undefined && last.reps !== undefined ? " ×" : ""}
-                                {last.reps !== undefined ? ` ${last.reps} Wdh.` : ""}
+                                {last.reps !== undefined ? ` ${last.reps} ${t("trainingPlan.repsShort" as TranslationKey)}` : ""}
                               </>
                             )}
                           </div>
@@ -947,7 +950,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                       </div>
 
                       <div className="shrink-0 rounded-full border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-2 py-0.5 text-[11px] text-zinc-400">
-                        {ex.sets.length} {state.isCardio ? "Abschn." : "Sätze"}
+                        {ex.sets.length} {state.isCardio ? t("trainingPlan.sections" as TranslationKey) : t("trainingPlan.sets" as TranslationKey)}
                       </div>
                     </div>
 
@@ -956,10 +959,10 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
                         <div key={s.id} className="grid grid-cols-[auto,1fr,1fr,2fr] gap-2 rounded-2xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl px-2 py-1 text-[11px]">
                           <div className="text-zinc-400">{idx + 1}</div>
                           <div className="text-white">
-                            {state.isCardio ? "Dauer" : "Wdh"}: <span className="text-white">{s.reps ?? "—"}</span>
+                            {state.isCardio ? t("trainingPlan.duration" as TranslationKey) : t("trainingPlan.reps" as TranslationKey)}: <span className="text-white">{s.reps ?? "—"}</span>
                           </div>
                           <div className="text-white">
-                            {state.isCardio ? "Dist." : "kg"}: <span className="text-white">{s.weight ?? "—"}</span>
+                            {state.isCardio ? t("trainingPlan.dist" as TranslationKey) : t("trainingPlan.kg" as TranslationKey)}: <span className="text-white">{s.weight ?? "—"}</span>
                           </div>
                           <div className="truncate text-zinc-400">{s.notes || ""}</div>
                         </div>
@@ -974,7 +977,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
         <div className="flex items-center justify-between gap-2 border-t border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
           <AppButton onClick={onClose} variant="secondary" className="text-sm">
-            Schließen
+            {t("common.close" as TranslationKey)}
           </AppButton>
 
           <AppButton
@@ -989,7 +992,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
             variant="primary"
             className="text-sm font-semibold"
           >
-            Start
+            {t("trainingPlan.start" as TranslationKey)}
           </AppButton>
         </div>
       </AppCard>
@@ -1002,6 +1005,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
   // Fallback Theme Guard
   const { theme } = useTheme() || { theme: { colors: { text: '#fff', background: '#000', card: '#1c1c1e', border: '#27272a' } } };
+  const { t } = useI18n();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
   const { user } = useAuth();
@@ -1103,8 +1107,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const [weeklySaveDialogOpen, setWeeklySaveDialogOpen] = useState(false);
   const [routineSaveDialogOpen, setRoutineSaveDialogOpen] = useState(false);
 
-  const [weeklyTemplateName, setWeeklyTemplateName] = useState("Wochenplan");
-  const [routineTemplateName, setRoutineTemplateName] = useState("Split/Routine");
+  const [weeklyTemplateName, setWeeklyTemplateName] = useState(() => t("trainingPlan.weeklyPlan" as TranslationKey));
+  const [routineTemplateName, setRoutineTemplateName] = useState(() => t("trainingPlan.splitRoutine" as TranslationKey));
 
   const [activeTrainingTemplate, setActiveTrainingTemplate] = useState<{
     kind: TrainingContainerKind;
@@ -1319,7 +1323,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   const saveWeeklyTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
-      const planName = weeklyTemplateName.trim() || "Wochenplan";
+      const planName = weeklyTemplateName.trim() || t("trainingPlan.weeklyPlan" as TranslationKey);
       const normalizedDays = weeklyDays.map((d, i) => normalizeWeeklyDay(d as any, i + 1));
 
       const existingPlans = loadTrainingPlanTemplates(userId ?? "");
@@ -1475,7 +1479,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           id: prev.length ? (prev[prev.length - 1].id ?? 0) + 1 : 1,
           type: "Custom",
           sport: "Gym",
-          label: "Neues Training",
+          label: t("trainingPlan.newTraining" as TranslationKey),
           exercises: [],
           startTime: "",
         },
@@ -1516,7 +1520,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   const saveRoutineTemplateAndCalendar = (withTemplate: boolean) => {
     if (withTemplate) {
-      const planName = routineTemplateName.trim() || "Split/Routine";
+      const planName = routineTemplateName.trim() || t("trainingPlan.splitRoutine" as TranslationKey);
       const normalizedBlocks = routineBlocks.map((b, i) => normalizeRoutineBlock(b as any, i + 1));
 
       const existingPlans = loadTrainingPlanTemplates(userId ?? "");
@@ -1708,12 +1712,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>Wochenplan</h2>
+                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>{t("trainingPlan.weeklyPlan" as TranslationKey)}</h2>
                 <div className="mt-1 text-sm" style={{ color: theme.colors.textSecondary }}>
-                  Startet am <span style={{ color: theme.colors.text }}>{planStartISO}</span>
+                  {t("trainingPlan.startsOn" as TranslationKey)} <span style={{ color: theme.colors.text }}>{planStartISO}</span>
                 </div>
               </div>
-              {weeklySaved && <span className="text-sm text-emerald-400">Im Kalender gespeichert</span>}
+              {weeklySaved && <span className="text-sm text-emerald-400">{t("trainingPlan.savedToCalendar" as TranslationKey)}</span>}
             </div>
 
             <div className="space-y-4">
@@ -1739,10 +1743,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>Bezeichnung</label>
+                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>{t("trainingPlan.label" as TranslationKey)}</label>
                       <input
                         type="text"
-                        value={isRest ? "Ruhetag" : day.focus}
+                        value={isRest ? t("trainingPlan.restDay" as TranslationKey) : day.focus}
                         disabled={isRest}
                         onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
                         className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-blue-500 shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20`}
@@ -1753,7 +1757,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         }}
                       />
                       {!isRest && (
-                        <div className="mt-2 text-sm" style={{ color: theme.colors.textSecondary }}>Füge Übungen hinzu, um diesen Tag zu planen.</div>
+                        <div className="mt-2 text-sm" style={{ color: theme.colors.textSecondary }}>{t("trainingPlan.addExercisesToPlan" as TranslationKey)}</div>
                       )}
                     </div>
 
@@ -1764,13 +1768,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         fullWidth
                         className="py-2.5"
                       >
-                        Ruhetag entfernen
+                        {t("trainingPlan.removeRestDay" as TranslationKey)}
                       </AppButton>
                     ) : (
                       <>
                         <div className="w-full flex justify-between items-center bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl p-3"
                           style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border }}>
-                          <span className="text-base font-medium" style={{ color: theme.colors.text }}>Sportart</span>
+                          <span className="text-base font-medium" style={{ color: theme.colors.text }}>{t("trainingPlan.sportType" as TranslationKey)}</span>
                           <select
                             value={day.sport}
                             onChange={(e) => handleWeeklyDayChange(day.id, "sport", e.target.value)}
@@ -1778,11 +1782,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                             className="bg-transparent text-right outline-none font-medium"
                             style={{ color: theme.colors.text }}
                           >
-                            <option value="Gym">Gym</option>
-                            <option value="Laufen">Laufen</option>
-                            <option value="Radfahren">Radfahren</option>
-                            <option value="Custom">Custom</option>
-                            <option value="Ruhetag">Ruhetag</option>
+                            <option value="Gym">{t("trainingPlan.sport.gym" as TranslationKey)}</option>
+                            <option value="Laufen">{t("trainingPlan.sport.running" as TranslationKey)}</option>
+                            <option value="Radfahren">{t("trainingPlan.sport.cycling" as TranslationKey)}</option>
+                            <option value="Custom">{t("trainingPlan.sport.custom" as TranslationKey)}</option>
+                            <option value="Ruhetag">{t("trainingPlan.restDay" as TranslationKey)}</option>
                           </select>
                         </div>
 
@@ -1796,17 +1800,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                             color: theme.colors.text
                           }}
                         >
-                          {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
+                          {hasWorkout ? t("trainingPlan.editWorkout" as TranslationKey) : t("trainingPlan.createWorkout" as TranslationKey)}
                         </button>
 
                         <details className="rounded-3xl shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3"
                           style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border }}>
                           <summary className="cursor-pointer text-base font-medium" style={{ color: theme.colors.text }}>
-                            Details
+                            {t("trainingPlan.details" as TranslationKey)}
                           </summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm" style={{ color: theme.colors.textSecondary }}>Startzeit</div>
+                              <div className="text-sm" style={{ color: theme.colors.textSecondary }}>{t("trainingPlan.startTime" as TranslationKey)}</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm"
@@ -1818,7 +1822,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                     onClick={() => handleWeeklyDayChange(day.id, "startTime", "")}
                                     className="rounded-full shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-2 py-1 text-sm hover:opacity-80"
                                     style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.textSecondary }}
-                                    title="Startzeit entfernen"
+                                    title={t("trainingPlan.removeStartTime" as TranslationKey)}
                                   >
                                     ✕
                                   </button>
@@ -1830,7 +1834,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                   className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm hover:opacity-80"
                                   style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}
                                 >
-                                  Startzeit hinzufügen
+                                  {t("trainingPlan.addStartTime" as TranslationKey)}
                                 </button>
                               )}
                             </div>
@@ -1842,7 +1846,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                 fullWidth
                                 className="py-2 font-medium"
                               >
-                                Vorschau & Start
+                                {t("trainingPlan.previewAndStart" as TranslationKey)}
                               </AppButton>
                             )}
                           </div>
@@ -1860,17 +1864,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 onClick={() => setWeeklyPreviewOpen(true)}
                 className="inline-flex items-center justify-center rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-2 text-base font-medium text-white hover:bg-zinc-800"
               >
-                Vorschau
+                {t("trainingPlan.preview" as TranslationKey)}
               </button>
 
               <button
                 onClick={() => {
-                  setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString("de-DE")})`);
+                  setWeeklyTemplateName(`${t("trainingPlan.weeklyPlan" as TranslationKey)} (${new Date().toLocaleDateString("de-DE")})`);
                   setWeeklySaveDialogOpen(true);
                 }}
                 className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-4 py-2 text-base font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
-                Wochenplan speichern
+                {t("trainingPlan.saveWeeklyPlan" as TranslationKey)}
               </button>
             </div>
           </section>
@@ -1881,14 +1885,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>Routine-Zyklus</h2>
+                <h2 className="text-xl font-semibold" style={{ color: theme.colors.text }}>{t("trainingPlan.routineCycle" as TranslationKey)}</h2>
                 <div className="mt-1 text-sm" style={{ color: theme.colors.textSecondary }}>
-                  Startet am <span style={{ color: theme.colors.text }}>{planStartISO}</span>
+                  {t("trainingPlan.startsOn" as TranslationKey)} <span style={{ color: theme.colors.text }}>{planStartISO}</span>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                {routineSaved && <span className="text-sm text-emerald-400">Im Kalender gespeichert</span>}
+                {routineSaved && <span className="text-sm text-emerald-400">{t("trainingPlan.savedToCalendar" as TranslationKey)}</span>}
               </div>
             </div>
 
@@ -1905,13 +1909,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
                         <div className="text-lg font-semibold" style={{ color: theme.colors.text }}>
-                          Routine {index + 1}
+                          {t("trainingPlan.routineNumber" as TranslationKey, { number: index + 1 })}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveRoutineBlock(block.id)}
                           className="text-red-500 hover:text-red-400 p-2 hover:bg-white/10 rounded-full transition-all"
-                          title="Tag löschen"
+                          title={t("trainingPlan.deleteDay" as TranslationKey)}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         </button>
@@ -1927,10 +1931,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>Bezeichnung</label>
+                      <label className="block text-sm font-medium" style={{ color: theme.colors.textSecondary }}>{t("trainingPlan.label" as TranslationKey)}</label>
                       <input
                         type="text"
-                        value={isRest ? "Ruhetag" : block.label}
+                        value={isRest ? t("trainingPlan.restDay" as TranslationKey) : block.label}
                         disabled={isRest}
                         onChange={(e) => handleRoutineBlockChange(block.id, "label", e.target.value)}
                         className={`mt-1 w-full rounded-3xl px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-sky-500/60 shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl`}
@@ -1941,7 +1945,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         }}
                       />
                       {!isRest && (
-                        <div className="mt-2 text-sm text-zinc-400">Füge Übungen hinzu, um diesen Tag zu planen.</div>
+                        <div className="mt-2 text-sm text-zinc-400">{t("trainingPlan.addExercisesToPlan" as TranslationKey)}</div>
                       )}
                     </div>
 
@@ -1955,11 +1959,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           className="bg-transparent text-right outline-none font-medium"
                           style={{ color: theme.colors.text }}
                         >
-                          <option value="Gym">Gym</option>
-                          <option value="Laufen">Laufen</option>
-                          <option value="Radfahren">Radfahren</option>
-                          <option value="Custom">Custom</option>
-                          <option value="Ruhetag">Ruhetag</option>
+                          <option value="Gym">{t("trainingPlan.sport.gym" as TranslationKey)}</option>
+                          <option value="Laufen">{t("trainingPlan.sport.running" as TranslationKey)}</option>
+                          <option value="Radfahren">{t("trainingPlan.sport.cycling" as TranslationKey)}</option>
+                          <option value="Custom">{t("trainingPlan.sport.custom" as TranslationKey)}</option>
+                          <option value="Ruhetag">{t("trainingPlan.restDay" as TranslationKey)}</option>
                         </select>
                       </div>
                     )}
@@ -1971,7 +1975,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         className="w-full rounded-3xl shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-2.5 text-base font-semibold hover:opacity-80"
                         style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.border, color: theme.colors.text }}
                       >
-                        Ruhetag entfernen
+                        {t("trainingPlan.removeRestDay" as TranslationKey)}
                       </button>
                     ) : (
                       <>
@@ -1986,14 +1990,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           }}
                         >
 
-                          {hasWorkout ? "Training bearbeiten" : "Training erstellen"}
+                          {hasWorkout ? t("trainingPlan.editWorkout" as TranslationKey) : t("trainingPlan.createWorkout" as TranslationKey)}
                         </button>
 
                         <details className="rounded-3xl bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 p-3">
-                          <summary className="cursor-pointer text-base font-medium text-white">Details</summary>
+                          <summary className="cursor-pointer text-base font-medium text-white">{t("trainingPlan.details" as TranslationKey)}</summary>
                           <div className="mt-3 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm text-zinc-400">Startzeit</div>
+                              <div className="text-sm text-zinc-400">{t("trainingPlan.startTime" as TranslationKey)}</div>
                               {hasTime ? (
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm"
@@ -2005,7 +2009,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                     onClick={() => handleRoutineBlockChange(block.id, "startTime", "")}
                                     className="rounded-full shadow-sm border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-2 py-1 text-sm hover:opacity-80"
                                     style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.textSecondary }}
-                                    title="Startzeit entfernen"
+                                    title={t("trainingPlan.removeStartTime" as TranslationKey)}
                                   >
                                     ✕
                                   </button>
@@ -2017,7 +2021,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                                   className="rounded-full border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-3 py-1 text-sm hover:opacity-80"
                                   style={{ backgroundColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', borderColor: theme.mode === 'dark' ? '#27272a' : '#e4e4e7', color: theme.colors.text }}
                                 >
-                                  Startzeit hinzufügen
+                                  {t("trainingPlan.addStartTime" as TranslationKey)}
                                 </button>
                               )}
                             </div>
@@ -2037,7 +2041,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 className="inline-flex items-center justify-center rounded-3xl border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium hover:opacity-95"
                 style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.text }}
               >
-                + Tag hinzufügen
+                + {t("trainingPlan.addDay" as TranslationKey)}
               </button>
 
               <button
@@ -2046,17 +2050,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                 className="inline-flex items-center justify-center rounded-3xl border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl px-4 py-2 text-sm font-medium hover:opacity-95"
                 style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border, color: theme.colors.text }}
               >
-                Vorschau
+                {t("trainingPlan.preview" as TranslationKey)}
               </button>
 
               <button
                 onClick={() => {
-                  setRoutineTemplateName(`Routine-Zyklus (${new Date().toLocaleDateString("de-DE")})`);
+                  setRoutineTemplateName(`${t("trainingPlan.routineCycle" as TranslationKey)} (${new Date().toLocaleDateString("de-DE")})`);
                   setRoutineSaveDialogOpen(true);
                 }}
                 className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 active:opacity-80"
               >
-                Routine speichern
+                {t("trainingPlan.saveRoutine" as TranslationKey)}
               </button>
             </div>
           </section>
@@ -2105,7 +2109,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Wochenvorschau</h3>
+              <h3 className="text-sm font-semibold text-white">{t("trainingPlan.weeklyPreview" as TranslationKey)}</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2128,13 +2132,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "bg-zinc-900 shadow-sm border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-3xl text-zinc-400" : "bg-green-500/10 text-green-500"
                             }`}
                         >
-                          {isRest ? "Ruhetag" : day.sport}
+                          {isRest ? t("trainingPlan.restDay" as TranslationKey) : day.sport}
                         </span>
                       </div>
                       <div className="mt-1 text-sm text-zinc-400">
-                        {isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}
+                        {isRest ? t("trainingPlan.restDay" as TranslationKey) : day.focus || t("trainingPlan.noLabelDefined" as TranslationKey)}
                       </div>
-                      {!isRest && day.startTime && <div className="mt-1 text-[10px] text-zinc-400">Startzeit: {day.startTime}</div>}
+                      {!isRest && day.startTime && <div className="mt-1 text-[10px] text-zinc-400">{t("trainingPlan.startTime" as TranslationKey)}: {day.startTime}</div>}
                     </AppCard>
                   );
                 })}
@@ -2149,7 +2153,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Routinevorschau</h3>
+              <h3 className="text-sm font-semibold text-white">{t("trainingPlan.routinePreview" as TranslationKey)}</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2168,12 +2172,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                     <AppCard key={index} variant="soft" className="p-3 !bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl !border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-semibold text-white">{item.label}</span>
-                        <span className="text-[10px] text-zinc-400">{isRest ? "Ruhetag" : block.sport}</span>
+                        <span className="text-[10px] text-zinc-400">{isRest ? t("trainingPlan.restDay" as TranslationKey) : block.sport}</span>
                       </div>
                       <div className="mt-1 text-sm font-medium text-zinc-400">
-                        {isRest ? "Ruhetag" : block.label}
+                        {isRest ? t("trainingPlan.restDay" as TranslationKey) : block.label}
                       </div>
-                      {!isRest && block.startTime && <div className="mt-1 text-[10px] text-zinc-400">Startzeit: {block.startTime}</div>}
+                      {!isRest && block.startTime && <div className="mt-1 text-[10px] text-zinc-400">{t("trainingPlan.startTime" as TranslationKey)}: {block.startTime}</div>}
                     </AppCard>
                   );
                 })}
@@ -2188,7 +2192,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Deine Trainingsvorlagen</h3>
+              <h3 className="text-sm font-semibold text-white">{t("trainingPlan.yourWorkoutTemplates" as TranslationKey)}</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2201,7 +2205,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             <div className="flex-1 overflow-y-auto p-4 pb-[160px] scrollbar-hide">
               {workoutTemplates.length === 0 ? (
                 <p className="text-sm text-zinc-400">
-                  Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen“ und klicke oben im Editor auf „Vorlage speichern“.
+                  {t("trainingPlan.noTemplatesSaved" as TranslationKey)}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -2218,18 +2222,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           <div className="truncate font-medium">{tpl.name}</div>
                           <div className="truncate text-xs text-zinc-400">
                             {tpl.isCardio ? "Cardio" : "Gym"} · {tpl.sport} · {tpl.exercises?.length ?? 0}{" "}
-                            {tpl.isCardio ? "Einheit(en)" : "Übung(en)"}
+                            {tpl.isCardio ? t("trainingPlan.unitCount" as TranslationKey) : t("trainingPlan.exerciseCount" as TranslationKey)}
                           </div>
                         </div>
                         <AppButton
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            if (window.confirm(`Vorlage "${tpl.name}" löschen?`)) deleteWorkoutTemplate(tpl.id);
+                            if (window.confirm(t("trainingPlan.confirmDeleteTemplate" as TranslationKey, { name: tpl.name }))) deleteWorkoutTemplate(tpl.id);
                           }}
                           className="shrink-0 text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200"
                         >
-                          Löschen
+                          {t("common.delete" as TranslationKey)}
                         </AppButton>
                       </AppCard>
                     ))}
@@ -2245,7 +2249,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
           <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Deine Wochenpläne</h3>
+              <h3 className="text-sm font-semibold text-white">{t("trainingPlan.yourWeeklyPlans" as TranslationKey)}</h3>
               <AppButton
                 variant="ghost"
                 size="sm"
@@ -2257,7 +2261,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             </div>
             <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
               {weeklyTemplates.length === 0 ? (
-                <p className="text-sm text-zinc-400">Keine Vorlagen gefunden.</p>
+                <p className="text-sm text-zinc-400">{t("trainingPlan.noTemplatesFound" as TranslationKey)}</p>
               ) : (
                 <div className="space-y-2">
                   {weeklyTemplates.map((tpl) => (
@@ -2269,7 +2273,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                       <div className="text-sm text-white">
                         <div className="font-medium">{tpl.name}</div>
                         <div className="text-xs text-zinc-400">
-                          {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.days.length} Tage
+                          {t("trainingPlan.weeksDays" as TranslationKey, { weeks: tpl.durationWeeks, days: tpl.days.length })}
                         </div>
                       </div>
 
@@ -2288,7 +2292,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                           onClick={() => applyWeeklyTemplate(tpl)}
                           className="text-xs"
                         >
-                          Übernehmen
+                          {t("trainingPlan.apply" as TranslationKey)}
                         </AppButton>
                       </div>
                     </AppCard>
@@ -2306,7 +2310,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
             <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
               <div className="flex items-center justify-between border-b border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3">
-                <h3 className="text-sm font-semibold text-white">Deine Routinen</h3>
+                <h3 className="text-sm font-semibold text-white">{t("trainingPlan.yourRoutines" as TranslationKey)}</h3>
                 <AppButton
                   variant="ghost"
                   size="sm"
@@ -2318,7 +2322,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               </div>
               <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
                 {routineTemplates.length === 0 ? (
-                  <p className="text-sm text-zinc-400">Keine Vorlagen gefunden.</p>
+                  <p className="text-sm text-zinc-400">{t("trainingPlan.noTemplatesFound" as TranslationKey)}</p>
                 ) : (
                   <div className="space-y-2">
                     {routineTemplates.map((tpl) => (
@@ -2330,8 +2334,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                         <div className="text-sm text-white">
                           <div className="font-medium">{tpl.name}</div>
                           <div className="text-xs text-zinc-400">
-                            {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im
-                            Zyklus
+                            {t("trainingPlan.weeksDaysInCycle" as TranslationKey, { weeks: tpl.durationWeeks, days: tpl.blocks.length })}
                           </div>
                         </div>
 
@@ -2350,7 +2353,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                             onClick={() => applyRoutineTemplate(tpl)}
                             className="text-xs"
                           >
-                            Übernehmen
+                            {t("trainingPlan.apply" as TranslationKey)}
                           </AppButton>
                         </div>
                       </AppCard>
@@ -2416,7 +2419,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   return (
                     <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{block.label || `Block ${i + 1}`}</span>
+                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{block.label || t("trainingPlan.blockNumber" as TranslationKey, { number: i + 1 })}</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-black/40 text-zinc-400 border border-white/5">{block.sport}</span>
                       </div>
                       {!isRest && block.exercises?.length > 0 && (
@@ -2439,7 +2442,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
               <div className="p-4 border-t border-white/10 bg-zinc-900/80 backdrop-blur-md flex gap-3 sticky bottom-0 z-10">
                 <AppButton variant="secondary" onClick={() => setPreviewTemplate(null)} className="flex-1">
-                  Schließen
+                  {t("common.close" as TranslationKey)}
                 </AppButton>
                 <AppButton
                   variant="primary"
@@ -2453,7 +2456,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   }}
                   className="flex-1 font-bold"
                 >
-                  Übernehmen
+                  {t("trainingPlan.apply" as TranslationKey)}
                 </AppButton>
               </div>
             </AppCard>
@@ -2466,10 +2469,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         weeklySaveDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
             <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-              <h3 className="text-base font-semibold text-white">Wochenplan anwenden</h3>
-              <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
+              <h3 className="text-base font-semibold text-white">{t("trainingPlan.applyWeeklyPlan" as TranslationKey)}</h3>
+              <p className="mt-1 text-sm text-zinc-400">{t("trainingPlan.saveAsTemplateQuestion" as TranslationKey)}</p>
               <div className="mt-4 space-y-2">
-                <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
+                <label className="block text-sm text-zinc-400">{t("trainingPlan.templateName" as TranslationKey)}</label>
                 <input
                   type="text"
                   value={weeklyTemplateName}
@@ -2482,13 +2485,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   onClick={() => saveWeeklyTemplateAndCalendar(false)}
                   variant="secondary"
                 >
-                  Nur Kalender
+                  {t("trainingPlan.calendarOnly" as TranslationKey)}
                 </AppButton>
                 <AppButton
                   onClick={() => saveWeeklyTemplateAndCalendar(true)}
                   variant="primary"
                 >
-                  Kalender + Vorlage
+                  {t("trainingPlan.calendarAndTemplate" as TranslationKey)}
                 </AppButton>
               </div>
             </AppCard>
@@ -2500,10 +2503,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
         routineSaveDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
             <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-              <h3 className="text-base font-semibold text-white">Routine anwenden</h3>
-              <p className="mt-1 text-sm text-zinc-400">Möchtest du diesen Plan auch als Vorlage speichern?</p>
+              <h3 className="text-base font-semibold text-white">{t("trainingPlan.applyRoutine" as TranslationKey)}</h3>
+              <p className="mt-1 text-sm text-zinc-400">{t("trainingPlan.saveAsTemplateQuestion" as TranslationKey)}</p>
               <div className="mt-4 space-y-2">
-                <label className="block text-sm text-zinc-400">Vorlagen-Name</label>
+                <label className="block text-sm text-zinc-400">{t("trainingPlan.templateName" as TranslationKey)}</label>
                 <input
                   type="text"
                   value={routineTemplateName}
@@ -2516,13 +2519,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
                   onClick={() => saveRoutineTemplateAndCalendar(false)}
                   variant="secondary"
                 >
-                  Nur Kalender
+                  {t("trainingPlan.calendarOnly" as TranslationKey)}
                 </AppButton>
                 <AppButton
                   onClick={() => saveRoutineTemplateAndCalendar(true)}
                   variant="primary"
                 >
-                  Kalender + Vorlage
+                  {t("trainingPlan.calendarAndTemplate" as TranslationKey)}
                 </AppButton>
               </div>
             </AppCard>

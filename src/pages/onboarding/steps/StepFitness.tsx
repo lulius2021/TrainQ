@@ -2,6 +2,7 @@
 import React from 'react';
 import { OnboardingStepLayout } from "../../../components/onboarding/OnboardingStepLayout";
 import { useOnboarding } from "../../../context/OnboardingContext";
+import { useI18n } from "../../../i18n/useI18n";
 
 interface Props {
     onBack: () => void;
@@ -10,6 +11,7 @@ interface Props {
 
 export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
     const { data, updateData } = useOnboarding();
+    const { t } = useI18n();
     const current = data.personal.fitnessLevel ?? 3;
 
     const handleSelect = (lvl: number) => {
@@ -18,33 +20,33 @@ export const StepFitness: React.FC<Props> = ({ onBack, onFinish }) => {
 
     const getLabel = (lvl: number) => {
         switch (lvl) {
-            case 1: return "Einsteiger";
-            case 2: return "Anfänger";
-            case 3: return "Fortgeschritten";
-            case 4: return "Erfahren";
-            case 5: return "Profi";
+            case 1: return t("onboarding.fitness.level1.label");
+            case 2: return t("onboarding.fitness.level2.label");
+            case 3: return t("onboarding.fitness.level3.label");
+            case 4: return t("onboarding.fitness.level4.label");
+            case 5: return t("onboarding.fitness.level5.label");
             default: return "";
         }
     }
 
     const getDesc = (lvl: number) => {
         switch (lvl) {
-            case 1: return "Ich fange gerade erst an.";
-            case 2: return "Ich trainiere ab und zu.";
-            case 3: return "Ich trainiere regelmäßig seit >6 Monaten.";
-            case 4: return "Training ist Teil meines Lebens (>2 Jahre).";
-            case 5: return "Wettkampfniveau / Sehr erfahren.";
+            case 1: return t("onboarding.fitness.level1.desc");
+            case 2: return t("onboarding.fitness.level2.desc");
+            case 3: return t("onboarding.fitness.level3.desc");
+            case 4: return t("onboarding.fitness.level4.desc");
+            case 5: return t("onboarding.fitness.level5.desc");
             default: return "";
         }
     }
 
     return (
         <OnboardingStepLayout
-            title="Wie fit bist du?"
-            subtitle="Wähle dein aktuelles Fitness-Level."
+            title={t("onboarding.fitness.title")}
+            subtitle={t("onboarding.fitness.subtitle")}
             onContinue={onFinish}
             onBack={onBack}
-            continueLabel="Fertigstellen"
+            continueLabel={t("onboarding.fitness.continue")}
             canContinue={true}
         >
             <div className="flex flex-col items-center justify-center py-8">

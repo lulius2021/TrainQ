@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { parseISODateLocal } from "../utils/calendarGeneration";
+import { useI18n } from "../i18n/useI18n";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore";
 import { getScopedItem } from "../utils/scopedStorage";
 import { getActiveUserId } from "../utils/session";
@@ -89,19 +90,20 @@ function getEventIcon(type: ExerciseType) {
     }
 }
 
-function sportLabel(type: ExerciseType): string {
+function sportLabel(type: ExerciseType, t: (key: string) => string): string {
     switch (type) {
-        case "strength": return "Gym";
-        case "run": return "Laufen";
-        case "cycle": return "Radfahren";
-        case "custom": return "Custom";
-        default: return "Training";
+        case "strength": return t("calendar.sport.gym");
+        case "run": return t("calendar.sport.running");
+        case "cycle": return t("calendar.sport.cycling");
+        case "custom": return t("calendar.sport.custom");
+        default: return t("calendar.sport.training");
     }
 }
 
 // ── Main ──
 
 export default function CalendarPage() {
+    const { t } = useI18n();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [view, setView] = useState<"day" | "week" | "month">("month");
@@ -180,14 +182,10 @@ export default function CalendarPage() {
         // Also reload on focus (covers tab switches within the app)
         window.addEventListener("focus", loadEvents);
 
-        // Poll storage changes for same-page tab switches (SPA navigation)
-        const interval = setInterval(loadEvents, 2000);
-
         return () => {
             window.removeEventListener("trainq:update_events", loadEvents);
             document.removeEventListener("visibilitychange", onVisibility);
             window.removeEventListener("focus", loadEvents);
-            clearInterval(interval);
         };
     }, []);
 
@@ -263,7 +261,7 @@ export default function CalendarPage() {
         const start = startOfWeek(monthStart, { weekStartsOn: 1 });
         const end = endOfWeek(monthEnd, { weekStartsOn: 1 });
         const days = eachDayOfInterval({ start, end });
-        const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+        const weekDays = [t("calendar.weekday.mo"), t("calendar.weekday.tu"), t("calendar.weekday.we"), t("calendar.weekday.th"), t("calendar.weekday.fr"), t("calendar.weekday.sa"), t("calendar.weekday.su")];
 
         return (
             <div className="px-4 pt-2 pb-3">
@@ -350,7 +348,7 @@ export default function CalendarPage() {
     const renderWeekView = () => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const days = eachDayOfInterval({ start, end: addDays(start, 6) });
-        const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+        const weekDays = [t("calendar.weekday.mo"), t("calendar.weekday.tu"), t("calendar.weekday.we"), t("calendar.weekday.th"), t("calendar.weekday.fr"), t("calendar.weekday.sa"), t("calendar.weekday.su")];
 
         return (
             <div className="px-4 pt-2 pb-3">
@@ -480,8 +478,8 @@ export default function CalendarPage() {
                         {eventIsDeload && <DeloadWeekBadge />}
                     </div>
                     <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                        {sportLabel(event.type)}
-                        {event.status === "completed" && " · Abgeschlossen"}
+                        {sportLabel(event.type, t)}
+                        {event.status === "completed" && ` · ${t("calendar.completed")}`}
                     </p>
                 </div>
                 <ChevronRight size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
@@ -507,7 +505,7 @@ export default function CalendarPage() {
                         className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold active:scale-95 transition-transform"
                         style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                     >
-                        Heute
+                        {t("calendar.today")}
                     </button>
                 </div>
 
@@ -529,7 +527,7 @@ export default function CalendarPage() {
                                     color: view === v ? "var(--text-color)" : "var(--text-secondary)",
                                 }}
                             >
-                                {v === "day" ? "Tag" : v === "week" ? "Woche" : "Monat"}
+                                {v === "day" ? t("calendar.view.day") : v === "week" ? t("calendar.view.week") : t("calendar.view.month")}
                             </button>
                         ))}
                     </div>
@@ -579,7 +577,7 @@ export default function CalendarPage() {
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
                         {isToday(selectedDate)
-                            ? "Heute"
+                            ? t("calendar.today")
                             : format(selectedDate, "EEEE, d. MMMM", { locale: de })}
                     </h3>
                     {selectedEvents.length > 0 && (
@@ -607,7 +605,7 @@ export default function CalendarPage() {
                             <CalendarIcon size={18} style={{ color: "var(--text-secondary)" }} />
                         </div>
                         <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                            Kein Training geplant
+                            {t("calendar.noTraining")}
                         </p>
                     </div>
                 ) : (

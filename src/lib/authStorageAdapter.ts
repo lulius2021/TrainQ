@@ -29,7 +29,7 @@ export const authStorageAdapter: SupportedStorage = {
             try {
                 await SecureStoragePlugin.set({ key, value });
             } catch (e) {
-                console.error("SecureStorage set error:", e);
+                if (import.meta.env.DEV) console.error("SecureStorage set error:", e);
             }
         } else {
             if (typeof window === "undefined") return;

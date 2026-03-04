@@ -68,7 +68,7 @@ export const ProfileService = {
                 const blobUrl = await loadProfileImageUrl(refId);
                 return blobUrl;
             } catch (e) {
-                console.error("Failed to load profile image blob", e);
+                if (import.meta.env.DEV) console.error("Failed to load profile image blob", e);
                 return undefined;
             }
         }

@@ -58,16 +58,20 @@ export async function getSubscriptionProducts(): Promise<Product[]> {
   return products ?? [];
 }
 
-export async function purchaseSubscription(plan: SubscriptionPlan): Promise<Transaction> {
+export type PurchaseResult =
+  | { ok: true; transaction: Transaction }
+  | { ok: false; cancelled: boolean; error: string };
+
+export async function purchaseSubscription(plan: SubscriptionPlan): Promise<PurchaseResult> {
   if (!isNative()) {
-    throw new Error("In-App-Käufe sind nur auf Geräten verfügbar.");
+    return { ok: false, cancelled: false, error: "In-App-Käufe sind nur auf Geräten verfügbar." };
   }
 
   const supported = await isBillingSupported();
-  if (!supported) throw new Error("Billing wird auf diesem Gerät nicht unterstützt.");
+  if (!supported) return { ok: false, cancelled: false, error: "Billing wird auf diesem Gerät nicht unterstützt." };
 
   const productIdentifier = plan === "yearly" ? YEARLY_ID : MONTHLY_ID;
-  if (!productIdentifier) throw new Error("Produkt-ID fehlt. Bitte Store-IDs konfigurieren.");
+  if (!productIdentifier) return { ok: false, cancelled: false, error: "Produkt-ID fehlt. Bitte Store-IDs konfigurieren." };
 
   const platform = Capacitor.getPlatform();
   const planIdentifier =
@@ -77,12 +81,29 @@ export async function purchaseSubscription(plan: SubscriptionPlan): Promise<Tran
         : ANDROID_MONTHLY_PLAN_ID
       : undefined;
 
-  return NativePurchases.purchaseProduct({
-    productIdentifier,
-    planIdentifier,
-    productType: PURCHASE_TYPE.SUBS,
-    quantity: 1,
-  });
+  try {
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier,
+      planIdentifier,
+      productType: PURCHASE_TYPE.SUBS,
+      quantity: 1,
+    });
+    return { ok: true, transaction };
+  } catch (e: any) {
+    const msg = String(e?.message || e || "");
+    const cancelled =
+      msg.includes("cancel") ||
+      msg.includes("Cancel") ||
+      msg.includes("SKError") ||
+      msg.includes("userCancelled") ||
+      e?.code === "USER_CANCELLED" ||
+      e?.code === 2;
+    return {
+      ok: false,
+      cancelled,
+      error: cancelled ? "" : (msg || "Kauf fehlgeschlagen. Bitte erneut versuchen."),
+    };
+  }
 }
 
 export async function refreshProStatus(): Promise<boolean> {

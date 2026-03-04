@@ -6,6 +6,7 @@ import ExerciseLibraryModal from "../training/ExerciseLibraryModal";
 import type { NewCalendarEvent, LiveExercise } from "../../types/training";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { Dumbbell, Footprints, Bike, Star } from "lucide-react";
+import { useI18n } from "../../i18n/useI18n";
 
 interface AddEventModalProps {
     isOpen: boolean;
@@ -22,10 +23,10 @@ type TrainingCategory = 'gym' | 'running' | 'cycling' | 'custom';
 
 // Configuration for Sport Categories
 const SPORT_CATEGORIES = [
-    { id: 'gym', label: 'Gym', icon: Dumbbell, color: 'bg-blue-600', border: 'border-blue-500' },
-    { id: 'running', label: 'Laufen', icon: Footprints, color: 'bg-emerald-600', border: 'border-emerald-500' },
-    { id: 'cycling', label: 'Radfahren', icon: Bike, color: 'bg-violet-600', border: 'border-violet-500' },
-    { id: 'custom', label: 'Custom', icon: Star, color: 'bg-orange-600', border: 'border-orange-500' },
+    { id: 'gym', labelKey: 'addEvent.sport.gym', icon: Dumbbell, color: 'bg-blue-600', border: 'border-blue-500' },
+    { id: 'running', labelKey: 'addEvent.sport.running', icon: Footprints, color: 'bg-emerald-600', border: 'border-emerald-500' },
+    { id: 'cycling', labelKey: 'addEvent.sport.cycling', icon: Bike, color: 'bg-violet-600', border: 'border-violet-500' },
+    { id: 'custom', labelKey: 'addEvent.sport.custom', icon: Star, color: 'bg-orange-600', border: 'border-orange-500' },
 ] as const;
 
 export const AddEventModal: React.FC<AddEventModalProps> = ({
@@ -35,6 +36,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     mode,
     onSave,
 }) => {
+    const { t } = useI18n();
     // --- State ---
     const [title, setTitle] = useState("");
     const [date, setDate] = useState(initialDate || new Date().toISOString().split("T")[0]);
@@ -146,21 +148,21 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
     const getPlaceholderTitle = () => {
         switch (trainingCategory) {
-            case 'gym': return "Push, Pull, Legs...";
-            case 'running': return "Laufrunde am Morgen...";
-            case 'cycling': return "Radtour...";
-            case 'custom': return "Benutzerdefiniertes Training...";
-            default: return "Training...";
+            case 'gym': return t("addEvent.placeholder.gym");
+            case 'running': return t("addEvent.placeholder.running");
+            case 'cycling': return t("addEvent.placeholder.cycling");
+            case 'custom': return t("addEvent.placeholder.custom");
+            default: return t("addEvent.placeholder.default");
         }
     };
 
     const getDefaultTitle = () => {
         switch (trainingCategory) {
-            case 'gym': return "Gym Workout";
-            case 'running': return "Laufeinheit";
-            case 'cycling': return "Radeinheit";
-            case 'custom': return "Training";
-            default: return "Training";
+            case 'gym': return t("addEvent.defaultTitle.gym");
+            case 'running': return t("addEvent.defaultTitle.running");
+            case 'cycling': return t("addEvent.defaultTitle.cycling");
+            case 'custom': return t("addEvent.defaultTitle.custom");
+            default: return t("addEvent.defaultTitle.default");
         }
     };
 
@@ -218,7 +220,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     {/* Header */}
                     <div className="flex justify-between items-center mb-5">
                         <h3 className="text-xl font-bold text-[var(--text-color)]">
-                            {mode === 'appointment' ? 'Termin anlegen' : 'Training anlegen'}
+                            {mode === 'appointment' ? t('addEvent.titleAppointment') : t('addEvent.titleTraining')}
                         </h3>
                         <button onClick={onClose} className="bg-[var(--button-bg)] p-2 rounded-full hover:bg-[var(--button-bg)]">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -232,7 +234,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                             <>
                                 {/* Category Chips - Filtered for Appointment Types */}
                                 <div>
-                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2.5 block">Kategorie</label>
+                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2.5 block">{t('addEvent.category')}</label>
                                     <div className="flex flex-wrap gap-2">
                                         {['physio', 'doctor', 'other'].map(catId => {
                                             const cat = EVENT_CATEGORIES.find(c => c.id === catId);
@@ -248,7 +250,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                                             : 'bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)] hover:border-[var(--border-color)]'}
                                                     `}
                                                 >
-                                                    {cat.label}
+                                                    {t(cat.labelKey)}
                                                 </button>
                                             );
                                         })}
@@ -257,10 +259,10 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                                 {/* Title Input */}
                                 <div>
-                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Titel</label>
+                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.titleLabel')}</label>
                                     <input
                                         type="text"
-                                        placeholder="Termin Name (z.B. Zahnarzt)"
+                                        placeholder={t('addEvent.appointmentPlaceholder')}
                                         value={title}
                                         onChange={e => setTitle(e.target.value)}
                                         className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-color)] rounded-3xl px-4 py-3 text-[17px] focus:outline-none focus:border-blue-500/50 focus:bg-[var(--input-bg)] transition-all placeholder-[var(--text-secondary)]"
@@ -269,11 +271,11 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                                 {/* Notes */}
                                 <div>
-                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Notizen</label>
+                                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.notes')}</label>
                                     <textarea
                                         value={description}
                                         onChange={e => setDescription(e.target.value)}
-                                        placeholder="Notizen zum Termin..."
+                                        placeholder={t('addEvent.notesPlaceholder')}
                                         rows={4}
                                         className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-color)] rounded-3xl px-4 py-3 text-[15px] focus:outline-none focus:border-blue-500/50 focus:bg-[var(--input-bg)] transition-all placeholder-[var(--text-secondary)] resize-none"
                                     />
@@ -298,14 +300,14 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                       `}
                                         >
                                             <cat.icon className="mb-2 w-6 h-6" />
-                                            <span className="text-sm font-medium">{cat.label}</span>
+                                            <span className="text-sm font-medium">{t(cat.labelKey)}</span>
                                         </button>
                                     ))}
                                 </div>
 
                                 <div className="grid grid-cols-[1fr_auto] gap-3">
                                     <div>
-                                        <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Titel</label>
+                                        <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.titleLabel')}</label>
                                         <input
                                             type="text"
                                             value={title}
@@ -315,7 +317,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Startzeit</label>
+                                        <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.startTime')}</label>
                                         <input
                                             type="time"
                                             value={startTime}
@@ -328,8 +330,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                 {/* SECTION 2: EXERCISES */}
                                 <div className="space-y-4 pt-2">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Geplante Übungen</h4>
-                                        <span className="text-xs text-[var(--text-secondary)]">{builtExercises.length} Übungen</span>
+                                        <h4 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{t('addEvent.plannedExercises')}</h4>
+                                        <span className="text-xs text-[var(--text-secondary)]">{builtExercises.length} {t('addEvent.exercises')}</span>
                                     </div>
 
                                     {/* Exercise List */}
@@ -380,7 +382,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                                         {builtExercises.length === 0 && (
                                             <div className="text-center py-6 border border-dashed border-[var(--border-color)] rounded-2xl">
-                                                <div className="text-[var(--text-secondary)] text-sm">Noch keine Übungen geplant</div>
+                                                <div className="text-[var(--text-secondary)] text-sm">{t('addEvent.noExercisesPlanned')}</div>
                                             </div>
                                         )}
                                     </div>
@@ -394,7 +396,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
                                         </div>
                                         <span className="font-medium">
-                                            {trainingCategory === 'gym' ? 'Übung hinzufügen' : trainingCategory === 'running' ? 'Lauf/Intervall hinzufügen' : trainingCategory === 'cycling' ? 'Radfahrt hinzufügen' : 'Übung hinzufügen'}
+                                            {trainingCategory === 'gym' ? t('addEvent.addExercise') : trainingCategory === 'running' ? t('addEvent.addRunInterval') : trainingCategory === 'cycling' ? t('addEvent.addRide') : t('addEvent.addExercise')}
                                         </span>
                                     </button>
                                 </div>
@@ -404,7 +406,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                         {/* COMMON: TIME SELECTION */}
                         <div className="pt-2 border-t border-[var(--border-color)]">
-                            <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Zeit</label>
+                            <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.time')}</label>
                             <div className="grid grid-cols-2 gap-3">
                                 <input
                                     type="date"
@@ -431,7 +433,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                         <div className="pt-5 mt-2 border-t border-[var(--border-color)]">
                             <AppButton onClick={() => handleSubmit()} className="w-full bg-white text-black hover:bg-gray-200">
-                                Speichern
+                                {t('common.save')}
                             </AppButton>
                         </div>
                     </div>

@@ -22,7 +22,7 @@ export function useFeed(viewerId: string | undefined) {
       }
       setHasMore(result.length >= 20);
     } catch (e) {
-      console.error("Feed load error:", e);
+      if (import.meta.env.DEV) console.error("Feed load error:", e);
     } finally {
       setLoading(false);
     }

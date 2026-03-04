@@ -20,6 +20,7 @@ import MacroGoalsSheet from "../components/nutrition/MacroGoalsSheet";
 import BarcodeScannerModal from "../components/nutrition/BarcodeScannerModal";
 import CreateFoodSheet from "../components/nutrition/CreateFoodSheet";
 import NutritionHistory from "../components/nutrition/NutritionHistory";
+import { useI18n } from "../i18n/useI18n";
 
 const MotionDiv = motion.div as any;
 
@@ -35,15 +36,15 @@ function formatDateISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDisplayDate(iso: string): string {
+function formatDisplayDate(iso: string, t: (key: string) => string): string {
   const today = formatDateISO(new Date());
-  if (iso === today) return "Heute";
+  if (iso === today) return t("nutrition.today");
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  if (iso === formatDateISO(yesterday)) return "Gestern";
+  if (iso === formatDateISO(yesterday)) return t("nutrition.yesterday");
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  if (iso === formatDateISO(tomorrow)) return "Morgen";
+  if (iso === formatDateISO(tomorrow)) return t("nutrition.tomorrow");
   try {
     const d = new Date(iso + "T00:00:00");
     return d.toLocaleDateString("de-DE", {
@@ -97,6 +98,7 @@ interface NutritionPageProps {
 }
 
 const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
+  const { t } = useI18n();
   // Date navigation
   const [dateOffset, setDateOffset] = useState(0);
   const dateISO = useMemo(() => {
@@ -145,7 +147,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
   // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2200);
+    const timer = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -158,7 +160,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
       if (results.length === 0) {
         setSuggestions([]);
         setShowSuggestions(false);
-        showToast(`"${parsed.query}" nicht gefunden`, "error");
+        showToast(t("nutrition.notFound", { query: parsed.query }), "error");
         setCreateFoodInitialName(parsed.query);
         return;
       }
@@ -203,7 +205,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
       if (editingEntryId) {
         // Update existing entry
         editEntry(editingEntryId, { amountGrams, displayAmount, macros });
-        showToast("Eintrag aktualisiert");
+        showToast(t("nutrition.entryUpdated"));
       } else {
         // Create new entry
         const now = new Date().toISOString();
@@ -220,7 +222,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
           source: barcodeFood ? "barcode" : "parser",
         };
         addEntry(entry);
-        showToast("Eingetragen");
+        showToast(t("nutrition.logged"));
       }
 
       setSelectedFood(null);
@@ -236,7 +238,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
     (id: string) => {
       removeEntry(id);
       Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-      showToast("Geloescht");
+      showToast(t("nutrition.deleted"));
     },
     [removeEntry, showToast]
   );
@@ -282,7 +284,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
       try {
         const result = await lookupBarcode(ean);
         if (!result) {
-          showToast("Produkt nicht gefunden", "error");
+          showToast(t("nutrition.productNotFound"), "error");
           return;
         }
         const food: FoodItem = {
@@ -301,7 +303,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
         setPendingQty(result.servingGrams || 100);
         setPendingUnit(result.servingGrams ? "portion" : "g");
       } catch {
-        showToast("Barcode-Suche fehlgeschlagen", "error");
+        showToast(t("nutrition.barcodeFailed"), "error");
       }
     },
     [showToast]
@@ -323,7 +325,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
       }
       setShowCreateFood(false);
       setCreateFoodInitialName("");
-      showToast("Lebensmittel gespeichert");
+      showToast(t("nutrition.foodSaved"));
     },
     [showToast]
   );
@@ -351,7 +353,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             <ChevronLeft size={20} className="text-[var(--text-color)]" />
           </button>
           <h1 className="text-lg font-bold text-[var(--text-color)]">
-            Ern&auml;hrung
+            {t("nutrition.title")}
           </h1>
           <button
             onClick={() => setShowGoalsSheet(true)}
@@ -373,7 +375,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             onClick={() => setDateOffset(0)}
             className="text-sm font-semibold text-[var(--text-color)] min-w-[120px] text-center"
           >
-            {formatDisplayDate(dateISO)}
+            {formatDisplayDate(dateISO, t)}
           </button>
           <button
             onClick={() => setDateOffset((d) => d + 1)}
@@ -393,7 +395,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
                 : "bg-[var(--border-color)] text-[var(--text-secondary)]"
             }`}
           >
-            Tagebuch
+            {t("nutrition.diary")}
           </button>
           <button
             onClick={() => setActiveTab("history")}
@@ -403,7 +405,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
                 : "bg-[var(--border-color)] text-[var(--text-secondary)]"
             }`}
           >
-            Verlauf
+            {t("nutrition.history")}
           </button>
         </div>
       </div>
@@ -452,11 +454,11 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             {/* Diary section header */}
             <div className="flex items-center justify-between pt-2">
               <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px] pl-1">
-                Tagebuch
+                {t("nutrition.diary")}
               </h3>
               {entries.length > 0 && (
                 <span className="text-xs font-medium text-[var(--text-secondary)]">
-                  {entries.length} {entries.length === 1 ? "Eintrag" : "Eintraege"}
+                  {entries.length} {entries.length === 1 ? t("nutrition.entry") : t("nutrition.entries")}
                 </span>
               )}
             </div>
@@ -489,7 +491,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             onSave={(g) => {
               setGoals(g);
               setShowGoalsSheet(false);
-              showToast("Ziele gespeichert");
+              showToast(t("nutrition.goalsSaved"));
             }}
             onClose={() => setShowGoalsSheet(false)}
           />

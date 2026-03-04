@@ -436,7 +436,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         }
       });
     } catch (e) {
-      console.error("Export failed", e);
+      if (import.meta.env.DEV) console.error("Export failed", e);
     } finally {
       setIsExporting(false);
     }

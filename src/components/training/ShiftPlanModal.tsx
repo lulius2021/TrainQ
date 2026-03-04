@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, X, ArrowRight } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useSafeAreaInsets } from '../../hooks/useSafeAreaInsets';
+import { useI18n } from '../../i18n/useI18n';
 
 interface ShiftPlanModalProps {
     isOpen: boolean;
@@ -10,16 +11,17 @@ interface ShiftPlanModalProps {
 }
 
 const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConfirm }) => {
+    const { t } = useI18n();
     const [selectedDays, setSelectedDays] = useState<number>(1);
     const insets = useSafeAreaInsets();
 
     if (!isOpen) return null;
 
     const options = [
-        { label: '+1 Tag', value: 1 },
-        { label: '+2 Tage', value: 2 },
-        { label: '+3 Tage', value: 3 },
-        { label: '+1 Woche', value: 7 },
+        { label: t('shiftPlan.oneDay'), value: 1 },
+        { label: t('shiftPlan.twoDays'), value: 2 },
+        { label: t('shiftPlan.threeDays'), value: 3 },
+        { label: t('shiftPlan.oneWeek'), value: 7 },
     ];
 
     const handleConfirm = () => {
@@ -49,8 +51,8 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
                             <Calendar size={20} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold leading-tight" style={{ color: "var(--text-color)" }}>Plan verschieben</h3>
-                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Ausfall kompensieren</p>
+                            <h3 className="text-lg font-bold leading-tight" style={{ color: "var(--text-color)" }}>{t('shiftPlan.title')}</h3>
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t('shiftPlan.subtitle')}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}>
@@ -91,7 +93,7 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
                                 <ArrowRight size={16} style={{ color: "var(--text-muted)" }} />
                             </div>
                             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                                Alle geplanten Trainings <span className="font-bold" style={{ color: "var(--text-color)" }}>ab heute</span> werden um <span className="font-bold" style={{ color: "var(--text-color)" }}>{selectedDays} {selectedDays === 1 ? 'Tag' : 'Tage'}</span> nach hinten geschoben.
+                                {t('shiftPlan.infoPrefix')} <span className="font-bold" style={{ color: "var(--text-color)" }}>{t('shiftPlan.fromToday')}</span> {t('shiftPlan.infoMid')} <span className="font-bold" style={{ color: "var(--text-color)" }}>{selectedDays} {selectedDays === 1 ? t('shiftPlan.day') : t('shiftPlan.days')}</span> {t('shiftPlan.infoSuffix')}
                             </p>
                         </div>
                     </div>
@@ -101,7 +103,7 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
                         onClick={handleConfirm}
                         className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-base hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
                     >
-                        Bestätigen
+                        {t('shiftPlan.confirm')}
                     </button>
                 </div>
             </div>

@@ -33,7 +33,7 @@ export default function CommentSection({ postId, viewerId, onCommentCountChanged
       const result = await getComments(postId);
       setComments(result);
     } catch (e) {
-      console.error("Comments load error:", e);
+      if (import.meta.env.DEV) console.error("Comments load error:", e);
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ export default function CommentSection({ postId, viewerId, onCommentCountChanged
       setText("");
       onCommentCountChanged?.(1);
     } catch (e) {
-      console.error("Comment create error:", e);
+      if (import.meta.env.DEV) console.error("Comment create error:", e);
     } finally {
       setSending(false);
     }

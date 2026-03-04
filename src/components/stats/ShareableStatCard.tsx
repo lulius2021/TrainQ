@@ -73,7 +73,7 @@ export const ShareableStatCard: React.FC<ShareableStatCardProps> = ({
             }
 
         } catch (error) {
-            console.error("Share failed", error);
+            if (import.meta.env.DEV) console.error("Share failed", error);
         } finally {
             setIsSharing(false);
         }

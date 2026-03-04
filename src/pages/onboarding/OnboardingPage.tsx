@@ -28,13 +28,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
       if (user?.id) {
         const client = getSupabaseClient();
         if (client) {
-          console.log("Saving profile to Supabase...", {
-            id: user.id,
-            persona: data.personal.persona,
-            time_budget: data.training.timeBudget,
-            fitness_level: data.personal.fitnessLevel
-          });
-
           const { error } = await client
             .from('profiles')
             .upsert({
@@ -47,9 +40,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
             });
 
           if (error) {
-            console.error("Failed to save profile:", error);
-          } else {
-            console.log("Profile saved successfully.");
+            if (import.meta.env.DEV) console.error("Failed to save profile:", error);
           }
         }
       }
@@ -57,7 +48,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
       complete();
       onFinished();
     } catch (e) {
-      console.error("Onboarding finish error:", e);
+      if (import.meta.env.DEV) console.error("Onboarding finish error:", e);
       complete();
       onFinished();
     } finally {

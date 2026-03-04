@@ -66,7 +66,7 @@ export async function shiftWorkouts(days: number = 1): Promise<{ count: number }
         return { count };
 
     } catch (error) {
-        console.error("Shift Workouts Error:", error);
+        if (import.meta.env.DEV) console.error("Shift Workouts Error:", error);
         throw error;
     }
 }

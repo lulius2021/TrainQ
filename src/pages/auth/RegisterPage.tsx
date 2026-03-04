@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { AuthInput } from "../../components/auth/AuthInput.tsx";
 import { AuthButton } from "../../components/auth/AuthButton.tsx";
 import { useAuth } from "../../hooks/useAuth.ts";
+import { useI18n } from "../../i18n/useI18n";
 
 interface RegisterPageProps {
   onGoToLogin: () => void;
@@ -10,6 +11,7 @@ interface RegisterPageProps {
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const { register } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -22,7 +24,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Passwörter stimmen nicht überein.");
+      setError(t("auth.register.passwordMismatch"));
       return;
     }
     setError(null);
@@ -31,16 +33,16 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
     try {
       const res = await register(email, password, { full_name: name });
       if (!res.ok) {
-        setError(res.error || "Registrierung fehlgeschlagen.");
+        setError(res.error || t("auth.register.error"));
       } else {
         if (!res.session) {
-          alert("Konto erstellt! Bitte E-Mail bestätigen.");
+          alert(t("auth.register.confirmEmail"));
           onGoToLogin();
         }
         // If session exists, AppRouter handles redirect
       }
     } catch (err: any) {
-      setError(err?.message || "Ein unbekannter Fehler ist aufgetreten.");
+      setError(err?.message || t("auth.register.error"));
     } finally {
       setBusy(false);
     }
@@ -50,7 +52,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
     <div className="min-h-screen flex flex-col justify-center px-6 py-12 lg:px-8" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight" style={{ color: "var(--text-color)" }}>
-          Konto erstellen
+          {t("auth.register.title")}
         </h2>
       </div>
 
@@ -64,15 +66,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
             )}
 
             <AuthInput
-              label="Name"
+              label={t("auth.register.name")}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Dein Name"
+              placeholder={t("auth.register.namePlaceholder")}
             />
 
             <AuthInput
-              label="E-Mail"
+              label={t("auth.email")}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -80,7 +82,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
             />
 
             <AuthInput
-              label="Passwort"
+              label={t("auth.password")}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -88,7 +90,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
             />
 
             <AuthInput
-              label="Passwort wiederholen"
+              label={t("auth.register.repeatPassword")}
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
@@ -96,23 +98,23 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
             />
 
             <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              Durch die Registrierung stimmst du unseren Nutzungsbedingungen und Datenschutzrichtlinien zu.
+              {t("auth.register.terms")}
             </div>
 
             <div>
               <AuthButton type="submit" disabled={busy}>
-                {busy ? "Erstelle Konto..." : "Registrieren"}
+                {busy ? t("auth.register.loading") : t("auth.register.submit")}
               </AuthButton>
             </div>
           </form>
 
           <p className="mt-10 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
-            Bereits ein Konto?{" "}
+            {t("auth.register.already")}{" "}
             <button
               onClick={onGoToLogin}
               className="font-semibold leading-6 text-[#007AFF] hover:text-[#0056b3]"
             >
-              Anmelden
+              {t("auth.register.login")}
             </button>
           </p>
         </div>

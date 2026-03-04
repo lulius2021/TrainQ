@@ -274,9 +274,8 @@ export default function LiveTrainingPage({
           progressValue: 0.0
         } as any,
       });
-      console.log("✅ Widget gestartet");
     } catch (e) {
-      console.error("❌ Widget Fehler:", e);
+      if (import.meta.env.DEV) console.error("Widget Fehler:", e);
     }
   };
 
@@ -459,7 +458,7 @@ export default function LiveTrainingPage({
       startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
       setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
     } catch (err) {
-      console.error("[LiveTraining] init error", err);
+      if (import.meta.env.DEV) console.error("[LiveTraining] init error", err);
       setInitError("Live-Training konnte nicht gestartet werden.");
       setInitDone(true);
     }
@@ -521,9 +520,6 @@ export default function LiveTrainingPage({
 
     // 4. Fallback: Nimm das Workout-Exercise-Objekt als Exercise (hat meist name, etc.)
     const finalExercise = (fullExercise || workoutExercise) as unknown as Exercise;
-
-    // Debug log to confirm image source
-    console.log("Opening details for:", finalExercise.name, "ID:", finalExercise.id, "Image:", finalExercise.image || finalExercise.imageSrc);
 
     setPreviewExercise(finalExercise);
   };

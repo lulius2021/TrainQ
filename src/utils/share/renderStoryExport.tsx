@@ -217,7 +217,7 @@ export async function renderWorkoutStoryPng(opts: RenderOpts): Promise<Blob> {
     const node = container.querySelector('[data-story-export-root="true"]') as HTMLElement | null;
     const rect = node?.getBoundingClientRect();
     const imgCount = node ? node.querySelectorAll("img").length : 0;
-    console.error("Story export failed", {
+    if (import.meta.env.DEV) console.error("Story export failed", {
       platform,
       templateId: opts.templateId,
       mode: opts.mode,

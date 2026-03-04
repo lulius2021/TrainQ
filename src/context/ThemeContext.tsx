@@ -67,9 +67,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
 
                 // Fallback to darkTheme
-                if (import.meta.env.DEV) {
-                    console.warn(`[Theme Safety] Missing color token: ${String(prop)}. Fallback to Dark Mode.`);
-                }
                 return darkTheme.colors[prop as keyof ColorTokens];
             }
         });
@@ -121,7 +118,6 @@ export const useTheme = () => {
     if (!context) {
         // SAFETY: Return default dark theme structure if provider is missing
         // This prevents crashes in error boundaries or race conditions
-        console.warn("[ThemeContext] useTheme used outside of ThemeProvider! Returning default fallback.");
         return {
             theme: { mode: "dark", colors: darkTheme.colors },
             toggleTheme: () => { },

@@ -1,10 +1,8 @@
 // src/utils/scopedStorage.ts
 import { getActiveUserId, userScopedKey } from "./session";
 
-function warnNoUser(baseKey: string) {
-  if (!import.meta.env.DEV) return;
-  if (typeof console === "undefined") return;
-  console.warn(`[scopedStorage] No active user for key "${baseKey}". Using unscoped key.`);
+function warnNoUser(_baseKey: string) {
+  // Removed: was console.warn debug noise
 }
 
 export function scopedKey(baseKey: string, userId?: string | null): string {

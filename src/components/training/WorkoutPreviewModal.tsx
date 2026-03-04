@@ -52,7 +52,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                     setScopedItem(storageKey, JSON.stringify(updatedEvents), userId);
                     window.dispatchEvent(new Event("trainq:update_events"));
                     onClose();
-                } catch (e) { console.error(e); }
+                } catch (e) { if (import.meta.env.DEV) console.error(e); }
             }
         }
     };

@@ -1,9 +1,10 @@
 // src/pages/onboarding/steps/Step1Personal.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { StepWrapper } from "../StepWrapper"; // ✅ WICHTIG: nutzt src/pages/onboarding/StepWrapper.tsx
+import { StepWrapper } from "../StepWrapper"; // uses src/pages/onboarding/StepWrapper.tsx
 import { useOnboarding } from "../../../context/OnboardingContext";
 import { AppCard } from "../../../components/ui/AppCard";
 import type { PersonalData } from "../../../types/onboarding";
+import { useI18n } from "../../../i18n/useI18n";
 
 interface Step1PersonalProps {
   onNext: () => void;
@@ -39,6 +40,7 @@ function sanitizePersonal(input?: Partial<PersonalData> | null): PersonalData {
 
 export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) => {
   const { data, updateData } = useOnboarding();
+  const { t } = useI18n();
 
   const initial = useMemo(() => sanitizePersonal(data?.personal), [data?.personal]);
 
@@ -81,19 +83,19 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
       showBack={true}
       onBack={onBack}
       onNext={handleNext}
-      nextLabel="Weiter"
+      nextLabel={t("common.next")}
     >
       {/* Stress */}
       <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-[var(--text)]">Stress</div>
+          <div className="text-sm font-semibold text-[var(--text)]">{t("onboarding.personal.stress")}</div>
           <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]">
             {local.stressLevel}/10
           </span>
         </div>
 
         <div className="text-[11px] text-[var(--text-muted)]">
-          1 = entspannt, 10 = sehr gestresst
+          {t("onboarding.personal.stressScale")}
         </div>
 
         <input
@@ -115,14 +117,14 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
       {/* Schlaf */}
       <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-[var(--text)]">Schlaf</div>
+          <div className="text-sm font-semibold text-[var(--text)]">{t("onboarding.personal.sleep")}</div>
           <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-white/10 border border-white/10 text-[var(--text)]">
             {local.sleepHours} h
           </span>
         </div>
 
         <div className="text-[11px] text-[var(--text-muted)]">
-          Durchschnitt pro Nacht
+          {t("onboarding.personal.sleepAvg")}
         </div>
 
         <input
@@ -145,21 +147,21 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
       <AppCard variant="soft" className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-[var(--text)]">
-            Körperdaten (optional)
+            {t("onboarding.personal.bodyData")}
           </div>
-          <div className="text-[11px] text-[var(--text-muted)]">später änderbar</div>
+          <div className="text-[11px] text-[var(--text-muted)]">{t("onboarding.personal.changeLater")}</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--text-muted)]">Alter</div>
+            <div className="text-[11px] text-[var(--text-muted)]">{t("onboarding.personal.age")}</div>
             <input
               type="number"
               inputMode="numeric"
               min={5}
               max={120}
               step={1}
-              placeholder="Jahre"
+              placeholder={t("onboarding.personal.agePlaceholder")}
               value={local.age ?? ""}
               onChange={(e) => handleChangeNumber("age", e.target.value)}
               className="w-full rounded-3xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-offset-0 bg-[var(--card-bg)] border border-white/10 text-[var(--text)] placeholder:text-[var(--text-muted)]"
@@ -167,7 +169,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--text-muted)]">Größe</div>
+            <div className="text-[11px] text-[var(--text-muted)]">{t("onboarding.personal.height")}</div>
             <input
               type="number"
               inputMode="numeric"
@@ -182,7 +184,7 @@ export const Step1Personal: React.FC<Step1PersonalProps> = ({ onNext, onBack }) 
           </div>
 
           <div className="space-y-1">
-            <div className="text-[11px] text-[var(--text-muted)]">Gewicht</div>
+            <div className="text-[11px] text-[var(--text-muted)]">{t("onboarding.personal.weight")}</div>
             <input
               type="number"
               inputMode="numeric"

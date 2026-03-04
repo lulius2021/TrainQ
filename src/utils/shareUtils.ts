@@ -37,7 +37,7 @@ export const captureAndShare = async (elementId: string, fileName: string = 'tra
             link.click();
         }
     } catch (error: any) {
-        console.error("Export Failed:", error);
+        if (import.meta.env.DEV) console.error("Export Failed:", error);
         alert("Teilen fehlgeschlagen: " + error.message);
     }
 };

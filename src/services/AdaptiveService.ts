@@ -280,7 +280,7 @@ export function persistAdaptiveWorkout(
         events.push(calendarEvent);
         setScopedItem(STORAGE_KEY, JSON.stringify(events), userId);
     } catch (e) {
-        console.error("Failed to save adaptive event", e);
+        if (import.meta.env.DEV) console.error("Failed to save adaptive event", e);
     }
 
     // 3. Prepare Live Workout Object (for immediate start)

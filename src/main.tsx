@@ -12,13 +12,6 @@ import { applyTheme, loadTheme } from "./utils/theme";
 // Theme initial anwenden (light/dark/system)
 applyTheme(loadTheme());
 
-// ✅ ENV Debug (läuft im App-/Vite-Module-Context, nicht in der DevTools-REPL)
-// Wenn hier undefined/leer steht, wird .env nicht geladen oder Dev-Server braucht Restart.
-console.log("ENV CHECK", {
-  VITE_APPLE_CLIENT_ID: import.meta.env.VITE_APPLE_CLIENT_ID,
-  VITE_APPLE_REDIRECT_URI: import.meta.env.VITE_APPLE_REDIRECT_URI,
-  MODE: import.meta.env.MODE,
-});
 
 // ----- Global: prevent zoom (iOS WebView hardening) -----
 function setupGlobalNoZoom() {

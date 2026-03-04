@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
-import { migrateUserStorage } from "../utils/scopedStorage";
+import { migrateUserStorage, clearUserScopedData } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
@@ -86,7 +86,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
             cacheOnboardingCompleted(u.id);
           } else {
             if (cachedStatus.completed) {
-              console.warn("[AuthContext] Optimistic onboarding override: Cache=true, DB=false");
+
               onboardingCompleted = true;
             }
           }
@@ -121,7 +121,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
-    pullAndMerge().catch(() => {});
+    pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge failed:", e); });
   }, []);
 
   const ensureLocalUser = useCallback(() => {
@@ -129,7 +129,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const raw = localStorage.getItem(LOCAL_USER_KEY);
       if (raw) {
         const localUser = JSON.parse(raw) as AuthUser;
-        console.log("[Auth] Restored local user:", localUser.id);
+
         setUser(localUser);
         setActiveSession({ userId: localUser.id, isPro: !!localUser.isPro, email: localUser.email });
         return;
@@ -146,16 +146,17 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         onboardingCompleted: false
       };
 
-      console.log("[Auth] Created new local user:", newUser.id);
+
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(newUser));
       setUser(newUser);
       setActiveSession({ userId: newUser.id, isPro: true, email: undefined });
     } catch (e) {
-      console.error("[Auth] Failed to ensure local user:", e);
+      if (import.meta.env.DEV) console.error("[Auth] Failed to ensure local user:", e);
     }
   }, []);
 
   const loginAsDemoUser = useCallback(async (): Promise<void> => {
+    if (!import.meta.env.DEV) return;
     const mockUser: AuthUser = {
       id: "apple-review-id",
       provider: "email",
@@ -166,7 +167,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       updatedAt: new Date().toISOString(),
       onboardingCompleted: true
     };
-    localStorage.setItem("isDemoSession", "true");
+    localStorage.setItem("isDemoSession", "trainq_demo_2026");
     setActiveSession({ userId: mockUser.id, isPro: true, email: mockUser.email });
     setUser(mockUser);
   }, []);
@@ -178,7 +179,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSupabaseClient();
 
     // A. Demo Session
-    if (localStorage.getItem("isDemoSession") === "true") {
+    if (import.meta.env.DEV && localStorage.getItem("isDemoSession") === "trainq_demo_2026") {
       loginAsDemoUser();
       setLoading(false);
       return;
@@ -202,7 +203,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       setLoading(false);
     }).catch((err) => {
-      console.error("[Auth] Session restore failed:", err);
+      if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
       // Fallback on error too
       ensureLocalUser();
       if (mountedRef.current) setLoading(false);
@@ -274,13 +275,17 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } catch {
       // signOut may fail if network is unavailable — proceed with local cleanup
     }
+    // Clear scoped user data before wiping session
+    const uid = user?.id;
+    if (uid) {
+      clearUserScopedData(uid);
+    }
     localStorage.removeItem("isDemoSession");
-    localStorage.removeItem(LOCAL_USER_KEY); // Clear local user too
+    localStorage.removeItem(LOCAL_USER_KEY);
     setUser(null);
     clearActiveSession();
-    // Force reload to trigger ensureLocalUser() again and restart clean
     window.location.reload();
-  }, [getSafeClient]);
+  }, [getSafeClient, user?.id]);
 
   // -------------------- Apple --------------------
 
@@ -305,7 +310,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         options: { scopes: ["email", "name"] },
       })) as AppleResponse;
 
-      console.log("Apple Login Result:", JSON.stringify(result));
+
 
       // Extract identityToken
       let idToken = result.result?.response?.identityToken;
@@ -317,7 +322,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       if (!idToken) {
-        console.error("Apple Sign-In failed: No identityToken found in result.", result);
+        if (import.meta.env.DEV) console.error("Apple Sign-In failed: No identityToken found in result.", result);
         return { ok: false, error: "Kein Identity Token erhalten." };
       }
 
@@ -361,7 +366,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Also try updating profile table if it exists, though trigger usually handles sync
       await client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id);
     } catch (e) {
-      console.warn("Could not update user metadata/profile.", e);
+      if (import.meta.env.DEV) console.warn("Could not update user metadata/profile.", e);
     }
   }, [user, getSafeClient]);
 
@@ -381,7 +386,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (client) {
         try {
           await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
-        } catch (e) { console.error(e); }
+        } catch (e) { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); }
       }
     }
   }, [user, getSafeClient]);

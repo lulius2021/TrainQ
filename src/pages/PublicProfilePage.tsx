@@ -1,5 +1,6 @@
 // src/pages/PublicProfilePage.tsx
 import React, { useMemo } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { shortenId } from "../utils/shareProfile";
 import { loadWorkoutHistory } from "../utils/workoutHistory";
 
@@ -28,6 +29,7 @@ function readLocalUsers(): StoredUser[] {
 }
 
 export default function PublicProfilePage({ userId, onBack }: Props) {
+  const { t } = useI18n();
   const user = useMemo(() => {
     if (!userId) return null;
     return readLocalUsers().find((u) => u.id === userId) ?? null;
@@ -53,16 +55,16 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
           onClick={onBack}
           className="rounded-3xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10"
         >
-          Zurück
+          {t("common.back")}
         </button>
         <div className="text-sm text-gray-400">
-          Öffentliches Profil
+          {t("publicProfile.title")}
         </div>
       </div>
 
       {!user && (
         <div className="rounded-3xl p-6 bg-white/5 border border-white/10 backdrop-blur-xl text-gray-400">
-          Profil nicht gefunden (MVP: nur lokal gespeicherte Nutzer).
+          {t("publicProfile.notFound")}
         </div>
       )}
 
@@ -80,20 +82,20 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
 
           <div className="min-w-0">
             <div className="text-2xl font-bold text-white">
-              {user.displayName ?? "TrainQ Nutzer"}
+              {user.displayName ?? t("publicProfile.defaultName")}
             </div>
             <div className="text-sm text-gray-400">
               TrainQ ID: {shortenId(user.id)}
             </div>
             <div className="mt-2 text-sm text-gray-400 tabular-nums">
-              Workouts (lokal): {localHistoryCount}
+              {t("publicProfile.workoutsLocal", { count: localHistoryCount })}
             </div>
           </div>
         </div>
       )}
 
       <div className="rounded-3xl p-4 text-sm bg-white/5 border border-white/10 backdrop-blur-xl text-gray-500">
-        Hinweis: Öffentliche Profile sind im MVP nur für lokal gespeicherte Nutzer sichtbar. Backend‑Sync folgt später.
+        {t("publicProfile.mvpNote")}
       </div>
     </div>
   );

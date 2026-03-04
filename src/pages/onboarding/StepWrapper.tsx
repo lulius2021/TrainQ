@@ -2,6 +2,7 @@
 import React from "react";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
+import { useI18n } from "../../i18n/useI18n";
 
 export type StepWrapperProps = {
   children: React.ReactNode;
@@ -44,8 +45,9 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
   progressLabel,
   progressValue,
 }) => {
-  const resolvedNextLabel = nextLabel ?? "Weiter";
-  const resolvedBackLabel = backLabel ?? "Zurück";
+  const { t } = useI18n();
+  const resolvedNextLabel = nextLabel ?? t("common.next");
+  const resolvedBackLabel = backLabel ?? t("common.back");
 
   return (
     <div

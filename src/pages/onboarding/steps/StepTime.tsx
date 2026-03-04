@@ -2,6 +2,7 @@
 import React from 'react';
 import { OnboardingStepLayout } from "../../../components/onboarding/OnboardingStepLayout";
 import { useOnboarding } from "../../../context/OnboardingContext";
+import { useI18n } from "../../../i18n/useI18n";
 
 interface Props {
     onNext: () => void;
@@ -12,15 +13,16 @@ const TIMES = ["15 min", "30 min", "45 min", "60+ min"];
 
 export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
     const { data, updateData } = useOnboarding();
+    const { t } = useI18n();
 
-    const handleSelect = (t: string) => {
-        updateData({ training: { timeBudget: t } });
+    const handleSelect = (val: string) => {
+        updateData({ training: { timeBudget: val } });
     };
 
     return (
         <OnboardingStepLayout
-            title="Zeitbudget"
-            subtitle="Wie viel Zeit hast du pro Workout?"
+            title={t("onboarding.time.title")}
+            subtitle={t("onboarding.time.subtitle")}
             onContinue={onNext}
             onBack={onBack}
             canContinue={!!data.training.timeBudget}
@@ -47,9 +49,9 @@ export const StepTime: React.FC<Props> = ({ onNext, onBack }) => {
 
             {data.training.timeBudget && (
                 <div className="mt-8 p-6 bg-[var(--card-bg)] rounded-2xl border border-white/5 animate-pulse">
-                    <h3 className="text-white font-medium mb-2">Perfekt!</h3>
+                    <h3 className="text-white font-medium mb-2">{t("onboarding.time.perfect")}</h3>
                     <p className="text-[var(--text-muted)] text-sm leading-relaxed">
-                        Mit {data.training.timeBudget} können wir bereits sehr effektive Reize setzen.
+                        {t("onboarding.time.message", { time: data.training.timeBudget })}
                     </p>
                 </div>
             )}

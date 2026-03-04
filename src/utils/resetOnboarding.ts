@@ -35,7 +35,7 @@ export async function resetOnboarding(userId: string): Promise<ResetOnboardingRe
                 .eq('id', userId);
 
             if (error) {
-                console.error("[ResetOnboarding] DB update failed:", error);
+                if (import.meta.env.DEV) console.error("[ResetOnboarding] DB update failed:", error);
                 return {
                     success: false,
                     error: error.message
@@ -47,7 +47,7 @@ export async function resetOnboarding(userId: string): Promise<ResetOnboardingRe
         return { success: true };
 
     } catch (error) {
-        console.error("[ResetOnboarding] Unexpected error:", error);
+        if (import.meta.env.DEV) console.error("[ResetOnboarding] Unexpected error:", error);
         return {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error"

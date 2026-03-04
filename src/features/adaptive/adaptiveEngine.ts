@@ -172,7 +172,6 @@ async function getRecoveryData(): Promise<{
             return { data: garminData, source: "garmin" };
         }
     } catch (error) {
-        console.warn("[AdaptiveEngine] Garmin API failed, using fallback", error);
     }
 
     // Fallback: Use 7-day average from cache
@@ -245,7 +244,7 @@ function cacheGarminData(data: GarminRecoveryData): void {
 
         setScopedItem(STORAGE_KEY_GARMIN_CACHE, JSON.stringify(cache));
     } catch (error) {
-        console.error("[AdaptiveEngine] Failed to cache Garmin data", error);
+        if (import.meta.env.DEV) console.error("[AdaptiveEngine] Failed to cache Garmin data", error);
     }
 }
 
@@ -266,7 +265,7 @@ function saveFailureHistory(history: Record<string, FailureHistory>): void {
     try {
         setScopedItem(STORAGE_KEY_FAILURE_HISTORY, JSON.stringify(history));
     } catch (error) {
-        console.error("[AdaptiveEngine] Failed to save failure history", error);
+        if (import.meta.env.DEV) console.error("[AdaptiveEngine] Failed to save failure history", error);
     }
 }
 
@@ -531,7 +530,7 @@ export async function calculateAdaptiveWorkout(
  * Simulates 100 different recovery scores and logs results
  */
 export function stressTestAdaptiveEngine(): void {
-    console.log("=== Adaptive Engine Stress Test ===\n");
+    if (import.meta.env.DEV) console.log("=== Adaptive Engine Stress Test ===\n");
 
     const testCases = Array.from({ length: 100 }, (_, i) => i);
 
@@ -541,7 +540,7 @@ export function stressTestAdaptiveEngine(): void {
         const lastWeight = 100; // Example
         const targetWeight = calculateTargetWeight(lastWeight, overload, modifier, 1.25);
 
-        if (bodyBattery % 10 === 0) {
+        if (bodyBattery % 10 === 0 && import.meta.env.DEV) {
             console.log(
                 `BB: ${bodyBattery}% | Modifier: ${modifier.toFixed(3)} | ` +
                 `Overload: ${overload.toFixed(3)} | Weight: ${lastWeight}kg → ${targetWeight}kg | ` +
@@ -550,5 +549,5 @@ export function stressTestAdaptiveEngine(): void {
         }
     });
 
-    console.log("\n=== Test Complete ===");
+    if (import.meta.env.DEV) console.log("\n=== Test Complete ===");
 }
