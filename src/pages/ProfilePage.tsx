@@ -36,6 +36,8 @@ import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
 import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
 import { useI18n } from "../i18n/useI18n";
+import { useChallengeRewards } from "../hooks/useChallengeRewards";
+import { Gift, Trophy } from "lucide-react";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -201,7 +203,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
   const { t } = useI18n();
   const { user, logout } = useAuth();
   const { isPro, canViewStatsRange } = useEntitlements(user?.id);
-
+  const { unclaimedRewards, unclaimedCount, activeGrants, hasActiveGrant, claimReward: claimChallengeReward, isLoading: rewardsLoading } = useChallengeRewards();
 
   const openPaywall = useCallback(() => {
     if (onOpenPaywall) return onOpenPaywall();
@@ -671,6 +673,57 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   </AppButton>
                 </div>
               </AppCard>
+            )}
+
+            {/* Rewards Section */}
+            {(unclaimedCount > 0 || hasActiveGrant) && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-[var(--text-color)] px-1">{t("profile.rewards.title")}</h3>
+
+                {/* Unclaimed Rewards */}
+                {unclaimedRewards.map((ur) => (
+                  <AppCard key={ur.id} variant="glass">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center text-yellow-500 shrink-0">
+                        <Gift size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-[var(--text-color)]">{t("profile.rewards.unclaimed")}</p>
+                        {ur.rewardExpiresAt && (
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {t("profile.rewards.expiresAt").replace("{{date}}", new Date(ur.rewardExpiresAt).toLocaleDateString("de-DE"))}
+                          </p>
+                        )}
+                      </div>
+                      <AppButton
+                        variant="primary"
+                        size="sm"
+                        onClick={() => claimChallengeReward(ur.id)}
+                        disabled={rewardsLoading}
+                      >
+                        {t("profile.rewards.claim")}
+                      </AppButton>
+                    </div>
+                  </AppCard>
+                ))}
+
+                {/* Active Pro Grants */}
+                {activeGrants.map((grant) => (
+                  <AppCard key={grant.id} variant="glass">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center text-blue-500 shrink-0">
+                        <Trophy size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-[var(--text-color)]">{t("profile.rewards.activePro")}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {t("profile.rewards.expiresAt").replace("{{date}}", new Date(grant.expiresAt).toLocaleDateString("de-DE"))}
+                        </p>
+                      </div>
+                    </div>
+                  </AppCard>
+                ))}
+              </div>
             )}
 
             {/* Statistics */}

@@ -40,3 +40,42 @@ export interface ChallengesUserData {
   soloDefinitions: ChallengeDefinition[];
   proGrants: ProGrant[];
 }
+
+// --- Server-side types (Supabase) ---
+
+export interface ServerChallenge {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  emoji: string;
+  goal: ChallengeGoal;
+  durationDays: number;
+  reward?: { type: "pro_days"; days: number };
+  activeFrom: string;
+  activeUntil: string;
+  maxWinners: number;
+  currentWinners: number;
+}
+
+export interface ServerParticipation {
+  id: string;
+  challengeId: string;
+  startDate: string;
+  endDate: string;
+  progressCurrent: number;
+  progressTarget: number;
+  completed: boolean;
+  completedAt?: string;
+  rewardEligible: boolean;
+  rewardClaimed: boolean;
+  rewardExpiresAt?: string;
+}
+
+export interface ServerProGrant {
+  id: string;
+  grantedAt: string;
+  expiresAt: string;
+  sourceChallengeId: string;
+  isActive: boolean;
+}

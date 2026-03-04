@@ -6,6 +6,7 @@ import { useChallenges } from "../hooks/useChallenges";
 import ChallengeCard from "../components/challenges/ChallengeCard";
 import ChallengeCompletionModal from "../components/challenges/ChallengeCompletionModal";
 import CreateSoloChallengeModal from "../components/challenges/CreateSoloChallengeModal";
+import RewardBanner from "../components/challenges/RewardBanner";
 import type { ChallengeDefinition } from "../types/challenge";
 
 interface ChallengesPageProps {
@@ -24,6 +25,10 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
     claimReward,
     createSolo,
     allDefinitions,
+    serverChallenges,
+    unclaimedRewards,
+    canJoinRewardChallenge,
+    serverLoading,
   } = useChallenges();
 
   const TAB_LABELS: { id: TabId; label: string }[] = [
@@ -33,7 +38,6 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
   ];
 
   const [tab, setTab] = useState<TabId>(() => {
-    // Default to "active" if there are active challenges
     if (active.length > 0) return "active";
     return "available";
   });
@@ -41,31 +45,70 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [completionDef, setCompletionDef] = useState<ChallengeDefinition | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [isCompletionServer, setIsCompletionServer] = useState(false);
+  const [joinLoadingId, setJoinLoadingId] = useState<string | null>(null);
+  const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  // Set of server challenge IDs for easy lookup
+  const serverChallengeIds = new Set(serverChallenges.map((sc) => sc.id));
 
   const handleJoin = useCallback(
-    (challengeId: string) => {
-      joinChallenge(challengeId);
-      setTab("active");
+    async (challengeId: string) => {
+      setJoinLoadingId(challengeId);
+      try {
+        await joinChallenge(challengeId);
+        setTab("active");
+      } finally {
+        setJoinLoadingId(null);
+      }
     },
     [joinChallenge]
   );
 
   const handleClaimReward = useCallback(
-    (challengeId: string) => {
+    async (challengeId: string) => {
       const def = allDefinitions.find((d) => d.id === challengeId);
+      const isServer = serverChallengeIds.has(challengeId);
       if (def) {
         setCompletionDef(def);
+        setIsCompletionServer(isServer);
+        setClaimError(null);
         setShowCompletionModal(true);
       }
-      claimReward(challengeId);
+      if (!isServer) {
+        // Local: claim immediately
+        await claimReward(challengeId);
+      }
     },
-    [claimReward, allDefinitions]
+    [claimReward, allDefinitions, serverChallengeIds]
   );
+
+  const handleModalClaim = useCallback(async () => {
+    if (!completionDef) return;
+    setClaimLoadingId(completionDef.id);
+    setClaimError(null);
+    try {
+      const result = await claimReward(completionDef.id);
+      if (result && !result.ok && result.error) {
+        const errorKey = `challenges.claim.error_${result.error}`;
+        const translated = t(errorKey);
+        setClaimError(translated !== errorKey ? translated : t("challenges.claim.error"));
+        return;
+      }
+    } catch {
+      setClaimError(t("challenges.claim.error"));
+      return;
+    } finally {
+      setClaimLoadingId(null);
+    }
+    setShowCompletionModal(false);
+    setCompletionDef(null);
+  }, [completionDef, claimReward, t]);
 
   const handleCreate = useCallback(
     (def: Omit<ChallengeDefinition, "id" | "isAdmin">) => {
       const created = createSolo(def);
-      // Auto-join the newly created solo challenge
       joinChallenge(created.id);
       setTab("active");
     },
@@ -76,6 +119,24 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
     available: available.length,
     active: active.length,
     completed: completed.length,
+  };
+
+  // Sort available: server challenges first
+  const sortedAvailable = [...available].sort((a, b) => {
+    const aServer = serverChallengeIds.has(a.id) ? 0 : 1;
+    const bServer = serverChallengeIds.has(b.id) ? 0 : 1;
+    return aServer - bServer;
+  });
+
+  // Determine join disabled reasons
+  const getJoinDisabledReason = (defId: string): string | undefined => {
+    if (!serverChallengeIds.has(defId)) return undefined;
+    const sc = serverChallenges.find((c) => c.id === defId);
+    if (!sc) return undefined;
+
+    if (sc.reward && !canJoinRewardChallenge) return t("challenges.join.activeReward");
+    if (sc.reward && sc.currentWinners >= sc.maxWinners) return t("challenges.winners.full");
+    return undefined;
   };
 
   return (
@@ -118,23 +179,41 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
       {/* CONTENT */}
       <div className="flex-1 overflow-y-auto px-4 pb-40">
         <div className="max-w-lg mx-auto space-y-3 pt-4">
+
+          {/* Reward Banner at top if unclaimed rewards exist */}
+          {unclaimedRewards.length > 0 && (
+            <RewardBanner
+              unclaimedCount={unclaimedRewards.length}
+              onClaim={() => setTab("completed")}
+            />
+          )}
+
           {/* Available tab */}
           {tab === "available" && (
             <>
-              {available.length === 0 ? (
+              {sortedAvailable.length === 0 ? (
                 <div className="text-center py-12 text-[var(--text-secondary)]">
                   <p className="text-sm">{t("challenges.empty.available")}</p>
                   <p className="text-xs mt-1">{t("challenges.empty.availableHint")}</p>
                 </div>
               ) : (
-                available.map((def) => (
-                  <ChallengeCard
-                    key={def.id}
-                    definition={def}
-                    variant="available"
-                    onJoin={() => handleJoin(def.id)}
-                  />
-                ))
+                sortedAvailable.map((def) => {
+                  const isServer = serverChallengeIds.has(def.id);
+                  const sc = serverChallenges.find((c) => c.id === def.id);
+                  return (
+                    <ChallengeCard
+                      key={def.id}
+                      definition={def}
+                      variant="available"
+                      onJoin={() => handleJoin(def.id)}
+                      isServerChallenge={isServer}
+                      winnerCount={sc?.currentWinners}
+                      maxWinners={sc?.maxWinners}
+                      isJoinLoading={joinLoadingId === def.id}
+                      joinDisabledReason={getJoinDisabledReason(def.id)}
+                    />
+                  );
+                })
               )}
             </>
           )}
@@ -155,6 +234,7 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
                     state={ac.state}
                     progress={ac.progress}
                     variant="active"
+                    isServerChallenge={ac.isServer}
                   />
                 ))
               )}
@@ -176,6 +256,9 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
                     state={cc.state}
                     variant="completed"
                     onClaimReward={() => handleClaimReward(cc.state.challengeId)}
+                    isServerChallenge={cc.isServer}
+                    rewardExpiresAt={cc.rewardExpiresAt}
+                    isClaimLoading={claimLoadingId === cc.state.challengeId}
                   />
                 ))
               )}
@@ -210,12 +293,13 @@ const ChallengesPage: React.FC<ChallengesPageProps> = ({ onBack }) => {
         onClose={() => {
           setShowCompletionModal(false);
           setCompletionDef(null);
+          setClaimError(null);
         }}
         onClaimReward={
-          completionDef?.reward
-            ? () => claimReward(completionDef.id)
-            : undefined
+          completionDef?.reward ? handleModalClaim : undefined
         }
+        isServerChallenge={isCompletionServer}
+        claimError={claimError ?? undefined}
       />
     </div>
   );

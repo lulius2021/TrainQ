@@ -177,6 +177,18 @@ export default function PaywallModal(props: Props) {
             </button>
           )}
 
+          {/* Challenge Hint */}
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }));
+            }}
+            className="mt-4 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-color)] transition-colors"
+          >
+            {t("paywall.challengeHint")}
+          </button>
+
           {/* Bottom Spacer for safe scrolling */}
           <div className="h-20" />
         </div>

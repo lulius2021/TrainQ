@@ -8,6 +8,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
+import { hasActiveChallengeGrant } from "../utils/challengeStore";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple" | "local";
@@ -70,7 +71,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     const u = session.user;
-    const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro";
+    const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro" || hasActiveChallengeGrant();
 
     // ✅ Get onboarding status with fallback to cache
     let onboardingCompleted = false;

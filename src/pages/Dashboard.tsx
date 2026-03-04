@@ -45,6 +45,7 @@ import DeloadBanner from '../components/deload/DeloadBanner';
 import DeloadPlanModal from '../components/deload/DeloadPlanModal';
 import { useChallenges } from '../hooks/useChallenges';
 import ChallengeProgressBar from '../components/challenges/ChallengeProgressBar';
+import RewardBanner from '../components/challenges/RewardBanner';
 import { writeGlobalLiveSeed, type LiveTrainingSeed } from '../utils/liveTrainingSeed';
 import { applyAdaptiveToSeed } from '../utils/adaptiveSeed';
 import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHistory';
@@ -63,7 +64,7 @@ const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 
 // --- CHALLENGE WIDGET for Dashboard ---
 const DashboardChallengeWidget: React.FC = () => {
-  const { active } = useChallenges();
+  const { active, unclaimedRewards } = useChallenges();
   const { t } = useI18n();
 
   if (active.length === 0) {
@@ -93,6 +94,15 @@ const DashboardChallengeWidget: React.FC = () => {
 
   return (
     <div>
+      {/* Reward Banner */}
+      {unclaimedRewards.length > 0 && (
+        <div className="mb-3">
+          <RewardBanner
+            unclaimedCount={unclaimedRewards.length}
+            onClaim={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between mb-2 pl-1">
         <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">{t("dashboard.challenges.active")}</h3>
         <button

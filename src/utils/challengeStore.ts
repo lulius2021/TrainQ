@@ -5,6 +5,9 @@ import type {
   ChallengesUserData,
   UserChallengeState,
   ProGrant,
+  ServerChallenge,
+  ServerParticipation,
+  ServerProGrant,
 } from "../types/challenge";
 
 const STORAGE_KEY = "trainq_challenges_user_state_v1";
@@ -115,4 +118,74 @@ export function onChallengeUpdated(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   window.addEventListener(UPDATED_EVENT, cb as EventListener);
   return () => window.removeEventListener(UPDATED_EVENT, cb as EventListener);
+}
+
+// --- Server-Challenge Cache (TTL-based) ---
+
+const SERVER_CACHE_KEY = "trainq_server_challenges_cache_v1";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface ServerChallengeCache {
+  challenges: ServerChallenge[];
+  participations: ServerParticipation[];
+  proGrants: ServerProGrant[];
+  fetchedAt: number;
+}
+
+export function loadServerCache(): ServerChallengeCache | null {
+  if (typeof window === "undefined") return null;
+  const userId = getActiveUserId();
+  const raw = getScopedItem(SERVER_CACHE_KEY, userId);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ServerChallengeCache;
+    if (Date.now() - parsed.fetchedAt > CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function saveServerCache(cache: Omit<ServerChallengeCache, "fetchedAt">): void {
+  if (typeof window === "undefined") return;
+  const userId = getActiveUserId();
+  try {
+    const full: ServerChallengeCache = { ...cache, fetchedAt: Date.now() };
+    setScopedItem(SERVER_CACHE_KEY, JSON.stringify(full), userId);
+  } catch {
+    // ignore
+  }
+}
+
+export function getAllActiveProGrants(serverGrants: ServerProGrant[]): Array<{ source: string; expiresAt: string }> {
+  const now = new Date().toISOString();
+
+  // Local grants
+  const localGrants = getActiveProGrants().map((g) => ({
+    source: g.source,
+    expiresAt: g.expiresAt,
+  }));
+
+  // Server grants
+  const serverActive = serverGrants
+    .filter((g) => g.isActive && g.expiresAt > now)
+    .map((g) => ({
+      source: g.sourceChallengeId,
+      expiresAt: g.expiresAt,
+    }));
+
+  // Merge, deduplicate by source
+  const seen = new Set<string>();
+  const merged: Array<{ source: string; expiresAt: string }> = [];
+  for (const g of [...serverActive, ...localGrants]) {
+    if (!seen.has(g.source)) {
+      seen.add(g.source);
+      merged.push(g);
+    }
+  }
+  return merged;
+}
+
+export function hasAnyActiveChallengeGrant(serverGrants: ServerProGrant[] = []): boolean {
+  return getAllActiveProGrants(serverGrants).length > 0;
 }

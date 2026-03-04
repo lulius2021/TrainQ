@@ -1,7 +1,9 @@
 // src/components/challenges/ChallengeCompletionModal.tsx
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
+import { useI18n } from "../../i18n/useI18n";
 import type { ChallengeDefinition } from "../../types/challenge";
 
 // Workaround for Framer Motion typing issues with motion.div
@@ -12,7 +14,9 @@ interface ChallengeCompletionModalProps {
   open: boolean;
   definition: ChallengeDefinition | null;
   onClose: () => void;
-  onClaimReward?: () => void;
+  onClaimReward?: () => void | Promise<unknown>;
+  isServerChallenge?: boolean;
+  claimError?: string;
 }
 
 // Simple confetti particle
@@ -56,10 +60,15 @@ const ChallengeCompletionModal: React.FC<ChallengeCompletionModalProps> = ({
   definition,
   onClose,
   onClaimReward,
+  isServerChallenge,
+  claimError,
 }) => {
+  const { t } = useI18n();
   const [particles, setParticles] = useState<
     { id: number; delay: number; x: number }[]
   >([]);
+  const [isClaimLoading, setIsClaimLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -69,14 +78,38 @@ const ChallengeCompletionModal: React.FC<ChallengeCompletionModalProps> = ({
         x: 10 + Math.random() * 80,
       }));
       setParticles(p);
+      setLocalError(null);
     } else {
       setParticles([]);
+      setIsClaimLoading(false);
+      setLocalError(null);
     }
   }, [open]);
 
   if (!definition) return null;
 
   const hasReward = !!definition.reward;
+
+  const handleClaim = async () => {
+    if (!onClaimReward) return;
+    if (isServerChallenge) {
+      setIsClaimLoading(true);
+      setLocalError(null);
+      try {
+        await onClaimReward();
+        onClose();
+      } catch (e) {
+        setLocalError(t("challenges.claim.error"));
+      } finally {
+        setIsClaimLoading(false);
+      }
+    } else {
+      onClaimReward();
+      onClose();
+    }
+  };
+
+  const displayError = claimError || localError;
 
   return (
     <AnimatePresence>
@@ -110,29 +143,40 @@ const ChallengeCompletionModal: React.FC<ChallengeCompletionModalProps> = ({
             <div className="relative z-10">
               <div className="text-6xl mb-4">{definition.emoji}</div>
               <h2 className="text-2xl font-black text-[var(--text-color)] mb-2">
-                Challenge geschafft!
+                {t("challenges.completionTitle")}
               </h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">
-                Du hast &quot;{definition.title}&quot; erfolgreich
-                abgeschlossen.
+                {t("challenges.completionMessage").replace("{{title}}", definition.title)}
               </p>
 
               {hasReward && onClaimReward && (
-                <AppButton
-                  variant="primary"
-                  fullWidth
-                  onClick={() => {
-                    onClaimReward();
-                    onClose();
-                  }}
-                  className="mb-3"
-                >
-                  {definition.reward!.days} Tage Pro einloesen
-                </AppButton>
+                <>
+                  <AppButton
+                    variant="primary"
+                    fullWidth
+                    onClick={handleClaim}
+                    disabled={isClaimLoading}
+                    className="mb-3"
+                  >
+                    {isClaimLoading ? (
+                      <Loader2 size={16} className="mr-2 animate-spin" />
+                    ) : null}
+                    {t("challenges.claim.button").replace("{{days}}", String(definition.reward!.days))}
+                  </AppButton>
+                  {isServerChallenge && (
+                    <p className="text-[10px] text-[var(--text-secondary)] mb-3">
+                      {t("challenges.claim.expiryHint")}
+                    </p>
+                  )}
+                </>
+              )}
+
+              {displayError && (
+                <p className="text-xs text-red-500 mb-3">{displayError}</p>
               )}
 
               <AppButton variant="secondary" fullWidth onClick={onClose}>
-                {hasReward ? "Spaeter" : "Schliessen"}
+                {hasReward ? t("challenges.later") : t("common.close")}
               </AppButton>
             </div>
           </MotionDiv>
