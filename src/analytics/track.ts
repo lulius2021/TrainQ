@@ -5,7 +5,10 @@ type EventName =
   | "monetization_purchase_failed"
   | "monetization_restore_success"
   | "feature_blocked"
-  | "feature_used";
+  | "feature_used"
+  | "robot_detail_opened"
+  | "robot_detail_closed"
+  | "robot_stage_scrolled";
 
 type EventPayload = Record<string, string | number | boolean | undefined>;
 

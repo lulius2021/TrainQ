@@ -6,6 +6,7 @@ import { Pause, Play, Square } from "lucide-react";
 
 interface CardioControlsProps {
   status: "idle" | "tracking" | "paused" | "stopped";
+  isStarting?: boolean;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -14,12 +15,32 @@ interface CardioControlsProps {
 
 const CardioControls: React.FC<CardioControlsProps> = ({
   status,
+  isStarting,
   onStart,
   onPause,
   onResume,
   onStop,
 }) => {
   if (status === "idle") {
+    if (isStarting) {
+      // GPS permission pending — pause disabled, stop always available
+      return (
+        <div className="flex justify-center items-center gap-8 px-4">
+          <button
+            disabled
+            className="w-16 h-16 rounded-full bg-amber-500/40 text-white/40 flex items-center justify-center shadow-lg"
+          >
+            <Pause size={28} fill="currentColor" />
+          </button>
+          <button
+            onClick={onStop}
+            className="w-14 h-14 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          >
+            <Square size={22} fill="white" />
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex justify-center px-4">
         <button

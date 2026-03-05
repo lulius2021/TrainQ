@@ -64,7 +64,7 @@ import { calculateWarmupSets } from "../../utils/warmupCalculator";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
-import { formatMmSs } from "../../utils/timeFormat";
+import { formatMmSs, formatTimeParts } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
 import { LiveActivity } from "capacitor-live-activity"; // Import requested by prompt
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
@@ -156,13 +156,7 @@ function normalizeRestSeconds(input: unknown): number | undefined {
   return Math.min(600, rounded);
 }
 
-function formatTimeParts(totalSec: number): { h: number; mm: string; ss: string } {
-  const s = Math.max(0, Math.floor(totalSec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return { h, mm: String(m).padStart(2, "0"), ss: String(sec).padStart(2, "0") };
-}
+// formatTimeParts is now imported from ../../utils/timeFormat
 
 function trainingTypeToSport(type?: TrainingType, sport?: SportType | string): SportType {
   if (sport === "Gym") return "Gym";
@@ -1217,11 +1211,12 @@ export default function LiveTrainingPage({
   if (isCardioWorkout) {
     return (
       <LiveCardioPage
-        sport={workout.sport as "Laufen" | "Radfahren"}
-        title={workout.title || (workout.sport === "Laufen" ? "Lauf" : "Radfahrt")}
-        calendarEventId={workout.calendarEventId}
+        workout={workout}
+        eventId={eventId}
+        onUpdateEvents={onUpdateEvents}
         onExit={onExit}
         onMinimize={onMinimize}
+        onShareWorkout={onShareWorkout}
       />
     );
   }

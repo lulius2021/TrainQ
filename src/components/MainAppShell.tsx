@@ -823,6 +823,7 @@ const MainAppShell: React.FC = () => {
                     onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }}
                     onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }}
                     onOpenNotifications={() => { pushRoute("/community/notifications"); setRoute("/community/notifications"); }}
+                    onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }}
                 />
             )}
 

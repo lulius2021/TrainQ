@@ -13,6 +13,8 @@ interface LiveTrainingStore {
     finishWorkout: () => void;
 }
 
+const MAX_WORKOUT_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
+
 export const useLiveTrainingStore = create(
     persist<LiveTrainingStore>(
         (set, get) => ({
@@ -26,8 +28,18 @@ export const useLiveTrainingStore = create(
             finishWorkout: () => set({ activeWorkout: null, activeExerciseIndex: 0 }),
         }),
         {
-            name: 'trainq-active-workout-storage', // Unique name in localStorage
+            name: 'trainq-active-workout-storage',
             storage: createJSONStorage(() => localStorage),
+            onRehydrate: () => (state) => {
+                // Auto-clear zombie sessions older than 12 hours
+                if (state?.activeWorkout?.startedAt) {
+                    const age = Date.now() - new Date(state.activeWorkout.startedAt).getTime();
+                    if (age > MAX_WORKOUT_AGE_MS) {
+                        state.activeWorkout = null;
+                        state.activeExerciseIndex = 0;
+                    }
+                }
+            },
         }
     )
 );

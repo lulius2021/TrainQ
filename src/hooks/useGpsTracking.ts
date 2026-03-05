@@ -36,6 +36,7 @@ export function useGpsTracking() {
   const pausedAtRef = useRef<number | undefined>(undefined);
   const totalPausedRef = useRef(0);
   const startedAtRef = useRef(0);
+  const stoppedAtRef = useRef<number | undefined>(undefined);
 
   const addPoint = useCallback((point: GpsPoint) => {
     // Filter out inaccurate points
@@ -104,6 +105,7 @@ export function useGpsTracking() {
     elevationRef.current = 0;
     totalPausedRef.current = 0;
     pausedAtRef.current = undefined;
+    stoppedAtRef.current = undefined;
 
     setState({
       status: "tracking",
@@ -155,6 +157,7 @@ export function useGpsTracking() {
       totalPausedRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = undefined;
     }
+    stoppedAtRef.current = Date.now();
     setState((prev) => ({
       ...prev,
       status: "stopped",
@@ -173,9 +176,16 @@ export function useGpsTracking() {
 
   // Elapsed time (excluding paused time)
   const getElapsedMs = useCallback((): number => {
-    if (state.status === "idle") return 0;
-    const now = state.status === "paused" ? (pausedAtRef.current ?? Date.now()) : Date.now();
-    return now - startedAtRef.current - totalPausedRef.current;
+    if (state.status === "idle" || startedAtRef.current === 0) return 0;
+    let now: number;
+    if (state.status === "stopped") {
+      now = stoppedAtRef.current ?? Date.now();
+    } else if (state.status === "paused") {
+      now = pausedAtRef.current ?? Date.now();
+    } else {
+      now = Date.now();
+    }
+    return Math.max(0, now - startedAtRef.current - totalPausedRef.current);
   }, [state.status]);
 
   return {

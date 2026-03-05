@@ -194,18 +194,28 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return;
     }
 
-    client.auth.getSession().then(async ({ data: { session } }) => {
+    // Race session restore against a 3s timeout so the app never hangs on loading
+    const sessionPromise = client.auth.getSession().then(async ({ data: { session } }) => {
       if (!mountedRef.current) return;
       if (session) {
         await syncSessionToUser(session);
       } else {
-        // ✅ No Session -> Local User Fallback
         ensureLocalUser();
       }
+    });
+
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+
+    Promise.race([sessionPromise, timeout]).then(() => {
+      if (!mountedRef.current) return;
+      // If sessionPromise didn't set a user yet, fall back to local
+      setUser((prev) => {
+        if (!prev) ensureLocalUser();
+        return prev;
+      });
       setLoading(false);
     }).catch((err) => {
       if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
-      // Fallback on error too
       ensureLocalUser();
       if (mountedRef.current) setLoading(false);
     });

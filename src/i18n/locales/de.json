@@ -953,5 +953,24 @@
     "trainingPlan.applyRoutine": "Routine anwenden",
     "trainingPlan.splitRoutine": "Split/Routine",
     "trainingPlan.newTraining": "Neues Training",
-    "trainingPlan.blockNumber": "Block {{number}}"
+    "trainingPlan.blockNumber": "Block {{number}}",
+
+    "robot.detail.title": "Dein TrainQ-Roboter",
+    "robot.detail.stage": "Stufe {{stage}}",
+    "robot.detail.xpToNext": "Noch {{xp}} XP bis Stufe {{next}}",
+    "robot.detail.maxStage": "Max-Stufe erreicht!",
+    "robot.detail.stagesTitle": "Stufen-Übersicht",
+    "robot.detail.locked": "Gesperrt",
+    "robot.detail.current": "Aktuell",
+    "robot.detail.xpSourcesTitle": "So bekommst du XP",
+    "robot.detail.xpGym": "Gym-Workout: 20–60 XP",
+    "robot.detail.xpGymDetail": "Basis + Zeit + Übungen + Volumen",
+    "robot.detail.xpCardio": "Cardio-Workout: 20–60 XP",
+    "robot.detail.xpCardioDetail": "Basis + Zeit + Distanz",
+    "robot.detail.xpCustom": "Sonstiges Workout: 15–40 XP",
+    "robot.detail.xpDailyCap": "Tageslimit: 120 XP",
+    "robot.detail.xpWeeklyCap": "Wochenlimit: 500 XP",
+    "robot.detail.xpValidated": "XP nur aus validierten Workouts",
+    "robot.detail.startWorkout": "Workout starten",
+    "robot.detail.viewChallenges": "Challenges ansehen"
 }

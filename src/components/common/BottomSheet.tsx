@@ -34,7 +34,8 @@ export function BottomSheet({
   footerStyle,
   backdropClassName,
   variant = "floating",
-}: BottomSheetProps & { backdropClassName?: string; variant?: "floating" | "docked" }) {
+  showHandle = true,
+}: BottomSheetProps & { backdropClassName?: string; variant?: "floating" | "docked"; showHandle?: boolean }) {
   const dragControls = useDragControls();
   const footerBaseStyle: React.CSSProperties = {
     background: "var(--card-bg)",
@@ -91,12 +92,14 @@ export function BottomSheet({
               onDragEnd={handleDragEnd}
             >
               <div
-                className="pt-3 pb-1"
+                className={showHandle || header ? "pt-3 pb-1" : ""}
                 onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
               >
-                <div className="flex justify-center">
-                  <div className="h-1.5 w-12 rounded-full bg-white/20" />
-                </div>
+                {showHandle && (
+                  <div className="flex justify-center">
+                    <div className="h-1.5 w-12 rounded-full bg-white/20" />
+                  </div>
+                )}
                 {header && <div className="pt-2">{header}</div>}
               </div>
 

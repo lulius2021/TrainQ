@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Bell, Plus, RefreshCw } from "lucide-react";
+import { Bell, ChevronLeft, Plus, RefreshCw } from "lucide-react";
 import { useFeed } from "../../hooks/community/useFeed";
 import { useNotifications } from "../../hooks/community/useNotifications";
 import { ensureCommunityProfile } from "../../services/community/api";
@@ -13,9 +13,10 @@ interface Props {
   onOpenPostDetail?: (postId: string) => void;
   onOpenProfile?: (userId: string) => void;
   onOpenNotifications?: () => void;
+  onBack?: () => void;
 }
 
-export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenNotifications }: Props) {
+export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenNotifications, onBack }: Props) {
   const { user } = useAuth();
   const userId = user?.id;
 
@@ -64,7 +65,14 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
       {/* Header */}
       <div className="pt-safe">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Community</h1>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button onClick={onBack} className="p-1 -ml-1">
+                <ChevronLeft size={24} style={{ color: "var(--text-color)" }} />
+              </button>
+            )}
+            <h1 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Community</h1>
+          </div>
           <button onClick={onOpenNotifications} className="relative p-2">
             <Bell size={22} style={{ color: "var(--text-color)" }} />
             {unreadCount > 0 && (

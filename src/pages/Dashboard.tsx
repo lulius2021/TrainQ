@@ -609,66 +609,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* PROGRESS CARD */}
-        <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.status")}</h3>
-          <div className="bg-[var(--card-bg)] rounded-[24px] p-6 flex items-center gap-6 border border-[var(--border-color)] relative overflow-hidden">
-            <div className={`absolute right-0 top-0 w-32 h-32 blur-3xl rounded-full pointer-events-none ${weeklyMinutes >= weeklyGoal ? 'bg-green-500/10' : 'bg-blue-500/5'}`} />
 
-            {/* Dynamic Progress Circle */}
-            <div className="relative w-16 h-16 shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <path className="text-[var(--border-color)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                <path
-                  className={weeklyMinutes >= weeklyGoal ? "text-green-500" : "text-blue-500"}
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeDasharray={`${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}, 100`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center font-bold text-[var(--text-color)] text-xs">
-                {Math.round((weeklyMinutes / weeklyGoal) * 100)}%
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="text-lg font-bold text-[var(--text-color)] leading-tight mb-1">
-                {weeklyMinutes} / {weeklyGoal} min
-              </div>
-              <p className="text-xs text-[var(--text-secondary)]">
-                {weeklyMinutes === 0 ? t("dashboard.status.weekStart") :
-                  weeklyMinutes >= weeklyGoal ? t("dashboard.status.goalReached") :
-                    t("dashboard.status.onTrack")}
-              </p>
-              <div className="mt-2 flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
-                  <span className="text-orange-500">🔥</span> {weeklyCalories} kcal
-                </span>
-                {weeklyDistanceKm > 0 && (
-                  <span className="text-xs font-medium text-green-500 flex items-center gap-1">
-                    <MapPin size={12} /> {weeklyDistanceKm} km
-                  </span>
-                )}
-                {weeklyWorkouts > 0 && (
-                  <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
-                    <Dumbbell size={12} /> {weeklyWorkouts}x
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* LETZTE AKTIVITÄT */}
-        {lastActivity && (
-          <div>
-            <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.lastActivity.title")}</h3>
-            <LastActivityCard workout={lastActivity} />
-          </div>
-        )}
 
         {/* NUTRITION TRACKER */}
         <NutritionDashboardWidget />
