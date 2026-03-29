@@ -18,6 +18,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +34,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
         setError(res.error || t("auth.register.error"));
       } else {
         if (!res.session) {
-          alert(t("auth.register.confirmEmail"));
-          onGoToLogin();
+          setConfirmed(true);
         }
       }
     } catch (err: any) {
@@ -43,6 +43,35 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
       setBusy(false);
     }
   };
+
+  if (confirmed) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center min-h-screen px-6 gap-5"
+        style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+      >
+        <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">{t("auth.register.title")}</h2>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {t("auth.register.confirmEmail")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onGoToLogin}
+          className="w-full rounded-2xl px-4 py-4 text-base font-semibold transition-all active:scale-[0.98]"
+          style={{ backgroundColor: "#007AFF", color: "#FFFFFF" }}
+        >
+          {t("auth.register.login")}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -18,16 +18,8 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Logi
   const [showPassword, setShowPassword] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
 
-  // Magic Backdoor for TestFlight/AppReview (Legacy)
-  const isBackdoor = email.startsWith("free") && email.endsWith("@testflight.trainq:trainq1234");
-
   const onSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBackdoor) {
-      const [addr, pass] = email.split(":");
-      await login(addr, pass || "trainq1234");
-      return;
-    }
     if (!email || !password) {
       setError(t("auth.login.empty"));
       return;
