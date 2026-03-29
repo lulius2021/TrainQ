@@ -54,6 +54,10 @@ public class BarcodePlugin: CAPPlugin {
     }
 
     private func presentScanner(_ call: CAPPluginCall) {
+        guard AVCaptureDevice.default(for: .video) != nil else {
+            call.reject("ERR_NO_CAMERA", "Kein Kameragerät verfügbar")
+            return
+        }
         guard let vc = self.bridge?.viewController else {
             call.resolve(["barcode": NSNull()])
             return

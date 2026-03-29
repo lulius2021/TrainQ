@@ -11,15 +11,12 @@ const isNativeIOS =
 
 /**
  * Scan a barcode using the native camera (iOS only).
- * Returns the scanned barcode string, or null if cancelled/unavailable.
+ * Returns the scanned barcode string, or null if the user cancelled.
+ * Throws if camera is unavailable or another error occurs.
  */
 export async function scanBarcode(): Promise<string | null> {
   if (!isNativeIOS) return null;
 
-  try {
-    const result = await BarcodePlugin.scan();
-    return result.barcode ?? null;
-  } catch {
-    return null;
-  }
+  const result = await BarcodePlugin.scan();
+  return result.barcode ?? null;
 }

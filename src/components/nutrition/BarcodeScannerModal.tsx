@@ -31,11 +31,14 @@ const NativeScanButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan
       const code = await scanBarcode();
       if (code) {
         onScan(code);
-      } else if (code === null) {
-        // null means not on iOS or scan was cancelled — no error needed
       }
-    } catch {
-      setError("Scan fehlgeschlagen. Bitte erneut versuchen.");
+      // null = user cancelled, no error shown
+    } catch (e: any) {
+      if (e?.code === "ERR_NO_CAMERA") {
+        setError("Kamera nicht verfügbar. Bitte auf echtem Gerät nutzen.");
+      } else {
+        setError("Scan fehlgeschlagen. Bitte erneut versuchen.");
+      }
     } finally {
       setScanning(false);
     }
