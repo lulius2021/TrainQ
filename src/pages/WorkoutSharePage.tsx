@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import html2canvas from 'html2canvas';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
 import { loadWorkoutHistory, onWorkoutHistoryUpdated } from "../utils/workoutHistory";
 import { useAuth } from "../context/AuthContext";
-import { X, Share2, Download, ChevronLeft, ChevronRight, Dumbbell, Flame, Check, MapPin, Bike, Footprints } from "lucide-react";
+import { X, Share2, Download, Dumbbell, Flame, Check, MapPin, Bike, Footprints } from "lucide-react";
+import CardioMap from "../components/cardio/CardioMap";
+import type { GpsPoint } from "../types/cardio";
 
 // --- MOCK DATA ---
 const MOCK_WORKOUT: any = {
@@ -68,19 +71,19 @@ const TemplateList = ({ workout, isExportMode }: { workout: any, isExportMode?: 
   <div className={`flex flex-col h-full ${isExportMode ? 'pt-8 px-4' : 'pt-4 px-2'}`}>
     <div className={`space-y-${isExportMode ? '6' : '4'}`}>
       {(workout.exercises || []).slice(0, 8).map((ex: any, i: number) => (
-        <div key={i} className="flex items-start justify-between border-b border-black/5 dark:border-white/10 pb-3 last:border-0">
+        <div key={i} className="flex items-start justify-between pb-3 last:border-0" style={{ borderBottom: "1px solid var(--border-color)" }}>
           <div className="flex items-start gap-3 py-1">
             <span className={`text-blue-500 font-bold shrink-0 leading-normal ${isExportMode ? 'text-3xl min-w-[3.5rem]' : 'text-xl min-w-[2.5rem]'}`}>
               {ex.sets?.length || 0}x
             </span>
-            <span className={`text-black dark:text-white font-medium truncate h-auto leading-normal ${isExportMode ? 'text-2xl max-w-[400px] min-h-[2.5rem]' : 'text-lg max-w-[200px] min-h-[1.75rem]'}`}>
+            <span className={`font-medium truncate h-auto leading-normal ${isExportMode ? 'text-2xl max-w-[400px] min-h-[2.5rem]' : 'text-lg max-w-[200px] min-h-[1.75rem]'}`} style={{ color: "var(--text-color)" }}>
               {ex.name}
             </span>
           </div>
         </div>
       ))}
       {(workout.exercises?.length || 0) > 8 && (
-        <div className={`text-center text-slate-500 dark:text-zinc-500 italic ${isExportMode ? 'text-xl pt-4' : 'text-sm pt-2'}`}>
+        <div className={`text-center italic ${isExportMode ? 'text-xl pt-4' : 'text-sm pt-2'}`} style={{ color: "var(--text-muted)" }}>
           ...und {workout.exercises.length - 8} weitere
         </div>
       )}
@@ -109,7 +112,7 @@ const TemplateRadar = ({ workout, isExportMode }: { workout: any, isExportMode?:
             <Footprints size={isExportMode ? 160 : 80} className="text-blue-500 relative z-10" />
           )}
         </div>
-        <p className={`text-slate-400 dark:text-zinc-400 font-medium uppercase tracking-widest ${isExportMode ? 'text-2xl mt-4' : 'text-sm'}`}>Cardio Session</p>
+        <p className={`font-medium uppercase tracking-widest ${isExportMode ? 'text-2xl mt-4' : 'text-sm'}`} style={{ color: "var(--text-muted)" }}>Cardio Session</p>
       </div>
     )
   }
@@ -117,20 +120,18 @@ const TemplateRadar = ({ workout, isExportMode }: { workout: any, isExportMode?:
   return (
     <div className="flex flex-col h-full items-center justify-center -mt-8">
       <div className="w-[115%] aspect-square relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
-            <PolarGrid stroke="currentColor" strokeOpacity={0.15} />
-            <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: isExportMode ? 24 : 13, fontWeight: 600 }} />
-            <Radar
-              name="Muscles"
-              dataKey="A"
-              stroke="#3b82f6"
-              strokeWidth={isExportMode ? 6 : 3}
-              fill="#3b82f6"
-              fillOpacity={0.6}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
+        <RadarChart width={300} height={300} cx="50%" cy="50%" outerRadius="70%" data={data} style={{ width: "100%", height: "100%" }}>
+          <PolarGrid stroke="currentColor" strokeOpacity={0.15} />
+          <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: isExportMode ? 24 : 13, fontWeight: 600 }} />
+          <Radar
+            name="Muscles"
+            dataKey="A"
+            stroke="#3b82f6"
+            strokeWidth={isExportMode ? 6 : 3}
+            fill="#3b82f6"
+            fillOpacity={0.6}
+          />
+        </RadarChart>
       </div>
       {/* Legend Badge */}
       <div className={`bg-blue-500/10 rounded-full border border-blue-500/20 mt-[-10px] ${isExportMode ? 'px-8 py-3' : 'px-5 py-2'}`}>
@@ -191,15 +192,15 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
         </div>
 
         <div>
-          <p className={`text-slate-400 dark:text-zinc-400 uppercase tracking-[0.2em] mb-3 font-semibold ${isExportMode ? 'text-2xl' : 'text-sm'}`}>{label}</p>
+          <p className={`uppercase tracking-[0.2em] mb-3 font-semibold ${isExportMode ? 'text-2xl' : 'text-sm'}`} style={{ color: "var(--text-muted)" }}>{label}</p>
           <div className="flex items-baseline justify-center gap-2">
-            <h3 className={`font-black text-black dark:text-white tracking-tighter shadow-xl drop-shadow-2xl ${isExportMode ? 'text-[10rem]' : 'text-7xl'}`}>{displayVal}</h3>
-            <span className={`text-slate-500 dark:text-zinc-500 font-bold ${isExportMode ? 'text-6xl' : 'text-3xl'}`}>{unit}</span>
+            <h3 className={`font-black tracking-tighter shadow-xl drop-shadow-2xl ${isExportMode ? 'text-[10rem]' : 'text-7xl'}`} style={{ color: "var(--text-color)" }}>{displayVal}</h3>
+            <span className={`font-bold ${isExportMode ? 'text-6xl' : 'text-3xl'}`} style={{ color: "var(--text-muted)" }}>{unit}</span>
           </div>
         </div>
 
-        <div className={`bg-slate-100 dark:bg-zinc-800 border-black/5 dark:border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl/80 rounded-2xl border dark:border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
-          <p className={`text-slate-800 dark:text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
+        <div className={`rounded-2xl border backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`} style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}>
+          <p className={`leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`} style={{ color: "var(--text-color)" }}>
             Großartige Ausdauerleistung! <br />
             <span className={`text-blue-400 font-bold inline-block mt-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>Keep it up! ⚡️</span>
           </p>
@@ -222,15 +223,15 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
       </div>
 
       <div>
-        <p className={`text-slate-400 dark:text-zinc-400 uppercase tracking-[0.2em] mb-3 font-semibold ${isExportMode ? 'text-2xl' : 'text-sm'}`}>Gesamtlast</p>
+        <p className={`uppercase tracking-[0.2em] mb-3 font-semibold ${isExportMode ? 'text-2xl' : 'text-sm'}`} style={{ color: "var(--text-muted)" }}>Gesamtlast</p>
         <div className="flex items-baseline justify-center gap-2">
-          <h3 className={`font-black text-black dark:text-white tracking-tighter shadow-xl drop-shadow-2xl ${isExportMode ? 'text-[10rem]' : 'text-7xl'}`}>{volStr}</h3>
-          <span className={`text-slate-500 dark:text-zinc-500 font-bold ${isExportMode ? 'text-6xl' : 'text-3xl'}`}>t</span>
+          <h3 className={`font-black tracking-tighter shadow-xl drop-shadow-2xl ${isExportMode ? 'text-[10rem]' : 'text-7xl'}`} style={{ color: "var(--text-color)" }}>{volStr}</h3>
+          <span className={`font-bold ${isExportMode ? 'text-6xl' : 'text-3xl'}`} style={{ color: "var(--text-muted)" }}>t</span>
         </div>
       </div>
 
-      <div className={`bg-slate-100 dark:bg-zinc-800 border-zinc-700/50 rounded-2xl/80 rounded-2xl border border-black/5 dark:border-white/10 backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`}>
-        <p className={`text-slate-800 dark:text-zinc-200 leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`}>
+      <div className={`rounded-2xl border backdrop-blur-sm ${isExportMode ? 'p-12 max-w-[600px]' : 'p-6 max-w-[280px]'}`} style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}>
+        <p className={`leading-relaxed ${isExportMode ? 'text-4xl' : 'text-lg'}`} style={{ color: "var(--text-color)" }}>
           {comparison.text.split(comparison.emoji)[0]} <br />
           <span className={`text-blue-400 font-bold inline-block mt-1 transform -rotate-1 ${isExportMode ? 'text-5xl' : 'text-xl'}`}>{comparison.emoji}</span>
         </p>
@@ -272,13 +273,13 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
       <div className={`relative ${isExportMode ? 'mb-20' : 'mb-10'}`}>
         <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full" />
         <Flame size={isExportMode ? 160 : 80} className="text-orange-500 fill-orange-500/20 relative z-10" />
-        <div className={`absolute bg-zinc-800 border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl text-white font-bold rounded-full border border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`}>
+        <div className={`absolute rounded-full text-white font-bold z-20 shadow-lg ${isExportMode ? '-bottom-4 -right-4 text-3xl px-6 py-2' : '-bottom-2 -right-2 text-sm px-3 py-1'}`} style={{ backgroundColor: "var(--accent-color)" }}>
           {displayCount}x
         </div>
       </div>
 
-      <h3 className={`font-bold text-black dark:text-white text-center ${isExportMode ? 'text-6xl mb-4' : 'text-3xl mb-2'}`}>Consistent!</h3>
-      <p className={`text-slate-400 dark:text-zinc-400 text-center px-4 leading-relaxed ${isExportMode ? 'text-3xl mb-20' : 'text-base mb-12'}`}>
+      <h3 className={`font-bold text-center ${isExportMode ? 'text-6xl mb-4' : 'text-3xl mb-2'}`} style={{ color: "var(--text-color)" }}>Consistent!</h3>
+      <p className={`text-center px-4 leading-relaxed ${isExportMode ? 'text-3xl mb-20' : 'text-base mb-12'}`} style={{ color: "var(--text-muted)" }}>
         Das ist dein <span className="text-orange-500 font-bold">{displayCount}. Training</span><br />diese Woche.
       </p>
 
@@ -289,10 +290,10 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
 
           return (
             <div key={i} className="flex flex-col items-center gap-3">
-              <div className={`rounded-full flex items-center justify-center border-2 transition-all ${isExportMode ? 'w-20 h-20 border-4' : 'w-9 h-9'} ${active ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/30' : 'bg-transparent border-zinc-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'}`}>
+              <div className={`rounded-full flex items-center justify-center border-2 transition-all ${isExportMode ? 'w-20 h-20 border-4' : 'w-9 h-9'} ${active ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/30' : 'bg-transparent'}`} style={active ? undefined : { borderColor: "var(--border-color)" }}>
                 {active && <Check size={isExportMode ? 40 : 16} className="text-white" strokeWidth={3} />}
               </div>
-              <span className={`font-bold uppercase tracking-wider ${isExportMode ? 'text-2xl' : 'text-[10px]'} ${isToday ? 'text-black dark:text-white' : 'text-slate-400 dark:text-zinc-600'}`}>
+              <span className={`font-bold uppercase tracking-wider ${isExportMode ? 'text-2xl' : 'text-[10px]'}`} style={{ color: isToday ? "var(--text-color)" : "var(--text-muted)" }}>
                 {labels[i]}
               </span>
             </div>
@@ -304,6 +305,53 @@ const TemplateStreak = ({ history, currentWorkoutDate, isExportMode }: { history
 };
 
 
+// --- ROUTE TEMPLATE (Cardio GPS map) ---
+
+const TemplateRoute = ({ workout, isExportMode }: { workout: any, isExportMode?: boolean }) => {
+  const points: GpsPoint[] = Array.isArray(workout.gpsPoints) ? workout.gpsPoints : [];
+  const hasRoute = points.length >= 2;
+
+  if (!hasRoute) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full" />
+          <MapPin size={isExportMode ? 160 : 80} className="text-blue-500 relative z-10" />
+        </div>
+        <p className={`font-medium uppercase tracking-widest ${isExportMode ? 'text-2xl mt-4' : 'text-sm'}`} style={{ color: "var(--text-muted)" }}>
+          Keine Route aufgezeichnet
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div
+        className="flex-1 min-h-0 rounded-2xl overflow-hidden"
+        style={{ minHeight: isExportMode ? 600 : 200 }}
+      >
+        <CardioMap
+          points={points}
+          isTracking={false}
+          className="w-full h-full"
+        />
+      </div>
+      {workout.distanceKm != null && (
+        <div className={`flex items-center justify-center gap-2 ${isExportMode ? 'mt-8' : 'mt-3'}`}>
+          <MapPin size={isExportMode ? 32 : 16} className="text-blue-500 shrink-0" />
+          <span
+            className={`font-black tabular-nums ${isExportMode ? 'text-6xl' : 'text-2xl'}`}
+            style={{ color: "var(--text-color)" }}
+          >
+            {workout.distanceKm.toFixed(2)} km
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- SHARE CARD (Reused for Preview & Export) ---
 
 const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history, isExportMode }: any, ref: any) => {
@@ -313,28 +361,29 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
   return (
     <div
       ref={ref}
-      className={`bg-white dark:bg-zinc-950 flex flex-col relative overflow-hidden select-none text-black dark:text-white ${isExportMode ? 'w-[1080px] h-[1920px] p-20' : 'w-[360px] aspect-[9/16] p-7'}`}
+      className={`flex flex-col relative overflow-hidden select-none ${isExportMode ? 'w-[1080px] h-[1920px] p-20' : 'w-[360px] aspect-[9/16] p-7'}`}
+      style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
     >
       {/* Background Texture/Gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-100/40 via-white to-white dark:from-blue-900/20 dark:via-zinc-950 dark:to-zinc-950 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at top right, rgba(59,130,246,0.08), var(--bg-color) 60%)" }} />
 
       {/* Header */}
       <div className={`relative z-10 flex justify-between items-start ${isExportMode ? 'mb-16' : 'mb-6'}`}>
         <div>
-          <h2 className={`font-black text-black dark:text-white tracking-tighter uppercase italic leading-none ${isExportMode ? 'text-8xl mb-6' : 'text-3xl mb-3'}`}>{workout.title}</h2>
-          <div className={`flex items-center font-semibold text-slate-400 dark:text-zinc-400 uppercase tracking-wider ${isExportMode ? 'gap-8 text-3xl' : 'gap-3 text-xs'}`}>
+          <h2 className={`font-black tracking-tighter uppercase italic leading-none ${isExportMode ? 'text-8xl mb-6' : 'text-3xl mb-3'}`} style={{ color: "var(--text-color)" }}>{workout.title}</h2>
+          <div className={`flex items-center font-semibold uppercase tracking-wider ${isExportMode ? 'gap-8 text-3xl' : 'gap-3 text-xs'}`} style={{ color: "var(--text-muted)" }}>
             <span>{dateStr}</span>
-            <span className={`rounded-full bg-slate-300 dark:bg-zinc-700 ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} />
-            <span className="text-slate-400 dark:text-zinc-400">{durationMin} Min</span>
-            <span className={`rounded-full bg-slate-300 dark:bg-zinc-700 ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} />
-            <span className="text-blue-500 dark:text-blue-400">
+            <span className={`rounded-full ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} style={{ backgroundColor: "var(--text-muted)" }} />
+            <span style={{ color: "var(--text-muted)" }}>{durationMin} Min</span>
+            <span className={`rounded-full ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} style={{ backgroundColor: "var(--text-muted)" }} />
+            <span className="text-blue-500">
               {volume > 0 ? `${(volume / 1000).toFixed(1)}t` : (workout.distance ? `${workout.distance}km` : 'Cardio')}
             </span>
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <span className={`text-blue-600 dark:text-blue-500 font-black tracking-tighter ${isExportMode ? 'text-6xl' : 'text-xl'}`}>TRAINQ</span>
-          <span className={`text-slate-400 dark:text-zinc-600 font-bold uppercase tracking-[0.2em] ${isExportMode ? 'text-2xl mt-2' : 'text-[9px] mt-0.5'}`}>{userName}</span>
+          <span className={`text-blue-600 font-black tracking-tighter ${isExportMode ? 'text-6xl' : 'text-xl'}`}>TRAINQ</span>
+          <span className={`font-bold uppercase tracking-[0.2em] ${isExportMode ? 'text-2xl mt-2' : 'text-[9px] mt-0.5'}`} style={{ color: "var(--text-muted)" }}>{userName}</span>
         </div>
       </div>
 
@@ -344,17 +393,18 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
         {type === 'radar' && <TemplateRadar workout={workout} isExportMode={isExportMode} />}
         {type === 'beast' && <TemplateBeast volume={volume} workout={workout} isExportMode={isExportMode} />}
         {type === 'streak' && <TemplateStreak history={history} currentWorkoutDate={new Date(workout.startedAt || workout.dateISO)} isExportMode={isExportMode} />}
+        {type === 'route' && <TemplateRoute workout={workout} isExportMode={isExportMode} />}
       </div>
 
       {/* Footer Brand */}
-      <div className={`relative z-10 mt-auto border-t border-black/5 dark:border-white/10 flex justify-between items-end ${isExportMode ? 'pt-16' : 'pt-6'}`}>
+      <div className={`relative z-10 mt-auto flex justify-between items-end ${isExportMode ? 'pt-16' : 'pt-6'}`} style={{ borderTop: "1px solid var(--border-color)" }}>
         <div className="flex flex-col gap-1">
           <div className={`flex items-center ${isExportMode ? 'gap-4' : 'gap-1.5'}`}>
-            <div className={`bg-blue-600 dark:bg-blue-500 rounded-full animate-pulse ${isExportMode ? 'w-4 h-4' : 'w-1.5 h-1.5'}`} />
-            <span className={`font-bold text-slate-500 dark:text-zinc-400 ${isExportMode ? 'text-3xl' : 'text-xs'}`}>TrainQ Pro</span>
+            <div className={`bg-blue-600 rounded-full animate-pulse ${isExportMode ? 'w-4 h-4' : 'w-1.5 h-1.5'}`} />
+            <span className={`font-bold ${isExportMode ? 'text-3xl' : 'text-xs'}`} style={{ color: "var(--text-muted)" }}>TrainQ Pro</span>
           </div>
         </div>
-        <div className={`text-slate-400 dark:text-zinc-600 font-medium tracking-wide ${isExportMode ? 'text-3xl' : 'text-[10px]'}`}>trainq.app</div>
+        <div className={`font-medium tracking-wide ${isExportMode ? 'text-3xl' : 'text-[10px]'}`} style={{ color: "var(--text-muted)" }}>trainq.app</div>
       </div>
     </div>
   );
@@ -391,16 +441,40 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
     ? dateObj.toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })
     : "N/A";
 
+  const isCardioWorkout =
+    finalWorkout.sport === "Laufen" ||
+    finalWorkout.sport === "Radfahren" ||
+    finalWorkout.category === "cardio";
+  const hasGpsRoute =
+    isCardioWorkout &&
+    Array.isArray((finalWorkout as any).gpsPoints) &&
+    (finalWorkout as any).gpsPoints.length >= 2;
+
   const TEMPLATES = [
     { key: 'list', label: 'Overview' },
     { key: 'radar', label: 'Muscle Map' },
     { key: 'beast', label: 'Beast Mode' },
     { key: 'streak', label: 'Consistency' },
+    ...(hasGpsRoute ? [{ key: 'route', label: 'Route' }] : []),
   ];
   const currentTemplate = TEMPLATES[templateIndex];
 
-  const nextT = () => setTemplateIndex((p) => (p + 1) % TEMPLATES.length);
-  const prevT = () => setTemplateIndex((p) => (p - 1 + TEMPLATES.length) % TEMPLATES.length);
+  const [swipeDir, setSwipeDir] = useState<1 | -1>(1);
+  const swipeTouchStartX = useRef<number | null>(null);
+
+  const nextT = () => { setSwipeDir(1); setTemplateIndex((p) => (p + 1) % TEMPLATES.length); };
+  const prevT = () => { setSwipeDir(-1); setTemplateIndex((p) => (p - 1 + TEMPLATES.length) % TEMPLATES.length); };
+
+  const handleSwipeTouchStart = (e: React.TouchEvent) => {
+    swipeTouchStartX.current = e.touches[0].clientX;
+  };
+  const handleSwipeTouchEnd = (e: React.TouchEvent) => {
+    if (swipeTouchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - swipeTouchStartX.current;
+    swipeTouchStartX.current = null;
+    if (Math.abs(delta) < 40) return;
+    if (delta < 0) nextT(); else prevT();
+  };
 
   // EXPORT HANDLER (Targets HIDDEN Container)
   const handleExport = async (mode: 'share' | 'save') => {
@@ -413,7 +487,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       const cvs = await html2canvas(exportRef.current, {
         scale: 1, // 1:1 since container is already 1080x1920
         useCORS: true,
-        backgroundColor: '#09090b',
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#09090b',
         logging: false,
         width: 1080,
         height: 1920,
@@ -443,7 +517,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-zinc-950 text-black dark:text-white h-[100dvh] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex flex-col h-[100dvh] overflow-hidden" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
 
       {/* HIDDEN EXPORT STAGE (Always renders active template in 1080x1920) */}
       <div style={{ position: 'fixed', top: '-10000px', left: '-10000px', pointerEvents: 'none', visibility: 'visible' }}>
@@ -460,45 +534,54 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       </div>
 
       {/* VISIBLE UI */}
-      <div className="absolute top-0 left-0 right-0 p-4 pt-[calc(env(safe-area-inset-top)+12px)] flex justify-between items-center z-50">
+      <div className="flex-none w-full p-4 pt-[calc(env(safe-area-inset-top)+12px)] flex justify-between items-center z-50">
         <span className="font-bold text-lg tracking-tight pl-2">Workout teilen</span>
-        <button onClick={onDone} className="bg-slate-100 dark:bg-zinc-800 border border-black/5 dark:border-zinc-800 rounded-full p-2 hover:bg-slate-200 dark:hover:bg-zinc-700 transition backdrop-blur-md">
-          <X size={20} className="text-black dark:text-zinc-400" />
+        <button onClick={onDone} className="rounded-full p-2 transition backdrop-blur-md" style={{ backgroundColor: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
+          <X size={20} style={{ color: "var(--text-secondary)" }} />
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center relative w-full overflow-hidden mt-8">
-        <button onClick={prevT} className="absolute left-4 md:left-12 z-40 bg-slate-100/80 dark:bg-zinc-800/80 border border-black/5 dark:border-zinc-800 p-3 rounded-full backdrop-blur-md text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700/50 transition">
-          <ChevronLeft size={24} />
-        </button>
-        <button onClick={nextT} className="absolute right-4 md:right-12 z-40 bg-slate-100/80 dark:bg-zinc-800/80 border border-black/5 dark:border-zinc-800 p-3 rounded-full backdrop-blur-md text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700/50 transition">
-          <ChevronRight size={24} />
-        </button>
-
-        <div className="transform scale-[0.80] xs:scale-[0.9] sm:scale-100 shadow-2xl shadow-blue-900/10 rounded-[32px] overflow-hidden border border-black/10 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
-          <ShareCard
-            workout={finalWorkout}
-            userName={finalUserName}
-            type={currentTemplate.key}
-            dateStr={dateStr}
-            history={history}
-            isExportMode={false} // Normal scaling
-          />
-        </div>
+      <div
+        className="flex-1 flex flex-col items-center justify-center relative w-full overflow-hidden"
+        onTouchStart={handleSwipeTouchStart}
+        onTouchEnd={handleSwipeTouchEnd}
+      >
+        <AnimatePresence mode="wait" initial={false} custom={swipeDir}>
+          <motion.div
+            key={templateIndex}
+            custom={swipeDir}
+            initial={{ x: swipeDir * 300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: swipeDir * -300, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            className="transform scale-[0.60] xs:scale-[0.68] sm:scale-[0.76] shadow-2xl shadow-blue-900/10 rounded-[32px] overflow-hidden"
+            style={{ border: "1px solid var(--border-color)" }}
+          >
+            <ShareCard
+              workout={finalWorkout}
+              userName={finalUserName}
+              type={currentTemplate.key}
+              dateStr={dateStr}
+              history={history}
+              isExportMode={false}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      <div className="flex-none w-full bg-white dark:bg-[#121214] border-t border-black/5 dark:border-white/5 rounded-t-[32px] px-6 pt-6 pb-24 flex flex-col items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-        <div className="flex gap-2.5 mb-8">
+      <div className="flex-none w-full rounded-t-[32px] px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex flex-col items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.08)]" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
+        <div className="flex gap-2.5 mb-5">
           {TEMPLATES.map((t, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === templateIndex ? 'w-8 bg-blue-500 shadow-blue-500/50 shadow-sm' : 'w-1.5 bg-slate-200 dark:bg-zinc-800 border border-transparent rounded-2xl'}`} />
+            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === templateIndex ? 'w-8 bg-blue-500 shadow-blue-500/50 shadow-sm' : 'w-1.5'}`} style={i === templateIndex ? undefined : { backgroundColor: "var(--border-color)" }} />
           ))}
         </div>
 
-        <div className="flex gap-4 w-full max-w-sm mb-4">
+        <div className="flex gap-4 w-full max-w-sm mb-3">
           <button
             onClick={() => handleExport('save')}
             disabled={isExporting}
-            className="flex-1 bg-slate-100 dark:bg-zinc-800 border border-black/5 dark:border-zinc-800 text-black dark:text-zinc-200 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition hover:bg-slate-200 dark:hover:bg-zinc-750"
+            className="flex-1 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition"
+            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
           >
             <Download size={18} />
             Speichern
@@ -506,14 +589,14 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
           <button
             onClick={() => handleExport('share')}
             disabled={isExporting}
-            className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition shadow-lg shadow-blue-600/20 hover:bg-blue-500"
+            className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition shadow-lg shadow-blue-600/20 hover:bg-blue-500"
           >
             {isExporting ? <span className="animate-spin">◌</span> : <Share2 size={18} />}
             Teilen
           </button>
         </div>
 
-        <div className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-zinc-600 font-bold">
+        <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "var(--text-muted)" }}>
           {currentTemplate.label}
         </div>
       </div>

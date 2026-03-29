@@ -1,13 +1,20 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Bell, ChevronLeft, Plus, RefreshCw } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Bell, ChevronLeft, Plus, RefreshCw, Search, AlertTriangle, Users, X, Trophy } from "lucide-react";
 import { useFeed } from "../../hooks/community/useFeed";
 import { useNotifications } from "../../hooks/community/useNotifications";
-import { ensureCommunityProfile } from "../../services/community/api";
+import { ensureCommunityProfile, searchUsers, followUser, unfollowUser, getDiscoverUsers } from "../../services/community/api";
+import type { CommunityProfile } from "../../services/community/types";
 import { useAuth } from "../../context/AuthContext";
 import PostCard from "../../components/community/PostCard";
 import PostComposer from "../../components/community/PostComposer";
 import ReportSheet from "../../components/community/ReportSheet";
 import BlockConfirmDialog from "../../components/community/BlockConfirmDialog";
+import { useChallenges } from "../../hooks/useChallenges";
+import ChallengeCard from "../../components/challenges/ChallengeCard";
+import ChallengeCompletionModal from "../../components/challenges/ChallengeCompletionModal";
+import CreateSoloChallengeModal from "../../components/challenges/CreateSoloChallengeModal";
+import RewardBanner from "../../components/challenges/RewardBanner";
+import type { ChallengeDefinition } from "../../types/challenge";
 
 interface Props {
   onOpenPostDetail?: (postId: string) => void;
@@ -20,7 +27,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
   const { user } = useAuth();
   const userId = user?.id;
 
-  const { posts, loading, hasMore, feedType, switchFeed, refresh, loadMore, updatePost, removePost } = useFeed(userId);
+  const { posts, loading, hasMore, feedType, error, switchFeed, refresh, loadMore, updatePost, removePost } = useFeed(userId);
   const { unreadCount } = useNotifications(userId);
 
   const [showComposer, setShowComposer] = useState(false);
@@ -28,20 +35,41 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [profileEnsured, setProfileEnsured] = useState(false);
 
-  // Ensure community profile exists
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<(CommunityProfile & { isFollowing?: boolean })[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Discover state
+  const [activeTab, setActiveTab] = useState<"forYou" | "following" | "discover" | "challenges">("forYou");
+  const [discoverUsers, setDiscoverUsers] = useState<(CommunityProfile & { isFollowing: boolean })[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const discoverLoaded = useRef(false);
+
+  // Ensure community profile exists (await before marking ensured)
   useEffect(() => {
     if (!userId || profileEnsured) return;
+    let cancelled = false;
     const email = user?.email ?? "";
     const handle = email.split("@")[0] || `user_${userId.slice(0, 6)}`;
     const displayName = user?.displayName || handle;
-    ensureCommunityProfile(userId, handle, displayName).catch(() => {});
-    setProfileEnsured(true);
-  }, [userId, profileEnsured]);
+    // Safety timeout: if ensureCommunityProfile hangs, unblock the feed after 5s
+    const safetyTimer = setTimeout(() => { if (!cancelled) setProfileEnsured(true); }, 5000);
+    ensureCommunityProfile(userId, handle, displayName)
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(safetyTimer);
+        if (!cancelled) setProfileEnsured(true);
+      });
+    return () => { cancelled = true; clearTimeout(safetyTimer); };
+  }, [userId, profileEnsured, user?.email, user?.displayName]);
 
   // Initial load
   useEffect(() => {
     if (userId && profileEnsured) refresh();
-  }, [userId, feedType, profileEnsured]);
+  }, [userId, feedType, profileEnsured, refresh]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -58,7 +86,182 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
     removePost(postId);
   }, [removePost]);
 
-  if (!userId) return null;
+  // Challenges
+  const {
+    available,
+    active: activeChallenges,
+    completed: completedChallenges,
+    joinChallenge,
+    claimReward,
+    createSolo,
+    allDefinitions,
+    serverChallenges,
+    unclaimedRewards,
+    canJoinRewardChallenge,
+  } = useChallenges();
+
+  type ChallTab = "available" | "active" | "completed";
+  const [challTab, setChallTab] = useState<ChallTab>("available");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [completionDef, setCompletionDef] = useState<ChallengeDefinition | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [isCompletionServer, setIsCompletionServer] = useState(false);
+  const [joinLoadingId, setJoinLoadingId] = useState<string | null>(null);
+  const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  const serverChallengeIds = new Set(serverChallenges.map((sc) => sc.id));
+  const sortedAvailable = [...available].sort((a, b) => (serverChallengeIds.has(a.id) ? 0 : 1) - (serverChallengeIds.has(b.id) ? 0 : 1));
+
+  const handleChallengeJoin = useCallback(async (challengeId: string) => {
+    setJoinLoadingId(challengeId);
+    try { await joinChallenge(challengeId); setChallTab("active"); }
+    finally { setJoinLoadingId(null); }
+  }, [joinChallenge]);
+
+  const handleClaimReward = useCallback(async (challengeId: string) => {
+    const def = allDefinitions.find((d) => d.id === challengeId);
+    const isServer = serverChallengeIds.has(challengeId);
+    if (def) { setCompletionDef(def); setIsCompletionServer(isServer); setClaimError(null); setShowCompletionModal(true); }
+    if (!isServer) await claimReward(challengeId);
+  }, [claimReward, allDefinitions, serverChallengeIds]);
+
+  const handleModalClaim = useCallback(async () => {
+    if (!completionDef) return;
+    setClaimLoadingId(completionDef.id);
+    setClaimError(null);
+    try {
+      const result = await claimReward(completionDef.id);
+      if (result && !result.ok && result.error) { setClaimError("Fehler beim Einlösen."); return; }
+    } catch { setClaimError("Fehler beim Einlösen."); return; }
+    finally { setClaimLoadingId(null); }
+    setShowCompletionModal(false);
+    setCompletionDef(null);
+  }, [completionDef, claimReward]);
+
+  const handleCreate = useCallback((def: Omit<ChallengeDefinition, "id" | "isAdmin">) => {
+    const created = createSolo(def);
+    joinChallenge(created.id);
+    setChallTab("active");
+  }, [createSolo, joinChallenge]);
+
+  // Load discover users when tab is selected
+  const loadDiscoverUsers = useCallback(async () => {
+    if (!userId) return;
+    setDiscoverLoading(true);
+    try {
+      const users = await getDiscoverUsers(userId);
+      setDiscoverUsers(users);
+      discoverLoaded.current = true;
+    } catch { /* ignore */ }
+    finally { setDiscoverLoading(false); }
+  }, [userId]);
+
+  const handleTabSwitch = useCallback((tab: "forYou" | "following" | "discover" | "challenges") => {
+    setActiveTab(tab);
+    if (tab === "discover") {
+      if (!discoverLoaded.current) loadDiscoverUsers();
+    } else if (tab !== "challenges") {
+      if (tab !== feedType) switchFeed(tab as "forYou" | "following");
+    }
+  }, [feedType, switchFeed, loadDiscoverUsers]);
+
+  const handleDiscoverFollow = useCallback(async (targetId: string, currentlyFollowing: boolean) => {
+    if (!userId) return;
+    try {
+      if (currentlyFollowing) {
+        await unfollowUser(userId, targetId);
+      } else {
+        await followUser(userId, targetId);
+      }
+      setDiscoverUsers((prev) => prev.map((u) => u.id === targetId ? { ...u, isFollowing: !currentlyFollowing } : u));
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  // Debounced search
+  const handleSearchChange = useCallback((q: string) => {
+    setSearchQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!q.trim()) { setSearchResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      if (!userId) return;
+      setSearchLoading(true);
+      try {
+        const results = await searchUsers(q.trim(), userId);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 350);
+  }, [userId]);
+
+  const handleToggleFollow = useCallback(async (targetId: string, currentlyFollowing: boolean) => {
+    if (!userId) return;
+    try {
+      if (currentlyFollowing) {
+        await unfollowUser(userId, targetId);
+      } else {
+        await followUser(userId, targetId);
+      }
+      setSearchResults((prev) => prev.map((u) => u.id === targetId ? { ...u, isFollowing: !currentlyFollowing } : u));
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  // Guard: no Supabase user
+  if (!userId) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center px-6" style={{ background: "var(--bg-color)" }}>
+        <Users size={48} style={{ color: "var(--text-secondary)" }} className="mb-4" />
+        <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+          Melde dich an, um die Community zu nutzen.
+        </p>
+      </div>
+    );
+  }
+
+  // Error UI
+  const errorUI = error && !loading ? (
+    <div className="flex flex-col items-center justify-center py-16 px-6">
+      <AlertTriangle size={36} style={{ color: "var(--text-secondary)" }} className="mb-3" />
+      {error === "tables_missing" ? (
+        <>
+          <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
+            Community wird eingerichtet
+          </p>
+          <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+            Die Community-Tabellen müssen noch in Supabase angelegt werden.
+          </p>
+        </>
+      ) : error === "timeout" ? (
+        <>
+          <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
+            Verbindung dauert zu lange
+          </p>
+          <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+            Überprüfe deine Internetverbindung und versuche es erneut.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
+            Feed konnte nicht geladen werden
+          </p>
+          <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+            Bitte versuche es erneut.
+          </p>
+        </>
+      )}
+      <button
+        onClick={refresh}
+        className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+        style={{ background: "var(--accent-color)", color: "#fff" }}
+      >
+        <RefreshCw size={14} /> Erneut versuchen
+      </button>
+    </div>
+  ) : null;
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--bg-color)" }}>
@@ -73,78 +276,316 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             )}
             <h1 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Community</h1>
           </div>
-          <button onClick={onOpenNotifications} className="relative p-2">
-            <Bell size={22} style={{ color: "var(--text-color)" }} />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 min-w-[16px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setShowSearch((v) => !v)} className="p-2">
+              <Search size={22} style={{ color: "var(--text-color)" }} />
+            </button>
+            <button onClick={onOpenNotifications} className="relative p-2">
+              <Bell size={22} style={{ color: "var(--text-color)" }} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 h-4 min-w-[16px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Search bar */}
+        {showSearch && (
+          <div className="px-4 pb-2">
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--border-color)" }}>
+              <Search size={16} style={{ color: "var(--text-secondary)" }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Nutzer suchen..."
+                autoFocus
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: "var(--text-color)" }}
+              />
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(""); setSearchResults([]); }}>
+                  <X size={16} style={{ color: "var(--text-secondary)" }} />
+                </button>
+              )}
+            </div>
+
+            {/* Search results */}
+            {searchLoading && (
+              <div className="flex justify-center py-4">
+                <RefreshCw size={16} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+              </div>
+            )}
+            {!searchLoading && searchResults.length > 0 && (
+              <div className="mt-2 rounded-xl border overflow-hidden" style={{ borderColor: "var(--border-color)", background: "var(--card-bg)" }}>
+                {searchResults.map((u) => (
+                  <button
+                    key={u.id}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 border-b last:border-b-0"
+                    style={{ borderColor: "var(--border-color)" }}
+                    onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchResults([]); onOpenProfile?.(u.id); }}
+                  >
+                    <div className="shrink-0 h-9 w-9 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-white text-xs font-bold">{u.displayName[0]?.toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="text-sm font-semibold truncate" style={{ color: "var(--text-color)" }}>{u.displayName}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>@{u.handle}</div>
+                    </div>
+                    {u.id !== userId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleFollow(u.id, !!u.isFollowing); }}
+                        className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold"
+                        style={{
+                          background: u.isFollowing ? "var(--border-color)" : "var(--accent-color)",
+                          color: u.isFollowing ? "var(--text-color)" : "#fff",
+                        }}
+                      >
+                        {u.isFollowing ? "Folge ich" : "Folgen"}
+                      </button>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+              <div className="py-4 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
+                Keine Nutzer gefunden
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Feed tabs */}
-        <div className="flex px-4 gap-1 pb-2">
-          {(["forYou", "following"] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => switchFeed(type)}
-              className="flex-1 py-2 text-sm font-semibold rounded-xl transition-colors"
-              style={{
-                background: feedType === type ? "var(--accent-color)" : "var(--border-color)",
-                color: feedType === type ? "#fff" : "var(--text-secondary)",
-              }}
-            >
-              {type === "forYou" ? "Für dich" : "Folge ich"}
-            </button>
-          ))}
-        </div>
+        {!showSearch && (
+          <div className="flex px-4 gap-1 pb-2">
+            {([["forYou", "Für dich"], ["following", "Folge ich"], ["discover", "Entdecken"], ["challenges", "Challenges"]] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => handleTabSwitch(tab)}
+                className="flex-1 py-2 text-sm font-semibold rounded-xl transition-colors"
+                style={{
+                  background: activeTab === tab ? "var(--accent-color)" : "var(--border-color)",
+                  color: activeTab === tab ? "#fff" : "var(--text-secondary)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Feed */}
-      <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-        {/* Pull to refresh indicator */}
-        {loading && posts.length === 0 && (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
-          </div>
-        )}
+      {/* Feed / Discover / Challenges */}
+      <div className="flex-1 overflow-y-auto" onScroll={activeTab !== "discover" && activeTab !== "challenges" ? handleScroll : undefined}>
+        {activeTab === "challenges" ? (
+          <div className="px-4 py-3 space-y-3">
+            {/* Sub-tabs */}
+            <div className="flex gap-1 bg-[var(--button-bg)] rounded-2xl p-1">
+              {([["available", "Verfügbar"], ["active", "Aktiv"], ["completed", "Abgeschlossen"]] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setChallTab(id)}
+                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition-all ${challTab === id ? "bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm" : "text-[var(--text-secondary)]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-        {!loading && posts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 px-4">
-            <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              {feedType === "following" ? "Folge anderen Nutzern, um ihre Beiträge zu sehen." : "Noch keine Beiträge vorhanden."}
-            </p>
-          </div>
-        )}
+            {unclaimedRewards.length > 0 && (
+              <RewardBanner unclaimedCount={unclaimedRewards.length} onClaim={() => setChallTab("completed")} />
+            )}
 
-        {posts.map((post) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            viewerId={userId}
-            onTap={() => onOpenPostDetail?.(post.id)}
-            onAuthorTap={() => post.authorId !== userId && onOpenProfile?.(post.authorId)}
-            onLikeChanged={handleLikeChanged}
-            onDeleted={handleDeleted}
-            onReport={(id) => setReportTarget({ id })}
-            onBlock={(blockedId) => {
-              const author = post.author;
-              setBlockTarget({ id: blockedId, name: author?.displayName ?? "Nutzer" });
-            }}
-          />
-        ))}
+            {challTab === "available" && (
+              <>
+                {sortedAvailable.length === 0 ? (
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Keine Challenges verfügbar</p></div>
+                ) : (
+                  sortedAvailable.map((def) => {
+                    const sc = serverChallenges.find((c) => c.id === def.id);
+                    return (
+                      <ChallengeCard
+                        key={def.id}
+                        definition={def}
+                        variant="available"
+                        onJoin={() => handleChallengeJoin(def.id)}
+                        isServerChallenge={serverChallengeIds.has(def.id)}
+                        winnerCount={sc?.currentWinners}
+                        maxWinners={sc?.maxWinners}
+                        isJoinLoading={joinLoadingId === def.id}
+                      />
+                    );
+                  })
+                )}
+              </>
+            )}
 
-        {loading && posts.length > 0 && (
-          <div className="flex items-center justify-center py-4">
-            <RefreshCw size={16} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
-          </div>
-        )}
+            {challTab === "active" && (
+              <>
+                {activeChallenges.length === 0 ? (
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Keine aktiven Challenges</p></div>
+                ) : (
+                  activeChallenges.map((ac) => (
+                    <ChallengeCard
+                      key={ac.state.challengeId}
+                      definition={ac.definition}
+                      state={ac.state}
+                      progress={ac.progress}
+                      variant="active"
+                      isServerChallenge={ac.isServer}
+                    />
+                  ))
+                )}
+              </>
+            )}
 
-        {!hasMore && posts.length > 0 && (
-          <div className="py-6 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
-            Keine weiteren Beiträge
+            {challTab === "completed" && (
+              <>
+                {completedChallenges.length === 0 ? (
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Noch keine abgeschlossenen Challenges</p></div>
+                ) : (
+                  completedChallenges.map((cc) => (
+                    <ChallengeCard
+                      key={cc.state.challengeId}
+                      definition={cc.definition}
+                      state={cc.state}
+                      variant="completed"
+                      onClaimReward={() => handleClaimReward(cc.state.challengeId)}
+                      isServerChallenge={cc.isServer}
+                      rewardExpiresAt={cc.rewardExpiresAt}
+                      isClaimLoading={claimLoadingId === cc.state.challengeId}
+                    />
+                  ))
+                )}
+              </>
+            )}
+
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-[var(--border-color)] text-[var(--text-secondary)] transition-colors"
+            >
+              <Plus size={18} />
+              <span className="text-sm font-semibold">Eigene Challenge erstellen</span>
+            </button>
+
+            <CreateSoloChallengeModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreate} />
+            <ChallengeCompletionModal
+              open={showCompletionModal}
+              definition={completionDef}
+              onClose={() => { setShowCompletionModal(false); setCompletionDef(null); setClaimError(null); }}
+              onClaimReward={completionDef?.reward ? handleModalClaim : undefined}
+              isServerChallenge={isCompletionServer}
+              claimError={claimError ?? undefined}
+            />
           </div>
+        ) : activeTab === "discover" ? (
+          <>
+            {discoverLoading && (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+              </div>
+            )}
+            {!discoverLoading && discoverUsers.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <Users size={40} style={{ color: "var(--text-secondary)" }} className="mb-3" />
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  Noch keine anderen Nutzer vorhanden.
+                </p>
+              </div>
+            )}
+            {!discoverLoading && discoverUsers.length > 0 && (
+              <div className="px-4 py-2 space-y-2">
+                {discoverUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    className="flex items-center gap-3 w-full p-3 rounded-2xl border"
+                    style={{ background: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                    onClick={() => onOpenProfile?.(u.id)}
+                  >
+                    <div className="shrink-0 h-11 w-11 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-white text-sm font-bold">{u.displayName[0]?.toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="text-sm font-semibold truncate" style={{ color: "var(--text-color)" }}>{u.displayName}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>@{u.handle}</div>
+                      {u.bio && <div className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{u.bio}</div>}
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDiscoverFollow(u.id, u.isFollowing); }}
+                      className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold"
+                      style={{
+                        background: u.isFollowing ? "var(--border-color)" : "var(--accent-color)",
+                        color: u.isFollowing ? "var(--text-color)" : "#fff",
+                      }}
+                    >
+                      {u.isFollowing ? "Folge ich" : "Folgen"}
+                    </button>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Error state */}
+            {errorUI}
+
+            {/* Loading spinner */}
+            {loading && posts.length === 0 && !error && (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && !error && posts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  {feedType === "following" ? "Folge anderen Nutzern, um ihre Beiträge zu sehen." : "Noch keine Beiträge vorhanden."}
+                </p>
+              </div>
+            )}
+
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                viewerId={userId}
+                onTap={() => onOpenPostDetail?.(post.id)}
+                onAuthorTap={() => post.authorId !== userId && onOpenProfile?.(post.authorId)}
+                onLikeChanged={handleLikeChanged}
+                onDeleted={handleDeleted}
+                onReport={(id) => setReportTarget({ id })}
+                onBlock={(blockedId) => {
+                  const author = post.author;
+                  setBlockTarget({ id: blockedId, name: author?.displayName ?? "Nutzer" });
+                }}
+              />
+            ))}
+
+            {loading && posts.length > 0 && (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw size={16} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+              </div>
+            )}
+
+            {!hasMore && posts.length > 0 && (
+              <div className="py-6 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
+                Keine weiteren Beiträge
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -44,3 +44,12 @@ export async function signOutSupabase(): Promise<void> {
   if (!client) return;
   await client.auth.signOut();
 }
+
+export async function deleteSupabaseAccount(): Promise<{ error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) return { error: "Supabase nicht verfügbar." };
+
+  const { error } = await client.functions.invoke("delete-account");
+  if (error) return { error: error.message };
+  return {};
+}

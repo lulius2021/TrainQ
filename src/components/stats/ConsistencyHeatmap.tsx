@@ -2,31 +2,38 @@ import React, { useMemo } from "react";
 import {
     subDays,
     eachDayOfInterval,
-    isSameDay,
     format,
     parseISO,
     startOfWeek
 } from "date-fns";
 import { de } from "date-fns/locale";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
+import type { GarminActivity } from "../../services/garmin/types";
 
 interface ConsistencyHeatmapProps {
     workouts: WorkoutHistoryEntry[];
+    garminActivities?: GarminActivity[];
 }
 
-export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts }) => {
+export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts, garminActivities = [] }) => {
     const today = new Date();
 
     const startDate = useMemo(() => {
-        if (workouts.length === 0) {
+        if (workouts.length === 0 && garminActivities.length === 0) {
             return subDays(today, 90);
         }
-        const sorted = [...workouts].sort((a, b) => {
-            return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
-        });
-        const firstWorkout = sorted[0];
-        return startOfWeek(parseISO(firstWorkout.startedAt), { weekStartsOn: 1 });
-    }, [workouts]);
+        const dates: Date[] = [];
+        if (workouts.length > 0) {
+            const sorted = [...workouts].sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+            dates.push(parseISO(sorted[0].startedAt));
+        }
+        if (garminActivities.length > 0) {
+            const sorted = [...garminActivities].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            dates.push(parseISO(sorted[0].startTime));
+        }
+        const earliest = dates.reduce((a, b) => a < b ? a : b);
+        return startOfWeek(earliest, { weekStartsOn: 1 });
+    }, [workouts, garminActivities]);
 
     const days = useMemo(() => {
         if (startDate > today) return [today];
@@ -34,15 +41,24 @@ export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts
     }, [startDate, today]);
 
     const activityMap = useMemo(() => {
-        const map = new Map<string, number>();
+        const map = new Map<string, { trainq: number; garmin: number }>();
         workouts.forEach(w => {
             const dateStr = format(parseISO(w.endedAt || w.startedAt), "yyyy-MM-dd");
-            map.set(dateStr, (map.get(dateStr) || 0) + 1);
+            const entry = map.get(dateStr) || { trainq: 0, garmin: 0 };
+            entry.trainq++;
+            map.set(dateStr, entry);
+        });
+        garminActivities.forEach(a => {
+            const dateStr = a.startTime.slice(0, 10);
+            const entry = map.get(dateStr) || { trainq: 0, garmin: 0 };
+            entry.garmin++;
+            map.set(dateStr, entry);
         });
         return map;
-    }, [workouts]);
+    }, [workouts, garminActivities]);
 
     const totalWorkouts = workouts.length;
+    const totalGarmin = garminActivities.length;
 
     return (
         <div
@@ -56,9 +72,14 @@ export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts
                 <div>
                     <h3 className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Consistency is Key</h3>
                     <p className="text-2xl font-bold mt-1" style={{ color: "var(--text-color)" }}>
-                        {totalWorkouts} Workouts{" "}
+                        {totalWorkouts + totalGarmin} Aktivitäten{" "}
                         <span className="text-sm font-normal" style={{ color: "var(--text-secondary)" }}>seit Beginn</span>
                     </p>
+                    {totalGarmin > 0 && (
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                            {totalWorkouts} Workouts · {totalGarmin} Garmin
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -67,16 +88,25 @@ export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts
                     <div className="grid grid-rows-7 grid-flow-col gap-[3px]">
                         {days.map((day) => {
                             const dateStr = format(day, "yyyy-MM-dd");
-                            const count = activityMap.get(dateStr) || 0;
-                            const title = `${format(day, "dd. MMM", { locale: de })}: ${count} Workout${count !== 1 ? 's' : ''}`;
+                            const entry = activityMap.get(dateStr) || { trainq: 0, garmin: 0 };
+                            const total = entry.trainq + entry.garmin;
+                            const hasGarminOnly = entry.garmin > 0 && entry.trainq === 0;
+                            const hasBoth = entry.garmin > 0 && entry.trainq > 0;
+                            const title = `${format(day, "dd. MMM", { locale: de })}: ${entry.trainq} Workout${entry.trainq !== 1 ? "s" : ""}${entry.garmin > 0 ? ` + ${entry.garmin} Garmin` : ""}`;
 
                             let bg: string;
                             let shadow: string | undefined;
-                            if (count >= 2) {
+                            if (hasBoth) {
+                                // Gold for combined training days
+                                bg = "#FFB300";
+                                shadow = "0 0 8px rgba(255,179,0,0.5)";
+                            } else if (total >= 2) {
                                 bg = "#007AFF";
                                 shadow = "0 0 8px rgba(0,122,255,0.5)";
-                            } else if (count === 1) {
+                            } else if (entry.trainq === 1) {
                                 bg = "rgba(0,122,255,0.4)";
+                            } else if (hasGarminOnly) {
+                                bg = "rgba(0,200,83,0.5)";
                             } else {
                                 bg = "var(--button-bg)";
                             }
@@ -97,14 +127,23 @@ export const ConsistencyHeatmap: React.FC<ConsistencyHeatmapProps> = ({ workouts
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 text-[10px] justify-end" style={{ color: "var(--text-secondary)" }}>
-                <span>Weniger</span>
-                <div className="flex gap-1">
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "var(--button-bg)" }} />
+            <div className="flex items-center gap-3 text-[10px] justify-end flex-wrap" style={{ color: "var(--text-secondary)" }}>
+                <div className="flex items-center gap-1">
                     <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "rgba(0,122,255,0.4)" }} />
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#007AFF" }} />
+                    <span>Workout</span>
                 </div>
-                <span>Mehr</span>
+                {totalGarmin > 0 && (
+                    <>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "rgba(0,200,83,0.5)" }} />
+                            <span>Garmin</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#FFB300" }} />
+                            <span>Beides</span>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

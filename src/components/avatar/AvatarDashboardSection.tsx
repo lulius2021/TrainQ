@@ -1,25 +1,69 @@
 // src/components/avatar/AvatarDashboardSection.tsx
-// Dashboard widget showing the robot avatar, stage, and XP progress bar.
+// Dashboard widget: shows the human avatar with dominant pose + body-part summary.
 
 import React, { useState } from "react";
-import RobotAvatarSvg from "./RobotAvatarSvg";
-import RobotDetailModal from "./RobotDetailModal";
+import HumanAvatarSvg from "./HumanAvatarSvg";
+import AvatarDetailModal from "./RobotDetailModal";
 import { useAvatarState } from "../../store/useAvatarStore";
-import { STAGE_NAMES, stageProgress, STAGE_THRESHOLDS } from "../../utils/avatarProgression";
+import {
+  levelFromPoints,
+  detectPose,
+  overallLevel,
+} from "../../utils/avatarProgression";
 import { track } from "../../analytics/track";
 
-export default function AvatarDashboardSection() {
-  const { totalXp, stage, variant } = useAvatarState();
-  const progress = stageProgress(totalXp, stage);
-  const stageName = STAGE_NAMES[stage] ?? "Prototyp";
-  const currentThreshold = STAGE_THRESHOLDS[stage] ?? 0;
-  const nextThreshold = STAGE_THRESHOLDS[stage + 1] ?? currentThreshold;
-  const isMaxStage = stage >= STAGE_THRESHOLDS.length - 1;
+const POSE_LABELS: Record<string, string> = {
+  stand:     "Kraftsportler",
+  run:       "Läufer",
+  cycle:     "Radfahrer",
+  handstand: "Calisthenics",
+  rest:      "Erholt dich",
+};
 
+const POSE_ACCENTS: Record<string, string> = {
+  stand:     "#FF6B35",
+  run:       "#43E97B",
+  cycle:     "#4CC9F0",
+  handstand: "#A78BFA",
+  rest:      "#94A3B8",
+};
+
+const BODY_PART_LABELS: Record<string, string> = {
+  chest:     "Brust",
+  back:      "Rücken",
+  shoulders: "Schultern",
+  arms:      "Arme",
+  legs:      "Beine",
+  core:      "Core",
+  cardio:    "Ausdauer",
+};
+
+function todayISO() {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export default function AvatarDashboardSection() {
+  const state = useAvatarState();
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const pose      = detectPose(state, todayISO());
+  const accent    = POSE_ACCENTS[pose] ?? "#FF6B35";
+  const poseLabel = POSE_LABELS[pose] ?? "Trainierend";
+  const level     = overallLevel(state);
+
+  // Top-3 trained body parts by level
+  const partEntries = Object.entries(state.bodyParts)
+    .map(([key, stats]) => ({ key, level: levelFromPoints(stats.points) }))
+    .sort((a, b) => b.level - a.level)
+    .slice(0, 3);
+
   const handleOpen = () => {
-    track("robot_detail_opened");
+    track("avatar_detail_opened");
     setDetailOpen(true);
   };
 
@@ -31,67 +75,70 @@ export default function AvatarDashboardSection() {
         style={{ background: "var(--card-bg)", border: "1px solid var(--border-color)" }}
         onClick={handleOpen}
       >
-        {/* Robot Avatar */}
+        {/* Avatar */}
         <div className="shrink-0">
-          <RobotAvatarSvg stage={stage} variant={variant} size={80} animate />
-        </div>
-
-        {/* Info + Progress */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-              Stufe {stage}
-            </span>
-            <span className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>
-              {stageName}
-            </span>
-          </div>
-
-          {/* XP Progress Bar */}
-          <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.round(progress * 100)}%`,
-                background: variant === "bulk"
-                  ? "linear-gradient(90deg, #FF6B35, #E63946)"
-                  : "linear-gradient(90deg, #00B4D8, #0077B6)",
-              }}
-            />
-          </div>
-
-          {/* XP text */}
-          <div className="flex justify-between mt-1">
-            <span className="text-[11px] tabular-nums" style={{ color: "var(--text-secondary)" }}>
-              {totalXp} XP
-            </span>
-            {!isMaxStage && (
-              <span className="text-[11px] tabular-nums" style={{ color: "var(--text-secondary)" }}>
-                {nextThreshold} XP
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Chevron hint */}
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          fill="none"
-          className="shrink-0 opacity-40"
-        >
-          <path
-            d="M7.5 4.5L13 10L7.5 15.5"
-            stroke="var(--text-secondary)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <HumanAvatarSvg
+            pose={pose}
+            bodyLevels={{
+              chest:     levelFromPoints(state.bodyParts.chest.points),
+              back:      levelFromPoints(state.bodyParts.back.points),
+              shoulders: levelFromPoints(state.bodyParts.shoulders.points),
+              arms:      levelFromPoints(state.bodyParts.arms.points),
+              legs:      levelFromPoints(state.bodyParts.legs.points),
+              core:      levelFromPoints(state.bodyParts.core.points),
+              cardio:    levelFromPoints(state.bodyParts.cardio.points),
+            }}
+            size={64}
+            animate
+            accentColor={accent}
           />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          {/* Pose label + overall level */}
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="text-sm font-bold"
+              style={{ color: accent }}
+            >
+              {poseLabel}
+            </span>
+            <span className="text-xs rounded-full px-2 py-0.5 font-semibold tabular-nums"
+              style={{ background: `${accent}22`, color: accent }}>
+              Lvl {level.toFixed(1)}
+            </span>
+          </div>
+
+          {/* Top 3 body parts as small pill bars */}
+          <div className="flex flex-col gap-1">
+            {partEntries.map(({ key, level: lv }) => (
+              <div key={key} className="flex items-center gap-2">
+                <span className="text-[10px] w-14 truncate" style={{ color: "var(--text-secondary)" }}>
+                  {BODY_PART_LABELS[key] ?? key}
+                </span>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${lv * 10}%`, background: accent }}
+                  />
+                </div>
+                <span className="text-[10px] tabular-nums w-5 text-right" style={{ color: "var(--text-secondary)" }}>
+                  {Math.round(lv * 10)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Chevron */}
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="shrink-0 opacity-40">
+          <path d="M7.5 4.5L13 10L7.5 15.5" stroke="var(--text-secondary)" strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
-      <RobotDetailModal open={detailOpen} onClose={() => setDetailOpen(false)} />
+      <AvatarDetailModal open={detailOpen} onClose={() => setDetailOpen(false)} />
     </>
   );
 }

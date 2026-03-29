@@ -17,8 +17,10 @@ import {
   MapPin,
   Route,
   Timer,
-  Users
+  Flame,
+  // Users — removed (community widget handles it)
 } from 'lucide-react';
+import { computeStreaks } from '../utils/stats';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { parseISODateLocal } from '../utils/calendarGeneration';
@@ -40,12 +42,13 @@ import ShiftPlanModal from '../components/training/ShiftPlanModal';
 import AdaptiveTrainingModal from '../components/adaptive/AdaptiveTrainingModal';
 import { ProfileService } from '../services/ProfileService';
 import { readDeloadPlan, readDeloadDismissedUntil, writeDeloadDismissedUntil, writeDeloadPlan } from '../utils/deload/storage';
-import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks, computeNextDueISO, isDeloadDue, getFirstTrainingDateISO, addDaysISO } from '../utils/deload/schedule';
+import { computeAvgSessionsPerWeek, computeNextDueISO, isDeloadDue, getFirstTrainingDateISO, addDaysISO } from '../utils/deload/schedule';
 import DeloadBanner from '../components/deload/DeloadBanner';
 import DeloadPlanModal from '../components/deload/DeloadPlanModal';
-import { useChallenges } from '../hooks/useChallenges';
-import ChallengeProgressBar from '../components/challenges/ChallengeProgressBar';
-import RewardBanner from '../components/challenges/RewardBanner';
+import RecoveryScoreWidget from '../components/deload/RecoveryScoreWidget';
+import PostDeloadFeedback, { shouldShowPostDeloadFeedback } from '../components/deload/PostDeloadFeedback';
+import WellbeingCheckIn from '../components/wellness/WellbeingCheckIn';
+import { useDeloadScore } from '../hooks/useDeloadScore';
 import { writeGlobalLiveSeed, type LiveTrainingSeed } from '../utils/liveTrainingSeed';
 import { applyAdaptiveToSeed } from '../utils/adaptiveSeed';
 import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHistory';
@@ -53,6 +56,7 @@ import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
 import AvatarDashboardSection from '../components/avatar/AvatarDashboardSection';
+import DashboardCommunityWidget from '../components/community/DashboardCommunityWidget';
 import { useI18n } from '../i18n/useI18n';
 
 // --- HELPER ---
@@ -61,83 +65,6 @@ const formatNumber = (num: number) => {
 };
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
-
-// --- CHALLENGE WIDGET for Dashboard ---
-const DashboardChallengeWidget: React.FC = () => {
-  const { active, unclaimedRewards } = useChallenges();
-  const { t } = useI18n();
-
-  if (active.length === 0) {
-    // Show a teaser card to discover challenges
-    return (
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.challenges.title")}</h3>
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
-          className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-        >
-          <div className="w-11 h-11 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
-            <Trophy size={22} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-[var(--text-color)]">{t("dashboard.challenges.discover")}</div>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t("dashboard.challenges.discoverSubtitle")}</p>
-          </div>
-          <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
-        </button>
-      </div>
-    );
-  }
-
-  // Show up to 2 active challenges
-  const shown = active.slice(0, 2);
-
-  return (
-    <div>
-      {/* Reward Banner */}
-      {unclaimedRewards.length > 0 && (
-        <div className="mb-3">
-          <RewardBanner
-            unclaimedCount={unclaimedRewards.length}
-            onClaim={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
-          />
-        </div>
-      )}
-      <div className="flex items-center justify-between mb-2 pl-1">
-        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">{t("dashboard.challenges.active")}</h3>
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
-          className="text-xs font-semibold text-[var(--accent-color)]"
-        >
-          {t("dashboard.challenges.showAll")}
-        </button>
-      </div>
-      <div className="space-y-2.5">
-        {shown.map((ac) => (
-          <button
-            key={ac.state.challengeId}
-            onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/challenges" } }))}
-            className="w-full bg-[var(--card-bg)] rounded-[24px] p-4 border border-[var(--border-color)] active:scale-[0.98] transition-transform text-left"
-          >
-            <div className="flex items-center gap-3 mb-2.5">
-              <span className="text-xl leading-none">{ac.definition.emoji}</span>
-              <span className="text-sm font-bold text-[var(--text-color)] flex-1 min-w-0 truncate">{ac.definition.title}</span>
-              <span className="text-xs font-semibold text-[var(--accent-color)]">
-                {Math.round(ac.progress.progress01 * 100)}%
-              </span>
-            </div>
-            <ChallengeProgressBar
-              progress01={ac.progress.progress01}
-              current={ac.progress.current}
-              target={ac.progress.target}
-              unit={ac.definition.goal.type === "distance_km" ? "km" : ac.definition.goal.type === "volume_kg" ? "kg" : ""}
-            />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // --- LAST ACTIVITY CARD ---
 const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout }) => {
@@ -252,6 +179,7 @@ const DashboardPage = () => {
   const [weeklyDistanceKm, setWeeklyDistanceKm] = useState(0);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
   const [lastActivity, setLastActivity] = useState<WorkoutHistoryEntry | null>(null);
+  const [streaks, setStreaks] = useState({ current: 0, longest: 0 });
 
   // Live Training Check
   const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
@@ -261,6 +189,10 @@ const DashboardPage = () => {
   const [deloadBannerState, setDeloadBannerState] = useState<"recommended" | "active" | null>(null);
   const [deloadPlan, setDeloadPlan] = useState<DeloadPlan | null>(null);
   const [showDeloadModal, setShowDeloadModal] = useState(false);
+  const [showPostDeloadFeedback, setShowPostDeloadFeedback] = useState(false);
+
+  // Recovery score (multi-factor deload decision)
+  const { result: deloadScore } = useDeloadScore();
 
   const computeDeloadState = useCallback(() => {
     try {
@@ -268,14 +200,19 @@ const DashboardPage = () => {
       const plan = readDeloadPlan(userId);
       const todayISO = new Date().toISOString().slice(0, 10);
 
-      // Check if there is an active plan and today is within it
+      // Active plan: today is within deload week
       if (plan && todayISO >= plan.startISO && todayISO <= plan.endISO) {
         setDeloadPlan(plan);
         setDeloadBannerState("active");
         return;
       }
 
-      // Compute whether deload is due
+      // Post-deload feedback window
+      if (shouldShowPostDeloadFeedback(plan, userId)) {
+        setShowPostDeloadFeedback(true);
+      }
+
+      // Compute whether deload is due (calendar-based)
       const raw = getScopedItem("trainq_calendar_events", userId);
       let calEvents: CalendarEvent[] = [];
       if (raw) {
@@ -291,20 +228,17 @@ const DashboardPage = () => {
       });
 
       const dismissedUntil = readDeloadDismissedUntil(userId);
-      const due = isDeloadDue({
+      const calendarDue = isDeloadDue({
         todayISO,
         dueISO,
         dismissedUntilISO: dismissedUntil,
         activePlan: plan ? { startISO: plan.startISO, endISO: plan.endISO } : null,
       });
 
-      if (due) {
-        setDeloadPlan(null);
-        setDeloadBannerState("recommended");
-      } else {
-        setDeloadPlan(null);
-        setDeloadBannerState(null);
-      }
+      setDeloadPlan(null);
+      // Show banner if calendar-based OR score-based (score >= 50)
+      // Score is checked via deloadScore state (set by useDeloadScore hook)
+      setDeloadBannerState(calendarDue ? "recommended" : null);
     } catch {
       setDeloadBannerState(null);
     }
@@ -313,6 +247,23 @@ const DashboardPage = () => {
   useEffect(() => {
     computeDeloadState();
   }, [computeDeloadState]);
+
+  // Also trigger banner when score-based threshold is met (independent of calendar check)
+  useEffect(() => {
+    if (!deloadScore) return;
+    // Only promote to "recommended" — don't override an "active" state
+    if (deloadBannerState === "active") return;
+    if (deloadScore.level !== "none" && deloadBannerState !== "recommended") {
+      // Check dismiss
+      const userId = getActiveUserId();
+      const dismissed = readDeloadDismissedUntil(userId);
+      if (dismissed) {
+        const todayISO = new Date().toISOString().slice(0, 10);
+        if (todayISO < dismissed) return;
+      }
+      setDeloadBannerState("recommended");
+    }
+  }, [deloadScore, deloadBannerState]);
 
   const handleDeloadDismiss = useCallback(() => {
     const userId = getActiveUserId();
@@ -412,6 +363,7 @@ const DashboardPage = () => {
 
         // Last activity
         setLastActivity(history[0]);
+        setStreaks(computeStreaks(history));
 
         // Weekly stats from history
         const now = new Date();
@@ -468,18 +420,60 @@ const DashboardPage = () => {
     setShowAdaptiveModal(true);
   };
 
-  const handleAdaptiveSelect = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
-    // Build an adaptive seed and navigate to live training
-    const baseSeed: LiveTrainingSeed = {
-      title: "Training",
-      sport: "Gym",
-      isCardio: false,
-      exercises: [],
-    };
+  /** Save adaptive suggestion as a calendar event and return the event id */
+  const saveAdaptiveToCalendar = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers): string => {
+    const userId = getActiveUserId() || "user";
+    const eventId = crypto.randomUUID();
+    const now = new Date();
+    const baseSeed: LiveTrainingSeed = { title: "Training", sport: "Gym", isCardio: false, exercises: [] };
     const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
-    writeGlobalLiveSeed(adaptedSeed);
+
+    const calendarEvent = {
+      id: eventId,
+      userId,
+      title: `Training (Adaptiv: ${suggestion.title})`,
+      date: format(now, "yyyy-MM-dd"),
+      startTime: format(now, "HH:mm"),
+      endTime: "",
+      type: "training",
+      trainingType: "gym",
+      trainingStatus: "open",
+      description: suggestion.subtitle,
+      workoutData: { exercises: adaptedSeed.exercises },
+      adaptiveAppliedAt: now.toISOString(),
+      adaptiveReasons: suggestion.reasons || [],
+      adaptiveProfile: suggestion.profile,
+    };
+
+    try {
+      const raw = getScopedItem(STORAGE_KEY_EVENTS, userId);
+      const events = raw ? JSON.parse(raw) : [];
+      events.push(calendarEvent);
+      setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId);
+      window.dispatchEvent(new Event("trainq:update_events"));
+    } catch (e) {
+      if (import.meta.env.DEV) console.error("Failed to save adaptive calendar event", e);
+    }
+
+    return eventId;
+  };
+
+  /** Save to calendar only (no live start) */
+  const handleAdaptiveSaveToCalendar = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
+    saveAdaptiveToCalendar(suggestion, answers);
     consumeSuggestion();
-    track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile });
+    track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile, action: "calendar_save" });
+    setShowAdaptiveModal(false);
+  };
+
+  /** Save to calendar AND start live training */
+  const handleAdaptiveSelect = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
+    const eventId = saveAdaptiveToCalendar(suggestion, answers);
+    const baseSeed: LiveTrainingSeed = { title: "Training", sport: "Gym", isCardio: false, exercises: [] };
+    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
+    writeGlobalLiveSeed({ ...adaptedSeed, calendarEventId: eventId });
+    consumeSuggestion();
+    track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile, action: "calendar_save_and_start" });
     setShowAdaptiveModal(false);
     window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training" } }));
   };
@@ -490,7 +484,7 @@ const DashboardPage = () => {
 
 
   return (
-    <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text-color)] pb-32">
+    <div className="bg-[var(--bg-color)] text-[var(--text-color)]">
 
       <ShiftPlanModal
         isOpen={showShiftModal}
@@ -515,6 +509,11 @@ const DashboardPage = () => {
         style={{ paddingBottom: isWorkoutActive ? "160px" : "120px" }}
       >
 
+        {/* RECOVERY SCORE WIDGET */}
+        {deloadScore && deloadScore.hasEnoughHistory && (
+          <RecoveryScoreWidget result={deloadScore} />
+        )}
+
         {/* DELOAD BANNER */}
         {deloadBannerState && (
           <DeloadBanner
@@ -523,32 +522,52 @@ const DashboardPage = () => {
             onPlan={() => setShowDeloadModal(true)}
             onDismiss={handleDeloadDismiss}
             onAdjust={deloadBannerState === "active" ? () => setShowDeloadModal(true) : undefined}
+            scoreResult={deloadScore}
           />
         )}
 
-        {/* HERO: ADAPTIVES TRAINING */}
+        {/* ADAPTIVES TRAINING — compact */}
         <button
           onClick={handleOpenAdaptive}
-          className="w-full relative overflow-hidden bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 rounded-[32px] p-6 border border-purple-500/20 group active:scale-[0.98] transition-transform text-left shadow-lg shadow-purple-500/20"
+          className="w-full relative overflow-hidden bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 rounded-[20px] px-4 py-3 border border-purple-500/20 group active:scale-[0.98] transition-transform text-left shadow-md shadow-purple-500/20"
           style={{ color: 'white' }}
         >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 blur-[60px] rounded-full" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-300/10 blur-[40px] rounded-full" />
-
-          <div className="relative z-10 flex flex-col items-start force-white">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4 shadow-inner border border-white/20 group-hover:scale-110 transition-transform">
-              <Sparkles size={28} />
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 blur-[40px] rounded-full" />
+          <div className="relative z-10 flex items-center gap-3 force-white">
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
+              <Sparkles size={18} />
             </div>
-            <h2 className="text-2xl font-black mb-1">{t("dashboard.adaptive.title")}</h2>
-            <p className="text-sm font-medium leading-relaxed max-w-[260px] opacity-90 mb-6">
-              {t("dashboard.adaptive.subtitle")}
-            </p>
-            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-              <Zap size={12} fill="currentColor" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-black leading-tight">{t("dashboard.adaptive.title")}</div>
+              <div className="text-[11px] opacity-75 leading-tight truncate">{t("dashboard.adaptive.subtitle")}</div>
+            </div>
+            <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-white/20 px-3 py-1.5 rounded-full shrink-0">
+              <Zap size={10} fill="currentColor" />
               {t("dashboard.adaptive.generate")}
             </div>
           </div>
         </button>
+
+        {/* STREAK CARD */}
+        {streaks.current > 0 && (
+          <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,149,0,0.15)" }}>
+              <Flame size={24} className="text-orange-400" fill="currentColor" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Streak</div>
+              <div className="text-[22px] font-black text-[var(--text-color)] leading-tight">
+                {streaks.current} {streaks.current === 1 ? "Tag" : "Tage"}
+              </div>
+            </div>
+            {streaks.longest > streaks.current && (
+              <div className="text-right shrink-0">
+                <div className="text-[11px] text-[var(--text-secondary)]">Rekord</div>
+                <div className="text-[16px] font-bold text-[var(--text-secondary)]">{streaks.longest}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* QUICK START — alle Sportarten gleichwertig */}
         <div>
@@ -614,26 +633,8 @@ const DashboardPage = () => {
         {/* NUTRITION TRACKER */}
         <NutritionDashboardWidget />
 
-        {/* ACTIVE CHALLENGES */}
-        <DashboardChallengeWidget />
-
         {/* COMMUNITY */}
-        <div>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.community.title")}</h3>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/community" } }))}
-            className="w-full bg-[var(--card-bg)] rounded-[24px] p-5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shrink-0">
-              <Users size={22} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[var(--text-color)]">{t("dashboard.community.discover")}</div>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t("dashboard.community.discoverSubtitle")}</p>
-            </div>
-            <ChevronRight size={18} className="text-[var(--text-secondary)] shrink-0" />
-          </button>
-        </div>
+        <DashboardCommunityWidget />
 
         {/* ROBOT AVATAR PROGRESSION */}
         <AvatarDashboardSection />
@@ -647,34 +648,29 @@ const DashboardPage = () => {
         onSave={handleDeloadSave}
       />
 
+      {showPostDeloadFeedback && deloadPlan && (
+        <PostDeloadFeedback
+          plan={deloadPlan}
+          onClose={() => setShowPostDeloadFeedback(false)}
+        />
+      )}
+
       <AdaptiveTrainingModal
         open={showAdaptiveModal}
         onClose={() => setShowAdaptiveModal(false)}
         plannedWorkoutType="Push"
         splitType="push_pull"
         onSelect={handleAdaptiveSelect}
+        onSaveToCalendar={handleAdaptiveSaveToCalendar}
         isPro={isPro}
         adaptiveLeftBC={adaptiveBCRemaining}
       />
 
-      {showPlanModal && (
-        <WorkoutPlannerModal
-          onClose={() => setShowPlanModal(false)}
-          onSave={() => {
-            // Optional: Refresh dashboard logic if we had loading derived from storage here
-            // For now, next time Calendar is visited, it loads. 
-            // If Dashboard needs to show it immediately, we'd need to lift 'next training' state to Dashboard or a Store.
-            // Given the prompt says "new training appears under Next Training", we implies Dashboard has logic for that.
-            // CURRENTLY Dashboard has placeholder logic for Next Training. We might need to implement reading it?
-            // Prompt says: "Das Training erscheint nach dem Speichern sofort im Kalender-Reiter."
-            // and "Nach dem Speichern kehrt der User zum Dashboard zurück, wo das neue Training unter "Nächstes Training" erscheint."
-            // This implies we SHOULD ideally show it in Dashboard. But Dashboard has mocked Next Training now?
-            // Actually lines 421 says "NÄCHSTES TRAINING (Placeholder for existing calendar logic...)"
-            // So I will just integrate the modal for now. The "Next Training" display logic is a separate potential task unless it simply means "The modal saves it effectively".
-            // I'll proceed with just rendering the modal.
-          }}
-        />
-      )}
+      <WorkoutPlannerModal
+        open={showPlanModal}
+        onClose={() => setShowPlanModal(false)}
+        onSave={() => {}}
+      />
 
     </div>
   );

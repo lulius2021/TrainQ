@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
+import { hapticButton, hapticSuccess, hapticSheetClose } from "../../native/haptics";
 
 type DragInfo = { offset: { y: number }; velocity: { y: number } };
 
@@ -297,11 +298,11 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
     setDraftExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId) return ex;
-        const sets = Array.isArray(ex.sets) ? ex.sets : [];
+        const sets = Array.isArray(ex.sets) ? ex.sets.filter(Boolean) : [];
         return {
           ...ex,
           sets: sets.map((s) =>
-            s.id === setId
+            s && s.id === setId
               ? { ...s, completed: !s.completed, completedAt: !s.completed ? new Date().toISOString() : undefined }
               : s
           ),
@@ -344,6 +345,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
   const handleSave = () => {
     if (!draftEvent || !draftSeed) return;
+    hapticSuccess();
     const nextSeed = exercisesToSeed(draftSeed, draftExercises, draftEvent.title);
     onSave(draftEvent, nextSeed);
     setDraftSeed(nextSeed);
@@ -353,12 +355,14 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
   const handleStart = () => {
     if (!draftEvent || !draftSeed) return;
+    hapticSuccess();
     const nextSeed = exercisesToSeed(draftSeed, draftExercises, draftEvent.title);
     onSave(draftEvent, nextSeed);
     onStart(draftEvent, nextSeed);
   };
 
   const handleClose = () => {
+    hapticSheetClose();
     if (isEditing) handleSave();
     onClose();
   };
@@ -485,7 +489,7 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
 
                 <button
                   type="button"
-                  onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+                  onClick={() => { hapticButton(); isEditing ? handleSave() : setIsEditing(true); }}
                   className="h-9 w-9 rounded-full border flex items-center justify-center hover:opacity-95"
                   style={{ borderColor: "var(--border-color)", color: "var(--text)" }}
                   aria-label={isEditing ? t("calendar.preview.saveEdit") : t("calendar.preview.edit")}

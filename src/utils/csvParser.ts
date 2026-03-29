@@ -31,6 +31,19 @@ export function detectSeparator(firstLines: string[]): string {
 }
 
 /**
+ * Strip the time component from a date string.
+ * Hevy exports datetimes like "2024-01-15 08:30:00"; we only want "2024-01-15".
+ * Also handles ISO-8601 "T" separator.
+ */
+function stripTime(raw: string): string {
+  const spaceIdx = raw.indexOf(" ");
+  if (spaceIdx !== -1) return raw.slice(0, spaceIdx);
+  const tIdx = raw.indexOf("T");
+  if (tIdx !== -1) return raw.slice(0, tIdx);
+  return raw;
+}
+
+/**
  * Detect date format from a sample of date strings.
  * Returns one of: "YYYY-MM-DD", "DD.MM.YYYY", "MM/DD/YYYY"
  */
@@ -40,7 +53,7 @@ export function detectDateFormat(samples: string[]): string {
   let slashCount = 0;
 
   for (const s of samples) {
-    const trimmed = s.trim();
+    const trimmed = stripTime(s.trim());
     if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) isoCount++;
     else if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(trimmed)) dotCount++;
     else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) slashCount++;
@@ -53,9 +66,10 @@ export function detectDateFormat(samples: string[]): string {
 
 /**
  * Normalize a date string to YYYY-MM-DD based on the detected format.
+ * Strips any time component first (handles Hevy datetime strings like "2024-01-15 08:30:00").
  */
 export function normalizeDate(raw: string, format: string): string {
-  const trimmed = raw.trim();
+  const trimmed = stripTime(raw.trim());
 
   if (format === "YYYY-MM-DD") {
     const m = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -91,6 +105,10 @@ const HEADER_MAP: Record<string, string> = {
   date: "date",
   tag: "date",
   day: "date",
+  // Hevy date columns
+  "workout start": "date",  // Hevy: "Workout Start" column
+  "start time": "date",
+  "workout date": "date",
   // Exercise
   "ubung": "exercise",
   "uebung": "exercise",
@@ -102,6 +120,7 @@ const HEADER_MAP: Record<string, string> = {
   gewicht: "weight",
   weight: "weight",
   "weight (kg)": "weight",
+  "weight (kgs)": "weight",   // Hevy uses "kgs"
   "gewicht (kg)": "weight",
   kg: "weight",
   // Reps
@@ -114,6 +133,10 @@ const HEADER_MAP: Record<string, string> = {
   "saetze": "sets",
   sets: "sets",
   "set": "sets",
+  // Hevy-specific
+  "workout name": "workoutTitle", // used as grouping key and entry title
+  "workout title": "workoutTitle", // Hevy actual column name
+  // "set order", "workout end", "workout notes", "exercise notes", "distance (meters)", "duration (seconds)", "rpe (010)" — intentionally not mapped
 };
 
 function normalizeHeaderKey(raw: string): string {
@@ -128,9 +151,10 @@ function normalizeHeaderKey(raw: string): string {
 /**
  * Parse the header line and return a mapping from semantic column names to their indices.
  * Supports both German and English headers.
+ * Pass quoted=true to use the RFC 4180 parser (handles fields with commas inside quotes).
  */
-export function parseHeader(headerLine: string, separator: string): Map<string, number> {
-  const cols = headerLine.split(separator).map((c) => c.trim());
+export function parseHeader(headerLine: string, separator: string, quoted = false): Map<string, number> {
+  const cols = quoted ? splitCsvLine(headerLine, separator) : headerLine.split(separator).map((c) => c.trim());
   const result = new Map<string, number>();
 
   for (let i = 0; i < cols.length; i++) {
@@ -161,4 +185,43 @@ export function splitCsvRows(content: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+/**
+ * Split a single CSV line respecting RFC 4180 quoted fields.
+ * Handles fields like: "Workout Title","some, name with comma",...
+ */
+export function splitCsvLine(line: string, separator: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        // Check for escaped quote ""
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (line.startsWith(separator, i)) {
+        result.push(current.trim());
+        current = "";
+        i += separator.length - 1;
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current.trim());
+  return result;
 }

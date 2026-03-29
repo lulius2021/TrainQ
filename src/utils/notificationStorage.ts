@@ -1,6 +1,7 @@
 export interface NotificationPreferences {
-  trainingReminder: boolean; // default: true
+  trainingReminder: boolean; // default: true — reminder X min before timed trainings
   reminderMinutesBefore: number; // default: 30 (options: 15, 30, 60)
+  allDayReminder: boolean; // default: true — 13:00 reminder for all-day (no time) trainings
   streakMotivation: boolean; // default: false
   prNotification: boolean; // default: false
   deloadNotification: boolean; // default: false
@@ -11,6 +12,7 @@ const STORAGE_KEY = "trainq_notification_prefs_v1";
 const DEFAULT_PREFS: NotificationPreferences = {
   trainingReminder: true,
   reminderMinutesBefore: 30,
+  allDayReminder: true,
   streakMotivation: false,
   prNotification: false,
   deloadNotification: false,
@@ -30,6 +32,10 @@ export function loadNotificationPrefs(): NotificationPreferences {
         typeof parsed.reminderMinutesBefore === "number"
           ? parsed.reminderMinutesBefore
           : DEFAULT_PREFS.reminderMinutesBefore,
+      allDayReminder:
+        typeof parsed.allDayReminder === "boolean"
+          ? parsed.allDayReminder
+          : DEFAULT_PREFS.allDayReminder,
       streakMotivation:
         typeof parsed.streakMotivation === "boolean"
           ? parsed.streakMotivation

@@ -1,201 +1,198 @@
-
 import React, { useState } from 'react';
-import { X, Clock, Plus, Dumbbell, Footprints, Bike, AlertCircle, Calendar } from 'lucide-react';
+import { Clock, Plus, Dumbbell, Footprints, Bike, Sparkles, X } from 'lucide-react';
 import ExerciseLibraryModal from './ExerciseLibraryModal';
 import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
 import { getActiveUserId } from '../../utils/session';
 import type { CalendarEvent } from '../../types';
 import { format } from 'date-fns';
+import { BottomSheet } from '../common/BottomSheet';
 
 interface WorkoutPlannerModalProps {
+    open: boolean;
     onClose: () => void;
-    onSave: () => void; // Trigger refresh in parent
+    onSave: () => void;
 }
 
 type SportType = 'gym' | 'run' | 'cycle' | 'custom';
 
-export default function WorkoutPlannerModal({ onClose, onSave }: WorkoutPlannerModalProps) {
+const SPORTS: { id: SportType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
+    { id: 'gym',    label: 'Gym',     icon: <Dumbbell size={20} />,   color: '#007AFF', bg: 'rgba(0,122,255,0.12)' },
+    { id: 'run',    label: 'Laufen',  icon: <Footprints size={20} />, color: '#34C759', bg: 'rgba(52,199,89,0.12)' },
+    { id: 'cycle',  label: 'Rad',     icon: <Bike size={20} />,       color: '#FF9500', bg: 'rgba(255,149,0,0.12)' },
+    { id: 'custom', label: 'Custom',  icon: <Sparkles size={20} />,   color: '#AF52DE', bg: 'rgba(175,82,222,0.12)' },
+];
+
+export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPlannerModalProps) {
     const [title, setTitle] = useState("Manuelles Training");
     const [sport, setSport] = useState<SportType>("gym");
     const [startTime, setStartTime] = useState(format(new Date(), "HH:mm"));
-    const [exercises, setExercises] = useState<any[]>([]); // Minimal exercise objects
+    const [exercises, setExercises] = useState<any[]>([]);
     const [showLibrary, setShowLibrary] = useState(false);
 
     const handleAddExercise = (exercise: any) => {
-        // Transform library exercise to "live" exercise format (or minimal persistable format)
-        const newItem = {
-            id: exercise.id,
-            name: exercise.name,
-            sets: [], // Empty sets initially
-            rest: 60,
-            target: { sets: 3, reps: 10 } // Default targets
-        };
-        setExercises([...exercises, newItem]);
-        setShowLibrary(false); // Close library after pick (or keep open? Prompt implies "Multi-Select Sync" -> "Close" might be annoying if multi. Let's keep it open or just use onPick)
-        // The prompt says "Multi-Select Sync" which implies the library might need to support checking multiple items and *then* adding. 
-        // But looking at ExerciseLibraryModal, 'onPick' is called immediately.
-        // Effectively, we can just keep adding. But for better UX we might want to keep library open.
-        // However, ExerciseLibraryModal usually has a Close button. So we can just let user pick multiple times if the modal supports staying open?
-        // Actually ExerciseLibraryModal closes via 'onClose'. 'onPick' adds it.
-        // Let's rely on standard behavior: click add -> adds to list.
+        setExercises(prev => [...prev, { id: exercise.id, name: exercise.name, sets: [], rest: 60, target: { sets: 3, reps: 10 } }]);
+        setShowLibrary(false);
     };
 
     const handleSave = () => {
-        // 1. Create Workout Object
         const userId = getActiveUserId() || "user";
-        const dateStr = format(new Date(), "yyyy-MM-dd"); // Assuming "Today" for now as per prompt "CalendarState für Heute"
-
-        // Construct event
+        const dateStr = format(new Date(), "yyyy-MM-dd");
         const newEvent: CalendarEvent = {
             id: `manual_${Date.now()}`,
-            date: new Date(), // Actually needs to be strictly today's date obj
+            date: new Date(),
             title: title || "Training",
             type: sport === 'gym' ? 'strength' : sport === 'run' ? 'run' : sport === 'cycle' ? 'cycle' : 'custom',
-            duration: 60, // Estimated default
+            duration: 60,
             status: 'planned' as const,
             intensity: 'medium',
-            workoutData: {
-                exercises: exercises
-            }
+            workoutData: { exercises },
         };
-
-        // 2. Persist
-        const STORAGE_KEY = "trainq_calendar_events";
-        const existingRaw = getScopedItem(STORAGE_KEY, userId);
-        let events: any[] = existingRaw ? JSON.parse(existingRaw) : [];
-
-        // Ensure we persist a "CoreEvent" structure which matches CalendarEvent largely but dates are strings in JSON
         const coreEvent = {
             ...newEvent,
-            date: dateStr, // Save as string
+            date: dateStr,
             trainingType: sport === 'gym' ? 'gym' : sport === 'run' ? 'laufen' : sport === 'cycle' ? 'radfahren' : 'custom',
             trainingStatus: 'planned',
-            adaptiveEstimatedMinutes: 60
+            adaptiveEstimatedMinutes: 60,
         };
-
+        const STORAGE_KEY = "trainq_calendar_events";
+        const existingRaw = getScopedItem(STORAGE_KEY, userId);
+        const events: any[] = existingRaw ? JSON.parse(existingRaw) : [];
         events.push(coreEvent);
         setScopedItem(STORAGE_KEY, userId, JSON.stringify(events));
-
-        // IMMEDIATE REFRESH: Dispatch global event for Calendar
         window.dispatchEvent(new Event("trainq:update_events"));
-
         onSave();
         onClose();
     };
 
+    const activeSport = SPORTS.find(s => s.id === sport)!;
+
     return (
-        <div className="fixed inset-0 z-[9000] flex flex-col animate-in slide-in-from-bottom-10" style={{ backgroundColor: "var(--modal-bg)" }}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 pt-12 sm:pt-4 border-b" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
-                <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>Training anlegen</h2>
-                <button onClick={onClose} className="p-2 rounded-full transition-colors" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}>
-                    <X size={20} />
-                </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-
-                {/* 1. Sport Selection */}
-                <div className="grid grid-cols-4 gap-2">
-                    {[
-                        { id: 'gym', label: 'Gym', icon: <Dumbbell size={20} />, color: 'bg-blue-600', border: 'border-blue-500' },
-                        { id: 'run', label: 'Run', icon: <Footprints size={20} />, color: 'bg-red-600', border: 'border-red-500' },
-                        { id: 'cycle', label: 'Cycle', icon: <Bike size={20} />, color: 'bg-green-600', border: 'border-green-500' },
-                        { id: 'custom', label: 'Custom', icon: <AlertCircle size={20} />, color: 'bg-yellow-600', border: 'border-yellow-500' },
-                    ].map(opt => (
+        <>
+            <BottomSheet
+                open={open}
+                onClose={onClose}
+                height="88dvh"
+                footer={
+                    <div className="px-4 pt-3 pb-2">
                         <button
-                            key={opt.id}
-                            onClick={() => setSport(opt.id as SportType)}
-                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all ${sport === opt.id ? `${opt.color} ${opt.border} text-white` : ''}`}
-                            style={sport !== opt.id ? { backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-muted)" } : {}}
+                            onClick={handleSave}
+                            className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white active:scale-[0.97] transition-all"
+                            style={{ backgroundColor: "#007AFF", boxShadow: "0 4px 16px rgba(0,122,255,0.35)" }}
                         >
-                            {opt.icon}
-                            <span className="text-xs font-bold">{opt.label}</span>
+                            Plan speichern
                         </button>
-                    ))}
-                </div>
+                    </div>
+                }
+            >
+                <div className="px-5 pt-2 pb-4 space-y-5">
+                    {/* Header */}
+                    <div>
+                        <h2 className="text-[28px] font-black tracking-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.5px" }}>
+                            Training anlegen
+                        </h2>
+                        <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                            Füge ein Training zum Kalender hinzu
+                        </p>
+                    </div>
 
-                {/* 2. Inputs */}
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Titel</label>
+                    {/* Sport Selection */}
+                    <div className="grid grid-cols-4 gap-2">
+                        {SPORTS.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setSport(s.id)}
+                                className="flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-[0.95]"
+                                style={{
+                                    backgroundColor: sport === s.id ? s.bg : "var(--button-bg)",
+                                    border: `1.5px solid ${sport === s.id ? s.color : "var(--border-color)"}`,
+                                    color: sport === s.id ? s.color : "var(--text-secondary)",
+                                }}
+                            >
+                                {s.icon}
+                                <span className="text-[11px] font-bold">{s.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Titel</label>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full rounded-2xl p-4 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 border"
-                            style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                            className="w-full rounded-2xl px-4 py-3.5 font-medium focus:outline-none border text-[15px]"
+                            style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                             placeholder="z.B. Oberkörper Push"
                         />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Startzeit</label>
-                        <div className="flex items-center gap-2 rounded-2xl p-4 border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
-                            <Clock size={20} style={{ color: "var(--text-muted)" }} />
+
+                    {/* Startzeit */}
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Startzeit</label>
+                        <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5 border" style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}>
+                            <Clock size={18} style={{ color: "var(--text-secondary)" }} />
                             <input
                                 type="time"
                                 value={startTime}
                                 onChange={(e) => setStartTime(e.target.value)}
-                                className="bg-transparent font-medium focus:outline-none w-full"
+                                className="bg-transparent font-medium focus:outline-none text-[15px] flex-1"
                                 style={{ color: "var(--text-color)" }}
                             />
                         </div>
                     </div>
-                </div>
 
-                {/* 3. Exercises */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold uppercase ml-1" style={{ color: "var(--text-muted)" }}>Übungen ({exercises.length})</label>
-                        <button
-                            onClick={() => setShowLibrary(true)}
-                            className="flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
-                        >
-                            <Plus size={14} /> Hinzufügen
-                        </button>
-                    </div>
+                    {/* Exercises */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between ml-1">
+                            <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                                Übungen ({exercises.length})
+                            </label>
+                            <button
+                                onClick={() => setShowLibrary(true)}
+                                className="flex items-center gap-1 text-[13px] font-bold"
+                                style={{ color: activeSport.color }}
+                            >
+                                <Plus size={14} /> Hinzufügen
+                            </button>
+                        </div>
 
-                    {exercises.length > 0 ? (
-                        <div className="space-y-2">
-                            {exercises.map((ex, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 rounded-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                                    <span className="font-medium" style={{ color: "var(--text-color)" }}>{ex.name}</span>
-                                    <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="hover:text-red-400 transition-colors" style={{ color: "var(--text-muted)" }}>
-                                        <X size={16} />
-                                    </button>
+                        {exercises.length > 0 ? (
+                            <div className="space-y-2">
+                                {exercises.map((ex, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center justify-between px-4 py-3 rounded-2xl border"
+                                        style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                                    >
+                                        <span className="font-semibold text-[14px]" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                                        <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} style={{ color: "var(--text-secondary)" }}>
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowLibrary(true)}
+                                className="w-full py-8 border-2 border-dashed rounded-3xl flex flex-col items-center gap-2 transition-all active:scale-[0.98]"
+                                style={{ borderColor: "var(--border-color)", backgroundColor: "var(--button-bg)" }}
+                            >
+                                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: activeSport.bg, color: activeSport.color }}>
+                                    {activeSport.icon}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div
-                            onClick={() => setShowLibrary(true)}
-                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-3xl gap-2 cursor-pointer transition-colors"
-                            style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)", color: "var(--text-muted)" }}
-                        >
-                            <Calendar size={24} className="opacity-50" />
-                            <span className="text-sm font-medium">Noch keine Übungen</span>
-                        </div>
-                    )}
+                                <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Übungen hinzufügen</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
+            </BottomSheet>
 
-            {/* Footer */}
-            <div className="p-4 border-t pb-[160px]" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
-                <button
-                    onClick={handleSave}
-                    className="w-full py-4 bg-blue-600 rounded-2xl font-bold text-white hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/20"
-                >
-                    Plan speichern
-                </button>
-            </div>
-
-            {/* Library Modal Overlay */}
             <ExerciseLibraryModal
                 open={showLibrary}
                 onClose={() => setShowLibrary(false)}
                 onPick={handleAddExercise}
                 existingExerciseIds={exercises.map(e => e.id)}
             />
-        </div>
+        </>
     );
 }

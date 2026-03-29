@@ -84,3 +84,30 @@ export function smoothPoints(points: GpsPoint[], windowSize = 3): GpsPoint[] {
 export function filterByAccuracy(points: GpsPoint[], maxAccuracy = 30): GpsPoint[] {
   return points.filter((p) => !p.accuracy || p.accuracy <= maxAccuracy);
 }
+
+/** Convert pace (sec/km) to speed (km/h). */
+export function paceToSpeed(secPerKm: number | undefined): number | undefined {
+  if (!secPerKm || secPerKm <= 0) return undefined;
+  return 3600 / secPerKm;
+}
+
+/** Format speed as "X.X km/h". */
+export function formatSpeed(secPerKm: number | undefined): string {
+  const kmh = paceToSpeed(secPerKm);
+  if (!kmh || !Number.isFinite(kmh)) return "--.-";
+  return kmh.toFixed(1);
+}
+
+/** Estimate calories burned.
+ *  Running: ~1 kcal / kg / km
+ *  Cycling: ~0.5 kcal / kg / km
+ */
+export function computeCalories(
+  distanceM: number,
+  weightKg: number,
+  sport: "Laufen" | "Radfahren"
+): number {
+  const km = distanceM / 1000;
+  const factor = sport === "Laufen" ? 1.0 : 0.5;
+  return Math.round(km * weightKg * factor);
+}

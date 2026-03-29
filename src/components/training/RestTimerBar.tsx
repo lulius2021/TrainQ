@@ -97,10 +97,18 @@ function playBoxingBellDouble() {
 /* Component                                                          */
 /* ------------------------------------------------------------------ */
 
+const BAR_PRESETS = [
+  { label: "1:00", seconds: 60 },
+  { label: "1:30", seconds: 90 },
+  { label: "2:00", seconds: 120 },
+  { label: "3:00", seconds: 180 },
+];
+
 export default function RestTimerBar({ seconds, running, onDone }: Props) {
   const { t } = useI18n();
   const total = useMemo(() => clampSeconds(seconds), [seconds]);
   const [left, setLeft] = useState<number>(total);
+  const [localTotal, setLocalTotal] = useState<number>(total);
 
   const tickIdRef = useRef<number | null>(null);
 
@@ -111,6 +119,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
 
   useEffect(() => {
     setLeft(total);
+    setLocalTotal(total);
   }, [total]);
 
   const doneCalledRef = useRef(false);
@@ -153,9 +162,9 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
   }, [running, left]);
 
   const progressPct = useMemo(() => {
-    const done = total - left;
-    return Math.min(100, Math.max(0, (done / total) * 100));
-  }, [left, total]);
+    const done = localTotal - left;
+    return Math.min(100, Math.max(0, (done / localTotal) * 100));
+  }, [left, localTotal]);
 
   const adjustLeft = useCallback(async (delta: number) => {
     await ensureAudioUnlocked();
@@ -188,6 +197,13 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     skippedRef.current = true;
     doneCalledRef.current = false;
     setLeft(0);
+  }, []);
+
+  const applyPreset = useCallback(async (sec: number) => {
+    await ensureAudioUnlocked();
+    setLeft(sec);
+    setLocalTotal(sec);
+    doneCalledRef.current = false;
   }, []);
 
   return (
@@ -224,13 +240,27 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
       </div>
 
       <div className="mt-3 space-y-2">
+        {/* Quick presets */}
+        <div className="flex gap-1.5">
+          {BAR_PRESETS.map((p) => (
+            <button
+              key={p.seconds}
+              type="button"
+              onClick={() => void applyPreset(p.seconds)}
+              className="flex-1 py-1.5 rounded-xl text-xs font-bold text-white/70 bg-white/10 hover:bg-white/15 active:scale-[0.95] transition-all touch-manipulation"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-brand-primary transition-all duration-300"
-            style={{ 
+            style={{
               width: `${progressPct}%`,
               boxShadow: '0 0 10px 0px rgba(37, 99, 235, 0.7)'
-            }} 
+            }}
           />
         </div>
         <button

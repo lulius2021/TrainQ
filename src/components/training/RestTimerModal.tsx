@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
-import { useI18n } from "../../i18n/useI18n";
-import { useTheme } from "../../context/ThemeContext";
+import { BottomSheet } from "../common/BottomSheet";
 
 type Props = {
     open: boolean;
@@ -10,9 +9,11 @@ type Props = {
     onSave: (seconds: number) => void;
 };
 
-const ITEM_HEIGHT = 44; // Height of each picker item
+const ITEM_H = 46;
+const VISIBLE = 5; // rows visible in picker
+const PICKER_H = ITEM_H * VISIBLE;
 
-function PickerColumn({
+function DrumPicker({
     items,
     value,
     onChange,
@@ -20,174 +21,269 @@ function PickerColumn({
 }: {
     items: string[];
     value: string;
-    onChange: (val: string) => void;
-    label?: string;
+    onChange: (v: string) => void;
+    label: string;
 }) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const isScrollingRef = useRef(false);
+    const listRef = useRef<HTMLDivElement>(null);
+    const currentIndexRef = useRef(items.indexOf(value));
+    const touchStartY = useRef(0);
+    const touchStartScroll = useRef(0);
+    const lastHapticIndex = useRef(-1);
+    const isSettlingRef = useRef(false);
 
+    // Scroll to selected index
+    const scrollToIndex = useCallback((idx: number, smooth = true) => {
+        if (!listRef.current) return;
+        listRef.current.scrollTo({ top: idx * ITEM_H, behavior: smooth ? "smooth" : "instant" });
+    }, []);
+
+    // Sync scroll when value changes externally
     useEffect(() => {
-        if (!containerRef.current) return;
-        if (isScrollingRef.current) return;
-
         const idx = items.indexOf(value);
         if (idx !== -1) {
-            containerRef.current.scrollTop = idx * ITEM_HEIGHT;
+            currentIndexRef.current = idx;
+            scrollToIndex(idx, false);
         }
-    }, [value, items]);
+    }, [value, items, scrollToIndex]);
 
-    const handleScroll = () => {
-        if (!containerRef.current) return;
-        isScrollingRef.current = true;
+    const snapToNearest = useCallback(() => {
+        if (!listRef.current) return;
+        const raw = listRef.current.scrollTop;
+        const idx = Math.round(raw / ITEM_H);
+        const clamped = Math.max(0, Math.min(items.length - 1, idx));
+        currentIndexRef.current = clamped;
+        scrollToIndex(clamped, true);
+        if (items[clamped] !== value) {
+            onChange(items[clamped]);
+        }
+    }, [items, value, onChange, scrollToIndex]);
 
-        const scrollTop = containerRef.current.scrollTop;
-        const index = Math.round(scrollTop / ITEM_HEIGHT);
-        const clampedIndex = Math.max(0, Math.min(items.length - 1, index));
-        const newValue = items[clampedIndex];
+    const onTouchStart = (e: React.TouchEvent) => {
+        if (!listRef.current) return;
+        isSettlingRef.current = false;
+        touchStartY.current = e.touches[0].clientY;
+        touchStartScroll.current = listRef.current.scrollTop;
+    };
 
-        if (newValue !== value) {
+    const onTouchMove = (e: React.TouchEvent) => {
+        if (!listRef.current) return;
+        e.stopPropagation();
+        const dy = touchStartY.current - e.touches[0].clientY;
+        listRef.current.scrollTop = touchStartScroll.current + dy;
+
+        // Haptic feedback as user scrolls over items
+        const raw = listRef.current.scrollTop;
+        const idx = Math.round(raw / ITEM_H);
+        if (idx !== lastHapticIndex.current) {
+            lastHapticIndex.current = idx;
             Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-            onChange(newValue);
         }
+    };
 
-        clearTimeout((containerRef.current as any)._scrollTimer);
-        (containerRef.current as any)._scrollTimer = setTimeout(() => {
-            isScrollingRef.current = false;
-            if (containerRef.current) {
-                containerRef.current.scrollTo({
-                    top: clampedIndex * ITEM_HEIGHT,
-                    behavior: "smooth"
-                });
-            }
-        }, 150);
+    const onTouchEnd = () => {
+        isSettlingRef.current = true;
+        snapToNearest();
+    };
+
+    // Also handle scroll (mouse wheel / momentum)
+    const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onScroll = () => {
+        if (isSettlingRef.current) return;
+        if (scrollTimer.current) clearTimeout(scrollTimer.current);
+        scrollTimer.current = setTimeout(() => {
+            isSettlingRef.current = false;
+            snapToNearest();
+        }, 120);
     };
 
     return (
-        <div className="flex flex-col items-center">
-            {label && <div className="mb-2 text-xs font-semibold uppercase tracking-wider opacity-60">{label}</div>}
-            <div className="relative h-[220px] w-24 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
-                {/* Selection Highlight */}
+        <div className="flex flex-col items-center gap-1.5">
+            <span className="text-[13px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+                {label}
+            </span>
+            <div className="relative" style={{ width: 88, height: PICKER_H }}>
+                {/* Selection highlight — lowest layer, behind text */}
                 <div
-                    className="pointer-events-none absolute left-0 right-0 top-1/2 -mt-[22px] h-[44px] border-t border-b border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5"
-                    style={{ zIndex: 10 }}
-                />
-
-                <div
-                    ref={containerRef}
-                    onScroll={handleScroll}
-                    className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-hide"
+                    className="pointer-events-none absolute left-0 right-0"
                     style={{
-                        scrollBehavior: "smooth",
+                        top: ITEM_H * 2,
+                        height: ITEM_H,
+                        background: "var(--button-bg)",
+                        borderRadius: 10,
+                        zIndex: 1,
+                    }}
+                />
+                {/* Scroll list — above highlight so text is visible */}
+                <div
+                    ref={listRef}
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                    onScroll={onScroll}
+                    style={{
+                        height: PICKER_H,
+                        overflowY: "scroll",
                         scrollbarWidth: "none",
-                        msOverflowStyle: "none"
+                        WebkitOverflowScrolling: "touch" as any,
+                        position: "relative",
+                        zIndex: 2,
                     }}
                 >
-                    <div style={{ height: ITEM_HEIGHT * 2 }} />
-                    {items.map((item) => (
-                        <div
-                            key={item}
-                            className="flex items-center justify-center snap-center text-2xl font-semibold transition-opacity duration-200"
-                            style={{
-                                height: ITEM_HEIGHT,
-                                opacity: value === item ? 1 : 0.3,
-                                transform: value === item ? "scale(1.1)" : "scale(1)"
-                            }}
-                        >
-                            {item}
-                        </div>
-                    ))}
-                    <div style={{ height: ITEM_HEIGHT * 2 }} />
+                    {/* Top spacer */}
+                    <div style={{ height: ITEM_H * 2 }} />
+                    {items.map((item) => {
+                        const isSelected = item === value;
+                        return (
+                            <div
+                                key={item}
+                                style={{
+                                    height: ITEM_H,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: isSelected ? 26 : 22,
+                                    fontWeight: isSelected ? 700 : 400,
+                                    color: isSelected ? "var(--text-color)" : "var(--text-secondary)",
+                                    transition: "font-size 0.15s, font-weight 0.15s",
+                                    userSelect: "none",
+                                }}
+                            >
+                                {item}
+                            </div>
+                        );
+                    })}
+                    {/* Bottom spacer */}
+                    <div style={{ height: ITEM_H * 2 }} />
                 </div>
+                {/* Fades — above scroll list text, fixed to picker viewport (not scrolling) */}
+                <div
+                    className="pointer-events-none absolute inset-x-0 top-0"
+                    style={{
+                        height: ITEM_H * 2,
+                        background: "linear-gradient(to bottom, var(--card-bg) 0%, transparent 100%)",
+                        zIndex: 3,
+                    }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-x-0 bottom-0"
+                    style={{
+                        height: ITEM_H * 2,
+                        background: "linear-gradient(to top, var(--card-bg) 0%, transparent 100%)",
+                        zIndex: 3,
+                    }}
+                />
             </div>
         </div>
     );
 }
 
 export default function RestTimerModal({ open, onClose, initialSeconds = 90, onSave }: Props) {
-    const { t } = useI18n();
-    const { mode } = useTheme();
-    const isLight = mode === "light";
-
     const [minutes, setMinutes] = useState("1");
     const [seconds, setSeconds] = useState("30");
 
-    // Init on open
     useEffect(() => {
         if (open) {
-            const m = Math.floor(initialSeconds / 60);
+            const m = Math.min(15, Math.max(0, Math.floor(initialSeconds / 60)));
             const s = initialSeconds % 60;
-            // Force 0-15 min range logic
-            const safeM = Math.min(15, Math.max(0, m));
-            setMinutes(String(safeM));
+            setMinutes(String(m));
             setSeconds(String(s).padStart(2, "0"));
         }
     }, [open, initialSeconds]);
 
-    // Arrays: 0-15 min, 00-59 sec
-    // 0-15 min
     const minOptions = Array.from({ length: 16 }, (_, i) => String(i));
-    // 00-59 sec
-    const secOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+    const secOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
     const handleApply = () => {
         const m = parseInt(minutes, 10) || 0;
         const s = parseInt(seconds, 10) || 0;
-        const total = m * 60 + s;
-        onSave(total);
+        onSave(m * 60 + s);
         onClose();
     };
 
-    if (!open) return null;
+    const totalSec = (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
+    const preview = totalSec > 0
+        ? `${parseInt(minutes, 10)}:${seconds}`
+        : "0:00";
+
+    const PRESETS = [
+        { label: "1:00", seconds: 60 },
+        { label: "1:30", seconds: 90 },
+        { label: "2:00", seconds: 120 },
+        { label: "3:00", seconds: 180 },
+    ];
+
+    const applyPreset = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        setMinutes(String(m));
+        setSeconds(String(s).padStart(2, "0"));
+        onSave(sec);
+        onClose();
+    };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center bg-black/60 px-4 pb-6 sm:pb-0" data-overlay-open="true">
-            <div className="absolute inset-0" onClick={onClose} />
-
-            <div
-                className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl transition-all"
-                style={{
-                    background: isLight ? "#ffffff" : "#1e293b",
-                    color: isLight ? "#0f172a" : "#f8fafc"
-                }}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-black/5 p-4 dark:border-white/5">
-                    <button onClick={onClose} className="text-sm font-semibold opacity-70 hover:opacity-100">
-                        {t("common.cancel")}
+        <BottomSheet
+            open={open}
+            onClose={onClose}
+            height="auto"
+            maxHeight="60dvh"
+            footer={
+                <div className="px-4 pt-3 pb-2 flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-3.5 rounded-2xl font-bold text-[15px] border transition-all active:scale-[0.97]"
+                        style={{ borderColor: "var(--border-color)", color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
+                    >
+                        Abbrechen
                     </button>
-                    <div className="text-base font-bold">{t("training.exercise.rest")}</div>
                     <button
                         onClick={handleApply}
-                        className="text-sm font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                        className="flex-1 py-3.5 rounded-2xl font-bold text-[15px] text-white transition-all active:scale-[0.97]"
+                        style={{ backgroundColor: "#007AFF", boxShadow: "0 4px 16px rgba(0,122,255,0.35)" }}
                     >
-                        {t("common.done")}
+                        Fertig
                     </button>
                 </div>
+            }
+        >
+            <div className="px-5 pt-2 pb-2">
+                {/* Header */}
+                <div className="flex items-baseline justify-between mb-4">
+                    <h2 className="text-[22px] font-black" style={{ color: "var(--text-color)" }}>Pausenzeit</h2>
+                    <span className="text-[28px] font-black tabular-nums" style={{ color: "#007AFF" }}>{preview}</span>
+                </div>
 
-                {/* Pickers */}
-                <div className="flex justify-center gap-2 py-8 relative">
-                    <PickerColumn
-                        // label={t("training.units.min")}
+                {/* Quick presets */}
+                <div className="flex gap-2 mb-5">
+                    {PRESETS.map((p) => (
+                        <button
+                            key={p.seconds}
+                            onClick={() => applyPreset(p.seconds)}
+                            className="flex-1 py-2 rounded-xl font-bold text-[14px] transition-all active:scale-[0.95]"
+                            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Drum pickers */}
+                <div className="flex items-center justify-center gap-6">
+                    <DrumPicker
+                        label="Min"
                         items={minOptions}
                         value={minutes}
                         onChange={setMinutes}
                     />
-
-                    {/* Colon Separator - vertically centered */}
-                    <div className="flex h-[220px] items-center pb-2 text-3xl font-bold opacity-80">:</div>
-
-                    <PickerColumn
-                        // label={t("training.units.secShort")}
+                    <span className="text-[32px] font-black mb-4" style={{ color: "var(--text-color)" }}>:</span>
+                    <DrumPicker
+                        label="Sek"
                         items={secOptions}
                         value={seconds}
                         onChange={setSeconds}
                     />
-
-                    {/* Unit Labels if needed, or stick to clean Apple Clock style (just numbers) */}
-                    {/* The prompt says: "Links: Minuten (0-15). Mitte: Trennzeichen Doppelpunkt :. Rechts: Sekunden (00-59)." */}
-                    {/* Visual: "Auswahl ... sieht wie eine Apple-Uhr aus (z.B. 1:11)." */}
                 </div>
             </div>
-        </div>
+        </BottomSheet>
     );
 }

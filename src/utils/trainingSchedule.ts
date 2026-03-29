@@ -58,7 +58,7 @@ export async function shiftWorkouts(days: number = 1): Promise<{ count: number }
 
         // 3. Save Back
         if (count > 0) {
-            setScopedItem(storageKey, JSON.stringify(updatedEvents), userId);
+            setScopedItem(storageKey, userId, JSON.stringify(updatedEvents));
             // 4. Trigger Global Refresh for MainAppShell
             window.dispatchEvent(new Event("trainq:update_events"));
         }

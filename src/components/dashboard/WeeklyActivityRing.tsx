@@ -25,7 +25,7 @@ export const WeeklyActivityRing: React.FC<WeeklyActivityRingProps> = ({
         if (percentage < 50) return "Weiter so!";
         if (percentage < 75) return "Halbzeit!";
         if (percentage < 100) return "Endspurt!";
-        return "Ziel erreicht! 🔥";
+        return "Ziel erreicht!";
     }, [percentage]);
 
     return (

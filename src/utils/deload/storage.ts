@@ -1,4 +1,5 @@
 import type { DeloadPlan } from "../../types/deload";
+import type { DeloadHistoryEntry } from "../../types/wellness";
 import { getScopedItem, removeScopedItem, setScopedItem } from "../scopedStorage";
 
 const STORAGE_KEY = "trainq_deload_v1";
@@ -82,6 +83,73 @@ export function writeLastDeloadIntervalWeeks(userId: string | undefined | null, 
   if (!Number.isFinite(weeks) || weeks <= 0) return;
   try {
     setScopedItem(STORAGE_KEY_LAST_INTERVAL, String(weeks), userId);
+  } catch {
+    // ignore
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Deload History (post-deload feedback)
+// ────────────────────────────────────────────────────────────
+
+const STORAGE_KEY_HISTORY = "trainq_deload_history_v1";
+const STORAGE_KEY_FEEDBACK_GIVEN = "trainq_deload_feedback_given_v1";
+
+export function readDeloadHistory(userId?: string | null): DeloadHistoryEntry[] {
+  const raw = getScopedItem(STORAGE_KEY_HISTORY, userId);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addDeloadHistoryEntry(
+  userId: string | undefined | null,
+  entry: DeloadHistoryEntry
+): void {
+  try {
+    const current = readDeloadHistory(userId);
+    const next = [entry, ...current.filter((e) => e.id !== entry.id)].slice(0, 20);
+    setScopedItem(STORAGE_KEY_HISTORY, JSON.stringify(next), userId);
+  } catch {
+    // ignore
+  }
+}
+
+export function updateDeloadHistoryEntry(
+  userId: string | undefined | null,
+  id: string,
+  patch: Partial<DeloadHistoryEntry>
+): void {
+  try {
+    const current = readDeloadHistory(userId);
+    const next = current.map((e) => (e.id === id ? { ...e, ...patch } : e));
+    setScopedItem(STORAGE_KEY_HISTORY, JSON.stringify(next), userId);
+  } catch {
+    // ignore
+  }
+}
+
+export function readFeedbackGivenIds(userId?: string | null): string[] {
+  const raw = getScopedItem(STORAGE_KEY_FEEDBACK_GIVEN, userId);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function markFeedbackGiven(userId: string | undefined | null, planId: string): void {
+  try {
+    const current = readFeedbackGivenIds(userId);
+    if (!current.includes(planId)) {
+      setScopedItem(STORAGE_KEY_FEEDBACK_GIVEN, JSON.stringify([...current, planId]), userId);
+    }
   } catch {
     // ignore
   }

@@ -38,6 +38,7 @@ export type LiveTrainingSeed = {
   sport: SportType; // ✅ Single Source of Truth
   isCardio: boolean;
   exercises: BlockExerciseSeed[];
+  calendarEventId?: string;
 };
 
 // ---------------- Storage keys ----------------

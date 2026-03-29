@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Bell, Clock, Flame, Trophy, Battery } from "lucide-react";
+import { Bell, CalendarDays, Clock, Flame, Trophy, Battery } from "lucide-react";
 import {
   loadNotificationPrefs,
   saveNotificationPrefs,
@@ -145,7 +145,7 @@ const NotificationSettings: React.FC = () => {
         </h3>
         <ToggleSwitch
           label="Training-Erinnerungen"
-          description="Werde vor deinen geplanten Trainings erinnert"
+          description="Erinnerung X Minuten vor Trainings mit Uhrzeit"
           checked={prefs.trainingReminder}
           onChange={(v) => handleToggle("trainingReminder", v)}
           icon={Bell}
@@ -158,6 +158,13 @@ const NotificationSettings: React.FC = () => {
             }
           />
         )}
+        <ToggleSwitch
+          label="Ganztägige Erinnerungen"
+          description="Einmal um 13:00 Uhr für Trainings ohne Uhrzeit"
+          checked={prefs.allDayReminder}
+          onChange={(v) => handleToggle("allDayReminder", v)}
+          icon={CalendarDays}
+        />
       </div>
 
       {/* Motivation */}

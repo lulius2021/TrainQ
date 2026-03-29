@@ -1,84 +1,112 @@
 // src/components/avatar/RobotDetailModal.tsx
-// Detail modal for robot avatar — shows preview, XP progress, stage track, XP sources.
+// Detail modal: body-composition breakdown + activity stats + atrophy warnings.
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { BottomSheet } from "../common/BottomSheet";
-import RobotAvatarSvg from "./RobotAvatarSvg";
+import HumanAvatarSvg from "./HumanAvatarSvg";
 import { useAvatarState } from "../../store/useAvatarStore";
 import {
-  STAGE_NAMES,
-  STAGE_THRESHOLDS,
-  stageProgress,
+  levelFromPoints,
+  levelLabel,
+  detectPose,
+  applyAtrophy,
 } from "../../utils/avatarProgression";
-import { AppCard } from "../ui/AppCard";
-import { useI18n } from "../../i18n/useI18n";
 import { track } from "../../analytics/track";
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
+type Props = { open: boolean; onClose: () => void };
+
+const PART_META: Record<string, { label: string; color: string }> = {
+  chest:     { label: "Brust",     color: "#FF6B35" },
+  back:      { label: "Rücken",    color: "#F59E0B" },
+  shoulders: { label: "Schultern", color: "#3B82F6" },
+  arms:      { label: "Arme",      color: "#EF4444" },
+  legs:      { label: "Beine",     color: "#8B5CF6" },
+  core:      { label: "Core",      color: "#10B981" },
+  cardio:    { label: "Ausdauer",  color: "#EC4899" },
 };
 
-export default function RobotDetailModal({ open, onClose }: Props) {
-  const { t } = useI18n();
-  const { totalXp, stage, variant } = useAvatarState();
-  const progress = stageProgress(totalXp, stage);
-  const stageName = STAGE_NAMES[stage] ?? "Prototyp";
-  const currentThreshold = STAGE_THRESHOLDS[stage] ?? 0;
-  const nextThreshold = STAGE_THRESHOLDS[stage + 1] ?? currentThreshold;
-  const isMaxStage = stage >= STAGE_THRESHOLDS.length - 1;
-  const xpInStage = totalXp - currentThreshold;
-  const xpNeeded = nextThreshold - currentThreshold;
-  const xpToNext = nextThreshold - totalXp;
+const POSE_META: Record<string, { label: string; desc: string; color: string }> = {
+  stand:     { label: "Kraftsportler", desc: "Dein Fokus liegt auf Muskelaufbau im Gym.",          color: "#FF6B35" },
+  run:       { label: "Läufer",        desc: "Du dominierst die Laufstrecke.",                     color: "#43E97B" },
+  cycle:     { label: "Radfahrer",     desc: "Deine Ausdauer auf dem Rad ist beeindruckend.",       color: "#4CC9F0" },
+  handstand: { label: "Calisthenics",  desc: "Körperkontrolle und Kraft ohne Geräte.",              color: "#A78BFA" },
+  rest:      { label: "Ruhephase",     desc: "Mehr als 14 Tage ohne Training — dein Körper wartet.", color: "#94A3B8" },
+};
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const currentCardRef = useRef<HTMLDivElement>(null);
+function todayISO() {
+  const d = new Date();
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
+}
 
-  // Auto-scroll to current stage on mount
-  useEffect(() => {
-    if (open && currentCardRef.current) {
-      setTimeout(() => {
-        currentCardRef.current?.scrollIntoView({
-          behavior: "smooth",
-          inline: "center",
-          block: "nearest",
-        });
-      }, 350);
-    }
-  }, [open]);
+function daysSince(dateISO: string | null): number {
+  if (!dateISO) return 999;
+  return Math.floor((Date.now() - new Date(dateISO).getTime()) / (1000 * 60 * 60 * 24));
+}
 
-  // Lock background scroll when modal is open (iOS Safari/Capacitor)
+export default function AvatarDetailModal({ open, onClose }: Props) {
+  const state   = useAvatarState();
+  const today   = todayISO();
+  const pose    = detectPose(state, today);
+  const poseMeta = POSE_META[pose] ?? POSE_META.stand;
+
   useEffect(() => {
     if (!open) return;
     const scrollY = window.scrollY;
-    const html = document.documentElement;
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
-    document.body.style.left = "0";
-    document.body.style.right = "0";
     document.body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     return () => {
       document.body.style.position = "";
       document.body.style.top = "";
-      document.body.style.left = "";
-      document.body.style.right = "";
       document.body.style.overflow = "";
-      html.style.overflow = "";
+      document.documentElement.style.overflow = "";
       window.scrollTo(0, scrollY);
     };
   }, [open]);
 
   const handleClose = () => {
-    track("robot_detail_closed");
+    track("avatar_detail_closed");
     onClose();
   };
 
-  const gradient =
-    variant === "bulk"
-      ? "linear-gradient(90deg, #FF6B35, #E63946)"
-      : "linear-gradient(90deg, #00B4D8, #0077B6)";
+  // Compute effective levels (with atrophy for display)
+  const effectiveLevels = Object.fromEntries(
+    Object.entries(state.bodyParts).map(([key, stats]) => {
+      const effective = applyAtrophy(stats, today);
+      return [key, {
+        level:       levelFromPoints(effective.points),
+        rawLevel:    levelFromPoints(stats.points),       // before today's atrophy
+        lastTrained: stats.lastTrainedDate,
+        earned:      stats.earned,
+      }];
+    }),
+  ) as Record<string, { level: number; rawLevel: number; lastTrained: string | null; earned: number }>;
+
+  const bodyLevelsForSvg = {
+    chest:     effectiveLevels.chest?.level ?? 0,
+    back:      effectiveLevels.back?.level ?? 0,
+    shoulders: effectiveLevels.shoulders?.level ?? 0,
+    arms:      effectiveLevels.arms?.level ?? 0,
+    legs:      effectiveLevels.legs?.level ?? 0,
+    core:      effectiveLevels.core?.level ?? 0,
+    cardio:    effectiveLevels.cardio?.level ?? 0,
+  };
+
+  // Last 30-day activity breakdown
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffISO = cutoff.toISOString().slice(0, 10);
+  const recentActivity = state.activityLog.filter(e => e.date >= cutoffISO);
+
+  const activitySummary = recentActivity.reduce<Record<string, number>>((acc, e) => {
+    const key = e.workoutType ?? e.sport;
+    acc[key] = (acc[key] ?? 0) + e.minutes;
+    return acc;
+  }, {});
+
+  const totalMinutes = Object.values(activitySummary).reduce((s, v) => s + v, 0);
 
   return createPortal(
     <BottomSheet
@@ -92,12 +120,9 @@ export default function RobotDetailModal({ open, onClose }: Props) {
       sheetStyle={{ background: "var(--card-bg)" }}
       header={
         <div className="flex justify-end px-4" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-          <button
-            type="button"
-            onClick={handleClose}
+          <button type="button" onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-full"
-            style={{ background: "var(--border-color)" }}
-          >
+            style={{ background: "var(--border-color)" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M1 1L13 13M13 1L1 13" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" />
             </svg>
@@ -105,142 +130,83 @@ export default function RobotDetailModal({ open, onClose }: Props) {
         </div>
       }
     >
-      <div className="px-4 pb-6 space-y-6">
-        {/* ── 1. Large Robot Preview ── */}
-        <div className="flex flex-col items-center pt-2 pb-4 -mx-4">
-          <RobotAvatarSvg stage={stage} variant={variant} size={160} animate />
-          <h2
-            className="text-xl font-bold mt-3"
-            style={{ color: "var(--text-color)" }}
-          >
-            {stageName}
-          </h2>
-          <span
-            className="text-xs font-bold uppercase tracking-wider mt-1 px-3 py-1 rounded-full"
-            style={{
-              color: variant === "bulk" ? "#FF6B35" : "#00B4D8",
-              background: variant === "bulk" ? "rgba(255,107,53,0.12)" : "rgba(0,180,216,0.12)",
-            }}
-          >
-            {t("robot.detail.stage", { stage })}
-          </span>
-        </div>
+      <div className="px-4 pb-10 space-y-6">
 
-        {/* ── 2. XP Progress ── */}
-        <div>
-          <div
-            className="w-full h-3 rounded-full overflow-hidden"
-            style={{ background: "var(--border-color)" }}
-          >
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.round(progress * 100)}%`,
-                background: gradient,
-              }}
-            />
-          </div>
-          <div className="flex justify-between mt-1.5">
-            <span
-              className="text-xs tabular-nums font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {isMaxStage
-                ? `${totalXp} XP`
-                : `${xpInStage} / ${xpNeeded} XP`}
-            </span>
-            <span
-              className="text-xs tabular-nums"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {isMaxStage
-                ? t("robot.detail.maxStage")
-                : t("robot.detail.xpToNext", { xp: xpToNext, next: stage + 1 })}
-            </span>
+        {/* ── Avatar + Pose Identity ── */}
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <HumanAvatarSvg
+            pose={pose}
+            bodyLevels={bodyLevelsForSvg}
+            size={100}
+            animate
+            accentColor={poseMeta.color}
+          />
+          <div className="text-center">
+            <div className="text-xl font-black" style={{ color: poseMeta.color }}>
+              {poseMeta.label}
+            </div>
+            <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              {poseMeta.desc}
+            </div>
           </div>
         </div>
 
-        {/* ── 3. Stage Track (horizontal scroll) ── */}
+        {/* ── Body Part Breakdown ── */}
         <div>
-          <h3
-            className="text-sm font-semibold mb-3"
-            style={{ color: "var(--text-color)" }}
-          >
-            {t("robot.detail.stagesTitle")}
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-3"
+            style={{ color: "var(--text-secondary)" }}>
+            Körperzusammensetzung
           </h3>
-          <div
-            ref={scrollRef}
-            className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4"
-            style={{ scrollSnapType: "x mandatory" }}
-            onScroll={() => track("robot_stage_scrolled")}
-          >
-            {STAGE_THRESHOLDS.map((threshold, i) => {
-              const isUnlocked = i <= stage;
-              const isCurrent = i === stage;
+          <div className="space-y-3">
+            {Object.entries(PART_META).map(([key, meta]) => {
+              const data = effectiveLevels[key];
+              if (!data) return null;
+              const lv = data.level;
+              const pct = lv * 10;
+              const days = daysSince(data.lastTrained);
+              const atrophying = days > 7;
+              const atrophyWarn = atrophying && lv > 0;
+
               return (
-                <div
-                  key={i}
-                  ref={isCurrent ? currentCardRef : undefined}
-                  className="shrink-0 flex flex-col items-center rounded-2xl p-3 border transition-all"
-                  style={{
-                    scrollSnapAlign: "center",
-                    width: 88,
-                    background: isCurrent
-                      ? variant === "bulk"
-                        ? "rgba(255,107,53,0.08)"
-                        : "rgba(0,180,216,0.08)"
-                      : "var(--card-bg)",
-                    borderColor: isCurrent
-                      ? variant === "bulk"
-                        ? "#FF6B35"
-                        : "#00B4D8"
-                      : "var(--border-color)",
-                    borderWidth: isCurrent ? 2 : 1,
-                  }}
-                >
-                  <div className="relative">
-                    <div className={isUnlocked ? "" : "opacity-30 grayscale"}>
-                      <RobotAvatarSvg
-                        stage={i}
-                        variant={variant}
-                        size={48}
-                      />
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>
+                        {meta.label}
+                      </span>
+                      {atrophyWarn && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          style={{ background: "#F59E0B22", color: "#F59E0B" }}>
+                          -{days - 7}d Atrophie
+                        </span>
+                      )}
                     </div>
-                    {!isUnlocked && (
-                      <div className="absolute inset-0 flex items-center justify-center text-lg">
-                        🔒
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium tabular-nums" style={{ color: meta.color }}>
+                        Lvl {lv.toFixed(1)}
+                      </span>
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {levelLabel(lv)}
+                      </span>
+                    </div>
                   </div>
-                  <span
-                    className="text-[10px] font-bold mt-1.5 text-center leading-tight"
-                    style={{
-                      color: isCurrent
-                        ? variant === "bulk"
-                          ? "#FF6B35"
-                          : "#00B4D8"
-                        : isUnlocked
-                          ? "var(--text-color)"
-                          : "var(--text-secondary)",
-                    }}
-                  >
-                    {STAGE_NAMES[i]}
-                  </span>
-                  <span
-                    className="text-[9px] tabular-nums mt-0.5"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {threshold} XP
-                  </span>
-                  {isCurrent && (
-                    <span
-                      className="text-[8px] font-bold uppercase mt-1"
+                  <div className="w-full h-2.5 rounded-full overflow-hidden"
+                    style={{ background: "var(--border-color)" }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
                       style={{
-                        color: variant === "bulk" ? "#FF6B35" : "#00B4D8",
+                        width: `${pct}%`,
+                        background: atrophyWarn
+                          ? `linear-gradient(90deg, ${meta.color}, #F59E0B)`
+                          : meta.color,
                       }}
-                    >
-                      {t("robot.detail.current")}
-                    </span>
+                    />
+                  </div>
+                  {data.lastTrained && (
+                    <div className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+                      Zuletzt trainiert: vor {days === 0 ? "heute" : `${days} Tag${days !== 1 ? "en" : ""}`}
+                    </div>
                   )}
                 </div>
               );
@@ -248,77 +214,65 @@ export default function RobotDetailModal({ open, onClose }: Props) {
           </div>
         </div>
 
-        {/* ── 4. XP Sources ── */}
-        <AppCard>
-          <h3
-            className="text-sm font-semibold mb-3"
-            style={{ color: "var(--text-color)" }}
-          >
-            {t("robot.detail.xpSourcesTitle")}
-          </h3>
-          <div className="space-y-2.5">
-            <XpRow
-              label={t("robot.detail.xpGym")}
-              detail={t("robot.detail.xpGymDetail")}
-            />
-            <XpRow
-              label={t("robot.detail.xpCardio")}
-              detail={t("robot.detail.xpCardioDetail")}
-            />
-            <XpRow
-              label={t("robot.detail.xpCustom")}
-            />
-            <div
-              className="h-px my-2"
-              style={{ background: "var(--border-color)" }}
-            />
-            <XpRow label={t("robot.detail.xpDailyCap")} icon="📅" />
-            <XpRow label={t("robot.detail.xpWeeklyCap")} icon="📆" />
-            <p
-              className="text-[11px] mt-2 italic"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {t("robot.detail.xpValidated")}
-            </p>
+        {/* ── Last 30 Days Activity ── */}
+        {totalMinutes > 0 && (
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-3"
+              style={{ color: "var(--text-secondary)" }}>
+              Letzte 30 Tage
+            </h3>
+            <div className="space-y-2">
+              {Object.entries(activitySummary)
+                .sort(([, a], [, b]) => b - a)
+                .map(([key, mins]) => {
+                  const pct = (mins / totalMinutes) * 100;
+                  return (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="text-xs w-20 truncate" style={{ color: "var(--text-secondary)" }}>
+                        {key}
+                      </span>
+                      <div className="flex-1 h-2 rounded-full overflow-hidden"
+                        style={{ background: "var(--border-color)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, background: poseMeta.color }}
+                        />
+                      </div>
+                      <span className="text-xs tabular-nums w-12 text-right"
+                        style={{ color: "var(--text-secondary)" }}>
+                        {mins} Min
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
-        </AppCard>
+        )}
 
-        {/* bottom padding for safe area */}
-        <div style={{ paddingBottom: "env(safe-area-inset-bottom)" }} />
+        {/* ── How gains work ── */}
+        <div className="rounded-xl p-4 space-y-2"
+          style={{ background: "var(--border-color)", opacity: 0.9 }}>
+          <div className="text-xs font-bold uppercase tracking-wider mb-2"
+            style={{ color: "var(--text-secondary)" }}>
+            So wächst dein Körper
+          </div>
+          {[
+            "Push-Training stärkt Brust, Schultern & Arme",
+            "Pull-Training stärkt Rücken & Arme",
+            "Bein-Training stärkt Beine & Core",
+            "Laufen & Radfahren stärkt Ausdauer & Beine",
+            "Calisthenics stärkt Core, Arme & Schultern",
+            "Ohne Training verlierst du nach 7 Tagen langsam Fortschritt",
+          ].map((text) => (
+            <div key={text} className="flex items-start gap-2">
+              <div className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: "var(--text-secondary)" }} />
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{text}</span>
+            </div>
+          ))}
+        </div>
+
       </div>
     </BottomSheet>,
     document.body,
-  );
-}
-
-function XpRow({
-  label,
-  detail,
-  icon,
-}: {
-  label: string;
-  detail?: string;
-  icon?: string;
-}) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="text-sm mt-0.5">{icon ?? "⚡"}</span>
-      <div>
-        <span
-          className="text-sm font-medium"
-          style={{ color: "var(--text-color)" }}
-        >
-          {label}
-        </span>
-        {detail && (
-          <p
-            className="text-[11px] leading-tight"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            {detail}
-          </p>
-        )}
-      </div>
-    </div>
   );
 }

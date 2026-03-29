@@ -1,7 +1,8 @@
 // src/components/nutrition/FoodDetailSheet.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { X } from "lucide-react";
+import { hapticSheetClose, hapticButton, hapticSelect } from "../../native/haptics";
 import type { FoodItem, Macros } from "../../types/nutrition";
 import { resolveToGrams } from "../../features/nutrition/unitResolver";
 import { computeMacros } from "../../features/nutrition/macroCalculator";
@@ -21,6 +22,11 @@ interface FoodDetailSheetProps {
   onClose: () => void;
 }
 
+const CLOSE_OFFSET_PX = 100;
+const CLOSE_VELOCITY_PX = 700;
+
+type DragInfo = { offset: { y: number }; velocity: { y: number } };
+
 const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
   food,
   initialQty,
@@ -31,6 +37,7 @@ const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
   const [qty, setQty] = useState(initialQty);
   const [unit, setUnit] = useState(initialUnit);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
 
   // Reset on food change
   useEffect(() => {
@@ -76,6 +83,7 @@ const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
 
   const handleLog = () => {
     if (!food) return;
+    hapticButton();
     const selectedOption = unitOptions.find((o) => o.value === unit);
     const unitLabel = selectedOption?.label || unit;
     const displayAmount =
@@ -83,8 +91,19 @@ const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
     onLog(food.id, amountGrams, displayAmount, macros);
   };
 
+  const handleClose = () => {
+    hapticSheetClose();
+    onClose();
+  };
+
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: DragInfo) => {
+    if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) {
+      handleClose();
+    }
+  };
+
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose();
+    if (e.target === overlayRef.current) handleClose();
   };
 
   return (
@@ -104,20 +123,30 @@ const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            transition={{ type: "spring", stiffness: 360, damping: 32 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.15}
+            onDragEnd={handleDragEnd}
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-3">
+            {/* Handle — drag zone */}
+            <div
+              className="flex justify-center py-3"
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{ cursor: "grab" }}
+            >
               <div className="h-1.5 w-10 rounded-full bg-[var(--border-color)]" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-3 pb-2">
+            <div className="flex items-center justify-between px-5 pb-2">
               <h3 className="text-lg font-bold text-[var(--text-color)] truncate flex-1 mr-3">
                 {food.name}
               </h3>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center shrink-0 active:scale-90 transition-transform"
               >
                 <X size={16} className="text-[var(--text-secondary)]" />
@@ -179,7 +208,7 @@ const FoodDetailSheet: React.FC<FoodDetailSheetProps> = ({
                 </label>
                 <select
                   value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
+                  onChange={(e) => { hapticSelect(); setUnit(e.target.value); }}
                   className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-color)] outline-none focus:border-[var(--accent-color)] appearance-none"
                 >
                   {unitOptions.map((opt) => (

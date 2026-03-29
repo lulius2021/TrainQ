@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { useI18n } from "../../i18n/useI18n";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import type { ChallengeDefinition } from "../../types/challenge";
 
 // Workaround for Framer Motion typing issues with motion.div
@@ -64,6 +65,7 @@ const ChallengeCompletionModal: React.FC<ChallengeCompletionModalProps> = ({
   claimError,
 }) => {
   const { t } = useI18n();
+  useBodyScrollLock(open);
   const [particles, setParticles] = useState<
     { id: number; delay: number; x: number }[]
   >([]);
@@ -123,7 +125,7 @@ const ChallengeCompletionModal: React.FC<ChallengeCompletionModalProps> = ({
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
+            onPointerDown={(e) => { e.preventDefault(); onClose(); }}
           />
 
           {/* Modal */}

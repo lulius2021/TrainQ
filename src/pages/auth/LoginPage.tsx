@@ -8,10 +8,7 @@ interface LoginPageProps {
   onGoToForgotPassword?: () => void;
 }
 
-export default function LoginPage({
-  onGoToRegister,
-  onGoToForgotPassword,
-}: LoginPageProps) {
+export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: LoginPageProps) {
   const { login, loginWithApple } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
@@ -19,30 +16,26 @@ export default function LoginPage({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   // Magic Backdoor for TestFlight/AppReview (Legacy)
   const isBackdoor = email.startsWith("free") && email.endsWith("@testflight.trainq:trainq1234");
-  const onMagic = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isBackdoor) return;
-    const [addr, pass] = email.split(":");
-    await login(addr, pass || "trainq1234");
-  };
 
   const onSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBackdoor) return onMagic(e);
-
+    if (isBackdoor) {
+      const [addr, pass] = email.split(":");
+      await login(addr, pass || "trainq1234");
+      return;
+    }
     if (!email || !password) {
       setError(t("auth.login.empty"));
       return;
     }
-
     setBusy(true);
     setError(null);
     try {
       const res = await login(email, password);
-      // If error
       if (res.error) {
         let msg = res.error;
         if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid");
@@ -56,11 +49,8 @@ export default function LoginPage({
   };
 
   const onApple = async () => {
-    if (typeof window === "undefined" || !(window as any).AppleID) {
-      setError(t("auth.login.appleUnavailable"));
-      return;
-    }
     setBusy(true);
+    setError(null);
     try {
       const res = await loginWithApple();
       if (!res.ok) setError(res.error ?? t("auth.login.appleError"));
@@ -72,148 +62,180 @@ export default function LoginPage({
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center px-6 py-12 lg:px-8" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
-        <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: "var(--text-color)" }}>
-          {t("auth.login.welcomeBack")}
+    <div
+      className="flex flex-col min-h-screen"
+      style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+    >
+      {/* Hero section */}
+      <div className="flex flex-col items-center justify-center flex-1 px-6 pt-16 pb-8">
+        <img
+          src="/logo.png"
+          alt="TrainQ"
+          className="w-20 h-20 rounded-2xl mb-5 shadow-lg"
+          style={{ boxShadow: "0 8px 24px rgba(0,122,255,0.25)" }}
+        />
+        <h1 className="text-3xl font-bold tracking-tight mb-2 text-center">
+          TrainQ
         </h1>
-        <p style={{ color: "var(--text-secondary)" }}>
+        <p className="text-base text-center" style={{ color: "var(--text-secondary)" }}>
           {t("auth.login.subtitle")}
         </p>
       </div>
 
-      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <div className="backdrop-blur-xl rounded-2xl p-6 shadow-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-          {/* Backdoor UI (Hidden for normal users) */}
-          {email === "testflight" && (
-            <div className="mb-4 bg-yellow-500/20 p-2 rounded text-xs text-yellow-200">
-              Dev Mode Active
-            </div>
-          )}
+      {/* Auth section */}
+      <div className="px-5 pb-10 space-y-3" style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))" }}>
 
-          {error && (
-            <div className="mb-4 rounded-3xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 text-center">
+            {error}
+          </div>
+        )}
 
-          <form onSubmit={onSubmitEmail} className="space-y-4" autoComplete="on">
-            <div className="space-y-2">
-              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>{t("auth.email")}</label>
+        {/* Apple Sign-In */}
+        <button
+          type="button"
+          onClick={onApple}
+          disabled={busy}
+          className="w-full flex items-center justify-center gap-3 rounded-2xl px-4 py-4 text-base font-semibold transition-all active:scale-[0.98]"
+          style={{
+            backgroundColor: "var(--text-color)",
+            color: "var(--bg-color)",
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {/* Apple Logo */}
+          <svg width="18" height="22" viewBox="0 0 18 22" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14.98 11.63c-.02-2.29 1.87-3.39 1.96-3.44-1.07-1.57-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.47.83-.72 0-1.83-.81-3.01-.79-1.54.02-2.97.9-3.76 2.28-1.6 2.78-.41 6.89 1.15 9.14.77 1.1 1.68 2.34 2.87 2.3 1.16-.05 1.59-.74 2.99-.74 1.4 0 1.79.74 3.01.72 1.24-.02 2.03-1.12 2.79-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.44-.94-2.47-3.69zM12.72 4.37c.64-.78 1.07-1.86.95-2.94-.92.04-2.03.61-2.69 1.38-.59.68-1.1 1.77-.96 2.82.97.08 2.05-.5 2.7-1.26z"/>
+          </svg>
+          {busy ? t("auth.login.loading") : t("auth.login.apple")}
+        </button>
+
+        {/* Divider */}
+        <div className="relative flex items-center gap-3 py-1">
+          <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
+          <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+            {t("auth.login.or")}
+          </span>
+          <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
+        </div>
+
+        {/* Email toggle / form */}
+        {!showEmailForm ? (
+          <button
+            type="button"
+            onClick={() => setShowEmailForm(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-4 text-base font-semibold transition-all active:scale-[0.98] border"
+            style={{
+              backgroundColor: "var(--card-bg)",
+              color: "var(--text-color)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            {t("auth.login.withEmail")}
+          </button>
+        ) : (
+          <form onSubmit={onSubmitEmail} className="space-y-3">
+            {/* Email */}
+            <div
+              className="flex items-center rounded-2xl px-4 border"
+              style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+            >
               <input
                 name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEmail((e) => e.trim())}
-                className="w-full rounded-3xl px-4 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/50"
-                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
-                placeholder="name@email.com"
+                onBlur={() => setEmail((v) => v.trim())}
+                className="flex-1 py-4 text-base bg-transparent outline-none"
+                style={{ color: "var(--text-color)" }}
+                placeholder={t("auth.email")}
                 type="email"
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
                 inputMode="email"
                 autoComplete="email"
+                autoFocus
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>{t("auth.password")}</label>
-              <div className="relative">
-                <input
-                  name="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-3xl pl-4 pr-12 py-3 text-base outline-none focus:ring-2 focus:ring-blue-500/50"
-                  style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
-                  placeholder="••••••••"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-2xl p-1.5 transition-colors"
-                  style={{ color: "var(--text-secondary)" }}
-                  aria-label={showPassword ? t("auth.passwordHide") : t("auth.passwordShow")}
-                >
-                  {showPassword ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M4 4l16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2">
+            {/* Password */}
+            <div
+              className="flex items-center rounded-2xl px-4 border"
+              style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+            >
+              <input
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="flex-1 py-4 text-base bg-transparent outline-none"
+                style={{ color: "var(--text-color)" }}
+                placeholder={t("auth.password")}
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+              />
               <button
-                type="submit"
-                disabled={busy}
-                className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-all duration-300 ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-90 shadow-lg"}`}
-                style={{ backgroundColor: busy ? "var(--button-bg)" : "var(--accent-color)", color: busy ? "var(--text-secondary)" : "#FFFFFF" }}
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="ml-2 p-1"
+                style={{ color: "var(--text-secondary)" }}
+                aria-label={showPassword ? t("auth.passwordHide") : t("auth.passwordShow")}
               >
-                {busy ? t("auth.login.loading") : t("auth.login.title")}
+                {showPassword ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    <path d="M4 4l16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                )}
               </button>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              {onGoToRegister ? (
-                <button
-                  type="button"
-                  onClick={onGoToRegister}
-                  className="text-sm underline-offset-4 hover:underline"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {t("auth.login.register")}
-                </button>
-              ) : (
-                <div />
-              )}
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full rounded-2xl px-4 py-4 text-base font-semibold transition-all active:scale-[0.98]"
+              style={{
+                backgroundColor: "#007AFF",
+                color: "#FFFFFF",
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              {busy ? t("auth.login.loading") : t("auth.login.title")}
+            </button>
 
-              {onGoToForgotPassword ? (
+            {/* Forgot password */}
+            {onGoToForgotPassword && (
+              <div className="text-center pt-1">
                 <button
                   type="button"
                   onClick={onGoToForgotPassword}
-                  className="text-sm underline-offset-4 hover:underline"
-                  style={{ color: "var(--text-secondary)" }}
+                  className="text-sm"
+                  style={{ color: "#007AFF" }}
                 >
                   {t("auth.login.forgot")}
                 </button>
-              ) : (
-                <div />
-              )}
-            </div>
+              </div>
+            )}
           </form>
+        )}
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t" style={{ borderColor: "var(--border-color)" }}></div>
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-2 text-sm" style={{ backgroundColor: "var(--card-bg)", color: "var(--text-secondary)" }}>{t("auth.login.or")}</span>
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={onApple}
-              disabled={busy}
-              className={`w-full rounded-3xl px-4 py-3 text-base font-semibold transition-colors border ${busy ? "cursor-not-allowed opacity-50" : "hover:opacity-80"}`}
-              style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", borderColor: "var(--border-color)" }}
-            >
-              {busy ? t("auth.login.loading") : t("auth.login.apple")}
-            </button>
-          </div>
-        </div>
-
+        {/* Register link */}
+        <p className="text-sm text-center pt-2" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.login.noAccount")}{" "}
+          <button
+            type="button"
+            onClick={onGoToRegister}
+            className="font-semibold"
+            style={{ color: "#007AFF" }}
+          >
+            {t("auth.login.register")}
+          </button>
+        </p>
       </div>
     </div>
   );

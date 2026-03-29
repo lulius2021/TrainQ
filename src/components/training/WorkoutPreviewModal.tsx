@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Play, Clock, X, Dumbbell, Footprints, Bike, Trash2 } from 'lucide-react';
 import type { CalendarEvent } from '../../types';
 import { useLiveTrainingStore } from '../../store/useLiveTrainingStore';
 import { persistActiveLiveWorkout } from '../../utils/trainingHistory';
 import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
 import { getActiveUserId } from '../../utils/session';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 interface WorkoutPreviewModalProps {
     event: CalendarEvent | null;
@@ -14,6 +15,16 @@ interface WorkoutPreviewModalProps {
 }
 
 const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalProps) => {
+    useBodyScrollLock(!!event);
+    const [clickShield, setClickShield] = useState(false);
+    const shieldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleClose = React.useCallback(() => {
+        onClose();
+        setClickShield(true);
+        if (shieldTimer.current) clearTimeout(shieldTimer.current);
+        shieldTimer.current = setTimeout(() => setClickShield(false), 400);
+    }, [onClose]);
+
     if (!event) return null;
 
     // Helper to get icon
@@ -60,11 +71,15 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
     const exercises = event.workoutData?.exercises || [];
 
     return (
+        <>
+        {clickShield && (
+            <div className="fixed inset-0 z-[10000] touch-none" onPointerDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()} />
+        )}
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
+                onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); handleClose(); } }}
             />
 
             {/* Modal Box */}
@@ -171,6 +186,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
 
             </div>
         </div>
+        </>
     );
 };
 

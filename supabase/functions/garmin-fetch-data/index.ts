@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     ]);
 
     // Update last_sync_at
-    await admin.from("garmin_tokens").update({ last_sync_at: new Date().toISOString() }).eq("id", tokens.id);
+    await admin.from("garmin_tokens").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
 
     return new Response(JSON.stringify(counts), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {

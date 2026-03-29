@@ -4,6 +4,7 @@
 import React from "react";
 import { CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import type { CsvImportResult } from "../../types/csvImport";
+import { useI18n } from "../../i18n/useI18n";
 
 interface CsvImportSummaryProps {
   result: CsvImportResult;
@@ -11,6 +12,7 @@ interface CsvImportSummaryProps {
 }
 
 const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }) => {
+  const { t } = useI18n();
   const hasErrors = result.errors.length > 0;
   const allSkipped = result.importedCount === 0 && result.skippedCount > 0;
 
@@ -18,7 +20,7 @@ const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }
     <div className="space-y-4">
       {/* Main result card */}
       <div
-        className={`p-6 rounded-2xl border ${
+        className={`p-6 rounded-3xl border ${
           hasErrors
             ? "bg-red-500/10 border-red-500/20"
             : allSkipped
@@ -36,30 +38,30 @@ const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }
           )}
           <h3 className="text-lg font-bold text-[var(--text-color)]">
             {hasErrors
-              ? "Import mit Fehlern"
+              ? t("csvImport.importWithErrors")
               : allSkipped
-                ? "Alle Eintraege bereits vorhanden"
-                : "Import erfolgreich"}
+                ? t("csvImport.allDuplicates")
+                : t("csvImport.importSuccess")}
           </h3>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+          <div className="bg-[var(--card-bg)] rounded-2xl p-3 border border-[var(--border-color)]">
             <div className="text-2xl font-bold text-green-400 tabular-nums">
               {result.importedCount}
             </div>
             <div className="text-xs text-[var(--text-secondary)] mt-1">
-              Saetze importiert
+              {t("csvImport.setsImported")}
             </div>
           </div>
 
-          <div className="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+          <div className="bg-[var(--card-bg)] rounded-2xl p-3 border border-[var(--border-color)]">
             <div className="text-2xl font-bold text-amber-400 tabular-nums">
               {result.skippedCount}
             </div>
             <div className="text-xs text-[var(--text-secondary)] mt-1">
-              Saetze uebersprungen
+              {t("csvImport.setsSkipped")}
             </div>
           </div>
         </div>
@@ -67,7 +69,7 @@ const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }
         {/* Date range */}
         {dateRange && dateRange.from && dateRange.to && (
           <div className="mt-3 text-sm text-[var(--text-secondary)]">
-            Zeitraum: {dateRange.from} bis {dateRange.to}
+            {t("csvImport.period")}: {dateRange.from} {t("csvImport.to")} {dateRange.to}
           </div>
         )}
       </div>
@@ -75,7 +77,7 @@ const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }
       {/* Errors */}
       {hasErrors && (
         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-          <h4 className="font-bold text-red-400 text-sm mb-2">Fehler:</h4>
+          <h4 className="font-bold text-red-400 text-sm mb-2">{t("csvImport.errorsLabel")}</h4>
           <ul className="space-y-1">
             {result.errors.map((err, idx) => (
               <li key={idx} className="text-xs text-red-300">

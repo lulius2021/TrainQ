@@ -1,6 +1,6 @@
 // src/components/challenges/ChallengeCard.tsx
 import React from "react";
-import { Check, Gift, Clock, Trophy, Loader2 } from "lucide-react";
+import { Check, Clock, Trophy, Loader2 } from "lucide-react";
 import { AppCard } from "../ui/AppCard";
 import { AppButton } from "../ui/AppButton";
 import ChallengeProgressBar from "./ChallengeProgressBar";
@@ -47,13 +47,6 @@ function daysRemainingLabel(endDate: string, t: (key: string) => string): string
   return t("challenges.daysLeft").replace("{{days}}", String(days));
 }
 
-function rewardExpiryLabel(expiresAt: string): string {
-  const now = new Date();
-  const exp = new Date(expiresAt);
-  const diffDays = Math.max(0, Math.ceil((exp.getTime() - now.getTime()) / 86400000));
-  if (diffDays === 0) return "Heute";
-  return `${diffDays}d`;
-}
 
 const ChallengeCard: React.FC<ChallengeCardProps> = ({
   definition,
@@ -74,8 +67,6 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 }) => {
   const { t } = useI18n();
   const isCompleted = variant === "completed" && state?.completed;
-  const hasReward = !!definition.reward;
-  const rewardUnclaimed = isCompleted && hasReward && !state?.rewardClaimed;
 
   return (
     <AppCard className="relative overflow-hidden">
@@ -116,15 +107,6 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         <div className="flex items-center gap-1.5 mb-3 text-xs text-[var(--text-secondary)] flex-wrap">
           <Clock size={12} />
           <span>{definition.durationDays} {t("challenges.days")}</span>
-          {hasReward && (
-            <>
-              <span className="mx-1">|</span>
-              <Gift size={12} className="text-yellow-500" />
-              <span className="text-yellow-500 font-medium">
-                {definition.reward!.days} {t("challenges.daysPro")}
-              </span>
-            </>
-          )}
           {isServerChallenge && winnerCount !== undefined && maxWinners !== undefined && (
             <>
               <span className="mx-1">|</span>
@@ -149,56 +131,18 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
             <span className="text-[11px] text-[var(--text-secondary)]">
               {daysRemainingLabel(state.endDate, t)}
             </span>
-            {hasReward && (
-              <span className="text-[11px] text-yellow-500 flex items-center gap-1">
-                <Gift size={10} />
-                {definition.reward!.days} {t("challenges.daysPro")}
-              </span>
-            )}
           </div>
         </div>
       )}
 
-      {/* Completed: reward claim or completed info */}
+      {/* Completed: winner badge or expired */}
       {variant === "completed" && state && (
         <div className="mt-3">
           {state.completed ? (
-            rewardUnclaimed ? (
-              <div className="space-y-2">
-                <AppButton
-                  variant="primary"
-                  size="sm"
-                  fullWidth
-                  onClick={onClaimReward}
-                  disabled={!canClaim || isClaimLoading}
-                >
-                  {isClaimLoading ? (
-                    <Loader2 size={14} className="mr-1.5 animate-spin" />
-                  ) : (
-                    <Gift size={14} className="mr-1.5" />
-                  )}
-                  {isClaimLoading
-                    ? t("challenges.claim.loading")
-                    : t("challenges.claim.button").replace("{{days}}", String(definition.reward!.days))}
-                </AppButton>
-                {claimBlockReason && (
-                  <p className="text-[10px] text-[var(--text-secondary)] text-center">
-                    {claimBlockReason}
-                  </p>
-                )}
-                {rewardExpiresAt && (
-                  <p className="text-[10px] text-[var(--text-secondary)] text-center">
-                    {t("challenges.claim.expiresIn").replace("{{time}}", rewardExpiryLabel(rewardExpiresAt))}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="text-xs text-green-500 font-semibold text-center py-1">
-                {hasReward && state.rewardClaimed
-                  ? t("challenges.rewardClaimed")
-                  : t("challenges.completed")}
-              </div>
-            )
+            <div className="flex items-center justify-center gap-1.5 text-xs text-green-500 font-semibold py-1">
+              <Trophy size={13} />
+              Challenge Gewinner!
+            </div>
           ) : (
             <div className="text-xs text-[var(--text-secondary)] text-center py-1">
               {t("challenges.expired")}

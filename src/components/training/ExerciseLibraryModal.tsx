@@ -1,8 +1,7 @@
 // src/components/training/ExerciseLibraryModal.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { BottomSheet } from "../common/BottomSheet";
 import { useI18n } from "../../i18n/useI18n";
 import {
   EXERCISES,
@@ -30,8 +29,6 @@ import { addCustomExercise } from "../../utils/customExercisesStore";
 import { addAliasOverride } from "../../utils/exerciseAliasesStore";
 import { saveExerciseImage } from "../../utils/exerciseImageStore";
 import { useExerciseImage } from "../../hooks/useExerciseImage";
-import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
-import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import ExerciseDetailsModal from "../exercises/ExerciseDetailsModal";
 import { MapPin, Repeat, Activity, Bike } from "lucide-react";
 
@@ -45,6 +42,8 @@ type Props = {
   existingExerciseIds?: string[];
   onPick: (exercise: Exercise) => void;
   onPickCustom?: () => void;
+  suggestedExercises?: Exercise[]; // Same-muscle suggestions shown at top (swap mode)
+  swapMode?: boolean;              // Close after single pick + suppress "already added" state
 };
 
 const defaultExerciseFilters: ExerciseFilters = {
@@ -79,9 +78,8 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
     return (
       <img
         src={src}
-        id="library-image-forced"
         alt=""
-        style={{ width: 90, height: 90, borderRadius: 12, objectFit: 'cover' }}
+        style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
         loading="eager"
         decoding="async"
       />
@@ -90,22 +88,20 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
 
   return (
     <div
-      id="library-image-forced"
       style={{
-        width: 90,
-        height: 90,
-        borderRadius: 12,
+        width: 52,
+        height: 52,
+        borderRadius: 10,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'var(--button-bg)',
         border: '1px solid var(--border-color)',
-        minWidth: 90,
-        minHeight: 90
+        flexShrink: 0,
       }}
       aria-hidden="true"
     >
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" color="#52525b">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" color="var(--text-secondary)">
         <path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -113,15 +109,15 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
 }
 
 const ExerciseSkeleton = () => (
-  <div className="space-y-3 p-4">
-    {[1, 2, 3, 4, 5, 6].map((i) => (
-      <div key={i} className="flex items-center gap-4 rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] p-4">
-        <div className="h-20 w-20 shrink-0 animate-pulse rounded-2xl bg-[var(--input-bg)]" />
-        <div className="flex-1 space-y-2">
-          <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--input-bg)]" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--input-bg)]" />
+  <div className="space-y-2 p-4">
+    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+      <div key={i} className="flex items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--button-bg)] px-3 py-2.5">
+        <div className="h-[52px] w-[52px] shrink-0 animate-pulse rounded-[10px] bg-[var(--input-bg)]" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--input-bg)]" />
+          <div className="h-3 w-1/2 animate-pulse rounded bg-[var(--input-bg)]" />
         </div>
-        <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[var(--input-bg)]" />
+        <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-[var(--input-bg)]" />
       </div>
     ))}
   </div>
@@ -147,7 +143,7 @@ const ExerciseRow = React.memo(({
   onAdd: (ex: Exercise) => void;
 }) => (
   <div
-    className={`flex items-start justify-between gap-4 rounded-3xl p-4 transition-all border group relative overflow-hidden ${isAdded
+    className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-all border group relative overflow-hidden ${isAdded
       ? "bg-[var(--success)]/10 border-[var(--success)]/20"
       : "bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-[var(--button-bg)] active:scale-[0.98]"
       }`}
@@ -156,48 +152,36 @@ const ExerciseRow = React.memo(({
     onClick={() => onOpenDetails(ex)}
     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenDetails(ex); }}
   >
-    <div className="flex flex-1 items-start gap-[15px]">
-      <ExerciseThumbnail exercise={ex} />
-      <div className="flex-1 min-w-0 py-1">
-        <div
-          className="text-[17px] font-bold text-[var(--text-color)] leading-tight pr-2"
-          style={{
-            flexWrap: 'wrap',
-            wordBreak: 'break-word',
-            whiteSpace: 'normal',
-            overflow: 'visible',
-            flex: 1
-          }}
-        >
-          {getExerciseDisplayName(ex, lang)}
-        </div>
-        <div className="mt-1.5 text-sm font-medium text-[var(--text-secondary)] break-words leading-snug">
-          {(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}
-          {ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}
-        </div>
+    <ExerciseThumbnail exercise={ex} />
+    <div className="flex-1 min-w-0">
+      <div className="text-[15px] font-bold text-[var(--text-color)] leading-tight line-clamp-2">
+        {getExerciseDisplayName(ex, lang)}
+      </div>
+      <div className="mt-0.5 text-xs text-[var(--text-secondary)] truncate">
+        {(ex.equipment || []).map((eq) => equipmentLabels[eq] ?? eq).join(", ")}
+        {ex.type ? ` · ${typeLabels[ex.type] ?? ex.type}` : ""}
       </div>
     </div>
     <button
       type="button"
       disabled={isAdded}
       onClickCapture={(e) => { e.stopPropagation(); if (isAdded) return; onAdd(ex); }}
-      className={`shrink-0 self-center rounded-2xl w-12 h-12 flex items-center justify-center transition-all ${isAdded
+      className={`shrink-0 rounded-xl w-10 h-10 flex items-center justify-center transition-all ${isAdded
         ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.2)]"
         : "bg-[var(--button-bg)] text-[var(--text-color)] hover:bg-[#007AFF] hover:text-white"
         }`}
     >
       {isAdded ? (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
       )}
     </button>
   </div>
 ), (prev, next) => prev.ex.id === next.ex.id && prev.isAdded === next.isAdded && prev.lang === next.lang);
 
-const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, title, category = 'gym', onClose, existingExerciseIds, onPick, }: Props) {
+const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, title, category = 'gym', onClose, existingExerciseIds, onPick, suggestedExercises, swapMode, }: Props) {
   const { t, lang } = useI18n();
-  const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
   const [searchTerm, setSearchTerm] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -267,9 +251,6 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // Body Scroll Lock (iOS safe)
-  useBodyScrollLock(open);
-
   useEffect(() => { setCreateMetrics(DEFAULT_METRICS_BY_TYPE[createType]); }, [createType]);
   useEffect(() => { return () => { if (createImagePreview) URL.revokeObjectURL(createImagePreview); }; }, [createImagePreview]);
 
@@ -331,7 +312,13 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
   const openDetails = (exercise: Exercise) => { setSelectedExercise(exercise); setDetailsOpen(true); };
   const closeDetails = () => { setDetailsOpen(false); setSelectedExercise(null); };
-  const handleAddExercise = (exercise: Exercise) => { const isAdded = existingSet.has(exercise.id) || localAddedIds.has(exercise.id); if (isAdded) return; onPick({ ...exercise, name: getExerciseDisplayName(exercise, lang) }); setLocalAddedIds((prev) => new Set([...prev, exercise.id])); };
+  const handleAddExercise = (exercise: Exercise) => {
+    const isAdded = !swapMode && (existingSet.has(exercise.id) || localAddedIds.has(exercise.id));
+    if (isAdded) return;
+    onPick({ ...exercise, name: getExerciseDisplayName(exercise, lang) });
+    if (swapMode) { onClose(); return; }
+    setLocalAddedIds((prev) => new Set([...prev, exercise.id]));
+  };
 
   // Helper to get icon for running/cycling cards
   const getCardIcon = (id: string) => {
@@ -379,7 +366,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
   const renderGymView = () => (
     <>
-      <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--modal-bg)] to-transparent">
+      <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--card-bg)] to-transparent">
         <div className="flex items-center justify-between gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></span>
@@ -405,7 +392,46 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-2 pb-[160px]" onScroll={handleScroll} ref={listContainerRef}>
+      <div className="flex-1 overflow-y-auto pt-2 pb-8" onScroll={handleScroll} ref={listContainerRef}>
+        {/* Swap mode: same-muscle suggestions at top */}
+        {suggestedExercises && suggestedExercises.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <div className="w-1.5 h-5 rounded-full bg-[#007AFF]" />
+              <span className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>
+                Empfehlungen
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
+                {suggestedExercises.length}
+              </span>
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Ähnliche Muskeln · Bewegung · Dein Verlauf
+              </span>
+            </div>
+            <div className="space-y-2">
+              {suggestedExercises.map((ex) => (
+                <ExerciseRow
+                  key={ex.id}
+                  ex={ex}
+                  lang={lang}
+                  isAdded={false}
+                  onAdd={handleAddExercise}
+                  onOpenDetails={openDetails}
+                  equipmentLabels={equipmentLabels}
+                  typeLabels={typeLabels}
+                  t={t}
+                />
+              ))}
+            </div>
+            <div className="my-4 h-px" style={{ backgroundColor: "var(--border-color)" }} />
+            <div className="px-1 mb-2">
+              <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
+                Alle Übungen
+              </span>
+            </div>
+          </div>
+        )}
+
         {filteredExercises.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--border-color)] p-6 text-center text-[var(--text-secondary)]">
             {t("training.exerciseLibrary.empty")}
@@ -441,79 +467,75 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   );
 
 
-  const MotionDiv = motion.div as any;
-
-  const modal = (
-    <AnimatePresence>
-      {open && (
-        <MotionDiv
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className={`fixed inset-0 z-[99999] flex ${keyboardOpen ? "items-start" : "items-center"} justify-center bg-black/80 backdrop-blur-sm px-4`}
-          style={
-            keyboardOpen
-              ? {
-                paddingTop: "max(env(safe-area-inset-top), 12px)",
-                paddingBottom: `calc(${Math.max(0, keyboardHeight)}px + env(safe-area-inset-bottom))`,
-              }
-              : undefined
-          }
-          role="dialog"
-          aria-modal="true"
-          onPointerDown={(e: any) => {
-            if (e.target === e.currentTarget) onClose();
-          }}
-        >
-          <div
-            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--modal-bg)] shadow-2xl h-[85lvh] min-h-[80vh] shrink-0"
-          >
-            <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3 bg-[var(--modal-header)]">
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold text-[var(--text-color)]">{title || (category === 'running' ? "Lauf auswählen" : category === 'cycling' ? "Radfahrt auswählen" : "Übungsbibliothek")}</div>
-                <div className="truncate text-sm text-[var(--text-secondary)]">
-                  {category === 'running' ? "Distanz oder Intervalle" : category === 'cycling' ? "Distanz oder Intervalle" : "Übung auswählen"}
-                </div>
+  return (
+    <>
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        height="92dvh"
+        zIndex={300}
+        contentClassName="flex flex-col flex-1 overflow-hidden"
+        header={
+          <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
+            <div className="min-w-0">
+              <div className="truncate text-base font-semibold text-[var(--text-color)]">
+                {title || (category === 'running' ? "Lauf auswählen" : category === 'cycling' ? "Radfahrt auswählen" : "Übungsbibliothek")}
               </div>
-              <button type="button" onClick={onClose} className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--button-bg)]/80">{t("common.close")}</button>
+              <div className="truncate text-sm text-[var(--text-secondary)]">
+                {category === 'running' ? "Distanz oder Intervalle" : category === 'cycling' ? "Distanz oder Intervalle" : "Übung auswählen"}
+              </div>
             </div>
-
-            <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4">
-              {category === 'running' || category === 'cycling' ? renderCardioView() : renderGymView()}
-              <div className="mt-3 text-xs text-center text-gray-500">{t("training.exerciseLibrary.tip")}</div>
-            </div>
-
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--button-bg)]/80"
+            >
+              {t("common.close")}
+            </button>
           </div>
-          {showCreate && <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) closeCreate(); }}>
-            <div className="w-full max-w-lg rounded-3xl border border-[var(--border-color)] bg-[var(--modal-bg)] backdrop-blur-xl p-6 shadow-2xl">
-              <div className="flex items-center justify-between pb-3"><h3 className="text-lg font-semibold text-[var(--text-color)]">{t("training.exerciseLibrary.createTitle")}</h3><button type="button" className="text-[var(--text-secondary)] hover:text-[var(--text-color)]" onClick={closeCreate}>✕</button></div>
-              <div className="mt-3 space-y-4">
-                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary" /></div>
-                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)]">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[var(--text-secondary)]"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm disabled:opacity-50 text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
-                  <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
-                </div>
-                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
-                <div><div className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMetricsLabel")}</div><div className="mt-2 flex flex-wrap gap-2">{METRICS.map((metric) => <button key={metric} type="button" onClick={() => toggleMetric(metric)} className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${createMetrics.includes(metric) ? 'bg-brand-primary text-white border-brand-primary' : 'border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]'}`}>{metricLabels[metric]}</button>)}</div></div>
-                {createError && <div className="rounded-3xl border border-red-500/30 bg-red-500/20 px-3 py-2 text-sm text-red-300">{createError}</div>}
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
-                  <button type="button" className="rounded-3xl px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90" onClick={handleCreate}>{t("training.exerciseLibrary.createSave")}</button>
-                </div>
+        }
+      >
+        <div className="flex flex-col flex-1 overflow-hidden px-4 pb-4">
+          {category === 'running' || category === 'cycling' ? renderCardioView() : renderGymView()}
+          <div className="mt-3 text-xs text-center text-gray-500">{t("training.exerciseLibrary.tip")}</div>
+        </div>
+      </BottomSheet>
+
+      {showCreate && (
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeCreate(); }}
+        >
+          <div className="w-full max-w-lg rounded-3xl border border-[var(--border-color)] bg-[var(--modal-bg)] backdrop-blur-xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3"><h3 className="text-lg font-semibold text-[var(--text-color)]">{t("training.exerciseLibrary.createTitle")}</h3><button type="button" className="text-[var(--text-secondary)] hover:text-[var(--text-color)]" onClick={closeCreate}>✕</button></div>
+            <div className="mt-3 space-y-4">
+              <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createNameLabel")}</label><input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("training.exerciseLibrary.createNamePlaceholder")} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary" /></div>
+              <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.imageTitle")}</label><div className="mt-2 flex items-center gap-4"><div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)]">{createImagePreview ? <img src={createImagePreview} alt="" className="h-full w-full object-cover" /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[var(--text-secondary)]"><path d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>}</div><div className="flex flex-col gap-2"><input ref={createImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleCreateImageSelect(e.currentTarget.files?.[0] ?? null)} /><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={() => createImageInputRef.current?.click()}>{t("training.exerciseLibrary.imageSelect")}</button><button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm disabled:opacity-50 text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={clearCreateImage} disabled={!createImagePreview}>{t("training.exerciseLibrary.imageRemove")}</button></div></div></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMuscleLabel")}</label><select value={createMuscle} onChange={(e) => setCreateMuscle(e.target.value as Muscle)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}</select></div>
+                <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createEquipmentLabel")}</label><select value={createEquipment} onChange={(e) => setCreateEquipment(e.target.value as Equipment)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}</select></div>
+              </div>
+              <div><label className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createTypeLabel")}</label><select value={createType} onChange={(e) => setCreateType(e.target.value as ExerciseType)} className="mt-1 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-color)] outline-none focus:ring-1 focus:ring-brand-primary">{EXERCISE_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></div>
+              <div><div className="text-sm text-[var(--text-secondary)]">{t("training.exerciseLibrary.createMetricsLabel")}</div><div className="mt-2 flex flex-wrap gap-2">{METRICS.map((metric) => <button key={metric} type="button" onClick={() => toggleMetric(metric)} className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${createMetrics.includes(metric) ? 'bg-brand-primary text-white border-brand-primary' : 'border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]'}`}>{metricLabels[metric]}</button>)}</div></div>
+              {createError && <div className="rounded-3xl border border-red-500/30 bg-red-500/20 px-3 py-2 text-sm text-red-300">{createError}</div>}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button type="button" className="rounded-3xl border border-[var(--border-color)] bg-[var(--button-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-color)] hover:bg-[var(--input-bg)]" onClick={closeCreate}>{t("training.exerciseLibrary.createCancel")}</button>
+                <button type="button" className="rounded-3xl px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90" onClick={handleCreate}>{t("training.exerciseLibrary.createSave")}</button>
               </div>
             </div>
-          </div>}
-          <ExerciseDetailsModal open={detailsOpen && !!selectedExercise} exercise={selectedExercise} isAdded={!!selectedExercise && (existingSet.has(selectedExercise.id) || localAddedIds.has(selectedExercise.id))} onClose={closeDetails} onAdd={handleAddExercise} />
-        </MotionDiv>
-      )
-      }
-    </AnimatePresence >
-  );
+          </div>
+        </div>
+      )}
 
-  if (typeof document === "undefined") return modal;
-  return createPortal(modal, document.body);
+      <ExerciseDetailsModal
+        open={detailsOpen && !!selectedExercise}
+        exercise={selectedExercise}
+        isAdded={!!selectedExercise && (existingSet.has(selectedExercise.id) || localAddedIds.has(selectedExercise.id))}
+        onClose={closeDetails}
+        onAdd={handleAddExercise}
+      />
+    </>
+  );
 });
 
 export default ExerciseLibraryModal;

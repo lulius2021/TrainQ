@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useI18n } from "../../i18n/useI18n";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 
 // Workaround for Framer Motion typing issues with motion.div
 const MotionDiv = motion.div as any;
@@ -40,6 +41,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
   onCreate,
 }) => {
   const { t } = useI18n();
+  useBodyScrollLock(open);
   const [title, setTitle] = useState("");
   const [goalType, setGoalType] = useState<ChallengeGoalType>("workout_count");
   const [target, setTarget] = useState("");
@@ -77,7 +79,7 @@ const CreateSoloChallengeModal: React.FC<CreateSoloChallengeModalProps> = ({
         >
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
+            onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }}
           />
 
           <MotionDiv

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, AlertTriangle, RefreshCw } from "lucide-react";
 import { getPost } from "../../services/community/api";
 import type { CommunityPost } from "../../services/community/types";
 import PostCard from "../../components/community/PostCard";
@@ -18,16 +18,20 @@ interface Props {
 export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, onPostDeleted }: Props) {
   const [post, setPost] = useState<CommunityPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ id: string } | null>(null);
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
+  const loadPost = useCallback(() => {
     setLoading(true);
+    setError(false);
     getPost(postId, viewerId)
       .then((p) => setPost(p))
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [postId, viewerId]);
+
+  useEffect(() => { loadPost(); }, [loadPost]);
 
   const handleLikeChanged = useCallback((_postId: string, liked: boolean, newCount: number) => {
     setPost((prev) => prev ? { ...prev, isLiked: liked, likeCount: newCount } : prev);
@@ -56,17 +60,33 @@ export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, 
 
       {loading && (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Lade...</div>
+          <RefreshCw size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
         </div>
       )}
 
-      {!loading && !post && (
+      {!loading && error && (
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <AlertTriangle size={32} style={{ color: "var(--text-secondary)" }} className="mb-3" />
+          <p className="text-sm text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+            Beitrag konnte nicht geladen werden
+          </p>
+          <button
+            onClick={loadPost}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+            style={{ background: "var(--accent-color)", color: "#fff" }}
+          >
+            <RefreshCw size={14} /> Erneut versuchen
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && !post && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Beitrag nicht gefunden</div>
         </div>
       )}
 
-      {!loading && post && (
+      {!loading && !error && post && (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Post */}
           <div className="border-b" style={{ borderColor: "var(--border-color)" }}>

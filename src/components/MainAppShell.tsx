@@ -1,31 +1,34 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { motion } from "framer-motion";
+import { syncWidgetData } from "../services/widgetDataSync";
 import { useI18n } from "../i18n/useI18n";
+import { useModalStore } from "../store/useModalStore";
 
-// Pages
+// Pages — Dashboard eager (kritischer Pfad), alle anderen lazy
 import Dashboard from "../pages/Dashboard";
-import TrainingsplanPage from "../pages/TrainingsplanPage";
-import CalendarPage from "../pages/CalendarPage";
-import ProfilePage from "../pages/ProfilePage";
-import StartTodayPage from "../pages/StartTodayPage";
-import SettingsPage from "../pages/SettingPage";
-import TrainQCoreDebug from "../pages/TrainQCoreDebug";
-import LiveTrainingPage from "../pages/training/LiveTrainingPage";
-import WorkoutSharePage from "../pages/WorkoutSharePage";
-import PublicProfilePage from "../pages/PublicProfilePage";
-import ImpressumPage from "../pages/legal/ImpressumPage";
-import PrivacyPage from "../pages/legal/PrivacyPage";
-import TermsPage from "../pages/legal/TermsPage";
-import CsvImportPage from "../pages/CsvImportPage";
-import ChallengesPage from "../pages/ChallengesPage";
-import NutritionPage from "../pages/NutritionPage";
-import CommunityPage from "../pages/community/CommunityPage";
-import PostDetailPage from "../pages/community/PostDetailPage";
-import CommunityProfilePage from "../pages/community/CommunityProfilePage";
-import NotificationsPage from "../pages/community/NotificationsPage";
+const TrainingsplanPage    = React.lazy(() => import("../pages/TrainingsplanPage"));
+const CalendarPage         = React.lazy(() => import("../pages/CalendarPage"));
+const ProfilePage          = React.lazy(() => import("../pages/ProfilePage"));
+const StartTodayPage       = React.lazy(() => import("../pages/StartTodayPage"));
+const SettingsPage         = React.lazy(() => import("../pages/SettingPage"));
+const TrainQCoreDebug      = React.lazy(() => import("../pages/TrainQCoreDebug"));
+const LiveTrainingPage     = React.lazy(() => import("../pages/training/LiveTrainingPage"));
+const WorkoutSharePage     = React.lazy(() => import("../pages/WorkoutSharePage"));
+const PublicProfilePage    = React.lazy(() => import("../pages/PublicProfilePage"));
+const ImpressumPage        = React.lazy(() => import("../pages/legal/ImpressumPage"));
+const PrivacyPage          = React.lazy(() => import("../pages/legal/PrivacyPage"));
+const TermsPage            = React.lazy(() => import("../pages/legal/TermsPage"));
+const CsvImportPage        = React.lazy(() => import("../pages/CsvImportPage"));
+const NutritionPage        = React.lazy(() => import("../pages/NutritionPage"));
+const CommunityPage        = React.lazy(() => import("../pages/community/CommunityPage"));
+const PostDetailPage       = React.lazy(() => import("../pages/community/PostDetailPage"));
+const CommunityProfilePage = React.lazy(() => import("../pages/community/CommunityProfilePage"));
+const NotificationsPage    = React.lazy(() => import("../pages/community/NotificationsPage"));
 
 // Components
 import { MainLayout } from "../layouts/MainLayout";
 import PaywallModal from "../components/paywall/PaywallModal";
+import { PageErrorBoundary } from "../components/common/PageErrorBoundary";
 
 // Hooks & Context
 import { useAuth } from "../context/AuthContext";
@@ -35,6 +38,7 @@ import { useEntitlements } from "../hooks/useEntitlements";
 // Utils
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
 import { loadNotificationPrefs } from "../utils/notificationStorage";
+import { requestNotificationPermission } from "../native/notifications";
 import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
 import { track } from "../analytics/track";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
@@ -85,13 +89,29 @@ type AppRoute =
     | "/privacy"
     | "/terms"
     | "/import-csv"
-    | "/challenges"
     | "/nutrition";
+
+// ── Page transition helpers ──────────────────────────────────────────────────
+const MotionDiv = motion.div as any;
+
+const pageSlideRight = {
+    initial:    { x: "100%", opacity: 0 },
+    animate:    { x: 0, opacity: 1 },
+    transition: { type: "spring" as const, stiffness: 340, damping: 32 },
+};
+
+const pageSlideUp = {
+    initial:    { y: "100%", opacity: 0 },
+    animate:    { y: 0, opacity: 1 },
+    transition: { type: "spring" as const, stiffness: 320, damping: 30 },
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
 const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
-const MINI_BAR_BOTTOM = "calc(70px + env(safe-area-inset-bottom))";
+// 6px clearance above the visual top of the floating tab bar pill
+const MINI_BAR_BOTTOM = "calc(var(--tab-bar-height) + env(safe-area-inset-bottom) + 6px)";
 const INITIAL_EVENTS: CalendarEvent[] = [];
 
 // -------------------- Helpers (Copied from App.tsx) --------------------
@@ -200,7 +220,6 @@ function getRouteFromLocation(): AppRoute {
     if (path === "/privacy") return "/privacy";
     if (path === "/terms") return "/terms";
     if (path === "/import-csv") return "/import-csv";
-    if (path === "/challenges") return "/challenges";
     if (path === "/nutrition") return "/nutrition";
     if (path === "/community/post") return "/community/post";
     if (path === "/community/profile") return "/community/profile";
@@ -320,25 +339,42 @@ const LiveTrainingMiniBar: React.FC<{
     if (!active || !active.isActive) return null;
 
     return (
-        <div className="fixed left-4 right-4 z-50" style={{ bottom: "calc(96px + env(safe-area-inset-bottom))" }}>
-            <div className="mx-auto max-w-5xl border focus:ring-2 focus:ring-blue-500/20 rounded-2xl p-3 backdrop-blur-xl shadow-lg shadow-black/40" style={{ backgroundColor: "var(--mini-bar-bg)", borderColor: "var(--border-color)" }}>
+        <div className="fixed left-4 right-4 z-50" style={{ bottom: MINI_BAR_BOTTOM }}>
+            {/* Whole bar is tappable — maximizes the training */}
+            <button
+                type="button"
+                onClick={() => onMaximize(active.calendarEventId)}
+                className="w-full mx-auto block"
+                style={{
+                    maxWidth: 600,
+                    background: "var(--mini-bar-bg)",
+                    border: "0.5px solid var(--border-color)",
+                    borderRadius: 18,
+                    padding: "8px 12px",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+                    WebkitTapHighlightColor: "transparent",
+                }}
+            >
                 <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t("live.mini.running")}</div>
+                    <div className="min-w-0 text-left">
+                        <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t("live.mini.running")}</div>
                         <div className="flex items-baseline gap-2">
-                            <div className="text-base font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
+                            <div className="text-[15px] font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
                                 {formatElapsedFromISO(active.startedAt)}
                             </div>
                             <div className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>{active.title}</div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => onMaximize(active.calendarEventId)} className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white">
-                            {t("live.mini.maximize")}
-                        </button>
+                    <div
+                        className="shrink-0 rounded-xl bg-blue-600 px-4 py-1.5 text-[13px] font-bold text-white"
+                        style={{ pointerEvents: "none" }}
+                    >
+                        {t("live.mini.maximize")}
                     </div>
                 </div>
-            </div>
+            </button>
         </div>
     );
 };
@@ -350,6 +386,7 @@ type ProfileScreen = "profile" | "settings";
 const MainAppShell: React.FC = () => {
     const { user } = useAuth();
     const userId = user?.id;
+    const { t } = useI18n();
 
     const [activeTab, setActiveTab] = useState<TabKey>(() => {
         if (typeof window === "undefined") return "today"; // Default to 'today' (Train)
@@ -357,10 +394,21 @@ const MainAppShell: React.FC = () => {
         if (path === "/dashboard") return "dashboard";
         if (path === "/calendar") return "calendar";
         if (path === "/plan") return "plan";
-        if (path === "/community" || path.startsWith("/community/")) return "community";
+        if (path === "/community" || path.startsWith("/community/")) return "dashboard";
         if (path === "/profile") return "profile";
         return "today"; // Default /train -> today tab
     });
+    // Per-tab scroll refs — used by active-tap scroll-to-top
+    const tabScrollRefs: Record<TabKey, React.RefObject<HTMLDivElement>> = {
+        dashboard: useRef<HTMLDivElement>(null),
+        calendar:  useRef<HTMLDivElement>(null),
+        today:     useRef<HTMLDivElement>(null),
+        plan:      useRef<HTMLDivElement>(null),
+        profile:   useRef<HTMLDivElement>(null),
+    };
+    // All tabs pre-mounted on startup — eliminates first-visit stutter on tab switch.
+    const mountedTabs = useRef<Set<TabKey>>(new Set(["today", "dashboard", "calendar", "plan", "profile"]));
+
     const [route, setRoute] = useState<AppRoute>(() => getRouteFromLocation());
     const [activeLiveEventId, setActiveLiveEventId] = useState<string | undefined>(() => readActiveLiveEventId(userId));
     const [shareWorkoutId, setShareWorkoutId] = useState<string | null>(null);
@@ -400,6 +448,13 @@ const MainAppShell: React.FC = () => {
 
     useEffect(() => { writeEventsToStorage(events, userId); }, [events, userId]);
 
+    // Request notification permission once on app start
+    useEffect(() => {
+        requestNotificationPermission().catch(() => {
+            // Permission denied or unavailable — non-blocking
+        });
+    }, []);
+
     // Schedule local notifications when events change
     useEffect(() => {
         try {
@@ -415,13 +470,16 @@ const MainAppShell: React.FC = () => {
                     title: e.title,
                 }));
 
-            scheduleTrainingReminders(trainingEvents).catch(() => {
+            const notifTitle = t("notification.trainingReminder.title");
+            const notifBodyTpl = t("notification.trainingReminder.body");
+
+            scheduleTrainingReminders(trainingEvents, notifTitle, notifBodyTpl).catch(() => {
                 // Non-blocking — silently ignore
             });
         } catch {
             // Non-blocking
         }
-    }, [events]);
+    }, [events, t]);
 
     // ✅ CHECK AUTO-RESTORE ON MOUNT
     const restoreChecked = useRef(false);
@@ -436,6 +494,16 @@ const MainAppShell: React.FC = () => {
             window.history.replaceState(null, "", "/live-training");
         }
     }, []);
+
+    // ✅ SYNC PRO STATUS ON LOGIN — restores Pro for returning subscribers on app launch
+    const proSyncedForUser = useRef<string | undefined>(undefined);
+    useEffect(() => {
+        if (!user || proSyncedForUser.current === user.id) return;
+        proSyncedForUser.current = user.id;
+        syncProToSession({ id: user.id, email: user.email }).catch(() => {
+            // Non-blocking — session remains as-is if sync fails
+        });
+    }, [user]);
 
     useEffect(() => {
         setEvents(readEventsFromStorage(userId));
@@ -474,7 +542,7 @@ const MainAppShell: React.FC = () => {
             } else if (nextRoute === "/plan") {
                 setActiveTab("plan");
             } else if (nextRoute === "/community") {
-                setActiveTab("community");
+                setActiveTab("dashboard");
             } else if (nextRoute === "/profile") {
                 setActiveTab("profile");
             } else if (nextRoute === "/workout-share") {
@@ -507,7 +575,7 @@ const MainAppShell: React.FC = () => {
             } else if (next === "/plan") {
                 setActiveTab("plan");
             } else if (next === "/community") {
-                setActiveTab("community");
+                setActiveTab("dashboard");
             } else if (next === "/profile") {
                 setActiveTab("profile");
             } else if (next === "/workout-share") {
@@ -568,6 +636,22 @@ const MainAppShell: React.FC = () => {
         return () => { cleanup?.(); };
     }, []);
 
+    // Sync widget data when app becomes active
+    useEffect(() => {
+        let cleanup: (() => void) | undefined;
+        // Initial sync on mount
+        syncWidgetData();
+        import("@capacitor/app").then(({ App: CapApp }) => {
+            const promise = CapApp.addListener("appStateChange", ({ isActive }: { isActive: boolean }) => {
+                if (isActive) syncWidgetData();
+            });
+            cleanup = () => { promise.then((l) => l.remove()); };
+        }).catch(() => {
+            // Not available in web context
+        });
+        return () => { cleanup?.(); };
+    }, []);
+
     // Redirect root to /train
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -610,8 +694,9 @@ const MainAppShell: React.FC = () => {
     // We ignore 'isMinimized' flag because if we are not on the route, it IS effectively minimized.
     const hasActiveWorkout = !!activeWorkout?.isActive;
 
-    // Logic: Show if workout is active AND we are NOT on the full-screen live page
-    const showMiniBar = hasActiveWorkout && route !== "/live-training";
+    const modalOpen = useModalStore((s) => s.openCount > 0);
+    // Logic: Show if workout is active AND we are NOT on the full-screen live page AND no modal is open
+    const showMiniBar = hasActiveWorkout && route !== "/live-training" && !modalOpen;
 
     const isSwipeBlocked = useCallback(() => {
         if (paywallOpen) return true;
@@ -620,8 +705,8 @@ const MainAppShell: React.FC = () => {
         return !!document.querySelector('[data-overlay-open="true"]');
     }, [paywallOpen]);
 
-    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "community", "profile"];
-    const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/community" || route === "/profile";
+    const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
+    const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/profile";
     const tabSwipeEnabled = isTabRoute && profileScreen === "profile" && !paywallOpen;
 
     useTabSwipeNavigation({
@@ -710,7 +795,11 @@ const MainAppShell: React.FC = () => {
         }));
     }, [events]);
 
-    const exitLiveTraining = useCallback(() => { setActiveLiveEventId(undefined); writeActiveLiveEventId(undefined, userId); pushRoute("/"); setRoute("/"); setActiveTab("dashboard"); }, []);
+    const handleActiveTap = useCallback((tab: TabKey) => {
+        tabScrollRefs[tab].current?.scrollTo({ top: 0, behavior: "smooth" });
+    }, []);
+
+    const exitLiveTraining = useCallback(() => { setActiveLiveEventId(undefined); writeActiveLiveEventId(undefined, userId); pushRoute("/"); setRoute("/"); setActiveTab("dashboard"); }, [userId]);
     const minimizeLiveTraining = useCallback(() => { pushRoute("/"); setRoute("/"); }, []);
     const maximizeLiveTraining = useCallback((eventIdFromWorkout?: string) => {
         const normalized = typeof eventIdFromWorkout === "string" && eventIdFromWorkout.trim() ? eventIdFromWorkout.trim() : activeLiveEventId;
@@ -752,21 +841,22 @@ const MainAppShell: React.FC = () => {
 
     if (route === "/live-training") {
         return (
-            <div className="w-full h-full overflow-hidden">
-                <LiveTrainingPage events={events} onUpdateEvents={setEvents} onExit={exitLiveTraining} onMinimize={minimizeLiveTraining} eventId={activeLiveEventId} onShareWorkout={openWorkoutShare} />
-            </div>
+            <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideUp}>
+                <React.Suspense fallback={<div className="fixed inset-0" style={{ backgroundColor: "var(--bg-color)" }} />}>
+                    <LiveTrainingPage events={events} onUpdateEvents={setEvents} onExit={exitLiveTraining} onMinimize={minimizeLiveTraining} eventId={activeLiveEventId} onShareWorkout={openWorkoutShare} />
+                </React.Suspense>
+            </MotionDiv>
         );
     }
-    if (route === "/debug/trainq") return <div className="w-full h-full overflow-auto"><TrainQCoreDebug /></div>;
-    if (route === "/impressum") return <div className="w-full h-full overflow-y-auto"><ImpressumPage /></div>;
-    if (route === "/privacy") return <div className="w-full h-full overflow-y-auto"><PrivacyPage /></div>;
-    if (route === "/terms") return <div className="w-full h-full overflow-y-auto"><TermsPage /></div>;
-    if (route === "/import-csv") return <div className="w-full h-full overflow-y-auto"><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></div>;
-    if (route === "/challenges") return <div className="w-full h-full overflow-y-auto"><ChallengesPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
-    if (route === "/nutrition") return <div className="w-full h-full overflow-y-auto"><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></div>;
-    if (route === "/community/post" && communityPostId && userId) return <div className="w-full h-full overflow-hidden"><PostDetailPage postId={communityPostId} viewerId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); setCommunityPostId(null); }} onAuthorTap={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} onPostDeleted={() => {}} /></div>;
-    if (route === "/community/profile" && communityProfileId && userId) return <div className="w-full h-full overflow-hidden"><CommunityProfilePage profileUserId={communityProfileId} viewerId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); setCommunityProfileId(null); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} /></div>;
-    if (route === "/community/notifications" && userId) return <div className="w-full h-full overflow-hidden"><NotificationsPage userId={userId} onBack={() => { pushRoute("/community"); setRoute("/community"); setActiveTab("community"); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} /></div>;
+    if (route === "/debug/trainq") return <div className="w-full h-full overflow-auto"><React.Suspense fallback={null}><TrainQCoreDebug /></React.Suspense></div>;
+    if (route === "/impressum") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><ImpressumPage /></React.Suspense></MotionDiv>;
+    if (route === "/privacy") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><PrivacyPage /></React.Suspense></MotionDiv>;
+    if (route === "/terms") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><TermsPage /></React.Suspense></MotionDiv>;
+    if (route === "/import-csv") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></React.Suspense></MotionDiv>;
+    if (route === "/nutrition") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></React.Suspense></MotionDiv>;
+    if (route === "/community/post" && communityPostId && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><PostDetailPage postId={communityPostId} viewerId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); setCommunityPostId(null); }} onAuthorTap={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} onPostDeleted={() => {}} /></React.Suspense></MotionDiv>;
+    if (route === "/community/profile" && communityProfileId && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><CommunityProfilePage profileUserId={communityProfileId} viewerId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); setCommunityProfileId(null); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} /></React.Suspense></MotionDiv>;
+    if (route === "/community/notifications" && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><NotificationsPage userId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} /></React.Suspense></MotionDiv>;
 
     // ---------- App Layout via MainLayout ----------
 
@@ -774,66 +864,87 @@ const MainAppShell: React.FC = () => {
         <MainLayout
             activeTab={activeTab}
             onTabChange={(next) => {
+                const tabPath: AppRoute =
+                    next === "today"    ? "/train"    :
+                    next === "dashboard" ? "/dashboard" :
+                    next === "calendar"  ? "/calendar"  :
+                    next === "plan"      ? "/plan"      : "/profile";
+                // Update URL and route state in one go — no popstate dispatch to avoid double render
+                if (window.location.pathname !== tabPath) {
+                    window.history.pushState({}, "", tabPath);
+                }
                 setActiveTab(next);
-                if (next === "today") { pushRoute("/train"); setRoute("/train"); }
-                else if (next === "dashboard") { pushRoute("/dashboard"); setRoute("/dashboard"); }
-                else if (next === "calendar") { pushRoute("/calendar"); setRoute("/calendar"); }
-                else if (next === "plan") { pushRoute("/plan"); setRoute("/plan"); }
-                else if (next === "community") { pushRoute("/community"); setRoute("/community"); }
-                else if (next === "profile") { pushRoute("/profile"); setRoute("/profile"); }
-
+                setRoute(tabPath);
                 if (next !== "profile") setProfileScreen("profile");
             }}
+            onActiveTap={handleActiveTap}
             showNavBar={true}
             floatingWidget={<LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />}
         >
-
+            {/* ── Special full-screen overlays (workout share, public profile) ── */}
             {route === "/workout-share" && (
-                <WorkoutSharePage
-                    workoutId={shareWorkoutId}
-                    onDone={() => {
-                        if (shareReturnTo === "profile") { setActiveTab("profile"); setProfileScreen("profile"); } else { setActiveTab("dashboard"); }
-                        pushRoute("/"); setRoute("/");
-                    }}
-                />
+                <div className="absolute inset-0 overflow-hidden z-10" style={{ backgroundColor: "var(--bg-color)" }}>
+                    <React.Suspense fallback={null}>
+                        <WorkoutSharePage
+                            workoutId={shareWorkoutId}
+                            onDone={() => {
+                                if (shareReturnTo === "profile") { setActiveTab("profile"); setProfileScreen("profile"); } else { setActiveTab("dashboard"); }
+                                pushRoute("/"); setRoute("/");
+                            }}
+                        />
+                    </React.Suspense>
+                </div>
             )}
 
             {route === "/public-profile" && (
-                <PublicProfilePage userId={publicProfileId} onBack={() => { pushRoute("/"); setRoute("/"); }} />
+                <div className="absolute inset-0 overflow-hidden z-10" style={{ backgroundColor: "var(--bg-color)" }}>
+                    <React.Suspense fallback={null}>
+                        <PublicProfilePage userId={publicProfileId} onBack={() => { pushRoute("/"); setRoute("/"); }} />
+                    </React.Suspense>
+                </div>
             )}
 
-            {isTabRoute && activeTab === "dashboard" && (
-                <Dashboard />
-            )}
-
-            {isTabRoute && activeTab === "calendar" && (
-                <CalendarPage />
-            )}
-
-            {isTabRoute && activeTab === "today" && (
-                <StartTodayPage events={events} onPlanTraining={() => { setActiveTab("calendar"); pushRoute("/"); setRoute("/"); }} />
-            )}
-
-            {isTabRoute && activeTab === "plan" && (
-                <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />
-            )}
-
-            {isTabRoute && activeTab === "community" && userId && (
-                <CommunityPage
-                    onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }}
-                    onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }}
-                    onOpenNotifications={() => { pushRoute("/community/notifications"); setRoute("/community/notifications"); }}
-                    onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }}
-                />
-            )}
-
-            {isTabRoute && activeTab === "profile" && (
-                profileScreen === "settings" ? (
-                    <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenPaywall={() => setPaywallOpen(true)} onOpenGoals={() => alert("Funktion folgt.")} />
-                ) : (
-                    <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
-                )
-            )}
+            {/* ── Per-tab slots: all pre-mounted, never unmount ── */}
+            {(["dashboard", "calendar", "today", "plan", "profile"] as TabKey[]).map((tab) => {
+                if (!mountedTabs.current.has(tab)) return null;
+                const isVisible = isTabRoute && tab === activeTab;
+                return (
+                    <div
+                        key={tab}
+                        ref={tabScrollRefs[tab]}
+                        className="scroll-pb"
+                        style={{
+                            position: "absolute",
+                            inset: 0,
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            WebkitOverflowScrolling: "touch",
+                            // Fade in when becoming active; hide instantly when leaving
+                            opacity: isVisible ? 1 : 0,
+                            visibility: isVisible ? "visible" : "hidden",
+                            pointerEvents: isVisible ? "auto" : "none",
+                            transition: isVisible ? "opacity 0.13s ease" : "none",
+                        }}
+                        aria-hidden={!isVisible}
+                    >
+                        <PageErrorBoundary key={tab} pageName={tab}>
+                            <React.Suspense fallback={<div style={{ minHeight: "100%", backgroundColor: "var(--bg-color)" }} />}>
+                                {tab === "dashboard" && <Dashboard />}
+                                {tab === "calendar" && <CalendarPage />}
+                                {tab === "today" && <StartTodayPage events={events} onPlanTraining={() => { setActiveTab("calendar"); pushRoute("/"); setRoute("/"); }} />}
+                                {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />}
+                                {tab === "profile" && (
+                                    profileScreen === "settings" ? (
+                                        <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenPaywall={() => setPaywallOpen(true)} onOpenGoals={() => alert("Funktion folgt.")} />
+                                    ) : (
+                                        <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
+                                    )
+                                )}
+                            </React.Suspense>
+                        </PageErrorBoundary>
+                    </div>
+                );
+            })}
 
             <PaywallModal open={paywallOpen} reason={paywallReason} onClose={() => setPaywallOpen(false)} isPro={isPro} adaptiveBCRemaining={Math.max(0, adaptiveBCRemaining)} planShiftRemaining={Math.max(0, planShiftRemaining)} calendar7DaysRemaining={Math.max(0, calendar7DaysRemaining)} onBuyMonthly={() => handlePurchase("monthly")} onBuyYearly={() => handlePurchase("yearly")} onRestore={handleRestorePurchases} />
         </MainLayout>

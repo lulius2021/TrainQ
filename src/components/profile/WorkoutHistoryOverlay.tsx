@@ -4,6 +4,7 @@ import { AppButton } from "../ui/AppButton";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { formatPace, formatDistanceKm } from "../../utils/gpsUtils";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 
 interface WorkoutHistoryOverlayProps {
     onClose: () => void;
@@ -34,6 +35,7 @@ function durationMinutes(w: WorkoutHistoryEntry): number {
 
 export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ onClose, workouts, onShare }) => {
     const insets = useSafeAreaInsets();
+    useBodyScrollLock(true);
 
     return (
         <div className="fixed inset-0 z-[50] flex flex-col animate-in fade-in duration-200" style={{ backgroundColor: "var(--card-bg)" }}>

@@ -1,11 +1,14 @@
-import React, { useEffect, useRef } from "react";
-import { NavBar } from "../components/NavBar";
+import React from "react";
+import { BottomNav as NavBar } from "../components/layout/BottomNav";
+import { useModalStore } from "../store/useModalStore";
 import type { TabKey } from "../types";
 
 interface MainLayoutProps {
     children: React.ReactNode;
     activeTab: TabKey;
     onTabChange: (tab: TabKey) => void;
+    /** Called when the already-active tab is tapped — scroll-to-top signal. */
+    onActiveTap?: (tab: TabKey) => void;
     showNavBar?: boolean;
     floatingWidget?: React.ReactNode;
 }
@@ -14,34 +17,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     children,
     activeTab,
     onTabChange,
+    onActiveTap,
     showNavBar = true,
     floatingWidget
 }) => {
-    const mainRef = useRef<HTMLElement>(null);
-    // All tabs are edge-to-edge — no title headers, pages handle their own spacing
-    const isEdgeToEdge = true;
-
-    // Scroll to top when switching tabs
-    useEffect(() => {
-        if (mainRef.current) {
-            mainRef.current.scrollTop = 0;
-        }
-    }, [activeTab]);
+    const modalOpen = useModalStore((s) => s.openCount > 0);
 
     return (
         <div className="relative flex h-full w-full flex-col overflow-hidden font-sans" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
-            {/* Main Content Area */}
+            {/* Main Content Area — tabs own their own scroll via absolute positioning */}
             <main
-                ref={mainRef}
-                className={`flex-1 overflow-y-auto overflow-x-hidden w-full ${isEdgeToEdge ? "pb-[100px] pt-0" : "pt-[env(safe-area-inset-top)] pb-[120px]"}`}
-                style={{
-                    WebkitOverflowScrolling: "touch",
-                    backgroundColor: "var(--bg-color)",
-                }}
+                className="flex-1 relative overflow-hidden w-full"
+                style={{ backgroundColor: "var(--bg-color)", overflow: modalOpen ? "hidden" : undefined, pointerEvents: modalOpen ? "none" : undefined }}
             >
-                <div className={`mx-auto w-full ${isEdgeToEdge ? "h-full px-0 max-w-none" : "max-w-md px-5"}`}>
-                    {children}
-                </div>
+                {children}
             </main>
 
             {/* Floating Widget Area */}
@@ -49,7 +38,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
             {/* Fixed Navigation */}
             {showNavBar && (
-                <NavBar activeTab={activeTab} onChange={onTabChange} />
+                <NavBar activeTab={activeTab} onChange={onTabChange} onActiveTap={onActiveTap} />
             )}
         </div>
     );

@@ -1,22 +1,16 @@
 // src/hooks/useGpsTracking.ts
-// GPS tracking hook for cardio sessions
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GpsPoint, CardioSessionState } from "../types/cardio";
+import type { GpsPoint, CardioSessionState, LapEntry } from "../types/cardio";
 import {
   requestLocationPermission,
   watchPosition,
   clearWatch,
   type WatchCallbackId,
 } from "../native/geolocation";
-import {
-  haversineDistance,
-  computeElevationGain,
-  computePace,
-  filterByAccuracy,
-} from "../utils/gpsUtils";
+import { haversineDistance, computePace } from "../utils/gpsUtils";
 
-const MAX_ACCURACY_M = 30;
+const MAX_ACCURACY_M = 100;
 
 export function useGpsTracking() {
   const [state, setState] = useState<CardioSessionState>({
@@ -27,33 +21,31 @@ export function useGpsTracking() {
     distanceM: 0,
     elevationGainM: 0,
     currentPaceSecPerKm: undefined,
+    laps: [],
   });
 
-  const watchIdRef = useRef<WatchCallbackId | null>(null);
-  const pointsRef = useRef<GpsPoint[]>([]);
-  const distanceRef = useRef(0);
-  const elevationRef = useRef(0);
-  const pausedAtRef = useRef<number | undefined>(undefined);
-  const totalPausedRef = useRef(0);
-  const startedAtRef = useRef(0);
-  const stoppedAtRef = useRef<number | undefined>(undefined);
+  const watchIdRef       = useRef<WatchCallbackId | null>(null);
+  const pointsRef        = useRef<GpsPoint[]>([]);
+  const distanceRef      = useRef(0);
+  const elevationRef     = useRef(0);
+  const pausedAtRef      = useRef<number | undefined>(undefined);
+  const totalPausedRef   = useRef(0);
+  const startedAtRef     = useRef(0);
+  const stoppedAtRef     = useRef<number | undefined>(undefined);
+  const lapsRef          = useRef<LapEntry[]>([]);
 
   const addPoint = useCallback((point: GpsPoint) => {
-    // Filter out inaccurate points
     if (point.accuracy && point.accuracy > MAX_ACCURACY_M) return;
 
     const prev = pointsRef.current;
     const lastPoint = prev[prev.length - 1];
 
-    // Compute incremental distance
     let addedDistance = 0;
     if (lastPoint) {
       addedDistance = haversineDistance(lastPoint, point);
-      // Filter out GPS jumps (> 100m between consecutive points at walking/running pace)
-      if (addedDistance > 100 && prev.length > 1) return;
+      if (addedDistance > 500 && prev.length > 1) return;
     }
 
-    // Compute incremental elevation
     let addedElevation = 0;
     if (
       lastPoint &&
@@ -65,14 +57,13 @@ export function useGpsTracking() {
     }
 
     const newPoints = [...prev, point];
-    pointsRef.current = newPoints;
-    distanceRef.current += addedDistance;
+    pointsRef.current  = newPoints;
+    distanceRef.current  += addedDistance;
     elevationRef.current += addedElevation;
 
-    // Compute current pace from last ~60 seconds of points
+    // Current pace from last ~60 seconds of points
     const now = point.timestamp;
-    const recentStart = now - 60000;
-    const recentPoints = newPoints.filter((p) => p.timestamp >= recentStart);
+    const recentPoints = newPoints.filter((p) => p.timestamp >= now - 60000);
     let recentDistance = 0;
     for (let i = 1; i < recentPoints.length; i++) {
       recentDistance += haversineDistance(recentPoints[i - 1], recentPoints[i]);
@@ -91,6 +82,7 @@ export function useGpsTracking() {
       distanceM: distanceRef.current,
       elevationGainM: elevationRef.current,
       currentPaceSecPerKm: pace,
+      laps: lapsRef.current,
     });
   }, []);
 
@@ -99,13 +91,14 @@ export function useGpsTracking() {
     if (!granted) return false;
 
     const now = Date.now();
-    startedAtRef.current = now;
-    pointsRef.current = [];
-    distanceRef.current = 0;
-    elevationRef.current = 0;
-    totalPausedRef.current = 0;
-    pausedAtRef.current = undefined;
-    stoppedAtRef.current = undefined;
+    startedAtRef.current  = now;
+    pointsRef.current     = [];
+    distanceRef.current   = 0;
+    elevationRef.current  = 0;
+    totalPausedRef.current  = 0;
+    pausedAtRef.current     = undefined;
+    stoppedAtRef.current    = undefined;
+    lapsRef.current         = [];
 
     setState({
       status: "tracking",
@@ -115,6 +108,7 @@ export function useGpsTracking() {
       distanceM: 0,
       elevationGainM: 0,
       currentPaceSecPerKm: undefined,
+      laps: [],
     });
 
     const id = await watchPosition(addPoint);
@@ -136,10 +130,8 @@ export function useGpsTracking() {
       totalPausedRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = undefined;
     }
-
     const id = await watchPosition(addPoint);
     watchIdRef.current = id;
-
     setState((prev) => ({
       ...prev,
       status: "tracking",
@@ -165,28 +157,35 @@ export function useGpsTracking() {
     }));
   }, []);
 
-  // Cleanup on unmount
+  /** Record a manual lap at the current position/time. */
+  const addLap = useCallback(() => {
+    const elapsedMs = getElapsedMsNow();
+    const newLap: LapEntry = {
+      number: lapsRef.current.length + 1,
+      distanceM: distanceRef.current,
+      elapsedMs,
+    };
+    lapsRef.current = [...lapsRef.current, newLap];
+    setState((prev) => ({ ...prev, laps: lapsRef.current }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     return () => {
-      if (watchIdRef.current) {
-        clearWatch(watchIdRef.current);
-      }
+      if (watchIdRef.current) clearWatch(watchIdRef.current);
     };
   }, []);
 
-  // Elapsed time (excluding paused time)
-  const getElapsedMs = useCallback((): number => {
-    if (state.status === "idle" || startedAtRef.current === 0) return 0;
-    let now: number;
-    if (state.status === "stopped") {
-      now = stoppedAtRef.current ?? Date.now();
-    } else if (state.status === "paused") {
-      now = pausedAtRef.current ?? Date.now();
-    } else {
-      now = Date.now();
-    }
+  function getElapsedMsNow(): number {
+    if (startedAtRef.current === 0) return 0;
+    const now =
+      stoppedAtRef.current ??
+      (pausedAtRef.current ?? Date.now());
     return Math.max(0, now - startedAtRef.current - totalPausedRef.current);
-  }, [state.status]);
+  }
+
+  const getElapsedMs = useCallback((): number => {
+    return getElapsedMsNow();
+  }, [state.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     state,
@@ -194,6 +193,7 @@ export function useGpsTracking() {
     pauseTracking,
     resumeTracking,
     stopTracking,
+    addLap,
     getElapsedMs,
   };
 }

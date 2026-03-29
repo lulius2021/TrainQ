@@ -9,6 +9,7 @@ import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import { hasActiveChallengeGrant } from "../utils/challengeStore";
+import { ensureCommunityProfile } from "../services/community/api";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple" | "local";
@@ -45,6 +46,7 @@ export type AuthContextValue = {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 const LOCAL_USER_KEY = "trainq_local_user_v1";
+const CACHED_AUTH_KEY = "trainq_cached_auth_v1";
 
 // -------------------- Helpers --------------------
 
@@ -120,9 +122,17 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return authUser;
     });
 
+    // Cache for optimistic auth on next cold start
+    try { localStorage.setItem(CACHED_AUTH_KEY, JSON.stringify(authUser)); } catch { /* ignore */ }
+
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
     pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge failed:", e); });
+
+    // Ensure community profile exists so user appears in "Entdecken"
+    const handle = u.email?.split("@")[0] || `user_${u.id.slice(0, 6)}`;
+    const displayName = u.user_metadata?.full_name || handle;
+    ensureCommunityProfile(u.id, handle, displayName).catch(() => {});
   }, []);
 
   const ensureLocalUser = useCallback(() => {
@@ -175,7 +185,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // 1. Init Listener
   useEffect(() => {
-    if (!mountedRef.current) return;
+    let cancelled = false;
 
     const client = getSupabaseClient();
 
@@ -188,48 +198,67 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // B. Supabase Session
     if (!client) {
-      // Fallback to local if no client
       ensureLocalUser();
       setLoading(false);
       return;
     }
 
-    // Race session restore against a 3s timeout so the app never hangs on loading
-    const sessionPromise = client.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mountedRef.current) return;
-      if (session) {
-        await syncSessionToUser(session);
-      } else {
-        ensureLocalUser();
+    // Optimistic auth: if we have a cached Supabase user, show the app immediately
+    // while we verify the session in the background.
+    try {
+      const cached = localStorage.getItem(CACHED_AUTH_KEY);
+      if (cached) {
+        const cachedUser = JSON.parse(cached) as AuthUser;
+        if (cachedUser?.id && cachedUser?.provider !== "local") {
+          setUser(cachedUser);
+          setActiveSession({ userId: cachedUser.id, isPro: !!cachedUser.isPro, email: cachedUser.email });
+          setLoading(false);
+        }
       }
-    });
+    } catch { /* ignore */ }
 
-    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+    // Hard safety: loading NEVER stays stuck longer than 2s
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        ensureLocalUser();
+        setLoading(false);
+      }
+    }, 2000);
 
-    Promise.race([sessionPromise, timeout]).then(() => {
-      if (!mountedRef.current) return;
-      // If sessionPromise didn't set a user yet, fall back to local
-      setUser((prev) => {
-        if (!prev) ensureLocalUser();
-        return prev;
-      });
-      setLoading(false);
-    }).catch((err) => {
-      if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
-      ensureLocalUser();
-      if (mountedRef.current) setLoading(false);
-    });
+    const init = async () => {
+      try {
+        const { data: { session } } = await client.auth.getSession();
+        if (cancelled) return;
+        if (session) {
+          await syncSessionToUser(session);
+        } else {
+          // No valid session — clear cached auth and fall back to local
+          try { localStorage.removeItem(CACHED_AUTH_KEY); } catch { /* ignore */ }
+          ensureLocalUser();
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
+        if (!cancelled) ensureLocalUser();
+      } finally {
+        if (!cancelled) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
+      }
+    };
+
+    init();
 
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
-      if (!mountedRef.current) return;
+      if (cancelled) return;
       if (session) {
         syncSessionToUser(session);
       }
-      // Note: If session is null (logout), we deliberately don't auto-create a local user here immediately
-      // to avoid weird UX loops. Logout action handles cleanup.
     });
 
     return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [syncSessionToUser, loginAsDemoUser, ensureLocalUser]);
@@ -293,6 +322,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     localStorage.removeItem("isDemoSession");
     localStorage.removeItem(LOCAL_USER_KEY);
+    localStorage.removeItem(CACHED_AUTH_KEY);
     setUser(null);
     clearActiveSession();
     window.location.reload();

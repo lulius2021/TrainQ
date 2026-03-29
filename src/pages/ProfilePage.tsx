@@ -27,17 +27,23 @@ import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/s
 import SettingPage from "./SettingPage";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
-import RobotAvatarSvg from "../components/avatar/RobotAvatarSvg";
+import HumanAvatarSvg from "../components/avatar/HumanAvatarSvg";
 import { useAvatarState } from "../store/useAvatarStore";
-import { STAGE_NAMES } from "../utils/avatarProgression";
+import { levelFromPoints, overallLevel, detectPose } from "../utils/avatarProgression";
 import { useStatistics, type TimeRange } from "../hooks/useStatistics";
 import { StatsChart } from "../components/stats/StatsChart";
 import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
+import { GarminService } from "../services/garmin/api";
+import { useGarminConnection } from "../hooks/useGarminConnection";
+import type { GarminActivity } from "../services/garmin/types";
 import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
+import { BottomSheet } from "../components/common/BottomSheet";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useI18n } from "../i18n/useI18n";
 import { useChallengeRewards } from "../hooks/useChallengeRewards";
-import { Gift, Trophy } from "lucide-react";
+import { Gift, Trophy, Flame } from "lucide-react";
+import { computeStreaks } from "../utils/stats";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -211,12 +217,34 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
   }, [onOpenPaywall]);
 
   const avatarState = useAvatarState();
+  const avatarPose = detectPose(avatarState, new Date().toISOString().slice(0, 10));
+  const avatarOverallLevel = overallLevel(avatarState);
+  const avatarBodyLevels = {
+    chest:     levelFromPoints(avatarState.bodyParts.chest.points),
+    back:      levelFromPoints(avatarState.bodyParts.back.points),
+    shoulders: levelFromPoints(avatarState.bodyParts.shoulders.points),
+    arms:      levelFromPoints(avatarState.bodyParts.arms.points),
+    legs:      levelFromPoints(avatarState.bodyParts.legs.points),
+    core:      levelFromPoints(avatarState.bodyParts.core.points),
+    cardio:    levelFromPoints(avatarState.bodyParts.cardio.points),
+  };
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
 
   const [timeRange, setTimeRange] = useState<TimeRange>("1W");
   const stats = useStatistics(workouts, timeRange);
+  const { connected: garminConnected } = useGarminConnection();
+  const [garminActivities, setGarminActivities] = useState<GarminActivity[]>([]);
+
+  useEffect(() => {
+    if (!garminConnected) return;
+    const now = new Date();
+    const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const from = yearAgo.toISOString().slice(0, 10);
+    const to = now.toISOString().slice(0, 10);
+    GarminService.getActivities(from, to).then(setGarminActivities);
+  }, [garminConnected]);
 
   const refreshOnboarding = useCallback(() => setOnboarding(readOnboardingDataFromStorage()), []);
   const refreshWorkouts = useCallback(() => {
@@ -417,6 +445,9 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
   const [statsOpen, setStatsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+  // Lock background scroll whenever any overlay is open
+  useBodyScrollLock(statsOpen);
+
   // Close modals with ESC
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -451,6 +482,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     for (const w of workouts ?? []) if (isInWeek(w, weekStart)) total += 1;
     return total;
   }, [workouts, weekStart]);
+
+  const streaks = useMemo(() => computeStreaks(workouts ?? []), [workouts]);
 
   // -------- Actions --------
   const handleLogout = useCallback(() => {
@@ -534,18 +567,22 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
   const [recapOpen, setRecapOpen] = useState(false);
 
   const { lastMonthYear, lastMonthIndex, lastMonthName, hasLastMonthWorkouts } = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1); // Previous month
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const name = d.toLocaleString("de-DE", { month: "long" });
-
-    const hasWorkouts = workouts.some(w => {
-      const wd = new Date(w.startedAt);
-      return wd.getFullYear() === year && wd.getMonth() === month;
-    });
-
-    return { lastMonthYear: year, lastMonthIndex: month, lastMonthName: name, hasLastMonthWorkouts: hasWorkouts };
+    // Only show recap for completed (past) months — check up to 6 months back
+    const now = new Date();
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const has = workouts.some(w => {
+        const wd = new Date(w.startedAt);
+        return wd.getFullYear() === y && wd.getMonth() === m;
+      });
+      if (has) {
+        const name = d.toLocaleString("de-DE", { month: "long" });
+        return { lastMonthYear: y, lastMonthIndex: m, lastMonthName: name, hasLastMonthWorkouts: true };
+      }
+    }
+    return { lastMonthYear: now.getFullYear(), lastMonthIndex: now.getMonth() - 1, lastMonthName: "", hasLastMonthWorkouts: false };
   }, [workouts]);
 
   return (
@@ -626,6 +663,12 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                     {user?.email && <span className="truncate">Account: <span className="font-medium">{user.email}</span></span>}
                     <span>{t("profile.workouts")}: <span className="font-medium">{weekTotalSessions}</span></span>
                     <span>{t("profile.time")}: <span className="font-medium">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
+                    {streaks.current > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Flame size={13} className="text-orange-400" fill="currentColor" />
+                        <span className="font-medium text-orange-400">{streaks.current}d Streak</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -636,23 +679,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
               </div>
             </AppCard>
 
-            {/* Robot Avatar */}
-            <AppCard variant="glass" className="flex items-center gap-4">
-              <div className="shrink-0">
-                <RobotAvatarSvg stage={avatarState.stage} variant={avatarState.variant} size={100} animate />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                  {t("profile.stage")} {avatarState.stage}
-                </p>
-                <p className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>
-                  {STAGE_NAMES[avatarState.stage] ?? "Prototyp"}
-                </p>
-                <p className="text-sm tabular-nums" style={{ color: "var(--text-secondary)" }}>
-                  {avatarState.totalXp} {t("profile.xpTotal")}
-                </p>
-              </div>
-            </AppCard>
 
             {(copyFeedback || shareFeedback) && (
               <AppCard variant="soft" className="px-4 py-2 text-sm text-center">
@@ -731,7 +757,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                 {/* Heatmap Top */}
                 <SectionErrorBoundary name="Heatmap">
                 <ShareableStatCard titleForFile={`trainq-heatmap-${new Date().toISOString().split('T')[0]}`}>
-                  <ConsistencyHeatmap workouts={workouts} />
+                  <ConsistencyHeatmap workouts={workouts} garminActivities={garminActivities} />
                 </ShareableStatCard>
                 </SectionErrorBoundary>
 
@@ -859,92 +885,209 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
       )}
 
       {/* MODAL: Profil bearbeiten */}
-      {isEditProfileOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsEditProfileOpen(false); }}>
-          <AppCard variant="glass" className="w-full max-w-md p-5 space-y-6 max-h-[85vh] overflow-y-auto pb-[140px]" style={{ backgroundColor: "var(--modal-bg)" }}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold" style={{ color: "var(--text-color)" }}>{t("profile.editProfileTitle")}</h2>
-              <AppButton onClick={() => setIsEditProfileOpen(false)} variant="ghost" size="sm" className="!p-1 rounded-full hover:opacity-80" style={{ color: "var(--text-muted)" }}>✕</AppButton>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600 border-4" style={{ borderColor: "var(--border-color)" }}>
-                {avatarDataUrl ? (<img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />) : (<span className="text-3xl font-semibold text-white">{safeInitials(profileName)}</span>)}
-              </div>
-              <div className="flex flex-col gap-2">
+      <BottomSheet
+        open={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        maxHeight="92dvh"
+        zIndex={100}
+        header={
+          <div className="px-5 pb-1">
+            <h2 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-color)" }}>
+              {t("profile.editProfileTitle")}
+            </h2>
+          </div>
+        }
+      >
+            <div className="px-5 pb-6 space-y-6">
+              {/* --- Avatar section --- */}
+              <div className="flex flex-col items-center pt-2 pb-2">
+                <div className="relative group cursor-pointer" onClick={onPickAvatar}>
+                  <div
+                    className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 ring-4 shadow-lg shadow-blue-500/20"
+                    style={{ ringColor: "var(--accent-color)" } as React.CSSProperties}
+                  >
+                    {avatarDataUrl
+                      ? <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
+                      : <span className="text-3xl font-bold text-white select-none">{safeInitials(profileName)}</span>
+                    }
+                  </div>
+                  {/* Camera overlay */}
+                  <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  </div>
+                </div>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
-                <AppButton onClick={onPickAvatar} className="border hover:opacity-90" style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} size="sm">
-                  {t("profile.chooseImage")}
-                </AppButton>
-                {avatarDataUrl && (
-                  <AppButton onClick={() => setAvatarDataUrl("")} className="bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20" size="sm">
-                    {t("profile.removeImage")}
-                  </AppButton>
-                )}
+                <div className="flex items-center gap-3 mt-3">
+                  <button
+                    onClick={onPickAvatar}
+                    className="text-sm font-semibold transition-opacity hover:opacity-80"
+                    style={{ color: "var(--accent-color)" }}
+                  >
+                    {t("profile.chooseImage")}
+                  </button>
+                  {avatarDataUrl && (
+                    <>
+                      <span className="text-xs" style={{ color: "var(--border-color)" }}>|</span>
+                      <button
+                        onClick={() => setAvatarDataUrl("")}
+                        className="text-sm font-semibold text-red-500 transition-opacity hover:opacity-80"
+                      >
+                        {t("profile.removeImage")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* --- Name & Bio section --- */}
+              <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+                <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                  <label className="text-sm font-medium shrink-0 w-16" style={{ color: "var(--text-secondary)" }}>{t("profile.nameLabel")}</label>
+                  <input
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-sm"
+                    style={{ color: "var(--text-color)" }}
+                    placeholder={t("profile.defaultName")}
+                  />
+                </div>
+                <div className="px-4 py-3">
+                  <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.descriptionLabel")}</label>
+                  <textarea
+                    value={profileBio}
+                    onChange={(e) => setProfileBio(e.target.value)}
+                    className="w-full bg-transparent outline-none text-sm resize-none min-h-[72px]"
+                    style={{ color: "var(--text-color)" }}
+                    placeholder={t("profile.descriptionPlaceholder")}
+                  />
+                </div>
+              </div>
+
+              {/* --- Korperdaten section --- */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>{t("profile.yourData")}</p>
+                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <div className="grid grid-cols-3 divide-x" style={{ borderColor: "var(--border-color)" }}>
+                    {/* Age */}
+                    <div className="px-3 py-3 flex flex-col items-center gap-1">
+                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.age")}</label>
+                      <input
+                        type="number"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
+                        style={{ color: "var(--text-color)" }}
+                        placeholder="--"
+                      />
+                    </div>
+                    {/* Height */}
+                    <div className="px-3 py-3 flex flex-col items-center gap-1" style={{ borderColor: "var(--border-color)" }}>
+                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.heightCm")}</label>
+                      <input
+                        type="number"
+                        value={height}
+                        onChange={(e) => setHeight(e.target.value)}
+                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
+                        style={{ color: "var(--text-color)" }}
+                        placeholder="--"
+                      />
+                    </div>
+                    {/* Weight */}
+                    <div className="px-3 py-3 flex flex-col items-center gap-1" style={{ borderColor: "var(--border-color)" }}>
+                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.weightKg")}</label>
+                      <input
+                        type="number"
+                        value={weight}
+                        onChange={(e) => setWeight(e.target.value)}
+                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
+                        style={{ color: "var(--text-color)" }}
+                        placeholder="--"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Trainingsdaten section --- */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>Training</p>
+                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                    <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.hoursPerWeek")}</label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        value={hoursPerWeek}
+                        onChange={(e) => setHoursPerWeek(e.target.value)}
+                        className="w-16 bg-transparent outline-none text-right text-sm font-semibold tabular-nums"
+                        style={{ color: "var(--text-color)" }}
+                        placeholder="--"
+                      />
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>h</span>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.sessionsPerWeek")}</label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        value={sessionsPerWeek}
+                        onChange={(e) => setSessionsPerWeek(e.target.value)}
+                        className="w-16 bg-transparent outline-none text-right text-sm font-semibold tabular-nums"
+                        style={{ color: "var(--text-color)" }}
+                        placeholder="--"
+                      />
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>x</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Sports & Goals section --- */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>Interessen</p>
+                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                    <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.sportsCsv")}</label>
+                    <input
+                      type="text"
+                      value={sportsCsv}
+                      onChange={(e) => setSportsCsv(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm"
+                      style={{ color: "var(--text-color)" }}
+                      placeholder="Laufen, Gym, Radfahren..."
+                    />
+                  </div>
+                  <div className="px-4 py-3">
+                    <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.goalsCsv")}</label>
+                    <input
+                      type="text"
+                      value={goalsCsv}
+                      onChange={(e) => setGoalsCsv(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm"
+                      style={{ color: "var(--text-color)" }}
+                      placeholder="Marathon, Kraft, Ausdauer..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Save button --- */}
+              <div className="pt-2 pb-4">
+                <button
+                  onClick={saveProfileEdits}
+                  className="w-full font-bold py-3.5 rounded-2xl shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all text-[15px]"
+                  style={{ backgroundColor: "var(--accent-color)", color: "#fff" }}
+                >
+                  {t("common.save")}
+                </button>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.nameLabel")}</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder={t("profile.defaultName")} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.descriptionLabel")}</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none min-h-[100px] focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder={t("profile.descriptionPlaceholder")} />
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              <h3 className="text-lg font-semibold" style={{ color: "var(--text-color)" }}>{t("profile.yourData")}</h3>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.age")}</label>
-                  <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.heightCm")}</label>
-                  <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.weightKg")}</label>
-                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full border rounded-3xl transition-all p-3 text-center outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="-" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.hoursPerWeek")}</label>
-                  <input type="number" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="h" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.sessionsPerWeek")}</label>
-                  <input type="number" value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="#" />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.sportsCsv")}</label>
-                <input type="text" value={sportsCsv} onChange={(e) => setSportsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Laufen, Gym..." />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("profile.goalsCsv")}</label>
-                <input type="text" value={goalsCsv} onChange={(e) => setGoalsCsv(e.target.value)} className="w-full border rounded-3xl transition-all p-4 outline-none focus:ring-1 focus:ring-[#007AFF]" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }} placeholder="Marathon, Kraft..." />
-              </div>
-            </div>
-
-            <div className="pt-6">
-              <button
-                onClick={saveProfileEdits}
-                className="w-full bg-[#007AFF] hover:bg-[#0066CC] text-white font-bold py-4 rounded-3xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
-              >
-                {t("common.save")}
-              </button>
-            </div>
-          </AppCard>
-        </div>
-      )}
+      </BottomSheet>
 
       {/* MODAL: Statistiken */}
       {statsOpen && (
@@ -959,17 +1102,21 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
         </div>
       )}
 
-      {/* SETTINGS FULLSCREEN MODAL */}
-      {settingsOpen && (
-        <div className="fixed inset-0 z-[100] overscroll-none touch-pan-y" style={{ backgroundColor: "var(--bg-color)" }}>
-          <SettingPage
-            onBack={() => setSettingsOpen(false)}
-            onClearCalendar={onClearCalendar || (() => { })}
-            onOpenPaywall={openPaywall}
-            onOpenGoals={() => { }}
-          />
-        </div>
-      )}
+      {/* SETTINGS BOTTOM SHEET */}
+      <BottomSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        height="92dvh"
+        zIndex={100}
+      >
+        <SettingPage
+          onBack={() => setSettingsOpen(false)}
+          onClearCalendar={onClearCalendar || (() => { })}
+          onOpenPaywall={openPaywall}
+          onOpenGoals={() => { }}
+          isSheet
+        />
+      </BottomSheet>
     </>
   );
 };

@@ -1,0 +1,1 @@
+ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS garmin_data JSONB DEFAULT NULL;

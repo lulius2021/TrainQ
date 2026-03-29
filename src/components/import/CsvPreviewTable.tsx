@@ -3,6 +3,7 @@
 
 import React from "react";
 import type { CsvParsedRow } from "../../types/csvImport";
+import { useI18n } from "../../i18n/useI18n";
 
 interface CsvPreviewTableProps {
   rows: CsvParsedRow[];
@@ -12,7 +13,9 @@ interface CsvPreviewTableProps {
 const MAX_PREVIEW_ROWS = 50;
 
 const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ rows, matchedExercises }) => {
+  const { t } = useI18n();
   const displayed = rows.slice(0, MAX_PREVIEW_ROWS);
+  const remaining = rows.length - MAX_PREVIEW_ROWS;
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-[var(--border-color)]">
@@ -20,19 +23,19 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ rows, matchedExercise
         <thead>
           <tr className="bg-[var(--card-bg)] border-b border-[var(--border-color)]">
             <th className="text-left px-3 py-2.5 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-              Datum
+              {t("csvImport.colDate")}
             </th>
             <th className="text-left px-3 py-2.5 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-              Uebung
+              {t("csvImport.colExercise")}
             </th>
             <th className="text-right px-3 py-2.5 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-              Gewicht
+              {t("csvImport.colWeight")}
             </th>
             <th className="text-right px-3 py-2.5 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-              Wdh
+              {t("csvImport.colReps")}
             </th>
             <th className="text-right px-3 py-2.5 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
-              Saetze
+              {t("csvImport.colSets")}
             </th>
           </tr>
         </thead>
@@ -60,7 +63,7 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ rows, matchedExercise
                   )}
                   {isUnmatched && (
                     <div className="text-amber-400 text-xs mt-0.5">
-                      Nicht zugeordnet
+                      {t("csvImport.notMapped")}
                     </div>
                   )}
                 </td>
@@ -79,9 +82,9 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ rows, matchedExercise
         </tbody>
       </table>
 
-      {rows.length > MAX_PREVIEW_ROWS && (
+      {remaining > 0 && (
         <div className="px-3 py-2 text-center text-xs text-[var(--text-secondary)] bg-[var(--card-bg)] border-t border-[var(--border-color)]">
-          ... und {rows.length - MAX_PREVIEW_ROWS} weitere Zeilen
+          {t("csvImport.andMore", { count: remaining })}
         </div>
       )}
     </div>

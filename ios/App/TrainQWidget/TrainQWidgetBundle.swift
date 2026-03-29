@@ -12,7 +12,9 @@ import SwiftUI
 struct TrainQWidgetBundle: WidgetBundle {
     var body: some Widget {
         TrainQWidget()
-        TrainQWidgetControl()
+        if #available(iOS 18.0, *) {
+            TrainQWidgetControl()
+        }
         TrainQWidgetLiveActivity()
     }
 }

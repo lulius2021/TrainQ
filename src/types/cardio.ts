@@ -1,5 +1,4 @@
 // src/types/cardio.ts
-// Feature 5: GPS-Tracking types
 
 export interface GpsPoint {
   lat: number;
@@ -7,6 +6,12 @@ export interface GpsPoint {
   altitude?: number;
   accuracy?: number;
   timestamp: number; // epoch ms
+}
+
+export interface LapEntry {
+  number: number;
+  distanceM: number; // cumulative total distance at lap end
+  elapsedMs: number; // cumulative elapsed (excl. paused) at lap end
 }
 
 export interface CardioSessionState {
@@ -18,4 +23,5 @@ export interface CardioSessionState {
   distanceM: number;
   elevationGainM: number;
   currentPaceSecPerKm?: number;
+  laps: LapEntry[];
 }

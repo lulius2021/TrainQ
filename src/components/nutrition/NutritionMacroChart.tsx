@@ -1,13 +1,6 @@
 // src/components/nutrition/NutritionMacroChart.tsx
-import React from "react";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+// Pure SVG stacked bar chart — no Recharts (avoids React 19 crash)
+import React, { useRef, useState, useEffect } from "react";
 
 interface DataPoint {
   label: string;
@@ -21,87 +14,95 @@ interface NutritionMacroChartProps {
   data: DataPoint[];
 }
 
-const COLORS = {
-  protein: "#3b82f6",
-  carbs: "#f59e0b",
-  fat: "#ec4899",
-};
-
-const TooltipContent: React.FC<{ active?: boolean; payload?: any[] }> = ({
-  active,
-  payload,
-}) => {
-  if (!active || !payload?.length) return null;
-  const item = payload[0].payload as DataPoint;
-  return (
-    <div className="bg-[var(--card-bg)] border border-[var(--border-color)] shadow-xl rounded-2xl px-3 py-2 space-y-0.5">
-      <p className="text-[10px] text-[var(--text-secondary)]">{item.date}</p>
-      <p className="text-xs font-semibold" style={{ color: COLORS.protein }}>
-        P: {Math.round(item.protein)}g
-      </p>
-      <p className="text-xs font-semibold" style={{ color: COLORS.carbs }}>
-        K: {Math.round(item.carbs)}g
-      </p>
-      <p className="text-xs font-semibold" style={{ color: COLORS.fat }}>
-        F: {Math.round(item.fat)}g
-      </p>
-    </div>
-  );
-};
+const COLORS = { protein: "#3b82f6", carbs: "#f59e0b", fat: "#ec4899" };
+const H = 180;
+const PAD = { top: 10, right: 12, bottom: 24, left: 40 };
 
 const NutritionMacroChart: React.FC<NutritionMacroChartProps> = ({ data }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const cw = ref.current.clientWidth;
+    if (cw > 0) setW(cw);
+  }, []);
+
+  const chartW = w - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+  const maxTotal = Math.max(...data.map(d => d.protein + d.carbs + d.fat), 50);
+
+  const barW = Math.max(4, Math.min(20, (chartW / data.length) * 0.6));
+  const gap = (chartW - barW * data.length) / Math.max(data.length - 1, 1);
+
+  const toY = (v: number) => PAD.top + chartH - (v / maxTotal) * chartH;
+  const barX = (i: number) => PAD.left + i * (barW + gap);
+
+  // Y-axis ticks
+  const yTicks: number[] = [];
+  const step = Math.max(Math.ceil(maxTotal / 4 / 25) * 25, 25);
+  for (let v = 0; v <= maxTotal; v += step) yTicks.push(v);
+
+  const xInterval = Math.max(1, Math.floor(data.length / 5));
+
   return (
     <div className="w-full bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-          Makros
-        </h4>
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Makros</h4>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)]">
-            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.protein }} />
-            Protein
+            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.protein }} /> Protein
           </span>
           <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)]">
-            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.carbs }} />
-            Carbs
+            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.carbs }} /> Carbs
           </span>
           <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)]">
-            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.fat }} />
-            Fett
+            <span className="w-2 h-2 rounded-full" style={{ background: COLORS.fat }} /> Fett
           </span>
         </div>
       </div>
-      {data.length === 0 ? (
-        <div className="h-[180px] flex items-center justify-center text-sm text-[var(--text-secondary)]">
-          Keine Daten
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-            <XAxis
-              dataKey="label"
-              stroke="var(--text-secondary)"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              interval="preserveStartEnd"
-              minTickGap={20}
-            />
-            <YAxis
-              stroke="var(--text-secondary)"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `${v}g`}
-            />
-            <Tooltip content={<TooltipContent />} />
-            <Bar dataKey="protein" stackId="macros" fill={COLORS.protein} radius={[0, 0, 0, 0]} />
-            <Bar dataKey="carbs" stackId="macros" fill={COLORS.carbs} radius={[0, 0, 0, 0]} />
-            <Bar dataKey="fat" stackId="macros" fill={COLORS.fat} radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
+      <div ref={ref} style={{ width: "100%", height: H }}>
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-[var(--text-secondary)]">
+            Keine Daten
+          </div>
+        ) : w > 0 ? (
+          <svg width={w} height={H}>
+            {/* Grid */}
+            {yTicks.map(v => (
+              <line key={v} x1={PAD.left} x2={w - PAD.right} y1={toY(v)} y2={toY(v)}
+                stroke="var(--border-color)" strokeDasharray="3 3" />
+            ))}
+            {/* Bars */}
+            {data.map((d, i) => {
+              const total = d.protein + d.carbs + d.fat;
+              if (total === 0) return null;
+              const x = barX(i);
+              const fatH = (d.fat / maxTotal) * chartH;
+              const carbsH = (d.carbs / maxTotal) * chartH;
+              const proteinH = (d.protein / maxTotal) * chartH;
+              const baseY = PAD.top + chartH;
+              return (
+                <g key={i}>
+                  <rect x={x} y={baseY - proteinH} width={barW} height={proteinH} fill={COLORS.protein} rx={0} />
+                  <rect x={x} y={baseY - proteinH - carbsH} width={barW} height={carbsH} fill={COLORS.carbs} rx={0} />
+                  <rect x={x} y={baseY - proteinH - carbsH - fatH} width={barW} height={fatH} fill={COLORS.fat} rx={2} />
+                </g>
+              );
+            })}
+            {/* Y labels */}
+            {yTicks.map(v => (
+              <text key={v} x={PAD.left - 6} y={toY(v) + 3} textAnchor="end"
+                fontSize={10} fill="var(--text-secondary)">{v}g</text>
+            ))}
+            {/* X labels */}
+            {data.map((d, i) => i % xInterval === 0 || i === data.length - 1 ? (
+              <text key={i} x={barX(i) + barW / 2} y={H - 4} textAnchor="middle"
+                fontSize={10} fill="var(--text-secondary)">{d.label}</text>
+            ) : null)}
+          </svg>
+        ) : null}
+      </div>
     </div>
   );
 };

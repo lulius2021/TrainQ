@@ -7,6 +7,7 @@ export function useFeed(viewerId: string | undefined) {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [feedType, setFeedType] = useState<"forYou" | "following">("forYou");
+  const [error, setError] = useState<string | null>(null);
 
   // Use a ref for cursor so `load` doesn't depend on `posts`
   const postsRef = useRef<CommunityPost[]>([]);
@@ -14,10 +15,19 @@ export function useFeed(viewerId: string | undefined) {
   const load = useCallback(async (reset = false) => {
     if (!viewerId) return;
     setLoading(true);
+    if (reset) setError(null);
+
+    // Safety timeout: never leave the spinner stuck for more than 15 seconds
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setError("timeout");
+    }, 15000);
+
     try {
       const cursor = reset ? undefined : postsRef.current[postsRef.current.length - 1]?.createdAt;
       const params: FeedParams = { type: feedType, cursor, limit: 20 };
       const result = await getFeed(params, viewerId);
+      clearTimeout(safetyTimer);
       if (reset) {
         postsRef.current = result;
         setPosts(result);
@@ -27,9 +37,19 @@ export function useFeed(viewerId: string | undefined) {
         setPosts(next);
       }
       setHasMore(result.length >= 20);
-    } catch (e) {
+      setError(null);
+    } catch (e: any) {
+      clearTimeout(safetyTimer);
+      const msg = e?.message ?? String(e);
+      // Detect missing tables (relation does not exist)
+      if (/relation.*does not exist/i.test(msg) || /42P01/.test(msg)) {
+        setError("tables_missing");
+      } else {
+        setError(msg || "unknown");
+      }
       if (import.meta.env.DEV) console.error("Feed load error:", e);
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   }, [viewerId, feedType]);
@@ -42,6 +62,7 @@ export function useFeed(viewerId: string | undefined) {
     postsRef.current = [];
     setPosts([]);
     setHasMore(true);
+    setError(null);
   }, []);
 
   // Update a post in-place (e.g., after like/unlike)
@@ -61,5 +82,5 @@ export function useFeed(viewerId: string | undefined) {
     });
   }, []);
 
-  return { posts, loading, hasMore, feedType, switchFeed, refresh, loadMore, updatePost, removePost };
+  return { posts, loading, hasMore, feedType, error, switchFeed, refresh, loadMore, updatePost, removePost };
 }

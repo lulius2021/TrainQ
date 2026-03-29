@@ -53,10 +53,14 @@ import {
   abortLiveWorkout,
   applyTrainingStatusToEvent,
   getLastSetsForExercise,
+  getExerciseSessionCount,
 } from "../../utils/trainingHistory";
+import { loadWorkoutHistory } from "../../utils/workoutHistory";
 
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { grantWorkoutXp } from "../../store/useAvatarStore";
+import { useAuth } from "../../context/AuthContext";
+import { postWorkoutToFeed } from "../../services/community/postWorkout";
 import AvatarStageUpModal from "../../components/avatar/AvatarStageUpModal";
 import { buildPRBaseline, checkSetPR, type PRBaseline } from "../../utils/prDetection";
 import { getWeightSuggestion, type WeightSuggestion } from "../../utils/weightSuggestion";
@@ -65,9 +69,9 @@ import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
 import { formatMmSs, formatTimeParts } from "../../utils/timeFormat";
-import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
-import { LiveActivity } from "capacitor-live-activity"; // Import requested by prompt
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { clearLiveTrainingState, setLiveTrainingState, startFreshLiveActivity, type LiveActivityPayload } from "../../native/liveActivity";
+import { App as CapApp } from "@capacitor/app";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import WheelPicker from "../../components/ui/WheelPicker";
 import { ProfileService } from "../../services/ProfileService";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
@@ -225,6 +229,8 @@ export default function LiveTrainingPage({
   onMinimize,
   onShareWorkout,
 }: LiveTrainingPageProps) {
+  const { user: authUser } = useAuth();
+
   const event = useMemo(
     () => (eventId ? events.find((e) => e.id === eventId) : undefined),
     [events, eventId]
@@ -238,6 +244,7 @@ export default function LiveTrainingPage({
   const [showFinishReview, setShowFinishReview] = useState(false);
   const [showAbortConfirm, setShowAbortConfirm] = useState(false);
   const [reviewName, setReviewName] = useState("");
+  const [reviewRating, setReviewRating] = useState(0);
 
   // PR Detection State
   const [prBaseline, setPrBaseline] = useState<Map<string, PRBaseline> | null>(null);
@@ -245,6 +252,7 @@ export default function LiveTrainingPage({
   const [showConfetti, setShowConfetti] = useState(false);
   const [stageUpData, setStageUpData] = useState<{ stage: number; variant: "bulk" | "speed" } | null>(null);
   const [xpToast, setXpToast] = useState<number | null>(null);
+  const completedWorkoutIdRef = useRef<string | null>(null);
 
   const { theme } = useTheme();
 
@@ -252,49 +260,10 @@ export default function LiveTrainingPage({
 
 
 
-  // --- LIVE ACTIVITY LOGIC (SIMPLIFIED) ---
-  const startLiveActivity = async () => {
-    try {
-      const currentExercise = workout?.exercises[0]; // fallback to first ex
-      const exName = currentExercise?.name || "Training läuft";
-      const setTxt = "Satz 1";
-
-      await LiveActivity.startActivity({
-        id: "TRAINQ_LIVE_WORKOUT",
-        attributes: {}, // EMPTY as requested
-        contentState: {
-          exerciseName: exName,
-          setInfo: setTxt,
-          progressValue: 0.0
-        } as any,
-      });
-    } catch (e) {
-      if (import.meta.env.DEV) console.error("Widget Fehler:", e);
-    }
-  };
-
-  const endLiveActivity = async () => {
-    try {
-      await LiveActivity.endActivity({
-        id: "TRAINQ_LIVE_WORKOUT",
-        contentState: {
-          exerciseName: "Training beendet",
-          setInfo: "Fertig",
-          progressValue: 1.0
-        } as any
-      });
-    } catch (e) { }
-  };
-
+  // Live Activity cleanup on unmount
   useEffect(() => {
-    // Start automatically on mount
-    startLiveActivity();
-
-    return () => {
-      endLiveActivity();
-    };
+    return () => { clearLiveTrainingState(); };
   }, []);
-  // ---------------------------------
   const [initError, setInitError] = useState<string | null>(null);
 
   const [elapsedSec, setElapsedSec] = useState<number>(0);
@@ -310,6 +279,65 @@ export default function LiveTrainingPage({
   const restTimerRef = useRef<number | null>(null);
 
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
+
+  // Build smart swap suggestions: scored by muscle overlap, movement, and user history
+  const swapSuggestions = useMemo(() => {
+    if (!swappingExerciseId || !workout) return [];
+    const swappingEx = workout.exercises.find(e => e.id === swappingExerciseId);
+    if (!swappingEx) return [];
+
+    const srcLib = swappingEx.exerciseId ? EXERCISES.find(e => e.id === swappingEx.exerciseId) : null;
+    const srcMuscles: string[] = srcLib?.primaryMuscles ?? [];
+    const srcSecondary: string[] = srcLib?.secondaryMuscles ?? [];
+    const srcMovement: string = srcLib?.movement ?? "";
+
+    // Build set of exerciseIds the user has trained before
+    const history = loadWorkoutHistory();
+    const trainedIds = new Set<string>();
+    const trainedCounts = new Map<string, number>();
+    for (const w of history) {
+      for (const e of w.exercises ?? []) {
+        if (!e.exerciseId) continue;
+        trainedIds.add(e.exerciseId);
+        trainedCounts.set(e.exerciseId, (trainedCounts.get(e.exerciseId) ?? 0) + 1);
+      }
+    }
+
+    const scored = EXERCISES
+      .filter(e => e.id !== swappingEx.exerciseId)
+      .map(e => {
+        let score = 0;
+        const eMuscles: string[] = e.primaryMuscles ?? [];
+        const eSecondary: string[] = e.secondaryMuscles ?? [];
+
+        // Primary muscle overlap (highest weight)
+        const primaryMatch = eMuscles.filter(m => srcMuscles.includes(m)).length;
+        score += primaryMatch * 10;
+
+        // Cross-match: candidate primary hits source secondary and vice-versa
+        const crossMatch = eMuscles.filter(m => srcSecondary.includes(m)).length
+          + eSecondary.filter(m => srcMuscles.includes(m)).length;
+        score += crossMatch * 4;
+
+        // Same movement pattern (push/pull/squat/hinge etc.)
+        if (srcMovement && e.movement === srcMovement) score += 6;
+
+        // User has done this exercise before
+        const count = trainedCounts.get(e.id) ?? 0;
+        if (count >= 5) score += 8;
+        else if (count >= 2) score += 5;
+        else if (count >= 1) score += 2;
+
+        return { exercise: e, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+      .map(({ exercise }) => exercise);
+
+    return scored;
+  }, [swappingExerciseId, workout]);
   const liveActivityLastUpdateRef = useRef(0);
 
   const [pendingScrollToExerciseId, setPendingScrollToExerciseId] = useState<string | null>(null);
@@ -351,6 +379,20 @@ export default function LiveTrainingPage({
       setInitError(null);
       setWorkout(next);
       setInitDone(true);
+    };
+
+    // Called only for FRESH starts (not resumes) — starts Live Activity immediately
+    const launchLiveActivity = (w: LiveWorkout) => {
+      const allSets = w.exercises.flatMap((e) => e.sets || []);
+      startFreshLiveActivity({
+        exerciseName: w.title || "Training",
+        setInfo: "Training gestartet",
+        setDetail: "",
+        completedSets: 0,
+        totalSetsCount: allSets.length,
+        restEndsAt: 0,
+        progress: 0,
+      });
     };
 
     try {
@@ -401,6 +443,7 @@ export default function LiveTrainingPage({
 
         const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
         setAndMark(merged);
+        launchLiveActivity(merged);
 
         const started = new Date(merged.startedAt).getTime();
         startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
@@ -428,6 +471,7 @@ export default function LiveTrainingPage({
 
         const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
         setAndMark(merged);
+        launchLiveActivity(merged);
 
         const started = new Date(merged.startedAt).getTime();
         startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
@@ -447,6 +491,7 @@ export default function LiveTrainingPage({
 
       const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
       setAndMark(merged);
+      launchLiveActivity(merged);
 
       const started = new Date(merged.startedAt).getTime();
       startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
@@ -638,14 +683,17 @@ export default function LiveTrainingPage({
 
   // ...
 
-  const toggleSetCompleted = (exerciseId: string, setId: string) => {
+  const toggleSetCompleted = (exerciseId: string, setId: string, autofill?: { weight?: number; reps?: number }) => {
     if (!workout) return;
 
-    // Find the exercise and set for PR check (before state update)
+    // Capture side-effect values from current (non-stale) workout state
     const exerciseForPR = workout.exercises.find((e) => e.id === exerciseId);
     const setForPR = exerciseForPR?.sets?.find((s) => s.id === setId);
-    const isTogglingOn = setForPR ? !setForPR.completed : false;
+    const wasCompleted = setForPR?.completed ?? false; // current state BEFORE toggle
+    const isTogglingOn = !wasCompleted;
+    const rest = exerciseForPR ? normalizeRestSeconds((exerciseForPR as any).restSeconds) : undefined;
 
+    // Single state update — autofill + toggle in one pass
     setWorkout((prev) => {
       if (!prev) return prev;
       const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
@@ -653,26 +701,17 @@ export default function LiveTrainingPage({
       const nextExercises = prevExercises.map((e) => {
         if (e.id !== exerciseId) return e;
 
-        const sets = Array.isArray(e.sets) ? e.sets : [];
+        const sets = Array.isArray(e.sets) ? e.sets.filter(Boolean) : [];
         const nextSets = sets.map((s) => {
-          if (s.id !== setId) return s;
-
-
-          const nextCompleted = !s.completed;
-          let rest = normalizeRestSeconds((e as any).restSeconds);
-
-          if (nextCompleted) {
-            Haptics.impact({ style: ImpactStyle.Light }).catch(() => { });
-
-            // Auto-start Timer Logic (Only if rest is explicitly set)
-            if (typeof rest === "number" && rest > 0) {
-              setActiveRest({ exerciseId, setId, restSeconds: rest });
-            }
-          } else {
-            setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
+          if (!s || s.id !== setId) return s;
+          const nowCompleted = !s.completed;
+          const filled: typeof s = { ...s };
+          // Apply autofill only when toggling ON and field is empty
+          if (nowCompleted && autofill) {
+            if (autofill.weight != null && !s.weight) filled.weight = autofill.weight;
+            if (autofill.reps != null && !s.reps) filled.reps = autofill.reps;
           }
-
-          return { ...s, completed: nextCompleted, completedAt: nextCompleted ? nowISO() : undefined };
+          return { ...filled, completed: nowCompleted, completedAt: nowCompleted ? nowISO() : undefined };
         });
 
         return { ...e, sets: nextSets } as LiveExercise;
@@ -681,7 +720,17 @@ export default function LiveTrainingPage({
       return { ...prev, exercises: nextExercises };
     });
 
-    // PR Detection: check after toggling on, remove after toggling off
+    // Side effects OUTSIDE the updater
+    if (isTogglingOn) {
+      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => { });
+      if (typeof rest === "number" && rest > 0) {
+        setActiveRest({ exerciseId, setId, restSeconds: rest });
+      }
+    } else {
+      setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
+    }
+
+    // PR Detection: only one gold set per exercise (the strongest)
     if (isTogglingOn && exerciseForPR && setForPR && prBaseline) {
       const result = checkSetPR(
         exerciseForPR.name,
@@ -689,8 +738,25 @@ export default function LiveTrainingPage({
         prBaseline
       );
       if (result.isPR) {
+        const newWeight = Number(setForPR.weight ?? 0);
+        const newReps = Number(setForPR.reps ?? 0);
+        const newE1RM = newReps >= 1 && newReps <= 10 ? newWeight * (1 + newReps / 30) : newWeight;
+
         setPrSets((prev) => {
           const next = new Set(prev);
+          const allSets = exerciseForPR.sets ?? [];
+          for (const s of allSets) {
+            if (s && prev.has(s.id) && s.id !== setId) {
+              const sW = Number(s.weight ?? 0);
+              const sR = Number(s.reps ?? 0);
+              const sE1RM = sR >= 1 && sR <= 10 ? sW * (1 + sR / 30) : sW;
+              if (newE1RM >= sE1RM) {
+                next.delete(s.id);
+              } else {
+                return prev;
+              }
+            }
+          }
           next.add(setId);
           return next;
         });
@@ -706,6 +772,21 @@ export default function LiveTrainingPage({
       });
     }
   };
+
+  // Deep link handler: trainq://complete-set → toggles active set
+  const overlayDataRef = useRef(overlayData);
+  overlayDataRef.current = overlayData;
+  useEffect(() => {
+    const sub = CapApp.addListener("appUrlOpen", (data) => {
+      if (!data.url.startsWith("trainq://complete-set")) return;
+      const current = overlayDataRef.current;
+      if (!current?.activeExercise || current.activeSetIndex == null) return;
+      const setId = current.activeExercise.sets?.[current.activeSetIndex]?.id;
+      if (setId) toggleSetCompleted(current.activeExercise.id, setId);
+    });
+    return () => { sub.then((h) => h.remove()); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ... (history remain same)
 
@@ -861,13 +942,30 @@ export default function LiveTrainingPage({
   }, [overlayData?.exercises]);
 
   const handleCloseLibrary = useCallback(() => setLibraryOpen(false), []);
+  const handleCloseSwap = useCallback(() => setSwappingExerciseId(null), []);
 
   const handlePickExercise = useCallback((ex: any) => {
     if (addExerciseDirectRef.current) {
       addExerciseDirectRef.current({ exerciseId: ex.id, name: ex.name });
     }
-    setLibraryOpen(false);
+    // Modal bleibt offen — Nutzer kann mehrere Übungen auswählen
   }, []);
+
+  const handlePickSwap = useCallback((ex: any) => {
+    if (!swappingExerciseId) return;
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        exercises: prev.exercises.map((e) =>
+          e.id === swappingExerciseId
+            ? { ...e, exerciseId: ex.id, name: ex.name }
+            : e
+        ),
+      };
+    });
+    setSwappingExerciseId(null);
+  }, [swappingExerciseId]);
 
   const moveExercise = (exerciseId: string, direction: "up" | "down") => {
     if (!workout) return;
@@ -950,6 +1048,10 @@ export default function LiveTrainingPage({
 
   const addWarmupSets = (exerciseId: string) => {
     if (!workout) return;
+    // Get working weight from history (last trained weight) or fall back to current first set
+    const historyEntry = historyByExerciseLocalId.get(exerciseId);
+    const historyWeight = historyEntry?.sets?.find((s) => typeof s.weight === "number" && s.weight > 0)?.weight;
+
     setWorkout((prev) => {
       if (!prev) return prev;
       const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
@@ -958,20 +1060,28 @@ export default function LiveTrainingPage({
         exercises: prevExercises.map((e) => {
           if (e.id !== exerciseId) return e;
           const sets = Array.isArray(e.sets) ? e.sets : [];
-          // Find first working set weight
-          const firstWorking = sets.find((s) => s.setType !== "warmup" && (s as any).type !== "w");
-          const workingWeight = firstWorking?.weight;
-          if (typeof workingWeight !== "number" || workingWeight <= 0) return e;
-          const warmups = calculateWarmupSets(workingWeight);
-          if (warmups.length === 0) return e;
-          const warmupLiveSets: LiveSet[] = warmups.map((ws) => ({
-            id: uid(),
-            weight: ws.weight,
-            reps: ws.reps,
-            completed: false,
-            setType: "warmup" as const,
-            tag: "W" as const,
-          }));
+          // Use history weight first, then fall back to first working set in current workout
+          const firstWorking = sets.find((s) => (s as any).type !== "w");
+          const currentWeight = (typeof firstWorking?.weight === "number" && firstWorking.weight > 0)
+            ? firstWorking.weight : 0;
+          const workingWeight = historyWeight ?? currentWeight;
+          const calculated = workingWeight > 20 ? calculateWarmupSets(workingWeight) : [];
+          // Create warmup sets with type: "w" so ExerciseEditor shows "W" label
+          const warmupLiveSets = (calculated.length > 0
+            ? calculated.map((ws) => ({
+                id: uid(),
+                weight: ws.weight,
+                reps: ws.reps,
+                completed: false,
+                type: "w",
+              }))
+            : [{
+                id: uid(),
+                weight: undefined,
+                reps: undefined,
+                completed: false,
+                type: "w",
+              }]) as unknown as LiveSet[];
           return { ...e, sets: [...warmupLiveSets, ...sets] };
         }),
       };
@@ -987,7 +1097,7 @@ export default function LiveTrainingPage({
       return {
         ...prev,
         exercises: prevExercises.map((e) =>
-          e.id === exerciseId ? { ...e, sets: (e.sets || []).filter((s) => s.id !== setId) } : e
+          e.id === exerciseId ? { ...e, sets: (e.sets || []).filter((s) => s && s.id !== setId) } : e
         ),
       };
     });
@@ -1006,8 +1116,8 @@ export default function LiveTrainingPage({
         ...prev,
         exercises: prevExercises.map((e) => {
           if (e.id !== exerciseId) return e;
-          const sets = Array.isArray(e.sets) ? e.sets : [];
-          return { ...e, sets: sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)) };
+          const sets = Array.isArray(e.sets) ? e.sets.filter(Boolean) : [];
+          return { ...e, sets: sets.map((s) => (s && s.id === setId ? { ...s, ...patch } : s)) };
         }),
       };
     });
@@ -1023,6 +1133,13 @@ export default function LiveTrainingPage({
     return map;
   }, [workout?.exercises]);
 
+  const sessionCountByExerciseId = useMemo(() => {
+    if (!workout) return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const ex of workout.exercises) map.set(ex.id, getExerciseSessionCount(ex));
+    return map;
+  }, [workout?.exercises]);
+
   const buildLiveActivityPayload = useCallback((): LiveActivityPayload | null => {
     if (!workout || !overlayData) return null;
 
@@ -1030,44 +1147,51 @@ export default function LiveTrainingPage({
     const activeExerciseIndex = overlayData.activeExercise ? exercises.indexOf(overlayData.activeExercise) : -1;
     const currentEx = activeExerciseIndex !== -1 ? exercises[activeExerciseIndex] : null;
 
+    // Overall progress across all exercises
+    const allSets = exercises.flatMap((e) => e.sets || []);
+    const allCompleted = allSets.filter((s) => s.completed).length;
+    const overallProgress = allSets.length > 0 ? allCompleted / allSets.length : 0;
+
     if (!currentEx) {
       return {
         exerciseName: workout.title || "Training",
         setInfo: "Training läuft",
-        nextSet: "",
-        progress: 0,
+        setDetail: "",
+        completedSets: allCompleted,
+        totalSetsCount: allSets.length,
+        restEndsAt: 0,
+        progress: overallProgress,
       };
     }
 
-    const totalSets = currentEx.sets?.length || 0;
-    // Current completed sets
+    const totalSetsCount = currentEx.sets?.length || 0;
     const completedSets = (currentEx.sets || []).filter((s) => s.completed).length;
-    const progress = totalSets > 0 ? completedSets / totalSets : 0;
-
-    // Set info
     const setNumber = (overlayData.activeSetIndex ?? 0) + 1;
-    const currentSetInfo = `Satz ${setNumber} von ${totalSets}`;
+    const currentSetInfo = `Satz ${setNumber} von ${totalSetsCount}`;
 
-    // Next set info
-    let nextSetInfo = "Übung abgeschlossen";
-    if (overlayData.activeSetIndex !== undefined && overlayData.activeSetIndex + 1 < totalSets) {
-      const nextSet = currentEx.sets![overlayData.activeSetIndex + 1];
-      if (nextSet) {
-        const w = nextSet.weight ? `${nextSet.weight}kg` : "";
-        const r = nextSet.reps ? `${nextSet.reps} Wdh` : "";
-        nextSetInfo = `Nächstes: ${w} ${w && r ? "x" : ""} ${r}`.trim();
-      }
-    } else if (completedSets < totalSets) {
-      nextSetInfo = "Nächster Satz wartet";
+    // Detail for active set: "80 kg × 8 Wdh"
+    const activeSet = overlayData.activeSetIndex != null ? currentEx.sets?.[overlayData.activeSetIndex] : undefined;
+    let setDetail = "";
+    if (activeSet) {
+      const w = activeSet.weight ? `${activeSet.weight} kg` : "";
+      const r = activeSet.reps ? `${activeSet.reps} Wdh` : "";
+      setDetail = w && r ? `${w} × ${r}` : w || r;
     }
+
+    const restEndsAt = restRemainingSec != null && restRemainingSec > 0
+      ? Math.floor(Date.now() / 1000) + restRemainingSec
+      : 0;
 
     return {
       exerciseName: currentEx.name || "Übung",
       setInfo: currentSetInfo,
-      nextSet: nextSetInfo,
-      progress,
+      setDetail,
+      completedSets,
+      totalSetsCount,
+      restEndsAt,
+      progress: overallProgress,
     };
-  }, [workout, overlayData]);
+  }, [workout, overlayData, restRemainingSec]);
 
   useEffect(() => {
     if (!workout || !workout.isActive) return;
@@ -1083,6 +1207,7 @@ export default function LiveTrainingPage({
     workout?.isActive,
     elapsedSec,
     totalSets,
+    restRemainingSec,
     overlayData?.exercises.length,
     overlayData?.cardioDistance,
     overlayData?.overlayPrimaryText,
@@ -1103,22 +1228,30 @@ export default function LiveTrainingPage({
   const handleFinishClick = () => {
     if (!workout || statsOpen) return;
     setReviewName(workout.title || "Training");
+    setReviewRating(0);
     setShowFinishReview(true);
   };
 
   const confirmFinish = () => {
     if (!workout) return;
-    const finalWorkout = { ...workout, title: reviewName }; // Apply renamed title
+    const finalWorkout = { ...workout, title: reviewName, rating: reviewRating > 0 ? reviewRating : undefined } as any; // Apply renamed title + rating
     const completed = completeLiveWorkout(finalWorkout);
     markCalendarEvent("completed", completed.id);
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
+    Haptics.notification({ type: NotificationType.Success }).catch(() => { });
+
+    // Auto-post to community feed (fire-and-forget)
+    if (authUser?.id) {
+      postWorkoutToFeed(completed, authUser.id);
+    }
 
     // Grant avatar XP
     const { granted, stageUp } = grantWorkoutXp(completed);
     if (granted > 0) setXpToast(granted);
 
     if (stageUp) {
+      completedWorkoutIdRef.current = completed.id;
       setStageUpData(stageUp);
       // Delay exit until modal is dismissed
       return;
@@ -1301,7 +1434,7 @@ export default function LiveTrainingPage({
                   </AppButton>
                 </AppCard>
               ) : (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2.5">
                   {exercises.map((ex, exIdx) => (
                     <div key={`${ex.id}-${exIdx}`} ref={(node) => { exerciseRefs.current[ex.id] = node; }}>
                       <ExerciseEditor
@@ -1315,14 +1448,16 @@ export default function LiveTrainingPage({
                         onAddSet={() => addSet(ex.id)}
                         onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
                         onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
-                        onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
+                        onToggleSet={(setId: string, autofill?: { weight?: number; reps?: number }) => toggleSetCompleted(ex.id, setId, autofill)}
                         onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
+                        onSwap={() => setSwappingExerciseId(ex.id)}
                         onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
                         onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
                         onOpenExerciseDetails={handleOpenDetails}
                         onOpenTimer={handleOpenTimer}
                         weightSuggestion={weightSuggestions.get(ex.id)}
                         onAddWarmupSets={!isCardioWorkout ? () => addWarmupSets(ex.id) : undefined}
+                        historySessionCount={sessionCountByExerciseId.get(ex.id) ?? 0}
                         prSets={prSets}
                       />
                     </div>
@@ -1364,6 +1499,19 @@ export default function LiveTrainingPage({
             onPick={handlePickExercise}
             existingExerciseIds={existingExerciseIds}
           />
+
+          {/* Swap modal */}
+          {swappingExerciseId && (
+            <ExerciseLibraryModal
+              open={true}
+              title={`Tauschen: ${workout?.exercises.find(e => e.id === swappingExerciseId)?.name ?? "Übung"}`}
+              onClose={handleCloseSwap}
+              category="gym"
+              onPick={handlePickSwap}
+              swapMode
+              suggestedExercises={swapSuggestions}
+            />
+          )}
 
           {workout && (
             <LiveStatsOverlay
@@ -1416,12 +1564,12 @@ export default function LiveTrainingPage({
         {/* 1. Abort Confirmation */}
         {showAbortConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-white/10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500 mb-4">
+            <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center" style={{ backgroundColor: "var(--card-bg)", borderWidth: 1, borderColor: "var(--border-color)" }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-red-500 mb-4" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
-              <h3 className="text-xl font-bold text-black dark:text-white mb-2">Training abbrechen?</h3>
-              <p className="text-slate-600 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>Training abbrechen?</h3>
+              <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                 Alle bisherigen Daten dieses Workouts gehen verloren. Bist du sicher?
               </p>
               <div className="flex flex-col gap-3 w-full">
@@ -1433,7 +1581,8 @@ export default function LiveTrainingPage({
                 </button>
                 <button
                   onClick={() => setShowAbortConfirm(false)}
-                  className="w-full py-3.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-semibold active:scale-95 transition-transform"
+                  className="w-full py-3.5 rounded-xl font-semibold active:scale-95 transition-transform"
+                  style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
                 >
                   Nein, Weiter trainieren
                 </button>
@@ -1445,37 +1594,56 @@ export default function LiveTrainingPage({
         {/* 2. Finish Review */}
         {showFinishReview && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
-            <div className="w-full max-w-md bg-white dark:bg-[#121214] rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl border-t sm:border border-white/10 animate-in slide-in-from-bottom-10 fade-in duration-200">
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full mx-auto mb-6 sm:hidden" />
+            <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
+              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
 
-              <h2 className="text-2xl font-bold text-black dark:text-white mb-6 text-center">Zusammenfassung</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-color)" }}>Zusammenfassung</h2>
 
               <div className="space-y-4 mb-8">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Name des Trainings</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>Name des Trainings</label>
                   <input
                     type="text"
                     value={reviewName}
                     onChange={e => setReviewName(e.target.value)}
-                    className="w-full bg-slate-100 dark:bg-zinc-900 text-black dark:text-white text-lg font-semibold px-4 py-3.5 rounded-xl border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-300"
+                    className="w-full text-lg font-semibold px-4 py-3.5 rounded-xl border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
                     placeholder="Training Name"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
-                    <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Dauer</span>
-                    <span className="text-xl font-bold text-black dark:text-white tabular-nums">{overlayData?.elapsedText}</span>
+                  <div className="p-4 rounded-2xl flex flex-col items-center" style={{ backgroundColor: "var(--bg-color)" }}>
+                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>Dauer</span>
+                    <span className="text-xl font-bold tabular-nums" style={{ color: "var(--text-color)" }}>{overlayData?.elapsedText}</span>
                   </div>
-                  <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
-                    <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Volumen</span>
-                    <span className="text-xl font-bold text-black dark:text-white tabular-nums">
+                  <div className="p-4 rounded-2xl flex flex-col items-center" style={{ backgroundColor: "var(--bg-color)" }}>
+                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>Volumen</span>
+                    <span className="text-xl font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
                       {isCardioWorkout
                         ? (overlayData?.cardioDistance ? overlayData.cardioDistance.toFixed(1) + " km" : "-")
                         : (workout?.exercises.reduce((acc, ex) => acc + (ex.sets || []).reduce((sAcc, s) => (s.completed && typeof s.weight === 'number' && typeof s.reps === 'number' ? sAcc + (s.weight * s.reps) : sAcc), 0), 0) / 1000).toFixed(1) + " t"
                       }
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Star Rating */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3 text-center" style={{ color: "var(--text-secondary)" }}>Wie war das Training?</label>
+                <div className="flex justify-center gap-3">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onPointerDown={(e) => { e.stopPropagation(); setReviewRating(reviewRating === star ? 0 : star); }}
+                      className="text-3xl transition-transform active:scale-90"
+                      style={{ filter: star <= reviewRating ? "none" : "grayscale(1) opacity(0.3)" }}
+                    >
+                      ⭐
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1488,7 +1656,8 @@ export default function LiveTrainingPage({
                 </button>
                 <button
                   onClick={() => setShowFinishReview(false)}
-                  className="w-full py-3 rounded-xl text-slate-500 dark:text-zinc-500 font-medium hover:text-slate-800 dark:hover:text-zinc-300 transition-colors"
+                  className="w-full py-3 rounded-xl font-medium transition-colors"
+                  style={{ color: "var(--text-secondary)" }}
                 >
                   Zurück zum Training
                 </button>
@@ -1512,8 +1681,10 @@ export default function LiveTrainingPage({
           data={stageUpData}
           onDismiss={() => {
             setStageUpData(null);
-            if (typeof onShareWorkout === "function" && workout) {
-              // workout was already completed; completed entry id is in lastWorkoutId
+            const cid = completedWorkoutIdRef.current;
+            completedWorkoutIdRef.current = null;
+            if (typeof onShareWorkout === "function" && cid) {
+              onShareWorkout(cid);
             } else {
               onExit();
             }

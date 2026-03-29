@@ -1,8 +1,10 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
     Dumbbell, Footprints, Bike, Star, AlertTriangle,
-    ChevronRight, Plus, Play, Trash2, X, MapPin
+    ChevronRight, Plus, Play, Trash2, X, MapPin, Sparkles
 } from "lucide-react";
+import { BottomSheet } from "../components/common/BottomSheet";
+import { useModalStore } from "../store/useModalStore";
 import type { CalendarEvent, TrainingType } from "../types/training";
 import { useTodaysSessions } from "../hooks/useTodaysSessions";
 import { useI18n } from "../i18n/useI18n";
@@ -56,7 +58,15 @@ function makeDefaultSets(count = 3): TemplateSet[] {
     return Array.from({ length: count }, () => ({ reps: 10, weight: 0 }));
 }
 
-// ---- Create Template Modal (full-screen editor) ----
+// Sport options for template modal
+const TEMPLATE_SPORTS: { id: TrainingType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
+    { id: "gym",      label: "Gym",      icon: <Dumbbell size={20} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "laufen",   label: "Laufen",   icon: <Footprints size={20} />, color: "#34C759", bg: "rgba(52,199,89,0.12)" },
+    { id: "radfahren",label: "Rad",      icon: <Bike size={20} />,       color: "#FF9500", bg: "rgba(255,149,0,0.12)" },
+    { id: "custom",   label: "Custom",   icon: <Sparkles size={20} />,   color: "#AF52DE", bg: "rgba(175,82,222,0.12)" },
+];
+
+// ---- Create Template Modal (BottomSheet editor) ----
 function CreateTemplateModal({ open, onClose, onSave }: {
     open: boolean;
     onClose: () => void;
@@ -71,7 +81,19 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const [customNameInput, setCustomNameInput] = useState("");
     const [showCustomInput, setShowCustomInput] = useState(false);
 
-    // Reset state when sport changes
+    // Reset form when sheet opens
+    useEffect(() => {
+        if (open) {
+            setTitle("");
+            setSport("gym");
+            setExercises([]);
+            setCardioDuration("");
+            setCardioDistance("");
+            setCustomNameInput("");
+            setShowCustomInput(false);
+        }
+    }, [open]);
+
     const handleSportChange = (newSport: TrainingType) => {
         setSport(newSport);
         setExercises([]);
@@ -81,40 +103,26 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         setShowCustomInput(false);
     };
 
-    if (!open) return null;
-
     const isCardio = sport === "laufen" || sport === "radfahren";
+    const activeSport = TEMPLATE_SPORTS.find((s) => s.id === sport)!;
 
     const handleSave = () => {
         if (!title.trim()) return;
         let finalExercises: TemplateExercise[] | undefined;
-
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
         } else if (isCardio) {
             const mins = typeof cardioDuration === "number" ? cardioDuration : 0;
             const km = typeof cardioDistance === "number" ? cardioDistance : 0;
             if (mins > 0 || km > 0) {
-                finalExercises = [{
-                    name: sport === "laufen" ? "Laufen" : "Radfahren",
-                    sets: [{ reps: mins, weight: km }],
-                }];
+                finalExercises = [{ name: sport === "laufen" ? "Laufen" : "Radfahren", sets: [{ reps: mins, weight: km }] }];
             }
         }
-
         onSave({ title: title.trim(), sportType: sport, exercises: finalExercises });
-        setTitle("");
-        setSport("gym");
-        setExercises([]);
-        setCardioDuration("");
-        setCardioDistance("");
     };
 
     const handlePickExercise = (exercise: Exercise) => {
-        setExercises((prev) => [
-            ...prev,
-            { exerciseId: exercise.id, name: exercise.name, sets: makeDefaultSets() },
-        ]);
+        setExercises((prev) => [...prev, { exerciseId: exercise.id, name: exercise.name, sets: makeDefaultSets() }]);
         setShowLibrary(false);
     };
 
@@ -132,17 +140,13 @@ function CreateTemplateModal({ open, onClose, onSave }: {
 
     const handleAddSet = (exIdx: number) => {
         setExercises((prev) =>
-            prev.map((ex, i) =>
-                i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: 10, weight: 0 }] } : ex
-            )
+            prev.map((ex, i) => i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: 10, weight: 0 }] } : ex)
         );
     };
 
     const handleRemoveSet = (exIdx: number, setIdx: number) => {
         setExercises((prev) =>
-            prev.map((ex, i) =>
-                i === exIdx ? { ...ex, sets: (ex.sets ?? []).filter((_, si) => si !== setIdx) } : ex
-            )
+            prev.map((ex, i) => i === exIdx ? { ...ex, sets: (ex.sets ?? []).filter((_, si) => si !== setIdx) } : ex)
         );
     };
 
@@ -151,425 +155,196 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         if (isNaN(num)) return;
         setExercises((prev) =>
             prev.map((ex, i) =>
-                i === exIdx
-                    ? {
-                          ...ex,
-                          sets: (ex.sets ?? []).map((s, si) =>
-                              si === setIdx ? { ...s, [field]: num } : s
-                          ),
-                      }
-                    : ex
+                i === exIdx ? { ...ex, sets: (ex.sets ?? []).map((s, si) => si === setIdx ? { ...s, [field]: num } : s) } : ex
             )
         );
     };
-
-    const sportOptions: { value: TrainingType; label: string }[] = [
-        { value: "gym", label: "Gym" },
-        { value: "laufen", label: "Laufen" },
-        { value: "radfahren", label: "Radfahren" },
-        { value: "custom", label: "Custom" },
-    ];
 
     const existingIds = exercises.map((e) => e.exerciseId).filter(Boolean) as string[];
 
     return (
         <>
-            <div
-                className="fixed inset-0 z-[100] flex flex-col"
-                style={{ backgroundColor: "var(--modal-bg)" }}
+            <BottomSheet
+                open={open}
+                onClose={onClose}
+                height="88dvh"
+                footer={
+                    <div className="px-4 pt-3 pb-2">
+                        <button
+                            onClick={handleSave}
+                            disabled={!title.trim()}
+                            className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white active:scale-[0.97] transition-all disabled:opacity-40"
+                            style={{ backgroundColor: activeSport.color, boxShadow: `0 4px 16px ${activeSport.color}55` }}
+                        >
+                            Vorlage speichern
+                        </button>
+                    </div>
+                }
             >
-                {/* Header */}
-                <div
-                    className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-                    style={{
-                        borderColor: "var(--border-color)",
-                        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
-                    }}
-                >
-                    <button
-                        onClick={onClose}
-                        className="w-9 h-9 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--button-bg)" }}
-                    >
-                        <X size={18} style={{ color: "var(--text-secondary)" }} />
-                    </button>
-                    <h3 className="text-[17px] font-bold" style={{ color: "var(--text-color)" }}>
-                        Neue Vorlage
-                    </h3>
-                    <button
-                        onClick={handleSave}
-                        disabled={!title.trim()}
-                        className="text-sm font-bold px-4 py-2 rounded-xl disabled:opacity-40"
-                        style={{ color: "#007AFF" }}
-                    >
-                        Speichern
-                    </button>
-                </div>
+                <div className="px-5 pt-2 pb-6 space-y-5">
+                    {/* Header */}
+                    <div>
+                        <h2 className="text-[28px] font-black tracking-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.5px" }}>
+                            Vorlage erstellen
+                        </h2>
+                        <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                            Speichere dein Lieblingstraining
+                        </p>
+                    </div>
 
-                {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto px-4 pb-20">
-                    <div className="max-w-md mx-auto space-y-6 pt-5">
-                        {/* Title */}
-                        <div>
-                            <label
-                                className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block"
-                                style={{ color: "var(--text-secondary)" }}
-                            >
-                                Bezeichnung
-                            </label>
-                            <input
-                                type="text"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="z.B. Push Day, Oberkörper..."
-                                className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
+                    {/* Sport Selection */}
+                    <div className="grid grid-cols-4 gap-2">
+                        {TEMPLATE_SPORTS.map((s) => (
+                            <button
+                                key={s.id}
+                                onClick={() => handleSportChange(s.id)}
+                                className="flex flex-col items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-[0.95]"
                                 style={{
-                                    backgroundColor: "var(--input-bg)",
-                                    borderColor: "var(--border-color)",
-                                    color: "var(--text-color)",
+                                    backgroundColor: sport === s.id ? s.bg : "var(--button-bg)",
+                                    border: `1.5px solid ${sport === s.id ? s.color : "var(--border-color)"}`,
+                                    color: sport === s.id ? s.color : "var(--text-secondary)",
                                 }}
-                            />
-                        </div>
-
-                        {/* Sport type */}
-                        <div>
-                            <label
-                                className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block"
-                                style={{ color: "var(--text-secondary)" }}
                             >
-                                Sportart
-                            </label>
-                            <div className="grid grid-cols-4 gap-2">
-                                {sportOptions.map((o) => {
-                                    const sc = sportColor(o.value);
-                                    return (
-                                        <button
-                                            key={o.value}
-                                            onClick={() => handleSportChange(o.value)}
-                                            className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-[0.97]"
-                                            style={{
-                                                backgroundColor: sport === o.value ? sc.bg : "var(--button-bg)",
-                                                borderColor: sport === o.value ? sc.color : "var(--border-color)",
-                                                color: sport === o.value ? sc.color : "var(--text-secondary)",
-                                            }}
-                                        >
-                                            {o.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                                {s.icon}
+                                <span className="text-[11px] font-bold">{s.label}</span>
+                            </button>
+                        ))}
+                    </div>
 
-                        {/* ── Gym exercises ── */}
-                        {sport === "gym" && (
-                            <div className="space-y-3">
-                                <label
-                                    className="text-[11px] font-bold uppercase tracking-wider block"
-                                    style={{ color: "var(--text-secondary)" }}
-                                >
-                                    Übungen
+                    {/* Title */}
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Bezeichnung</label>
+                        <input
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="w-full rounded-2xl px-4 py-3.5 font-medium focus:outline-none border text-[15px]"
+                            style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                            placeholder="z.B. Push Day, Oberkörper..."
+                        />
+                    </div>
+
+                    {/* Gym / Custom exercises */}
+                    {(sport === "gym" || sport === "custom") && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between ml-1">
+                                <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                                    Übungen ({exercises.length})
                                 </label>
-
-                                {exercises.map((ex, exIdx) => (
-                                    <div
-                                        key={exIdx}
-                                        className="rounded-2xl border p-4 space-y-3"
-                                        style={{
-                                            backgroundColor: "var(--card-bg)",
-                                            borderColor: "var(--border-color)",
-                                        }}
-                                    >
-                                        {/* Exercise header */}
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>
-                                                {ex.name}
-                                            </span>
-                                            <button
-                                                onClick={() => handleRemoveExercise(exIdx)}
-                                                className="w-7 h-7 rounded-full flex items-center justify-center"
-                                                style={{ backgroundColor: "var(--button-bg)" }}
-                                            >
-                                                <X size={14} style={{ color: "var(--danger, #FF3B30)" }} />
-                                            </button>
-                                        </div>
-
-                                        {/* Set rows */}
-                                        {(ex.sets ?? []).map((s, sIdx) => (
-                                            <div key={sIdx} className="flex items-center gap-2">
-                                                <span
-                                                    className="text-xs font-semibold w-14 shrink-0"
-                                                    style={{ color: "var(--text-secondary)" }}
-                                                >
-                                                    Satz {sIdx + 1}
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    inputMode="decimal"
-                                                    value={s.weight ?? 0}
-                                                    onChange={(e) => handleSetChange(exIdx, sIdx, "weight", e.target.value)}
-                                                    className="w-20 px-2 py-2 rounded-lg border text-sm text-center"
-                                                    style={{
-                                                        backgroundColor: "var(--input-bg)",
-                                                        borderColor: "var(--border-color)",
-                                                        color: "var(--text-color)",
-                                                    }}
-                                                />
-                                                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>kg</span>
-                                                <input
-                                                    type="number"
-                                                    inputMode="numeric"
-                                                    value={s.reps ?? 0}
-                                                    onChange={(e) => handleSetChange(exIdx, sIdx, "reps", e.target.value)}
-                                                    className="w-16 px-2 py-2 rounded-lg border text-sm text-center"
-                                                    style={{
-                                                        backgroundColor: "var(--input-bg)",
-                                                        borderColor: "var(--border-color)",
-                                                        color: "var(--text-color)",
-                                                    }}
-                                                />
-                                                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Wdh</span>
-                                                <button
-                                                    onClick={() => handleRemoveSet(exIdx, sIdx)}
-                                                    className="ml-auto w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                                                    style={{ backgroundColor: "var(--button-bg)" }}
-                                                >
-                                                    <X size={12} style={{ color: "var(--text-secondary)" }} />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        {/* Add set */}
-                                        <button
-                                            onClick={() => handleAddSet(exIdx)}
-                                            className="flex items-center gap-1.5 text-xs font-semibold"
-                                            style={{ color: "#007AFF" }}
-                                        >
-                                            <Plus size={14} /> Satz
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {/* Add exercise from library */}
-                                <button
-                                    onClick={() => setShowLibrary(true)}
-                                    className="w-full rounded-2xl border-2 border-dashed py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-                                    style={{ borderColor: "var(--border-color)" }}
-                                >
-                                    <Plus size={16} style={{ color: "var(--text-secondary)" }} />
-                                    <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                                        Übung hinzufügen
-                                    </span>
-                                </button>
-                            </div>
-                        )}
-
-                        {/* ── Cardio (laufen / radfahren) ── */}
-                        {isCardio && (
-                            <div className="space-y-4">
-                                <label
-                                    className="text-[11px] font-bold uppercase tracking-wider block"
-                                    style={{ color: "var(--text-secondary)" }}
-                                >
-                                    {sport === "laufen" ? "Lauf-Parameter" : "Rad-Parameter"}
-                                </label>
-
-                                <div
-                                    className="rounded-2xl border p-4 space-y-4"
-                                    style={{
-                                        backgroundColor: "var(--card-bg)",
-                                        borderColor: "var(--border-color)",
-                                    }}
-                                >
-                                    <div>
-                                        <label
-                                            className="text-xs font-semibold mb-1 block"
-                                            style={{ color: "var(--text-secondary)" }}
-                                        >
-                                            Dauer (min)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            inputMode="numeric"
-                                            value={cardioDuration}
-                                            onChange={(e) => setCardioDuration(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                            placeholder="0"
-                                            className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
-                                            style={{
-                                                backgroundColor: "var(--input-bg)",
-                                                borderColor: "var(--border-color)",
-                                                color: "var(--text-color)",
-                                            }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label
-                                            className="text-xs font-semibold mb-1 block"
-                                            style={{ color: "var(--text-secondary)" }}
-                                        >
-                                            Distanz (km)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            inputMode="decimal"
-                                            value={cardioDistance}
-                                            onChange={(e) => setCardioDistance(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                            placeholder="0"
-                                            className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
-                                            style={{
-                                                backgroundColor: "var(--input-bg)",
-                                                borderColor: "var(--border-color)",
-                                                color: "var(--text-color)",
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── Custom exercises ── */}
-                        {sport === "custom" && (
-                            <div className="space-y-3">
-                                <label
-                                    className="text-[11px] font-bold uppercase tracking-wider block"
-                                    style={{ color: "var(--text-secondary)" }}
-                                >
-                                    Übungen
-                                </label>
-
-                                {exercises.map((ex, exIdx) => (
-                                    <div
-                                        key={exIdx}
-                                        className="rounded-2xl border p-4 space-y-3"
-                                        style={{
-                                            backgroundColor: "var(--card-bg)",
-                                            borderColor: "var(--border-color)",
-                                        }}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>
-                                                {ex.name}
-                                            </span>
-                                            <button
-                                                onClick={() => handleRemoveExercise(exIdx)}
-                                                className="w-7 h-7 rounded-full flex items-center justify-center"
-                                                style={{ backgroundColor: "var(--button-bg)" }}
-                                            >
-                                                <X size={14} style={{ color: "var(--danger, #FF3B30)" }} />
-                                            </button>
-                                        </div>
-
-                                        {(ex.sets ?? []).map((s, sIdx) => (
-                                            <div key={sIdx} className="flex items-center gap-2">
-                                                <span
-                                                    className="text-xs font-semibold w-14 shrink-0"
-                                                    style={{ color: "var(--text-secondary)" }}
-                                                >
-                                                    Satz {sIdx + 1}
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    inputMode="decimal"
-                                                    value={s.weight ?? 0}
-                                                    onChange={(e) => handleSetChange(exIdx, sIdx, "weight", e.target.value)}
-                                                    className="w-20 px-2 py-2 rounded-lg border text-sm text-center"
-                                                    style={{
-                                                        backgroundColor: "var(--input-bg)",
-                                                        borderColor: "var(--border-color)",
-                                                        color: "var(--text-color)",
-                                                    }}
-                                                />
-                                                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>kg</span>
-                                                <input
-                                                    type="number"
-                                                    inputMode="numeric"
-                                                    value={s.reps ?? 0}
-                                                    onChange={(e) => handleSetChange(exIdx, sIdx, "reps", e.target.value)}
-                                                    className="w-16 px-2 py-2 rounded-lg border text-sm text-center"
-                                                    style={{
-                                                        backgroundColor: "var(--input-bg)",
-                                                        borderColor: "var(--border-color)",
-                                                        color: "var(--text-color)",
-                                                    }}
-                                                />
-                                                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Wdh</span>
-                                                <button
-                                                    onClick={() => handleRemoveSet(exIdx, sIdx)}
-                                                    className="ml-auto w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                                                    style={{ backgroundColor: "var(--button-bg)" }}
-                                                >
-                                                    <X size={12} style={{ color: "var(--text-secondary)" }} />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        <button
-                                            onClick={() => handleAddSet(exIdx)}
-                                            className="flex items-center gap-1.5 text-xs font-semibold"
-                                            style={{ color: "#007AFF" }}
-                                        >
-                                            <Plus size={14} /> Satz
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {/* Inline custom name input */}
-                                {showCustomInput ? (
-                                    <div
-                                        className="rounded-2xl border p-4 flex items-center gap-2"
-                                        style={{
-                                            backgroundColor: "var(--card-bg)",
-                                            borderColor: "var(--border-color)",
-                                        }}
-                                    >
-                                        <input
-                                            type="text"
-                                            autoFocus
-                                            value={customNameInput}
-                                            onChange={(e) => setCustomNameInput(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === "Enter") handleAddCustomExercise(); }}
-                                            placeholder="Übungsname..."
-                                            className="flex-1 px-3 py-2 rounded-lg border text-sm"
-                                            style={{
-                                                backgroundColor: "var(--input-bg)",
-                                                borderColor: "var(--border-color)",
-                                                color: "var(--text-color)",
-                                            }}
-                                        />
-                                        <button
-                                            onClick={handleAddCustomExercise}
-                                            disabled={!customNameInput.trim()}
-                                            className="px-3 py-2 rounded-lg text-sm font-bold disabled:opacity-40"
-                                            style={{ color: "#007AFF" }}
-                                        >
-                                            OK
-                                        </button>
-                                        <button
-                                            onClick={() => { setShowCustomInput(false); setCustomNameInput(""); }}
-                                            className="w-7 h-7 rounded-full flex items-center justify-center"
-                                            style={{ backgroundColor: "var(--button-bg)" }}
-                                        >
-                                            <X size={12} style={{ color: "var(--text-secondary)" }} />
-                                        </button>
-                                    </div>
-                                ) : (
+                                {sport === "gym" && (
                                     <button
-                                        onClick={() => setShowCustomInput(true)}
-                                        className="w-full rounded-2xl border-2 border-dashed py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-                                        style={{ borderColor: "var(--border-color)" }}
+                                        onClick={() => setShowLibrary(true)}
+                                        className="flex items-center gap-1 text-[13px] font-bold"
+                                        style={{ color: activeSport.color }}
                                     >
-                                        <Plus size={16} style={{ color: "var(--text-secondary)" }} />
-                                        <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                                            Übung hinzufügen
-                                        </span>
+                                        <Plus size={14} /> Bibliothek
                                     </button>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
-            </div>
 
-            {/* Exercise Library Modal (gym only) */}
+                            {exercises.map((ex, exIdx) => (
+                                <div
+                                    key={exIdx}
+                                    className="rounded-2xl border p-4 space-y-3"
+                                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                                        <button
+                                            onClick={() => handleRemoveExercise(exIdx)}
+                                            className="w-7 h-7 rounded-full flex items-center justify-center"
+                                            style={{ backgroundColor: "var(--button-bg)" }}
+                                        >
+                                            <X size={14} style={{ color: "var(--danger, #FF3B30)" }} />
+                                        </button>
+                                    </div>
+                                    {(ex.sets ?? []).map((s, sIdx) => (
+                                        <div key={sIdx} className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold w-14 shrink-0" style={{ color: "var(--text-secondary)" }}>Satz {sIdx + 1}</span>
+                                            <input type="number" inputMode="decimal" value={s.weight ?? 0}
+                                                onChange={(e) => handleSetChange(exIdx, sIdx, "weight", e.target.value)}
+                                                className="w-20 px-2 py-2 rounded-lg border text-sm text-center"
+                                                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                            />
+                                            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>kg</span>
+                                            <input type="number" inputMode="numeric" value={s.reps ?? 0}
+                                                onChange={(e) => handleSetChange(exIdx, sIdx, "reps", e.target.value)}
+                                                className="w-16 px-2 py-2 rounded-lg border text-sm text-center"
+                                                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                            />
+                                            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Wdh</span>
+                                            <button onClick={() => handleRemoveSet(exIdx, sIdx)} className="ml-auto w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--button-bg)" }}>
+                                                <X size={12} style={{ color: "var(--text-secondary)" }} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => handleAddSet(exIdx)} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: activeSport.color }}>
+                                        <Plus size={14} /> Satz
+                                    </button>
+                                </div>
+                            ))}
+
+                            {/* Custom: inline name input */}
+                            {sport === "custom" && showCustomInput ? (
+                                <div className="rounded-2xl border p-4 flex items-center gap-2" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                                    <input
+                                        type="text" autoFocus value={customNameInput}
+                                        onChange={(e) => setCustomNameInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === "Enter") handleAddCustomExercise(); }}
+                                        placeholder="Übungsname..."
+                                        className="flex-1 px-3 py-2 rounded-lg border text-sm"
+                                        style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                    />
+                                    <button onClick={handleAddCustomExercise} disabled={!customNameInput.trim()} className="px-3 py-2 rounded-lg text-sm font-bold disabled:opacity-40" style={{ color: activeSport.color }}>OK</button>
+                                    <button onClick={() => { setShowCustomInput(false); setCustomNameInput(""); }} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--button-bg)" }}>
+                                        <X size={12} style={{ color: "var(--text-secondary)" }} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={sport === "gym" ? () => setShowLibrary(true) : () => setShowCustomInput(true)}
+                                    className="w-full py-8 border-2 border-dashed rounded-3xl flex flex-col items-center gap-2 transition-all active:scale-[0.98]"
+                                    style={{ borderColor: "var(--border-color)", backgroundColor: "var(--button-bg)" }}
+                                >
+                                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: activeSport.bg, color: activeSport.color }}>
+                                        {activeSport.icon}
+                                    </div>
+                                    <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Übungen hinzufügen</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Cardio parameters */}
+                    {isCardio && (
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>
+                                {sport === "laufen" ? "Lauf-Parameter" : "Rad-Parameter"}
+                            </label>
+                            <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                                <div>
+                                    <label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--text-secondary)" }}>Dauer (min)</label>
+                                    <input type="number" inputMode="numeric" value={cardioDuration}
+                                        onChange={(e) => setCardioDuration(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
+                                        style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--text-secondary)" }}>Distanz (km)</label>
+                                    <input type="number" inputMode="decimal" value={cardioDistance}
+                                        onChange={(e) => setCardioDistance(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
+                                        style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </BottomSheet>
+
             <ExerciseLibraryModal
                 open={showLibrary}
                 category="gym"
@@ -578,6 +353,51 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                 onPick={handlePickExercise}
             />
         </>
+    );
+}
+
+// ---- Confirmation Sheet ----
+function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
+    label: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+}) {
+    const push = useModalStore((s) => s.push);
+    const pop  = useModalStore((s) => s.pop);
+    useEffect(() => { push(); return () => pop(); }, [push, pop]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            onClick={onCancel}
+            data-overlay-open="true"
+        >
+            <div
+                className="w-full max-w-md rounded-t-[28px] p-6 space-y-4"
+                style={{ backgroundColor: "var(--card-bg)" }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="w-10 h-1 rounded-full mx-auto" style={{ backgroundColor: "var(--border-color)" }} />
+                <div className="text-center space-y-1">
+                    <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Training starten?</p>
+                    <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{pendingLabel}</p>
+                </div>
+                <button
+                    onPointerDown={onConfirm}
+                    className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
+                    style={{ backgroundColor: "#007AFF" }}
+                >
+                    Starten
+                </button>
+                <button
+                    onPointerDown={onCancel}
+                    className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
+                    style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
+                >
+                    Abbrechen
+                </button>
+            </div>
+        </div>
     );
 }
 
@@ -590,19 +410,25 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const [templates, setTemplates] = useState<TrainingTemplateLite[]>(() => getTemplates());
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { isPro, canCreateTemplate } = useEntitlements(getActiveUserId() ?? undefined);
+    const [confirmPending, setConfirmPending] = useState<{ label: string; onConfirm: () => void } | null>(null);
 
     const refreshTemplates = useCallback(() => {
         setTemplates(getTemplates());
     }, []);
 
+    const askConfirm = useCallback((label: string, action: () => void) => {
+        setConfirmPending({ label, onConfirm: action });
+    }, []);
+
     const handleFreeTraining = (sport: TrainingType = "gym") => {
         if (hasActiveWorkout) return;
-        startFreeTraining(sport);
+        const label = sport === "laufen" ? "Laufen · Cardio" : sport === "radfahren" ? "Radfahren · Cardio" : "Gym · Krafttraining";
+        askConfirm(label, () => startFreeTraining(sport));
     };
 
     const handleStartTemplate = (tpl: TrainingTemplateLite) => {
         if (hasActiveWorkout) return;
-        startTrainingTemplate(tpl);
+        askConfirm(tpl.title, () => startTrainingTemplate(tpl));
     };
 
     const handleDeleteTemplate = (id: string) => {
@@ -620,7 +446,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const hasSessions = status !== "none" && todaySessions.length > 0;
 
     return (
-        <div className="w-full h-full pb-40" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="w-full h-full pt-safe">
             <div className="w-full max-w-md mx-auto px-4 pt-2 space-y-6">
 
                 {/* Active workout warning */}
@@ -774,17 +600,29 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 </section>
 
                 {/* ── VORLAGEN ── */}
-                {(templates.length > 0 || true) && (
-                    <section className="space-y-2.5">
-                        <h2
-                            className="text-[11px] font-bold uppercase tracking-wider pl-1"
-                            style={{ color: "var(--text-secondary)" }}
-                        >
-                            Meine Vorlagen
-                        </h2>
+                <section className="space-y-2.5">
+                    <h2
+                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        Meine Vorlagen
+                    </h2>
 
-                        {/* User-created templates */}
-                        {templates.map((tpl) => {
+                    {/* Empty state */}
+                    {templates.length === 0 && (
+                        <div
+                            className="rounded-2xl border border-dashed p-6 flex flex-col items-center gap-1.5"
+                            style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)" }}
+                        >
+                            <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Noch keine Vorlagen</p>
+                            <p className="text-[11px] text-center" style={{ color: "var(--text-muted, var(--text-secondary))" }}>
+                                Erstelle eine Vorlage und starte sie mit einem Tap
+                            </p>
+                        </div>
+                    )}
+
+                    {/* User-created templates */}
+                    {templates.map((tpl) => {
                             const sc = sportColor(tpl.sportType);
                             const exCount = tpl.exercises?.length ?? 0;
                             return (
@@ -847,7 +685,6 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             </span>
                         </button>
                     </section>
-                )}
             </div>
 
             <CreateTemplateModal
@@ -855,6 +692,18 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 onClose={() => setShowCreateModal(false)}
                 onSave={handleCreateTemplate}
             />
+
+            {confirmPending && (
+                <ConfirmStartSheet
+                    label={confirmPending.label}
+                    onConfirm={() => {
+                        const fn = confirmPending.onConfirm;
+                        setConfirmPending(null);
+                        fn();
+                    }}
+                    onCancel={() => setConfirmPending(null)}
+                />
+            )}
         </div>
     );
 }

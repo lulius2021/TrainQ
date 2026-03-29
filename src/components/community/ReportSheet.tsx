@@ -4,6 +4,7 @@ import { AppButton } from "../ui/AppButton";
 import { createReport } from "../../services/community/api";
 import type { ReportReason, ReportTarget } from "../../services/community/types";
 import { REPORT_REASON_LABELS } from "../../services/community/types";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 
 interface Props {
   reporterId: string;
@@ -16,6 +17,7 @@ interface Props {
 const REASONS: ReportReason[] = ["spam", "harassment", "hate", "nudity", "self_harm", "other"];
 
 export default function ReportSheet({ reporterId, targetType, targetId, onClose, onDone }: Props) {
+  useBodyScrollLock(true);
   const [selected, setSelected] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +38,7 @@ export default function ReportSheet({ reporterId, targetType, targetId, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }}>
       <div
         className="w-full max-w-md rounded-t-2xl p-4 pb-safe"
         style={{ background: "var(--card-bg)" }}

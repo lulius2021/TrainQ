@@ -25,9 +25,15 @@ let deloadCounter = 0;
 /**
  * Schedule training reminders for upcoming calendar events.
  * Cancels all existing reminders first, then schedules new ones based on preferences.
+ *
+ * @param events         Upcoming training events to schedule reminders for.
+ * @param notifTitle     Optional translated title (e.g. "Training Soon!"). Falls back to a default.
+ * @param notifBodyTpl   Optional translated body template with {{name}} placeholder.
  */
 export async function scheduleTrainingReminders(
-  events: { date: string; startTime?: string; title: string }[]
+  events: { date: string; startTime?: string; title: string }[],
+  notifTitle?: string,
+  notifBodyTpl?: string
 ): Promise<void> {
   const prefs = loadNotificationPrefs();
   if (!prefs.trainingReminder) return;
@@ -42,43 +48,52 @@ export async function scheduleTrainingReminders(
     for (const ev of events) {
       if (idCounter > REMINDER_ID_END) break;
 
-      // Parse event date + time
       const dateStr = ev.date; // "YYYY-MM-DD"
-      const timeStr = ev.startTime; // "HH:mm" or ""
-
+      const timeStr = ev.startTime; // "HH:mm" or "" or undefined
       if (!dateStr) continue;
 
-      let eventDate: Date;
-      if (timeStr && timeStr.includes(":")) {
-        eventDate = new Date(`${dateStr}T${timeStr}:00`);
+      const hasTime = !!(timeStr && timeStr.includes(":"));
+
+      if (hasTime) {
+        // ── Timed training: notify X minutes before ──
+        if (!prefs.trainingReminder) continue;
+
+        const eventDate = new Date(`${dateStr}T${timeStr}:00`);
+        if (isNaN(eventDate.getTime())) continue;
+
+        const reminderDate = new Date(
+          eventDate.getTime() - prefs.reminderMinutesBefore * 60 * 1000
+        );
+        if (reminderDate <= now) continue;
+
+        const title = notifTitle ?? "Training bald!";
+        const body = notifBodyTpl
+          ? notifBodyTpl.replace("{{name}}", ev.title)
+          : `„${ev.title}" startet in ${prefs.reminderMinutesBefore} Minuten.`;
+
+        await scheduleLocalNotification({
+          id: idCounter,
+          title,
+          body,
+          scheduledAt: reminderDate,
+        });
+        idCounter++;
       } else {
-        // No time set — default to 09:00
-        eventDate = new Date(`${dateStr}T09:00:00`);
+        // ── All-day training: notify at 13:00 on the day ──
+        if (!prefs.allDayReminder) continue;
+
+        const reminderDate = new Date(`${dateStr}T13:00:00`);
+        if (isNaN(reminderDate.getTime())) continue;
+        if (reminderDate <= now) continue;
+
+        await scheduleLocalNotification({
+          id: idCounter,
+          title: "Heute: Training",
+          body: `Vergiss nicht: „${ev.title}" steht heute auf dem Plan.`,
+          scheduledAt: reminderDate,
+        });
+        idCounter++;
       }
-
-      if (isNaN(eventDate.getTime())) continue;
-
-      // Schedule notification X minutes before
-      const reminderDate = new Date(
-        eventDate.getTime() - prefs.reminderMinutesBefore * 60 * 1000
-      );
-
-      // Only schedule if in the future
-      if (reminderDate <= now) continue;
-
-      const minutesLabel =
-        prefs.reminderMinutesBefore >= 60
-          ? `${prefs.reminderMinutesBefore / 60} Stunde`
-          : `${prefs.reminderMinutesBefore} Minuten`;
-
-      await scheduleLocalNotification({
-        id: idCounter,
-        title: "Training steht an",
-        body: `"${ev.title}" startet in ${minutesLabel}.`,
-        scheduledAt: reminderDate,
-      });
-
-      idCounter++;
     }
   } catch {
     // Non-blocking — silently ignore

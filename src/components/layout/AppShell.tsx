@@ -10,7 +10,7 @@ export function AppShell({ children, bottomNav }: AppShellProps) {
       <main
         className="flex-1 overflow-y-auto overscroll-y-contain px-4 pt-4"
         style={{
-          paddingBottom: "calc(84px + env(safe-area-inset-bottom))",
+          paddingBottom: "calc(64px + env(safe-area-inset-bottom))",
           background: "transparent",
         }}
       >

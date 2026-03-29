@@ -44,6 +44,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: "var(--bg-color)" }} data-overlay-open="true">
       {/* Header */}
+      <div className="pt-safe">
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border-color)" }}>
         <button onClick={onClose} className="p-1" style={{ color: "var(--text-color)" }}>
           <X size={24} />
@@ -52,6 +53,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
         <AppButton onClick={handleSubmit} variant="primary" size="sm" disabled={!isValid || submitting} isLoading={submitting}>
           Posten
         </AppButton>
+      </div>
       </div>
 
       {/* Post type picker */}

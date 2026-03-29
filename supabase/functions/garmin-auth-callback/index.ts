@@ -4,7 +4,7 @@
 import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 import { TOKEN_URL, USER_ID_URL } from "../_shared/garmin-constants.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");

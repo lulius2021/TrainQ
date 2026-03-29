@@ -30,7 +30,7 @@ export const useLiveTrainingStore = create(
         {
             name: 'trainq-active-workout-storage',
             storage: createJSONStorage(() => localStorage),
-            onRehydrate: () => (state) => {
+            onRehydrateStorage: () => (state: LiveTrainingStore | undefined) => {
                 // Auto-clear zombie sessions older than 12 hours
                 if (state?.activeWorkout?.startedAt) {
                     const age = Date.now() - new Date(state.activeWorkout.startedAt).getTime();

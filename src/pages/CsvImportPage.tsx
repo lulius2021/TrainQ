@@ -19,7 +19,7 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
   return (
     <div className="flex flex-col h-full bg-[var(--bg-color)] text-[var(--text-color)] overflow-hidden">
       {/* HEADER */}
-      <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-4 bg-[var(--bg-color)] shrink-0 z-10">
+      <div className="pt-page px-6 pb-4 bg-[var(--bg-color)] shrink-0 z-10">
         <div className="flex items-center mb-2">
           <button
             onClick={() => {
@@ -43,12 +43,12 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-y-auto px-4 pb-40">
+      <div className="flex-1 overflow-y-auto px-4 scroll-pb">
         {/* STEP: IDLE - File picker */}
         {(step === "idle" || step === "picking") && (
           <div className="max-w-lg mx-auto space-y-6 pt-4">
             {/* Info card */}
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-300 text-sm space-y-2">
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-3xl text-blue-300 text-sm space-y-2">
               <p className="font-semibold text-blue-400">{t("csvImport.supportedFormat")}</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
                 <li>{t("csvImport.format.csvOrTxt")}</li>
@@ -60,7 +60,7 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             </div>
 
             {/* Example format */}
-            <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
+            <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl">
               <p className="text-xs text-[var(--text-secondary)] font-semibold mb-2 uppercase tracking-wider">
                 {t("csvImport.example")}
               </p>
@@ -76,7 +76,7 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             <button
               onClick={pickFile}
               disabled={step === "picking"}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-3"
+              className="w-full h-[52px] bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-3"
             >
               {step === "picking" ? (
                 <Loader2 size={20} className="animate-spin" />
@@ -124,7 +124,7 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             {/* Date range */}
             {preview.dateRange.from && (
               <div className="text-sm text-[var(--text-secondary)] text-center">
-                {preview.dateRange.from} bis {preview.dateRange.to}
+                {preview.dateRange.from} {t("csvImport.to")} {preview.dateRange.to}
               </div>
             )}
 
@@ -166,13 +166,13 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={reset}
-                className="flex-1 py-3 bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
+                className="flex-1 h-[52px] bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
               >
                 {t("common.cancel")}
               </button>
               <button
                 onClick={startImport}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+                className="flex-1 h-[52px] bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 <FileText size={18} />
                 {t("csvImport.import")}
@@ -197,13 +197,13 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             <div className="flex gap-3">
               <button
                 onClick={reset}
-                className="flex-1 py-3 bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
+                className="flex-1 h-[52px] bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
               >
                 {t("csvImport.importAgain")}
               </button>
               <button
                 onClick={onBack}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98]"
+                className="flex-1 h-[52px] bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98]"
               >
                 {t("common.done")}
               </button>
@@ -225,13 +225,13 @@ const CsvImportPage: React.FC<CsvImportPageProps> = ({ onBack }) => {
             <div className="flex gap-3">
               <button
                 onClick={reset}
-                className="flex-1 py-3 bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
+                className="flex-1 h-[52px] bg-[var(--card-bg)] text-[var(--text-color)] font-bold rounded-2xl border border-[var(--border-color)] transition-all active:scale-[0.98]"
               >
                 {t("common.back")}
               </button>
               <button
                 onClick={pickFile}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98]"
+                className="flex-1 h-[52px] bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98]"
               >
                 {t("csvImport.otherFile")}
               </button>

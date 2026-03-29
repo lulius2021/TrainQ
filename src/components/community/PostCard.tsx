@@ -3,6 +3,8 @@ import { Heart, MessageCircle, MoreHorizontal, Share2, Trash2, Flag, Ban } from 
 import { likePost, unlikePost, deletePost as apiDeletePost } from "../../services/community/api";
 import type { CommunityPost } from "../../services/community/types";
 import { POST_TYPE_LABELS, VISIBILITY_LABELS } from "../../services/community/types";
+import WorkoutCard from "./WorkoutCard";
+import GarminActivityCard from "./GarminActivityCard";
 
 interface Props {
   post: CommunityPost;
@@ -109,6 +111,16 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
         <p className="mt-2 text-sm whitespace-pre-wrap break-words" style={{ color: "var(--text-color)" }}>
           {post.text}
         </p>
+      )}
+
+      {/* Workout data card */}
+      {post.type === "workout_share" && post.workoutData && (
+        <WorkoutCard data={post.workoutData} />
+      )}
+
+      {/* Garmin activity card */}
+      {post.type === "garmin_activity" && post.garminData && (
+        <GarminActivityCard data={post.garminData} />
       )}
 
       {/* Card image */}

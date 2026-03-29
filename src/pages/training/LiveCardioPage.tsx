@@ -1,13 +1,12 @@
 // src/pages/training/LiveCardioPage.tsx
-// Gym-style GPS tracking page for Laufen / Radfahren
-// Same header (timer + "Beenden"), footer ("Minimieren" + "Abbrechen"),
-// and review modal as the gym LiveTrainingPage.
+// Strava-style live GPS tracking for Laufen / Radfahren
 
 import React, { useEffect, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import {
+  MapPin, Pause, Play, Square, Flag, ChevronDown, Minus,
+} from "lucide-react";
 import { useGpsTracking } from "../../hooks/useGpsTracking";
 import CardioMap from "../../components/cardio/CardioMap";
-import CardioStatsPanel from "../../components/cardio/CardioStatsPanel";
 import { addWorkoutEntry } from "../../utils/workoutHistory";
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { clearLiveTrainingState } from "../../native/liveActivity";
@@ -18,11 +17,59 @@ import {
   applyTrainingStatusToEvent,
 } from "../../utils/trainingHistory";
 import { grantWorkoutXp } from "../../store/useAvatarStore";
-import { formatTimeParts } from "../../utils/timeFormat";
-import { AppButton } from "../../components/ui/AppButton";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { ProfileService } from "../../services/ProfileService";
+import {
+  formatPace,
+  formatDistanceKm,
+  formatElevation,
+  formatSpeed,
+  computeCalories,
+  computePace,
+} from "../../utils/gpsUtils";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
+import { useAuth } from "../../context/AuthContext";
+import { postWorkoutToFeed } from "../../services/community/postWorkout";
 import type { CalendarEvent, LiveWorkout } from "../../types/training";
+import type { GpsPoint, LapEntry } from "../../types/cardio";
+
+function downsampleGpsPoints(points: GpsPoint[], maxPoints: number): GpsPoint[] {
+  if (points.length <= maxPoints) return points;
+  const step = points.length / maxPoints;
+  const result: GpsPoint[] = [];
+  for (let i = 0; i < maxPoints; i++) result.push(points[Math.round(i * step)]);
+  const last = points[points.length - 1];
+  if (result[result.length - 1] !== last) result.push(last);
+  return result;
+}
+
+function formatElapsedSec(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/** Compute per-lap display data from cumulative snapshots. */
+function getLapRows(laps: LapEntry[]): Array<{
+  number: number;
+  distKm: string;
+  pace: string;
+  elapsed: string;
+}> {
+  return laps.map((lap, i) => {
+    const prev = laps[i - 1];
+    const lapDistM   = lap.distanceM - (prev?.distanceM ?? 0);
+    const lapElapsMs = lap.elapsedMs  - (prev?.elapsedMs  ?? 0);
+    const pace       = computePace(lapDistM, lapElapsMs);
+    return {
+      number: lap.number,
+      distKm: (lapDistM / 1000).toFixed(2),
+      pace: formatPace(pace),
+      elapsed: formatElapsedSec(Math.round(lapElapsMs / 1000)),
+    };
+  });
+}
 
 type LiveCardioPageProps = {
   workout: LiveWorkout;
@@ -41,115 +88,126 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   onMinimize,
   onShareWorkout,
 }) => {
-  const { state: gpsState, startTracking, stopTracking } = useGpsTracking();
-  const insets = useSafeAreaInsets();
+  const {
+    state: gps,
+    startTracking,
+    pauseTracking,
+    resumeTracking,
+    stopTracking,
+    addLap,
+    getElapsedMs,
+  } = useGpsTracking();
 
-  // Timer (identical pattern to gym LiveTrainingPage)
+  const insets     = useSafeAreaInsets();
+  const { user: authUser } = useAuth();
+  const sport      = workout.sport as "Laufen" | "Radfahren";
+  const isCycling  = sport === "Radfahren";
+  const accentColor = "#2563EB"; // Blue
+
+  // Timer — stable ref-based approach, never stalls
   const [elapsedSec, setElapsedSec] = useState(0);
-  const startedAtMsRef = useRef<number>(Date.now());
-  const tickRef = useRef<number | null>(null);
+  const getElapsedMsRef = useRef(getElapsedMs);
+  getElapsedMsRef.current = getElapsedMs;
 
-  // Modal state
-  const [showFinishReview, setShowFinishReview] = useState(false);
-  const [showAbortConfirm, setShowAbortConfirm] = useState(false);
-  const [reviewName, setReviewName] = useState("");
+  // Modal / UI state
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const [xpToast, setXpToast] = useState<number | null>(null);
+  const [showFinishReview, setShowFinishReview]  = useState(false);
+  const [showAbortConfirm, setShowAbortConfirm]  = useState(false);
+  const [showStopMenu, setShowStopMenu]           = useState(false);
+  const [reviewName, setReviewName]               = useState("");
+  const [xpToast, setXpToast]                     = useState<number | null>(null);
 
-  // Auto-start GPS on mount
+  // Auto-start GPS
   useEffect(() => {
-    startTracking().then((ok) => {
-      if (!ok) setPermissionDenied(true);
-    });
+    startTracking().then((ok) => { if (!ok) setPermissionDenied(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer tick (from workout.startedAt, like gym)
+  // Paused-aware timer — runs once, always reads latest getElapsedMs via ref
   useEffect(() => {
-    const started = new Date(workout.startedAt).getTime();
-    startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor(getElapsedMsRef.current() / 1000));
+    }, 500);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAtMsRef.current) / 1000)));
+  // Derived metrics
+  const distanceM  = gps.distanceM;
+  const distanceKm = distanceM / 1000;
 
-    tickRef.current = window.setInterval(() => {
-      const base = startedAtMsRef.current;
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - base) / 1000)));
-    }, 1000);
+  // Avg pace / avg speed
+  const avgPaceSecPerKm =
+    distanceKm > 0 && elapsedSec > 0 ? elapsedSec / distanceKm : undefined;
+  const avgSpeedKmh =
+    distanceKm > 0 && elapsedSec > 0 ? distanceKm / (elapsedSec / 3600) : 0;
+  const curSpeedKmh =
+    gps.currentPaceSecPerKm ? 3600 / gps.currentPaceSecPerKm : 0;
 
-    return () => {
-      if (tickRef.current) window.clearInterval(tickRef.current);
-      tickRef.current = null;
-    };
-  }, [workout.id, workout.startedAt]);
+  const bodyWeight = ProfileService.getUserProfile().weight || 75;
+  const calories   = computeCalories(distanceM, bodyWeight, sport);
 
-  // Elapsed text (same format as gym)
-  const parts = formatTimeParts(elapsedSec);
-  const elapsedText = parts.h > 0
-    ? `${parts.h}:${parts.mm}:${parts.ss}`
-    : `${parseInt(parts.mm, 10)}:${parts.ss}`;
+  const isPaused = gps.status === "paused";
+  const lapRows  = getLapRows(gps.laps);
 
-  // Distance text for review
-  const distanceKm = gpsState.distanceM / 1000;
-  const distanceText = distanceKm > 0
-    ? `${(Math.round(distanceKm * 100) / 100).toFixed(2)} km`
-    : "-";
+  // ── Handlers ──────────────────────────────────────────────
 
-  const sport = workout.sport as "Laufen" | "Radfahren";
-
-  // -------- Finish / Abort / Minimize (mirrored from gym) --------
+  const handlePauseResume = async () => {
+    if (isPaused) await resumeTracking();
+    else pauseTracking();
+  };
 
   const handleFinishClick = () => {
-    setReviewName(workout.title || (sport === "Laufen" ? "Lauf" : "Radfahrt"));
+    setShowStopMenu(false);
+    setReviewName(workout.title || (isCycling ? "Radfahrt" : "Lauf"));
     setShowFinishReview(true);
+  };
+
+  const handleAbortClick = () => {
+    setShowStopMenu(false);
+    setShowAbortConfirm(true);
   };
 
   const confirmFinish = () => {
     stopTracking();
-
-    const durationSec = elapsedSec;
-    const km = gpsState.distanceM / 1000;
+    const km           = gps.distanceM / 1000;
+    const durationSec  = elapsedSec;
     const paceSecPerKm = km > 0 && durationSec > 0 ? durationSec / km : undefined;
+    const sampled      = gps.points.length > 0
+      ? downsampleGpsPoints(gps.points, 200) : undefined;
 
     const entry = addWorkoutEntry(
       {
         calendarEventId: workout.calendarEventId,
-        title: reviewName || (sport === "Laufen" ? "Lauf" : "Radfahrt"),
+        title: reviewName || (isCycling ? "Radfahrt" : "Lauf"),
         sport,
         startedAt: workout.startedAt,
-        endedAt: new Date().toISOString(),
+        endedAt:   new Date().toISOString(),
         durationSec: Math.round(durationSec),
         exercises: [],
         distanceKm: km > 0 ? Math.round(km * 100) / 100 : undefined,
         paceSecPerKm: paceSecPerKm ? Math.round(paceSecPerKm) : undefined,
-      },
+        gpsPoints: sampled,
+      } as any,
       { allowEmptyExercises: true },
     );
 
-    // Mark calendar event
     if (eventId) {
       onUpdateEvents((prev) =>
         prev.map((e) =>
           e.id === eventId ? applyTrainingStatusToEvent(e, "completed", { workoutId: entry.id }) : e
-        ),
+        )
       );
     }
-
     clearActiveLiveWorkout();
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
 
-    // Grant XP
+    if (authUser?.id) postWorkoutToFeed(entry, authUser.id);
+
     const { granted } = grantWorkoutXp(entry);
     if (granted > 0) setXpToast(granted);
 
-    if (typeof onShareWorkout === "function") {
-      onShareWorkout(entry.id);
-    } else {
-      onExit();
-    }
-  };
-
-  const handleAbortClick = () => {
-    setShowAbortConfirm(true);
+    if (typeof onShareWorkout === "function") onShareWorkout(entry.id);
+    else onExit();
   };
 
   const confirmAbort = () => {
@@ -161,203 +219,336 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   };
 
   const minimize = () => {
-    if (workout.isActive) {
-      persistActiveLiveWorkout({ ...workout, isMinimized: true });
-    }
+    if (workout.isActive) persistActiveLiveWorkout({ ...workout, isMinimized: true });
     if (typeof onMinimize === "function") onMinimize();
     else onExit();
   };
 
-  // Permission denied screen
+  // ── Permission denied ──────────────────────────────────────
+
   if (permissionDenied) {
     return (
-      <div
-        className="fixed inset-0 z-[60] bg-[var(--bg-color)] flex flex-col items-center justify-center px-6"
-        style={{ paddingTop: `${Math.max(insets.top, 16)}px` }}
-      >
-        <MapPin size={48} className="text-[var(--text-muted)] mb-4" />
-        <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text-color)" }}>
-          GPS-Zugriff benötigt
-        </h2>
-        <p className="text-sm text-center mb-6" style={{ color: "var(--text-muted)" }}>
-          Bitte erlaube den Standortzugriff in den Einstellungen, um GPS-Tracking zu nutzen.
+      <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-6" style={{ background: "var(--bg-color)" }}>
+        <MapPin size={48} className="opacity-40 mb-4" style={{ color: "var(--text-secondary)" }} />
+        <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text-color)" }}>GPS-Zugriff benötigt</h2>
+        <p className="text-sm text-center mb-6" style={{ color: "var(--text-secondary)" }}>
+          Bitte erlaube den Standortzugriff in den Einstellungen.
         </p>
-        <AppButton onClick={onExit} variant="primary">
+        <button
+          onClick={onExit}
+          className="px-8 py-3 rounded-2xl font-semibold"
+          style={{ backgroundColor: accentColor }}
+        >
           Zurück
-        </AppButton>
+        </button>
       </div>
     );
   }
 
+  // ── Main Strava-style layout ────────────────────────────────
+
   return (
     <>
-      <div
-        className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] w-screen"
-        style={{ touchAction: "pan-y" }}
-      >
-        {/* FIXED HEADER (identical to gym) */}
+      <div className="fixed inset-0 z-[60] overflow-hidden" style={{ background: "var(--bg-color)" }}>
+
+        {/* ── Full-screen map ── */}
+        <CardioMap
+          points={gps.points}
+          isTracking={gps.status === "tracking"}
+          className="absolute inset-0 w-full h-full"
+          controlsTopOffset={Math.max(insets.top, 16) + 56}
+        />
+
+        {/* ── Top overlay (timer + sport + minimize) ── */}
         <div
-          className="fixed top-0 left-0 right-0 z-[70] backdrop-blur-xl border-b border-[var(--border-color)] flex flex-col gap-0"
-          style={{ backgroundColor: "var(--nav-bg)" }}
+          className="absolute top-0 left-0 right-0 z-10 pointer-events-none"
+          style={{
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)",
+            paddingTop: Math.max(insets.top, 16),
+          }}
         >
-          <div className="px-4 pb-0" style={{ paddingTop: Math.max(insets.top, 16) + 12 }}>
-            <PageHeader
-              title={elapsedText}
-              className="py-0 pb-2"
-              rightAction={
-                <AppButton
-                  onClick={handleFinishClick}
-                  variant="primary"
-                  size="sm"
-                  className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)] btn-haptic"
-                >
-                  Beenden
-                </AppButton>
-              }
-            />
+          <div className="flex items-start justify-between px-5 pt-3 pb-6">
+            {/* Minimize */}
+            <button
+              type="button"
+              onClick={minimize}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+            >
+              <ChevronDown size={22} className="text-white" />
+            </button>
+
+            {/* Timer + sport */}
+            <div className="text-center">
+              <div className="text-white font-black tabular-nums text-2xl leading-none drop-shadow">
+                {formatElapsedSec(elapsedSec)}
+              </div>
+              <div className="text-white/70 text-[11px] uppercase tracking-widest mt-0.5">
+                {isPaused ? "Pausiert" : isCycling ? "Radfahren" : "Laufen"}
+              </div>
+            </div>
+
+            {/* Spacer */}
+            <div className="w-10" />
           </div>
         </div>
 
-        {/* SCROLLABLE CONTENT */}
-        <main
-          className="flex-1 flex flex-col min-h-0"
-          style={{
-            paddingTop: `calc(${insets.top}px + 112px)`,
-            paddingBottom: `calc(${Math.max(insets.bottom, 0)}px + 72px)`,
-          }}
-        >
-          {/* Map */}
-          <div className="flex-1 min-h-0">
-            <CardioMap
-              points={gpsState.points}
-              isTracking={gpsState.status === "tracking"}
-              className="w-full h-full"
-            />
-          </div>
-
-          {/* Stats */}
-          <div className="py-3">
-            <CardioStatsPanel
-              distanceM={gpsState.distanceM}
-              paceSecPerKm={gpsState.currentPaceSecPerKm}
-              elapsedMs={elapsedSec * 1000}
-              elevationGainM={gpsState.elevationGainM}
-              sport={sport}
-            />
-          </div>
-        </main>
-
-        {/* FIXED FOOTER (identical to gym) */}
+        {/* ── Bottom stats + controls panel ── */}
         <div
-          className="fixed bottom-0 left-0 right-0 z-[70] backdrop-blur-xl border-t border-[var(--border-color)] px-4 pt-2"
+          className="absolute bottom-0 left-0 right-0 z-10"
           style={{
-            backgroundColor: "var(--nav-bg)",
-            paddingBottom: "env(safe-area-inset-bottom)",
+            background: "var(--card-bg)",
+            backdropFilter: "blur(20px)",
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderTop: "1px solid var(--border-color)",
           }}
         >
-          <div className="mx-auto w-full max-w-5xl">
-            <div className="flex gap-3">
-              <AppButton
-                onClick={minimize}
-                variant="secondary"
-                className="flex-1 h-12 btn-haptic bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]"
-              >
-                Minimieren
-              </AppButton>
-              <AppButton
-                onClick={handleAbortClick}
-                variant="ghost"
-                className="flex-1 h-12 text-red-500 hover:bg-red-500/10 hover:text-red-600 btn-haptic"
-                title="Training abbrechen"
-              >
-                Abbrechen
-              </AppButton>
+          {/* Primary metric: Distance */}
+          <div className="text-center pt-3 pb-0.5 px-4">
+            <div
+              className="font-black tabular-nums leading-none tracking-tight"
+              style={{ fontSize: "clamp(48px, 14vw, 64px)", color: "var(--text-color)" }}
+            >
+              {formatDistanceKm(distanceM)}
             </div>
+            <div className="text-xs uppercase tracking-[0.25em] mt-0.5" style={{ color: "var(--text-secondary)" }}>KM</div>
           </div>
+
+          {/* Secondary metrics grid */}
+          <div className="grid grid-cols-3 px-6 pt-2 pb-0 gap-x-2 text-center">
+            {isCycling ? (
+              <>
+                <MetricCell
+                  value={curSpeedKmh > 0 ? curSpeedKmh.toFixed(1) : "--.-"}
+                  label="km/h"
+                />
+                <MetricCell
+                  value={avgSpeedKmh > 0 ? avgSpeedKmh.toFixed(1) : "--.-"}
+                  label="Ø km/h"
+                />
+              </>
+            ) : (
+              <>
+                <MetricCell
+                  value={formatPace(gps.currentPaceSecPerKm)}
+                  label="Pace/km"
+                />
+                <MetricCell
+                  value={formatPace(avgPaceSecPerKm)}
+                  label="Ø Pace"
+                />
+              </>
+            )}
+            <MetricCell
+              value={formatElevation(gps.elevationGainM)}
+              label="Hm"
+            />
+          </div>
+
+          {/* Extra row: calories */}
+          <div className="flex justify-center gap-8 pb-0 text-center">
+            <MetricCell value={String(calories)} label="kcal" small />
+            {!isCycling && (
+              <MetricCell
+                value={formatSpeed(gps.currentPaceSecPerKm) + " km/h"}
+                label="Speed"
+                small
+              />
+            )}
+          </div>
+
+          {/* Lap list */}
+          {lapRows.length > 0 && (
+            <div className="mx-4 mb-1 max-h-[72px] overflow-y-auto rounded-xl" style={{ background: "var(--button-bg)" }}>
+              {[...lapRows].reverse().map((lap) => (
+                <div
+                  key={lap.number}
+                  className="flex items-center justify-between px-3 py-1.5 last:border-0"
+                  style={{ borderBottom: "1px solid var(--border-color)" }}
+                >
+                  <span className="text-xs w-14" style={{ color: "var(--text-secondary)" }}>Runde {lap.number}</span>
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-color)" }}>{lap.distKm} km</span>
+                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{lap.pace}</span>
+                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{lap.elapsed}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Controls: LAP | PAUSE/PLAY | STOP */}
+          <div className="flex items-center justify-between px-10 py-3">
+            {/* Lap */}
+            <CircleButton onPress={addLap} size={56} outlined>
+              <Flag size={20} style={{ color: "var(--text-color)" }} />
+            </CircleButton>
+
+            {/* Pause / Resume — big orange */}
+            <CircleButton
+              onPress={handlePauseResume}
+              size={72}
+              color={accentColor}
+              shadow="0 0 28px rgba(37,99,235,0.5)"
+            >
+              {isPaused
+                ? <Play size={30} className="text-white ml-1" />
+                : <Pause size={28} className="text-white" />}
+            </CircleButton>
+
+            {/* Stop */}
+            <CircleButton
+              onPress={() => setShowStopMenu(true)}
+              size={56}
+              outlined
+              borderColor="rgba(255,59,48,0.5)"
+            >
+              <Square size={18} className="text-red-400 fill-current" />
+            </CircleButton>
+          </div>
+
+          {/* Safe area */}
+          <div style={{ height: Math.max(insets.bottom, 16) }} />
         </div>
       </div>
 
-      {/* --- SAFETY MODALS (copied from gym) --- */}
-
-      {/* 1. Abort Confirmation */}
-      {showAbortConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-white/10 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500 mb-4">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+      {/* ── Stop menu (save / discard) ── */}
+      {showStopMenu && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowStopMenu(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[28px] p-6 pb-10 space-y-3"
+            style={{ background: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--border-color)" }} />
+            <div className="text-center mb-4">
+              <div className="font-bold text-lg" style={{ color: "var(--text-color)" }}>Training beenden?</div>
+              <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                {formatDistanceKm(distanceM)} km · {formatElapsedSec(elapsedSec)}
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-black dark:text-white mb-2">Training abbrechen?</h3>
-            <p className="text-slate-600 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
-              Alle bisherigen Daten dieses Workouts gehen verloren. Bist du sicher?
-            </p>
-            <div className="flex flex-col gap-3 w-full">
-              <button
-                onClick={confirmAbort}
-                className="w-full py-3.5 rounded-xl bg-red-500 text-white font-bold active:scale-95 transition-transform"
-              >
-                Ja, Abbrechen
-              </button>
-              <button
-                onClick={() => setShowAbortConfirm(false)}
-                className="w-full py-3.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-semibold active:scale-95 transition-transform"
-              >
-                Nein, Weiter trainieren
-              </button>
-            </div>
+            <button
+              onClick={handleFinishClick}
+              className="w-full py-4 rounded-2xl font-bold text-white text-base"
+              style={{ backgroundColor: accentColor }}
+            >
+              Speichern & Beenden
+            </button>
+            <button
+              onClick={handleAbortClick}
+              className="w-full py-4 rounded-2xl font-semibold text-red-400 bg-red-500/10"
+            >
+              Verwerfen
+            </button>
+            <button
+              onClick={() => setShowStopMenu(false)}
+              className="w-full py-3 rounded-2xl text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Weiter trainieren
+            </button>
           </div>
         </div>
       )}
 
-      {/* 2. Finish Review */}
+      {/* ── Abort confirmation ── */}
+      {showAbortConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl p-6 text-center" style={{ background: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
+            <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+              <Square size={24} className="text-red-400" />
+            </div>
+            <h3 className="font-bold text-lg mb-2" style={{ color: "var(--text-color)" }}>Training verwerfen?</h3>
+            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+              Alle {formatDistanceKm(distanceM)} km gehen verloren.
+            </p>
+            <button onClick={confirmAbort}
+              className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-bold mb-3">
+              Ja, verwerfen
+            </button>
+            <button onClick={() => setShowAbortConfirm(false)}
+              className="w-full py-3 text-sm"
+              style={{ color: "var(--text-secondary)" }}>
+              Zurück
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Finish review sheet ── */}
       {showFinishReview && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#121214] rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl border-t sm:border border-white/10 animate-in slide-in-from-bottom-10 fade-in duration-200">
-            <div className="w-12 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full mx-auto mb-6 sm:hidden" />
+        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-md">
+          <div
+            className="w-full max-w-md rounded-t-[32px] p-6 pb-10 animate-in slide-in-from-bottom-10 fade-in duration-200"
+            style={{ background: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: "var(--border-color)" }} />
+            <h2 className="font-bold text-xl text-center mb-5" style={{ color: "var(--text-color)" }}>Zusammenfassung</h2>
 
-            <h2 className="text-2xl font-bold text-black dark:text-white mb-6 text-center">Zusammenfassung</h2>
+            {/* Name input */}
+            <input
+              type="text"
+              value={reviewName}
+              onChange={(e) => setReviewName(e.target.value)}
+              placeholder={isCycling ? "Radfahrt" : "Lauf"}
+              className="w-full px-4 py-3 rounded-xl font-semibold outline-none mb-4"
+              style={{
+                background: "var(--button-bg)",
+                color: "var(--text-color)",
+                border: "1px solid var(--border-color)",
+              }}
+            />
 
-            <div className="space-y-4 mb-8">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
-                  Name des Trainings
-                </label>
-                <input
-                  type="text"
-                  value={reviewName}
-                  onChange={(e) => setReviewName(e.target.value)}
-                  className="w-full bg-slate-100 dark:bg-zinc-900 text-black dark:text-white text-lg font-semibold px-4 py-3.5 rounded-xl border border-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-300"
-                  placeholder="Training Name"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
-                  <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Dauer</span>
-                  <span className="text-xl font-bold text-black dark:text-white tabular-nums">{elapsedText}</span>
-                </div>
-                <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-2xl flex flex-col items-center">
-                  <span className="text-slate-400 dark:text-zinc-500 text-xs font-medium uppercase mb-1">Distanz</span>
-                  <span className="text-xl font-bold text-black dark:text-white tabular-nums">{distanceText}</span>
-                </div>
-              </div>
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <StatCard label="Distanz" value={`${formatDistanceKm(distanceM)} km`} />
+              <StatCard label="Zeit"    value={formatElapsedSec(elapsedSec)} />
+              <StatCard
+                label={isCycling ? "Ø Speed" : "Ø Pace"}
+                value={isCycling
+                  ? (avgSpeedKmh > 0 ? avgSpeedKmh.toFixed(1) + " km/h" : "--")
+                  : formatPace(avgPaceSecPerKm)}
+              />
+              <StatCard label="Höhenmeter" value={`${formatElevation(gps.elevationGainM)} m`} />
+              <StatCard label="Kalorien"   value={`${calories} kcal`} />
+              {gps.laps.length > 0 && (
+                <StatCard label="Runden" value={String(gps.laps.length)} />
+              )}
             </div>
 
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={confirmFinish}
-                className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
-              >
-                Final Speichern
-              </button>
-              <button
-                onClick={() => setShowFinishReview(false)}
-                className="w-full py-3 rounded-xl text-slate-500 dark:text-zinc-500 font-medium hover:text-slate-800 dark:hover:text-zinc-300 transition-colors"
-              >
-                Zurück zum Training
-              </button>
-            </div>
+            {/* Lap detail */}
+            {lapRows.length > 0 && (
+              <div className="rounded-xl mb-4 overflow-hidden" style={{ background: "var(--button-bg)" }}>
+                <div className="grid grid-cols-4 px-3 py-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                  <span>Runde</span><span className="text-right">Dist.</span>
+                  <span className="text-right">Pace</span><span className="text-right">Zeit</span>
+                </div>
+                {lapRows.map((l) => (
+                  <div key={l.number} className="grid grid-cols-4 px-3 py-2 text-xs" style={{ color: "var(--text-color)", borderTop: "1px solid var(--border-color)" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>{l.number}</span>
+                    <span className="text-right">{l.distKm} km</span>
+                    <span className="text-right" style={{ color: "var(--text-secondary)" }}>{l.pace}</span>
+                    <span className="text-right" style={{ color: "var(--text-secondary)" }}>{l.elapsed}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={confirmFinish}
+              className="w-full py-4 rounded-2xl font-bold text-white text-base mb-3"
+              style={{ backgroundColor: accentColor }}
+            >
+              Speichern
+            </button>
+            <button
+              onClick={() => setShowFinishReview(false)}
+              className="w-full py-3 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Weiter trainieren
+            </button>
           </div>
         </div>
       )}
@@ -365,7 +556,8 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
       {/* XP Toast */}
       {xpToast !== null && (
         <div
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-green-500/90 text-white font-bold text-sm shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full text-white font-bold text-sm shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
+          style={{ backgroundColor: accentColor }}
           onAnimationEnd={() => setTimeout(() => setXpToast(null), 1500)}
         >
           +{xpToast} XP
@@ -374,5 +566,67 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
     </>
   );
 };
+
+// ── Small helper components ──────────────────────────────────
+
+function MetricCell({
+  value, label, small = false,
+}: { value: string; label: string; small?: boolean }) {
+  return (
+    <div>
+      <div
+        className={`font-bold tabular-nums ${small ? "text-base" : "text-[22px]"} leading-tight`}
+        style={{ color: "var(--text-color)" }}
+      >
+        {value}
+      </div>
+      <div className="uppercase tracking-wider mt-0.5" style={{ fontSize: 9, color: "var(--text-secondary)" }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl p-3 text-center" style={{ background: "var(--button-bg)" }}>
+      <div className="font-bold text-lg" style={{ color: "var(--text-color)" }}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color: "var(--text-secondary)" }}>{label}</div>
+    </div>
+  );
+}
+
+function CircleButton({
+  onPress, size, children, color, outlined, shadow, borderColor,
+}: {
+  onPress: () => void;
+  size: number;
+  children: React.ReactNode;
+  color?: string;
+  outlined?: boolean;
+  shadow?: string;
+  borderColor?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerUp={(e) => { e.preventDefault(); onPress(); }}
+      className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: outlined ? "transparent" : (color ?? "var(--button-bg)"),
+        border: outlined
+          ? `2px solid ${borderColor ?? "var(--border-color)"}`
+          : color
+          ? "none"
+          : "none",
+        boxShadow: shadow,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default LiveCardioPage;

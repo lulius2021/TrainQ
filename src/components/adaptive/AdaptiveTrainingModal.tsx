@@ -1,12 +1,13 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
 import React, { useMemo, useState, useEffect } from "react";
-import { X } from "lucide-react";
 import { useI18n } from "../../i18n/useI18n";
 import AdaptivePlanCard from "./AdaptivePlanCard";
 import type { TranslationKey } from "../../i18n/index";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
 import { buildAdaptiveSuggestions, profileAccent } from "../../utils/adaptiveScoring";
+import { BottomSheet } from "../common/BottomSheet";
+import { Clock, Zap, Brain, Dumbbell } from "lucide-react";
 
 export interface AdaptiveTrainingModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ export interface AdaptiveTrainingModalProps {
   plannedWorkoutType: WorkoutType;
   splitType: SplitType;
   onSelect: (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => void;
+  onSaveToCalendar?: (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => void;
   isPro?: boolean;
   adaptiveLeftBC?: number;
   bcFreeLimit?: number;
@@ -21,7 +23,7 @@ export interface AdaptiveTrainingModalProps {
 
 export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps) {
   const { t } = useI18n();
-  const { open, onClose, plannedWorkoutType, splitType, onSelect, isPro, adaptiveLeftBC, bcFreeLimit = 5 } = props;
+  const { open, onClose, plannedWorkoutType, splitType, onSelect, onSaveToCalendar, isPro, adaptiveLeftBC, bcFreeLimit = 5 } = props;
 
   const [step, setStep] = useState<"questions" | "suggestions">("questions");
   const [answers, setAnswers] = useState<AdaptiveAnswers>({ timeToday: "20to40", dayForm: "mid", stress: "mid", yesterdayEffort: "mid" });
@@ -39,16 +41,6 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  if (!open) return null;
-
   const typeName = (type: string) => {
     const map: Record<string, string> = {
       push: "Push (Drücken)",
@@ -61,118 +53,150 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center"
-      onClick={onClose}
-      style={{
-        touchAction: 'none',
-        padding: "12px",
-      }}
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      height="88dvh"
+      sheetStyle={{ backgroundColor: "var(--modal-bg)" }}
+      footer={
+        <div className="px-4 pt-3 pb-2">
+          {step === "questions" ? (
+            <div className="flex gap-3">
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                onClick={onClose}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] text-white disabled:opacity-50"
+                style={{ backgroundColor: "var(--accent-color)" }}
+                onClick={() => setStep("suggestions")}
+                disabled={!plannedOk}
+              >
+                {t("adaptive.showSuggestions")}
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                onClick={() => setStep("questions")}
+              >
+                {t("common.back")}
+              </button>
+              <button
+                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
+                style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                onClick={onClose}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+          )}
+        </div>
+      }
     >
-      <div
-        className="w-full max-w-md flex flex-col overflow-hidden rounded-[28px] border shadow-2xl"
-        style={{
-          backgroundColor: "var(--modal-bg)",
-          borderColor: "var(--border-color)",
-          maxHeight: "calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 140px)",
-          marginBottom: "60px",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <header
-          className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b rounded-t-[28px]"
-          style={{ borderColor: "var(--border-color)", backgroundColor: "var(--modal-header)" }}
-        >
-          <div className="flex items-center gap-2.5">
-            <h2
-              className="text-xl font-bold"
-              style={{ color: "var(--text-color)", letterSpacing: '-0.3px' }}
-            >
-              {t("adaptive.title")}
-            </h2>
-            <button
-              type="button"
-              onClick={() => setShowHelp(!showHelp)}
-              className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all"
-              style={{
-                borderColor: showHelp ? "var(--accent-color)" : "var(--text-secondary)",
-                color: showHelp ? "var(--accent-color)" : "var(--text-secondary)",
-                backgroundColor: showHelp ? "rgba(0,122,255,0.1)" : "transparent",
-              }}
-            >
-              ?
-            </button>
+      {/* Header */}
+      <div className="px-5 pb-2 pt-1">
+        <h2 className="text-[28px] font-bold tracking-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.5px" }}>
+          {t("adaptive.title")}
+        </h2>
+        <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          Passe dein Training an deine Tagesform an
+        </p>
+      </div>
+
+      <div className="px-4 space-y-2 pb-4">
+        {!plannedOk && (
+          <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: "rgba(255,59,48,0.1)" }}>
+            <p className="text-sm font-medium" style={{ color: "#FF3B30" }}>
+              Dieser Plan ist für <strong>{typeName(plannedWorkoutType)}</strong> gedacht.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-            style={{ backgroundColor: "var(--button-bg)" }}
-          >
-            <X size={18} style={{ color: "var(--text-secondary)" }} />
-          </button>
-        </header>
+        )}
 
-        {/* Scrollable Content */}
-        <div
-          className="flex-1 overflow-y-auto overscroll-contain"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <div className="px-4 py-4 space-y-4">
-            {showHelp && (
-              <div
-                className="rounded-[20px] border p-4"
-                style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
-              >
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-color)" }}>
-                  <strong>Wie funktioniert es?</strong><br />
-                  Wähle deine heutige Tagesform aus. Basierend darauf passen wir Volumen und Intensität deines Trainings optimal an.
-                </p>
-              </div>
-            )}
+        {step === "questions" && (() => {
+          const questions: { id: string; icon: React.ReactNode; title: string; sub: string; key: keyof AdaptiveAnswers; options: [string, string][] }[] = [
+            {
+              id: "q1", icon: <Clock size={16} />, key: "timeToday",
+              title: "Wie viel Zeit hast du heute?",
+              sub: "Wir passen Umfang und Übungsanzahl an",
+              options: [
+                ["lt20",   "< 20 Min"],
+                ["20to40", "20–40 Min"],
+                ["40to60", "40–60 Min"],
+                ["gt60",   "60+ Min"],
+              ],
+            },
+            {
+              id: "q2", icon: <Zap size={16} />, key: "dayForm",
+              title: "Wie ist deine Energie gerade?",
+              sub: "Beeinflusst Intensität und Gewichte",
+              options: [
+                ["low",  "Niedrig"],
+                ["mid",  "Mittel"],
+                ["high", "Top"],
+              ],
+            },
+            {
+              id: "q3", icon: <Brain size={16} />, key: "stress",
+              title: "Wie gestresst bist du heute?",
+              sub: "Hoher Stress = mehr Regenerationsfokus",
+              options: [
+                ["low",  "Entspannt"],
+                ["mid",  "Etwas"],
+                ["high", "Viel"],
+              ],
+            },
+            {
+              id: "q4", icon: <Dumbbell size={16} />, key: "yesterdayEffort",
+              title: "Wie war das letzte Training?",
+              sub: "Wir berücksichtigen deine Erholung",
+              options: [
+                ["low",  "Leicht"],
+                ["mid",  "Normal"],
+                ["high", "Intensiv"],
+              ],
+            },
+          ];
 
-            {!plannedOk && (
-              <div
-                className="rounded-[20px] border p-4"
-                style={{ backgroundColor: "rgba(255,59,48,0.1)", borderColor: "rgba(255,59,48,0.3)" }}
-              >
-                <h3 className="font-bold" style={{ color: "var(--danger)" }}>Plan passt nicht</h3>
-                <p className="text-sm" style={{ color: "var(--danger)", opacity: 0.8 }}>
-                  Dieser adaptive Plan ist für <strong>{typeName(plannedWorkoutType)}</strong> gedacht.
-                </p>
-              </div>
-            )}
-
-            {step === "questions" && (
-              <div className="space-y-4">
-                {[
-                  { id: "q1", title: t("adaptive.q1"), key: "timeToday", options: [["lt20", t("adaptive.q1.lt20")], ["20to40", t("adaptive.q1.min20to40")], ["40to60", t("adaptive.q1.min40to60")], ["gt60", t("adaptive.q1.gt60")]] },
-                  { id: "q2", title: t("adaptive.q2"), key: "dayForm", options: [["low", t("adaptive.q2.low")], ["mid", t("adaptive.q2.mid")], ["high", t("adaptive.q2.high")]] },
-                  { id: "q3", title: t("adaptive.q3"), key: "stress", options: [["low", t("adaptive.q3.low")], ["mid", t("adaptive.q3.mid")], ["high", t("adaptive.q3.high")]] },
-                  { id: "q4", title: t("adaptive.q4"), key: "yesterdayEffort", options: [["low", t("adaptive.q4.low")], ["mid", t("adaptive.q4.mid")], ["high", t("adaptive.q4.high")]] },
-                ].map(q => (
-                  <div
-                    key={q.id}
-                    className="rounded-[20px] p-4 border"
-                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
-                  >
-                    <h3 className="text-[15px] font-semibold mb-3" style={{ color: "var(--text-color)" }}>
-                      {q.title}
-                    </h3>
-                    <div className={`grid gap-2.5 ${q.options.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          return (
+            <div className="space-y-4">
+              {questions.map((q, _qi) => {
+                const is4 = q.options.length === 4;
+                return (
+                  <div key={q.id} className="rounded-[22px] p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+                    {/* Question header */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}>
+                        {q.icon}
+                      </div>
+                      <div>
+                        <p className="text-[15px] font-semibold leading-tight" style={{ color: "var(--text-color)" }}>
+                          {q.title}
+                        </p>
+                        <p className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                          {q.sub}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Options */}
+                    <div className={`grid gap-2 ${is4 ? "grid-cols-2" : "grid-cols-3"}`}>
                       {q.options.map(([value, label]) => {
-                        const isSelected = answers[q.key as keyof AdaptiveAnswers] === value;
+                        const isSelected = answers[q.key] === value;
                         return (
                           <button
                             key={value}
                             type="button"
                             onClick={() => setAnswers(p => ({ ...p, [q.key]: value }))}
-                            className="py-3 px-2 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] border"
+                            className="py-3 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.95]"
                             style={{
-                              backgroundColor: isSelected ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
-                              color: isSelected ? "var(--accent-color)" : "var(--text-color)",
-                              borderColor: isSelected ? "var(--accent-color)" : "var(--border-color)",
+                              backgroundColor: isSelected ? "#007AFF" : "var(--border-color)",
+                              color: isSelected ? "#fff" : "var(--text-color)",
+                              boxShadow: isSelected ? "0 4px 12px rgba(0,122,255,0.35)" : "none",
                             }}
                           >
                             {label}
@@ -181,9 +205,11 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       })}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
+          );
+        })()}
 
             {step === "suggestions" && (
               <div className="space-y-4">
@@ -206,6 +232,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       suggestion={s}
                       accent={accent}
                       onSelect={() => onSelect(s, answers)}
+                      onSaveToCalendar={onSaveToCalendar ? () => onSaveToCalendar(s, answers) : undefined}
                       disabled={!plannedOk}
                       isPro={isPro}
                     />
@@ -213,67 +240,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                 })}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Footer (Pinned) */}
-        <div
-          className="flex-shrink-0 px-4 py-3 border-t rounded-b-[28px]"
-          style={{
-            borderColor: "var(--border-color)",
-            backgroundColor: "var(--modal-header)",
-          }}
-        >
-          {step === "questions" ? (
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
-                style={{
-                  backgroundColor: "var(--button-bg)",
-                  borderColor: "var(--border-color)",
-                  color: "var(--text-color)",
-                }}
-                onClick={onClose}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] text-white disabled:opacity-50"
-                style={{ backgroundColor: "var(--accent-color)" }}
-                onClick={() => setStep("suggestions")}
-                disabled={!plannedOk}
-              >
-                {t("adaptive.showSuggestions")}
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
-                style={{
-                  backgroundColor: "var(--button-bg)",
-                  borderColor: "var(--border-color)",
-                  color: "var(--text-color)",
-                }}
-                onClick={() => setStep("questions")}
-              >
-                {t("common.back")}
-              </button>
-              <button
-                className="flex-1 py-3.5 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.97] border"
-                style={{
-                  backgroundColor: "var(--button-bg)",
-                  borderColor: "var(--border-color)",
-                  color: "var(--text-color)",
-                }}
-                onClick={onClose}
-              >
-                {t("common.close")}
-              </button>
-            </div>
-          )}
-        </div>
       </div>
-    </div>
+    </BottomSheet>
   );
 }

@@ -17,6 +17,9 @@ const DEFAULT_GOALS: NutritionGoals = {
   protein: 150,
   carbs: 250,
   fat: 65,
+  sugar: 50,
+  fiber: 30,
+  water: 3,
   mode: "maintenance",
 };
 

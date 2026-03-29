@@ -16,6 +16,7 @@ import {
   normalizeDate,
   parseHeader,
   splitCsvRows,
+  splitCsvLine,
 } from "./csvParser";
 
 // -------------------- Exercise Matching --------------------
@@ -78,6 +79,16 @@ export function matchExercise(csvName: string): { matchedName: string; exerciseI
   return bestMatch;
 }
 
+// -------------------- Hevy Detection --------------------
+
+/**
+ * Returns true if the header set contains the "workout name" column,
+ * which is the reliable signal for a Hevy-format CSV export.
+ */
+export function isHevyFormat(headers: Map<string, number>): boolean {
+  return headers.has("workoutTitle");
+}
+
 // -------------------- CSV Parsing --------------------
 
 /**
@@ -100,7 +111,7 @@ export function parseCsvForImport(content: string): CsvImportPreview {
   }
 
   const separator = detectSeparator(lines.slice(0, 5));
-  const headerMap = parseHeader(lines[0], separator);
+  const headerMap = parseHeader(lines[0], separator, true);
 
   // Validate required columns
   const dateIdx = headerMap.get("date");
@@ -108,6 +119,7 @@ export function parseCsvForImport(content: string): CsvImportPreview {
   const weightIdx = headerMap.get("weight");
   const repsIdx = headerMap.get("reps");
   const setsIdx = headerMap.get("sets");
+  const workoutTitleIdx = headerMap.get("workoutTitle"); // Hevy only
 
   if (dateIdx === undefined) warnings.push("Spalte 'Datum' / 'Date' nicht gefunden.");
   if (exerciseIdx === undefined) warnings.push("Spalte 'Übung' / 'Exercise' nicht gefunden.");
@@ -129,7 +141,7 @@ export function parseCsvForImport(content: string): CsvImportPreview {
   // Detect date format from samples
   const dateSamples: string[] = [];
   for (let i = 1; i < Math.min(lines.length, 20); i++) {
-    const cols = lines[i].split(separator);
+    const cols = splitCsvLine(lines[i], separator);
     if (cols[dateIdx]) dateSamples.push(cols[dateIdx].trim());
   }
   const dateFormat = detectDateFormat(dateSamples);
@@ -137,13 +149,14 @@ export function parseCsvForImport(content: string): CsvImportPreview {
   // Parse data rows
   let parseErrors = 0;
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(separator).map((c) => c.trim());
+    const cols = splitCsvLine(lines[i], separator);
 
     const rawDate = cols[dateIdx] || "";
     const exercise = cols[exerciseIdx] || "";
     const rawWeight = weightIdx !== undefined ? cols[weightIdx] : "0";
     const rawReps = repsIdx !== undefined ? cols[repsIdx] : "0";
     const rawSets = setsIdx !== undefined ? cols[setsIdx] : "1";
+    const workoutTitle = workoutTitleIdx !== undefined ? (cols[workoutTitleIdx] || "").trim() : undefined;
 
     if (!rawDate || !exercise) {
       parseErrors++;
@@ -161,7 +174,7 @@ export function parseCsvForImport(content: string): CsvImportPreview {
     const reps = Math.max(0, Math.round(parseFloat(rawReps.replace(",", ".")) || 0));
     const sets = Math.max(1, Math.round(parseFloat(rawSets.replace(",", ".")) || 1));
 
-    rows.push({ date, exercise, weightKg, reps, sets });
+    rows.push({ date, exercise, weightKg, reps, sets, workoutTitle: workoutTitle || undefined });
   }
 
   if (parseErrors > 0) {
@@ -195,8 +208,11 @@ export function parseCsvForImport(content: string): CsvImportPreview {
     to: dates[dates.length - 1] || "",
   };
 
-  const uniqueDates = new Set(rows.map((r) => r.date));
-  const totalWorkouts = uniqueDates.size;
+  // For Hevy CSVs, multiple workouts can share the same date; count unique date+workoutTitle combos.
+  const uniqueWorkoutKeys = new Set(
+    rows.map((r) => (r.workoutTitle ? `${r.date}\0${r.workoutTitle}` : r.date))
+  );
+  const totalWorkouts = uniqueWorkoutKeys.size;
 
   // 300-entry limit warning
   const existingHistory = loadWorkoutHistory();
@@ -220,34 +236,44 @@ export function parseCsvForImport(content: string): CsvImportPreview {
 
 interface GroupedWorkout {
   date: string;
+  title: string;  // workout title: Hevy workout name or fallback "Import YYYY-MM-DD"
   exercises: WorkoutHistoryExercise[];
 }
 
 /**
- * Group parsed CSV rows by date into workout entries.
+ * Group parsed CSV rows into workout entries.
+ *
+ * For Hevy CSVs (rows have workoutTitle): groups by "date + workoutTitle" so
+ * multiple workouts on the same day are kept separate and the Hevy workout name
+ * is used as the entry title.
+ *
+ * For generic CSVs: groups by date only (backward-compatible behaviour).
  */
 export function groupRowsIntoEntries(
   rows: CsvParsedRow[],
   matches: Map<string, string>
 ): GroupedWorkout[] {
-  // Group rows by date
-  const byDate = new Map<string, CsvParsedRow[]>();
+  // Build composite key: "date\0workoutTitle" for Hevy, just "date" for generic.
+  const byKey = new Map<string, { date: string; title: string; rows: CsvParsedRow[] }>();
+
   for (const row of rows) {
-    const existing = byDate.get(row.date) || [];
-    existing.push(row);
-    byDate.set(row.date, existing);
+    const key = row.workoutTitle ? `${row.date}\0${row.workoutTitle}` : row.date;
+    if (!byKey.has(key)) {
+      const title = row.workoutTitle || `Import ${row.date}`;
+      byKey.set(key, { date: row.date, title, rows: [] });
+    }
+    byKey.get(key)!.rows.push(row);
   }
 
   const result: GroupedWorkout[] = [];
 
-  for (const [date, dateRows] of byDate) {
-    // Group by exercise name within this date
+  for (const { date, title, rows: workoutRows } of byKey.values()) {
+    // Group by exercise name within this workout
     const byExercise = new Map<string, CsvParsedRow[]>();
-    for (const row of dateRows) {
-      const key = row.exercise;
-      const existing = byExercise.get(key) || [];
+    for (const row of workoutRows) {
+      const existing = byExercise.get(row.exercise) || [];
       existing.push(row);
-      byExercise.set(key, existing);
+      byExercise.set(row.exercise, existing);
     }
 
     const exercises: WorkoutHistoryExercise[] = [];
@@ -274,11 +300,14 @@ export function groupRowsIntoEntries(
       });
     }
 
-    result.push({ date, exercises });
+    result.push({ date, title, exercises });
   }
 
-  // Sort by date
-  result.sort((a, b) => a.date.localeCompare(b.date));
+  // Sort by date (then title for same-day workouts)
+  result.sort((a, b) => {
+    const dateCmp = a.date.localeCompare(b.date);
+    return dateCmp !== 0 ? dateCmp : a.title.localeCompare(b.title);
+  });
 
   return result;
 }
@@ -368,7 +397,7 @@ export function executeImport(preview: CsvImportPreview): CsvImportResult {
     try {
       addWorkoutEntry(
         {
-          title: `Import ${dateISO}`,
+          title: workout.title,
           sport: "Gym",
           startedAt,
           endedAt,

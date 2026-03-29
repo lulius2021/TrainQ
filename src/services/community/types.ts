@@ -1,6 +1,6 @@
 // Community module — shared types
 
-export type PostType = "workout_share" | "text_post" | "progress_update";
+export type PostType = "workout_share" | "text_post" | "progress_update" | "garmin_activity";
 export type Visibility = "public" | "followers" | "private";
 export type ReportReason = "spam" | "harassment" | "hate" | "nudity" | "self_harm" | "other";
 export type ReportTarget = "post" | "comment" | "user";
@@ -14,6 +14,28 @@ export interface CommunityProfile {
   bio: string;
 }
 
+export interface WorkoutData {
+  title: string;
+  sport: string;
+  durationMin: number;
+  durationLabel: string;
+  totalVolumeKg: number;
+  totalSets: number;
+  totalExercises: number;
+  topExercises: string[];
+  muscleGroups: string[];
+}
+
+export interface GarminActivityData {
+  garminActivityId: string;
+  activityType: string;
+  durationSeconds: number;
+  distanceMeters: number;
+  calories: number;
+  avgHeartRate: number;
+  maxHeartRate: number;
+}
+
 export interface CommunityPost {
   id: string;
   authorId: string;
@@ -21,6 +43,8 @@ export interface CommunityPost {
   text: string | null;
   cardImageUrl: string | null;
   workoutRefId: string | null;
+  workoutData: WorkoutData | null;
+  garminData: GarminActivityData | null;
   visibility: Visibility;
   likeCount: number;
   commentCount: number;
@@ -62,6 +86,7 @@ export const DEFAULT_VISIBILITY: Record<PostType, Visibility> = {
   workout_share: "public",
   text_post: "followers",
   progress_update: "followers",
+  garmin_activity: "public",
 };
 
 export const VISIBILITY_LABELS: Record<Visibility, string> = {
@@ -74,6 +99,7 @@ export const POST_TYPE_LABELS: Record<PostType, string> = {
   workout_share: "Workout teilen",
   text_post: "Beitrag",
   progress_update: "Fortschritt",
+  garmin_activity: "Garmin Aktivität",
 };
 
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {

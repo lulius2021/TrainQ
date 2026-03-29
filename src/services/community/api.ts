@@ -11,6 +11,8 @@ import type {
   Visibility,
   ReportReason,
   ReportTarget,
+  WorkoutData,
+  GarminActivityData,
 } from "./types";
 
 const PAGE_SIZE = 20;
@@ -24,10 +26,26 @@ function client() {
 // ── Profile ──
 
 export async function ensureCommunityProfile(userId: string, handle: string, displayName: string): Promise<void> {
-  await client().from("community_profiles").upsert(
-    { id: userId, handle, display_name: displayName },
-    { onConflict: "id" },
-  );
+  // Check if profile already exists for this user
+  const { data: existing } = await client()
+    .from("community_profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existing) return; // Already exists — don't overwrite
+
+  // Try handle, then handle + last 4 chars of userId on conflict
+  const sanitized = handle.replace(/[^a-z0-9_]/gi, "").toLowerCase() || `user${userId.slice(0, 6)}`;
+  const fallback = `${sanitized}${userId.slice(-4)}`;
+
+  for (const h of [sanitized, fallback]) {
+    const { error } = await client()
+      .from("community_profiles")
+      .insert({ id: userId, handle: h, display_name: displayName });
+    if (!error) return;
+    if (!error.message?.includes("unique") && !error.message?.includes("duplicate")) throw error;
+  }
 }
 
 export async function getCommunityProfile(userId: string): Promise<CommunityProfile | null> {
@@ -38,6 +56,73 @@ export async function getCommunityProfile(userId: string): Promise<CommunityProf
     .single();
   if (!data) return null;
   return { id: data.id, handle: data.handle, displayName: data.display_name, avatarUrl: data.avatar_url, bio: data.bio ?? "" };
+}
+
+export async function searchUsers(query: string, viewerId: string): Promise<(CommunityProfile & { isFollowing?: boolean })[]> {
+  const q = `%${query}%`;
+  const { data, error } = await client()
+    .from("community_profiles")
+    .select("id, handle, display_name, avatar_url, bio")
+    .or(`handle.ilike.${q},display_name.ilike.${q}`)
+    .neq("id", viewerId)
+    .limit(20);
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const profiles: CommunityProfile[] = data.map((d: any) => ({
+    id: d.id,
+    handle: d.handle,
+    displayName: d.display_name,
+    avatarUrl: d.avatar_url,
+    bio: d.bio ?? "",
+  }));
+
+  // Check follow status for each result
+  const { data: follows } = await client()
+    .from("community_follows")
+    .select("following_id")
+    .eq("follower_id", viewerId)
+    .in("following_id", profiles.map((p) => p.id));
+  const followingSet = new Set((follows ?? []).map((f: any) => f.following_id));
+
+  return profiles.map((p) => ({ ...p, isFollowing: followingSet.has(p.id) }));
+}
+
+/**
+ * Get all users the viewer doesn't follow yet, sorted by follower count (popular first).
+ */
+export async function getDiscoverUsers(viewerId: string, limit = 50): Promise<(CommunityProfile & { isFollowing: boolean })[]> {
+  // Fetch all profiles except viewer
+  const { data, error } = await client()
+    .from("community_profiles")
+    .select("id, handle, display_name, avatar_url, bio")
+    .neq("id", viewerId)
+    .limit(limit);
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const profiles: CommunityProfile[] = data.map((d: any) => ({
+    id: d.id,
+    handle: d.handle,
+    displayName: d.display_name,
+    avatarUrl: d.avatar_url,
+    bio: d.bio ?? "",
+  }));
+
+  // Check follow status
+  const { data: follows } = await client()
+    .from("community_follows")
+    .select("following_id")
+    .eq("follower_id", viewerId)
+    .in("following_id", profiles.map((p) => p.id));
+  const followingSet = new Set((follows ?? []).map((f: any) => f.following_id));
+
+  // Not-followed first, then followed
+  return profiles
+    .map((p) => ({ ...p, isFollowing: followingSet.has(p.id) }))
+    .sort((a, b) => (a.isFollowing === b.isFollowing ? 0 : a.isFollowing ? 1 : -1));
 }
 
 export async function updateCommunityProfile(userId: string, patch: Partial<{ handle: string; displayName: string; avatarUrl: string; bio: string }>): Promise<void> {
@@ -62,6 +147,8 @@ function mapPost(row: any): CommunityPost {
     text: row.text,
     cardImageUrl: row.card_image_url,
     workoutRefId: row.workout_ref_id,
+    workoutData: row.workout_data ?? null,
+    garminData: row.garmin_data ?? null,
     visibility: row.visibility,
     likeCount: row.like_count ?? 0,
     commentCount: row.comment_count ?? 0,
@@ -158,6 +245,8 @@ export async function createPost(authorId: string, params: {
   visibility: Visibility;
   cardImageUrl?: string;
   workoutRefId?: string;
+  workoutData?: WorkoutData;
+  garminData?: GarminActivityData;
 }): Promise<CommunityPost> {
   // URL rejection (MVP: no URLs allowed)
   if (params.text && /https?:\/\//i.test(params.text)) {
@@ -173,6 +262,8 @@ export async function createPost(authorId: string, params: {
       visibility: params.visibility,
       card_image_url: params.cardImageUrl ?? null,
       workout_ref_id: params.workoutRefId ?? null,
+      workout_data: params.workoutData ?? null,
+      garmin_data: params.garminData ?? null,
     })
     .select("*")
     .single();

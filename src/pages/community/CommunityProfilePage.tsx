@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, UserPlus, UserMinus } from "lucide-react";
+import { ChevronLeft, UserPlus, UserMinus, AlertTriangle, RefreshCw } from "lucide-react";
 import { getCommunityProfile, getFollowerCount, getFollowingCount, isFollowing, followUser, unfollowUser, getProfilePosts } from "../../services/community/api";
 import type { CommunityProfile, CommunityPost } from "../../services/community/types";
 import PostCard from "../../components/community/PostCard";
@@ -20,13 +20,15 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
   const [isFollowed, setIsFollowed] = useState(false);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [reportTarget, setReportTarget] = useState<{ id: string } | null>(null);
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     setLoading(true);
+    setError(false);
     Promise.all([
       getCommunityProfile(profileUserId),
       getFollowerCount(profileUserId),
@@ -40,8 +42,10 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
       setIsFollowed(followed);
       setPosts(p);
       setHasMore(p.length >= 20);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(() => setError(true)).finally(() => setLoading(false));
   }, [profileUserId, viewerId]);
+
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
   const handleFollow = async () => {
     if (isFollowed) {
@@ -99,7 +103,21 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Lade...</div>
+          <RefreshCw size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <AlertTriangle size={32} style={{ color: "var(--text-secondary)" }} className="mb-3" />
+          <p className="text-sm text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+            Profil konnte nicht geladen werden
+          </p>
+          <button
+            onClick={loadProfile}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+            style={{ background: "var(--accent-color)", color: "#fff" }}
+          >
+            <RefreshCw size={14} /> Erneut versuchen
+          </button>
         </div>
       ) : !profile ? (
         <div className="flex-1 flex items-center justify-center">

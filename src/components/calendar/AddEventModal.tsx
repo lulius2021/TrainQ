@@ -42,6 +42,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     const [date, setDate] = useState(initialDate || new Date().toISOString().split("T")[0]);
     const [startTime, setStartTime] = useState("18:00");
     const [endTime, setEndTime] = useState("19:00");
+    const [isAllDay, setIsAllDay] = useState(false);
     const [category, setCategory] = useState("other");
     const [description, setDescription] = useState("");
 
@@ -60,6 +61,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
             setTitle("");
             setStartTime("18:00");
             setEndTime("19:00");
+            setIsAllDay(false);
             setDescription("");
 
             // Mode-specific defaults
@@ -189,8 +191,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
         const payload: NewCalendarEvent = {
             title: finalTitle,
             date: date,
-            startTime: startTime,
-            endTime: endTime,
+            startTime: isAllDay ? "" : startTime,
+            endTime: isAllDay ? "" : endTime,
             type: "other", // Default type
             category: finalCategory,
             notes: description,
@@ -250,7 +252,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                                             : 'bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)] hover:border-[var(--border-color)]'}
                                                     `}
                                                 >
-                                                    {t(cat.labelKey)}
+                                                    {cat.label}
                                                 </button>
                                             );
                                         })}
@@ -318,12 +320,22 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.startTime')}</label>
-                                        <input
-                                            type="time"
-                                            value={startTime}
-                                            onChange={e => setStartTime(e.target.value)}
-                                            className="bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-color)] rounded-3xl px-4 py-3.5 text-[16px] text-center focus:outline-none focus:border-blue-500/50 focus:bg-[var(--input-bg)] transition-all"
-                                        />
+                                        {isAllDay ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAllDay(false)}
+                                                className="bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-3xl px-4 py-3.5 text-[15px] w-full text-center"
+                                            >
+                                                Ganztägig
+                                            </button>
+                                        ) : (
+                                            <input
+                                                type="time"
+                                                value={startTime}
+                                                onChange={e => setStartTime(e.target.value)}
+                                                className="bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-color)] rounded-3xl px-4 py-3.5 text-[16px] text-center focus:outline-none focus:border-blue-500/50 focus:bg-[var(--input-bg)] transition-all w-full"
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -406,7 +418,22 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
                         {/* COMMON: TIME SELECTION */}
                         <div className="pt-2 border-t border-[var(--border-color)]">
-                            <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">{t('addEvent.time')}</label>
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{t('addEvent.time')}</label>
+                                {/* Ganztägig toggle */}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAllDay(v => !v)}
+                                    className="flex items-center gap-2"
+                                >
+                                    <span className="text-xs font-medium" style={{ color: isAllDay ? "var(--accent-color)" : "var(--text-secondary)" }}>
+                                        Ganztägig
+                                    </span>
+                                    <div className={`w-10 h-6 rounded-full relative transition-colors duration-200 ${isAllDay ? "bg-blue-500" : "bg-[var(--button-bg)]"}`}>
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${isAllDay ? "translate-x-4" : "translate-x-0"}`} />
+                                    </div>
+                                </button>
+                            </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <input
                                     type="date"
@@ -414,20 +441,26 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                     onChange={e => setDate(e.target.value)}
                                     className="bg-[var(--input-bg)] border border-[var(--border-color)] focus:bg-[var(--input-bg)] focus:border-blue-500/50 text-[var(--text-color)] rounded-3xl px-3 py-3 text-[15px] focus:outline-none transition-all font-mono"
                                 />
-                                <div className="flex gap-2">
-                                    <input
-                                        type="time"
-                                        value={startTime}
-                                        onChange={e => setStartTime(e.target.value)}
-                                        className="flex-1 bg-[var(--input-bg)] border border-[var(--border-color)] focus:bg-[var(--input-bg)] focus:border-blue-500/50 text-[var(--text-color)] rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={endTime}
-                                        onChange={e => setEndTime(e.target.value)}
-                                        className="flex-1 bg-[var(--input-bg)] border border-[var(--border-color)] focus:bg-[var(--input-bg)] focus:border-blue-500/50 text-[var(--text-color)] rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
-                                    />
-                                </div>
+                                {isAllDay ? (
+                                    <div className="flex items-center justify-center rounded-3xl bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[14px]">
+                                        Ganztägig · 13:00 Uhr
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="time"
+                                            value={startTime}
+                                            onChange={e => setStartTime(e.target.value)}
+                                            className="flex-1 bg-[var(--input-bg)] border border-[var(--border-color)] focus:bg-[var(--input-bg)] focus:border-blue-500/50 text-[var(--text-color)] rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
+                                        />
+                                        <input
+                                            type="time"
+                                            value={endTime}
+                                            onChange={e => setEndTime(e.target.value)}
+                                            className="flex-1 bg-[var(--input-bg)] border border-[var(--border-color)] focus:bg-[var(--input-bg)] focus:border-blue-500/50 text-[var(--text-color)] rounded-3xl px-2 py-3 text-[15px] text-center focus:outline-none transition-all font-mono"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 

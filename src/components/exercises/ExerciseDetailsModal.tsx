@@ -79,6 +79,17 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
     [t]
   );
 
+  const typeLabels = useMemo(
+    () => ({
+      strength: t("training.exerciseType.strength"),
+      hypertrophy: t("training.exerciseType.hypertrophy"),
+      calisthenics: t("training.exerciseType.calisthenics"),
+      conditioning: t("training.exerciseType.conditioning"),
+      mobility: t("training.exerciseType.mobility"),
+    }),
+    [t]
+  );
+
   const muscles = useMemo(() => {
     if (!exercise) return { primary: [] as Muscle[], secondary: [] as Muscle[] };
     if (exercise.muscles?.primary?.length) {
@@ -97,18 +108,18 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
   const header = (
     <div className="flex items-start justify-between gap-3 px-4">
       <div className="min-w-0">
-        <div className="truncate text-base font-bold" style={{ color: "var(--text)" }}>
+        <div className="text-lg font-bold leading-tight" style={{ color: "var(--text-color)" }}>
           {exercise.name}
         </div>
-        <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+        <div className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
           {t("training.exerciseLibrary.detailsSubtitle")}
         </div>
       </div>
       <button
         type="button"
         onClick={onClose}
-        className="rounded-full border px-3 py-1 text-xs"
-        style={{ background: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text)" }}
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs"
+        style={{ background: "var(--button-bg)", color: "var(--text-secondary)" }}
         aria-label={t("common.close")}
       >
         ✕
@@ -120,16 +131,13 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
     <div className="px-4 py-3">
       <button
         type="button"
-        onClick={() => {
-          onAdd(exercise);
-          onClose();
-        }}
+        onClick={() => { onAdd(exercise); onClose(); }}
         disabled={isAdded}
-        className="w-full rounded-2xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed"
+        className="w-full rounded-2xl py-4 text-base font-bold disabled:cursor-not-allowed transition-all active:scale-[0.98]"
         style={
           isAdded
-            ? { background: "rgba(16,185,129,0.18)", color: "rgba(16,185,129,0.95)", border: "1px solid rgba(16,185,129,0.35)" }
-            : { background: "#007AFF", color: "#FFFFFF", borderRadius: "12px", padding: "16px" }
+            ? { background: "rgba(16,185,129,0.15)", color: "rgba(16,185,129,0.95)", border: "1px solid rgba(16,185,129,0.3)" }
+            : { background: "var(--accent-color)", color: "#FFFFFF" }
         }
       >
         {isAdded ? t("training.exerciseLibrary.added") : t("training.exerciseLibrary.add")}
@@ -143,51 +151,48 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
       onClose={onClose}
       header={header}
       footer={footer}
-      height="80dvh"
-      maxHeight="80dvh"
+      height="auto"
+      maxHeight="85dvh"
       zIndex={10020}
-      sheetStyle={{ background: "#1c1c1e", borderTop: "1px solid rgba(255,255,255,0.1)" }}
+      sheetStyle={{ background: "var(--modal-bg)", borderTop: "1px solid var(--border-color)" }}
       backdropClassName="bg-black/80"
       variant="docked"
     >
-      <div className="space-y-4 px-4 pb-4" style={{ color: "var(--text)" }}>
-        <div
-          className="flex h-[260px] w-full items-center justify-center overflow-hidden rounded-2xl border"
-          style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--border-color)" }}
-        >
-          {src ? (
-            <img src={src} alt={exercise.name} className="h-full w-full object-contain" />
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M5 8h3v8H5M16 8h3v8h-3M8 10h8M8 14h8"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {t("training.exerciseLibrary.noImage")}
-            </div>
-          )}
-        </div>
+      <div className="space-y-5 px-4 pb-4" style={{ color: "var(--text-color)" }}>
+        {/* Image - only show if available, compact */}
+        {src && (
+          <div
+            className="w-full overflow-hidden rounded-2xl"
+            style={{ background: "var(--button-bg)" }}
+          >
+            <img src={src} alt={exercise.name} className="h-48 w-full object-contain" />
+          </div>
+        )}
 
-        {(equipment.length > 0 || difficulty) && (
+        {/* Tags: Equipment, Type, Difficulty */}
+        {(equipment.length > 0 || difficulty || exercise.type) && (
           <div className="flex flex-wrap gap-2">
             {equipment.map((eq: Equipment) => (
               <span
                 key={eq}
-                className="rounded-full border px-3 py-1 text-[10px]"
-                style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
+                className="rounded-full px-3 py-1.5 text-xs font-medium"
+                style={{ background: "var(--button-bg)", color: "var(--text-color)" }}
               >
                 {equipmentLabels[eq] ?? eq}
               </span>
             ))}
+            {exercise.type && (
+              <span
+                className="rounded-full px-3 py-1.5 text-xs font-medium"
+                style={{ background: "rgba(0,122,255,0.12)", color: "var(--accent-color)" }}
+              >
+                {typeLabels[exercise.type as keyof typeof typeLabels] ?? exercise.type}
+              </span>
+            )}
             {difficulty && (
               <span
-                className="rounded-full border px-3 py-1 text-[10px]"
-                style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
+                className="rounded-full px-3 py-1.5 text-xs font-medium"
+                style={{ background: "var(--button-bg)", color: "var(--text-secondary)" }}
               >
                 {difficultyLabels[difficulty] ?? difficulty}
               </span>
@@ -195,40 +200,23 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
           </div>
         )}
 
-        <section>
-          <div className="text-xs font-bold uppercase tracking-widest text-blue-400">
-            {t("training.exerciseLibrary.cuesTitle")}
-          </div>
-          {cues.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm" style={{ color: "var(--text-muted)" }}>
-              {cues.map((cue, idx) => (
-                <li key={`${cue}-${idx}`}>{cue}</li>
-              ))}
-            </ul>
-          ) : (
-            <div className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-              {t("training.exerciseLibrary.cuesEmpty")}
+        {/* Muscle groups */}
+        {(muscles.primary.length > 0 || muscles.secondary.length > 0) && (
+          <section>
+            <div
+              className="text-[11px] font-bold uppercase tracking-widest mb-2.5"
+              style={{ color: "var(--accent-color)" }}
+            >
+              {t("training.exerciseLibrary.musclesTitle")}
             </div>
-          )}
-        </section>
-
-        <section>
-          <div className="text-xs font-bold uppercase tracking-widest text-blue-400">
-            {t("training.exerciseLibrary.musclesTitle")}
-          </div>
-          {muscles.primary.length === 0 && muscles.secondary.length === 0 ? (
-            <div className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-              {t("training.exerciseLibrary.musclesEmpty")}
-            </div>
-          ) : (
-            <div className="mt-2 space-y-2">
+            <div className="space-y-2">
               {muscles.primary.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {muscles.primary.map((m) => (
                     <span
                       key={`primary-${m}`}
-                      className="rounded-full border px-3 py-1 text-[10px]"
-                      style={{ borderColor: "rgba(37,99,235,0.6)", color: "var(--text)" }}
+                      className="rounded-full px-3 py-1.5 text-xs font-semibold"
+                      style={{ background: "rgba(0,122,255,0.12)", color: "var(--accent-color)" }}
                     >
                       {muscleLabels[m] ?? m}
                     </span>
@@ -240,8 +228,8 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
                   {muscles.secondary.map((m) => (
                     <span
                       key={`secondary-${m}`}
-                      className="rounded-full border px-3 py-1 text-[10px]"
-                      style={{ borderColor: "var(--border-color)", color: "var(--text-muted)" }}
+                      className="rounded-full px-3 py-1.5 text-xs font-medium"
+                      style={{ background: "var(--button-bg)", color: "var(--text-secondary)" }}
                     >
                       {muscleLabels[m] ?? m}
                     </span>
@@ -249,8 +237,39 @@ function ExerciseDetailsContent({ exercise, isAdded, readOnly, onClose, onAdd }:
                 </div>
               )}
             </div>
-          )}
-        </section>
+          </section>
+        )}
+
+        {/* Cues / Tips */}
+        {cues.length > 0 && (
+          <section>
+            <div
+              className="text-[11px] font-bold uppercase tracking-widest mb-2.5"
+              style={{ color: "var(--accent-color)" }}
+            >
+              {t("training.exerciseLibrary.cuesTitle")}
+            </div>
+            <div className="space-y-2">
+              {cues.map((cue, idx) => (
+                <div
+                  key={`${cue}-${idx}`}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: "var(--accent-color)" }} />
+                  {cue}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Empty state when no muscles and no cues */}
+        {muscles.primary.length === 0 && muscles.secondary.length === 0 && cues.length === 0 && (
+          <div className="py-6 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
+            {t("training.exerciseLibrary.musclesEmpty")}
+          </div>
+        )}
       </div>
     </BottomSheet>
   );

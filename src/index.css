@@ -15,6 +15,18 @@
         /* Zinc-800 */
     }
 
+    /* Disable text selection & long-press menu app-wide (native app feel) */
+    *:not(input):not(textarea):not([contenteditable="true"]) {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+    input, textarea, [contenteditable="true"] {
+        -webkit-user-select: text;
+        user-select: text;
+        -webkit-touch-callout: default;
+    }
+
     /* GLOBAL RESET & THEME VARIABLES */
     :root {
         /* Default Dark Theme */
@@ -28,7 +40,7 @@
         --accent-color: #007AFF;
         --border-color: #27272a;
         --input-bg: #2C2C2E;
-        --tab-bar-bg: #1C1C1E;
+        --tab-bar-bg: rgba(18, 18, 20, 0.55);
         --success: #34C759;
         --danger: #FF3B30;
 
@@ -50,6 +62,26 @@
         --mini-bar-bg: rgba(28, 28, 30, 0.95);
         --chart-grid: rgba(255, 255, 255, 0.1);
         --text: var(--text-color);
+
+        /* iOS 26 Liquid Glass */
+        --glass-bg: rgba(30, 30, 32, 0.55);
+        --glass-border: rgba(255, 255, 255, 0.14);
+        --glass-highlight: rgba(255, 255, 255, 0.10);
+        --glass-shadow: rgba(0, 0, 0, 0.40);
+
+        /* ── Layout geometry — single source of truth ───────────────
+           --tab-bar-height   : pill height (no safe area included)
+           --mini-player-height: set via JS when MiniPlayer is active
+           --scroll-pb         : use on every PageScrollContainer
+        ─────────────────────────────────────────────────────────── */
+        --tab-bar-height: 58px;
+        --mini-player-height: 0px;
+        --scroll-pb: calc(var(--tab-bar-height) + env(safe-area-inset-bottom) + 16px + var(--mini-player-height));
+
+        /* PageNavBar scrolled-state surface */
+        --nav-scrolled-bg: rgba(0, 0, 0, 0.85);
+
+        color-scheme: dark light;
     }
 
     body.light-theme {
@@ -64,7 +96,7 @@
         --accent-color: #007AFF;
         --border-color: #E5E5EA;
         --input-bg: #F2F2F7;
-        --tab-bar-bg: #FFFFFF;
+        --tab-bar-bg: rgba(242, 242, 247, 0.60);
         --success: #34C759;
         --danger: #FF3B30;
 
@@ -85,6 +117,17 @@
         --nav-icon-filter: brightness(0);
         --mini-bar-bg: rgba(255, 255, 255, 0.95);
         --chart-grid: #C7C7CC;
+
+        /* iOS 26 Liquid Glass */
+        --glass-bg: rgba(242, 242, 247, 0.60);
+        --glass-border: rgba(0, 0, 0, 0.10);
+        --glass-highlight: rgba(255, 255, 255, 0.70);
+        --glass-shadow: rgba(0, 0, 0, 0.12);
+
+        /* PageNavBar scrolled-state surface */
+        --nav-scrolled-bg: rgba(242, 242, 247, 0.88);
+
+        color-scheme: light;
     }
 
     /* Theme switching transition — scoped to layout containers only */
@@ -167,6 +210,20 @@
         padding-top: env(safe-area-inset-top);
     }
 
+    /* Clears the floating tab bar + safe area + mini player.
+       Use as className on every PageScrollContainer. */
+    .scroll-pb {
+        padding-bottom: var(--scroll-pb);
+    }
+
+    /* ── BANNED patterns — do not use these on page-level containers ──
+       pt-page is reserved for PageNavBar internal use only.
+       All page top spacing is handled by PageNavBar.
+    ─────────────────────────────────────────────────────────────────── */
+    .pt-page {
+        padding-top: calc(env(safe-area-inset-top) + 20px);
+    }
+
     #library-image-forced {
         width: 90px !important;
         height: 90px !important;
@@ -193,4 +250,111 @@ body.light-theme h3:not(.force-white h3):not(.force-white *) {
 body.light-theme .bg-zinc-900,
 body.light-theme .bg-zinc-950 {
     background-color: var(--card-bg) !important;
+}
+
+/* ── Cardio map: pulse animation for "you are here" ring ── */
+@keyframes cardio-pulse {
+  0%   { transform: scale(1);   opacity: 0.5; }
+  70%  { transform: scale(2.2); opacity: 0;   }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+
+.cardio-pulse-ring {
+  animation: cardio-pulse 2s ease-out infinite;
+  transform-origin: center;
+  /* Leaflet SVG elements need transform-box to animate from centre */
+  transform-box: fill-box;
+}
+
+/* ============================================================
+   iOS 26 Liquid Glass Utilities
+   ============================================================ */
+
+/* Liquid Glass Material — use on nav bars, modals, cards that float over content */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(48px) saturate(2.2) brightness(1.05);
+  -webkit-backdrop-filter: blur(48px) saturate(2.2) brightness(1.05);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06),
+    0 8px 32px var(--glass-shadow);
+}
+
+/* Liquid Glass Button — primary interactive surface */
+.liquid-glass-btn {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(2) brightness(1.08);
+  -webkit-backdrop-filter: blur(24px) saturate(2) brightness(1.08);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 2px 8px var(--glass-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.liquid-glass-btn:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Floating tab bar pill — consolidates all tab bar glass in one place.
+   BottomNav uses this class on its pill container. */
+.glass-pill-nav {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.04) 40%, transparent 100%),
+    rgba(22, 22, 24, 0.72);
+  backdrop-filter: blur(56px) saturate(2.2) brightness(1.08);
+  -webkit-backdrop-filter: blur(56px) saturate(2.2) brightness(1.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px rgba(0, 0, 0, 0.30),
+    0 12px 48px rgba(0, 0, 0, 0.50),
+    0 2px 8px rgba(0, 0, 0, 0.30);
+}
+
+body.light-theme .glass-pill-nav {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.60) 0%, rgba(255, 255, 255, 0.30) 40%, transparent 100%),
+    rgba(242, 242, 247, 0.75);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.80),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================
+   PageNavBar surface system
+   ============================================================
+
+   .page-nav-bar          — base: transparent, no blur (resting state)
+   .is-scrolled           — toggled on PageScrollContainer via JS threshold
+   .is-scrolled .page-nav-bar — scrolled: blurred material surface
+
+   For modal mode, PageNavBar adds data-mode="modal" which is always
+   in the scrolled/blurred state regardless of scroll position.
+   ============================================================ */
+
+.page-nav-bar {
+  background: transparent;
+  border-bottom: 0.5px solid transparent;
+  transition:
+    background 0.22s ease,
+    border-color 0.22s ease,
+    backdrop-filter 0.22s ease;
+  /* Ensure backdrop-filter works: no overflow, no transform that creates stacking context issues */
+  will-change: backdrop-filter;
+}
+
+.is-scrolled .page-nav-bar,
+.page-nav-bar[data-mode="modal"] {
+  background: var(--nav-scrolled-bg);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom-color: var(--border-color);
 }

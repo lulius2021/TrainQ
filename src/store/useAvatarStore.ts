@@ -1,19 +1,28 @@
 // src/store/useAvatarStore.ts
-// Persistence + React hook for avatar state via scopedStorage.
+// Persistence + React hook for the body-composition avatar state.
 
 import { useCallback, useEffect, useState } from "react";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
-import { loadWorkoutHistory, type WorkoutHistoryEntry } from "../utils/workoutHistory";
 import {
   type AvatarState,
-  computeRawXp,
-  computeVariant,
+  type WorkoutInput,
+  type ApplyWorkoutResult,
   defaultAvatarState,
-  grantXp,
+  applyWorkout,
+  applyDailyAtrophy,
 } from "../utils/avatarProgression";
 
-const STORAGE_KEY = "trainq_avatar_v1";
+const STORAGE_KEY = "trainq_avatar_v2";
 const EVENT_NAME = "trainq:avatarUpdated";
+
+function todayISO(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
 
 /* ─── Persistence ─── */
 
@@ -21,8 +30,15 @@ export function loadAvatarState(): AvatarState {
   try {
     const raw = getScopedItem(STORAGE_KEY);
     if (!raw) return defaultAvatarState();
-    const parsed = JSON.parse(raw);
-    return { ...defaultAvatarState(), ...parsed };
+    const parsed = JSON.parse(raw) as Partial<AvatarState>;
+    const def = defaultAvatarState();
+    // Merge so new body-part keys are always present
+    return {
+      ...def,
+      ...parsed,
+      bodyParts: { ...def.bodyParts, ...(parsed.bodyParts ?? {}) },
+      activityLog: parsed.activityLog ?? [],
+    };
   } catch {
     return defaultAvatarState();
   }
@@ -35,36 +51,43 @@ function saveAvatarState(state: AvatarState): void {
 
 /* ─── Actions ─── */
 
+/**
+ * Apply a completed workout to the avatar state.
+ * Returns gained body parts and any milestone triggered.
+ */
 export function grantWorkoutXp(
-  entry: WorkoutHistoryEntry,
+  workout: WorkoutInput,
 ): { granted: number; stageUp: { stage: number; variant: "bulk" | "speed" } | null } {
-  let state = loadAvatarState();
+  const state = loadAvatarState();
+  const today = todayISO();
 
-  // Dedup: skip if we already granted XP for this workout
-  if (entry.id && state.lastWorkoutId === entry.id) {
+  const result: ApplyWorkoutResult = applyWorkout(state, workout, today);
+
+  if (result.gainedParts && Object.keys(result.gainedParts).length === 0) {
+    // Dedup — already processed this workout
     return { granted: 0, stageUp: null };
   }
 
-  const rawXp = computeRawXp(entry);
-  const now = new Date();
-  const result = grantXp(state, rawXp, now);
+  saveAvatarState(result.newState);
 
-  // Update variant from recent history
-  const history = loadWorkoutHistory();
-  const variant = computeVariant(history);
+  // Map milestone to legacy stageUp interface (for AvatarStageUpModal compatibility)
+  const stageUp = result.milestone
+    ? {
+        stage: result.milestone.newLevel,
+        variant: "bulk" as const,
+        bodyPart: result.milestone.bodyPart,
+      }
+    : null;
 
-  const newState: AvatarState = {
-    ...result.newState,
-    variant,
-    lastWorkoutId: entry.id,
-  };
+  const totalGained = Object.values(result.gainedParts).reduce((s, v) => s + v, 0);
+  return { granted: Math.round(totalGained), stageUp };
+}
 
-  // Update stageUp variant if there was a stage-up
-  const stageUp = result.stageUp ? { ...result.stageUp, variant } : null;
-
-  saveAvatarState(newState);
-
-  return { granted: result.granted, stageUp };
+/** Trigger daily atrophy recalculation (call on app resume). */
+export function refreshAtrophy(): void {
+  const state = loadAvatarState();
+  const updated = applyDailyAtrophy(state, todayISO());
+  saveAvatarState(updated);
 }
 
 /* ─── React Hook ─── */

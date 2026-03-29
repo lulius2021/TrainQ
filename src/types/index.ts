@@ -45,7 +45,7 @@ export type {
   AdaptiveSuggestion,
 } from "./adaptive";
 
-export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "community" | "profile";
+export type TabKey = "dashboard" | "calendar" | "today" | "plan" | "profile";
 
 // -------------------- UI Types (Visual Layer) --------------------
 export type { CalendarEvent, ExerciseType } from "./ui";

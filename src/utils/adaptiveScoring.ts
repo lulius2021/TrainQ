@@ -19,32 +19,13 @@ import type {
 export function profileAccent(profile: string) {
   switch (profile) {
     case "stabil":
-      // Apple Blue #007AFF
-      return {
-        bg: "rgba(0, 122, 255, 0.08)",
-        border: "rgba(0, 122, 255, 0.4)",
-        badgeBg: "rgba(0, 122, 255, 0.15)"
-      };
+      return { solid: "#007AFF", bg: "rgba(0,122,255,0.12)", border: "#007AFF", badgeBg: "rgba(0,122,255,0.2)" };
     case "kompakt":
-      // Apple Red #FF3B30
-      return {
-        bg: "rgba(255, 59, 48, 0.08)",
-        border: "rgba(255, 59, 48, 0.4)",
-        badgeBg: "rgba(255, 59, 48, 0.15)"
-      };
+      return { solid: "#FF3B30", bg: "rgba(255,59,48,0.12)",  border: "#FF3B30", badgeBg: "rgba(255,59,48,0.2)" };
     case "fokus":
-      // Apple Green #34C759
-      return {
-        bg: "rgba(52, 199, 89, 0.08)",
-        border: "rgba(52, 199, 89, 0.4)",
-        badgeBg: "rgba(52, 199, 89, 0.15)"
-      };
+      return { solid: "#34C759", bg: "rgba(52,199,89,0.12)",  border: "#34C759", badgeBg: "rgba(52,199,89,0.2)" };
     default:
-      return {
-        bg: "rgba(255, 255, 255, 0.05)",
-        border: "rgba(255, 255, 255, 0.1)",
-        badgeBg: "rgba(255, 255, 255, 0.1)"
-      };
+      return { solid: "#8E8E93", bg: "rgba(142,142,147,0.1)", border: "#8E8E93", badgeBg: "rgba(142,142,147,0.15)" };
   }
 }
 

@@ -78,6 +78,9 @@ export interface NutritionGoals {
   protein: number;
   carbs: number;
   fat: number;
+  sugar?: number;
+  fiber?: number;
+  water?: number;
   mode: "deficit" | "maintenance" | "surplus";
 }
 

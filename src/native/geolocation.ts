@@ -22,8 +22,9 @@ export async function requestLocationPermission(): Promise<boolean> {
 export async function getCurrentPosition(): Promise<GpsPoint | null> {
   try {
     const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
+      enableHighAccuracy: false, // fast coarse fix first (GPS cold start)
       timeout: 10000,
+      maximumAge: 60000,        // accept cached position up to 1 min old
     });
     return {
       lat: pos.coords.latitude,

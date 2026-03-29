@@ -155,6 +155,39 @@ const DailyMacroSummary: React.FC<DailyMacroSummaryProps> = ({
           bgColor="rgba(236,72,153,0.15)"
           unit="g"
         />
+        {(goals.sugar ?? 0) > 0 && (
+          <MacroBar
+            label="Zucker"
+            current={0}
+            goal={goals.sugar ?? 50}
+            progress={0}
+            color="#f43f5e"
+            bgColor="rgba(244,63,94,0.15)"
+            unit="g"
+          />
+        )}
+        {(goals.fiber ?? 0) > 0 && (
+          <MacroBar
+            label="Ballast."
+            current={0}
+            goal={goals.fiber ?? 30}
+            progress={0}
+            color="#10b981"
+            bgColor="rgba(16,185,129,0.15)"
+            unit="g"
+          />
+        )}
+        {(goals.water ?? 0) > 0 && (
+          <MacroBar
+            label="Wasser"
+            current={0}
+            goal={goals.water ?? 3}
+            progress={0}
+            color="#06b6d4"
+            bgColor="rgba(6,182,212,0.15)"
+            unit="L"
+          />
+        )}
       </div>
     </div>
   );

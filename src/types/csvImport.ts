@@ -1,11 +1,12 @@
 // src/types/csvImport.ts
 
 export interface CsvParsedRow {
-  date: string;       // normalized to YYYY-MM-DD
-  exercise: string;   // raw from CSV
+  date: string;           // normalized to YYYY-MM-DD
+  exercise: string;       // raw from CSV
   weightKg: number;
   reps: number;
-  sets: number;       // how many sets (default 1)
+  sets: number;           // how many sets (default 1)
+  workoutTitle?: string;  // optional: Hevy "Workout Name" column
 }
 
 export interface CsvImportPreview {

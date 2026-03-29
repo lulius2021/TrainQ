@@ -30,7 +30,9 @@ import {
     FileText,
     Building2,
     Activity,
-    Bell
+    Bell,
+    UserX,
+    RefreshCw
 } from "lucide-react";
 import NotificationSettings from "../components/settings/NotificationSettings";
 import { getMuscleDetailMode, setMuscleDetailMode, type MuscleDetailMode } from "../utils/muscleGrouping";
@@ -40,6 +42,7 @@ import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from "../
 
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { DataService } from "../services/DataService";
+import { deleteSupabaseAccount } from "../services/supabaseAuth";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { ProfileService } from "../services/ProfileService"; // Import ProfileService
 import GarminIntegrationModal from "../components/settings/GarminIntegrationModal";
@@ -132,7 +135,7 @@ const SettingsModal = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md"
+                        className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md"
                     />
 
                     {/* Modal Panel */}
@@ -141,7 +144,7 @@ const SettingsModal = ({
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed inset-x-0 bottom-0 z-[70] h-[92vh] rounded-t-[32px] bg-[var(--modal-bg)] overflow-hidden flex flex-col border-t border-[var(--border-color)] shadow-2xl"
+                        className="fixed inset-x-0 bottom-0 z-[115] h-[92vh] rounded-t-[32px] bg-[var(--modal-bg)] overflow-hidden flex flex-col border-t border-[var(--border-color)] shadow-2xl"
                     >
                         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-[var(--modal-header)] z-10">
                             <h2 className="text-xl font-bold text-[var(--text-color)]">{title}</h2>
@@ -236,17 +239,19 @@ type Props = {
     onClearCalendar: () => void;
     onOpenPaywall: () => void;
     onOpenGoals: () => void;
+    isSheet?: boolean;
 };
 
 // Demo Generator (kept but minimized)
 
 
-const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall, onOpenGoals }) => {
+const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall, onOpenGoals, isSheet }) => {
     const { t, lang } = useI18n();
-    const { user, logout } = useAuth();
+    const { user, logout, resetOnboarding } = useAuth();
     const { isPro } = useEntitlements(user?.id);
 
     const [activeModal, setActiveModal] = useState<ModalType>(null);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showLangModal, setShowLangModal] = useState(false);
     const { connected: garminConnected } = useGarminConnection();
 
@@ -326,10 +331,14 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
         }
     };
 
-    const handleLogout = async () => {
-        if (confirm(t("settings.confirm.logout"))) {
-            await logout();
-        }
+    const handleLogout = () => setShowLogoutConfirm(true);
+    const confirmLogout = async () => {
+        setShowLogoutConfirm(false);
+        await logout();
+    };
+
+    const handleResetOnboarding = async () => {
+        await resetOnboarding();
     };
 
     const handleClearCalendarAction = async () => {
@@ -351,20 +360,40 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
         alert(t("settings.alert.historyCleared"));
     };
 
+    const handleDeleteAccount = async () => {
+        if (!confirm(t("settings.confirm.deleteProfile"))) return;
+
+        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+
+        // Clear all local data first
+        DataService.clearCalendar();
+        DataService.clearWorkoutHistory();
+
+        const { error } = await deleteSupabaseAccount();
+        if (error) {
+            alert(error);
+            return;
+        }
+
+        await logout();
+    };
+
 
 
     return (
-        <div className="flex flex-col h-full bg-[var(--bg-color)] text-[var(--text-color)] overflow-hidden">
+        <div className={isSheet ? "flex flex-col" : "flex flex-col h-full bg-[var(--bg-color)] text-[var(--text-color)] overflow-hidden"}>
 
             {/* HEADER */}
-            <div className="pt-[calc(env(safe-area-inset-top)+20px)] px-6 pb-6 bg-[var(--bg-color)] shrink-0 z-10">
-                <div className="flex items-center mb-2">
-                    <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--text-color)]">
-                        <ChevronLeft size={32} />
-                    </button>
-                </div>
+            <div className={isSheet ? "px-5 pt-1 pb-4 shrink-0" : "pt-page px-6 pb-6 bg-[var(--bg-color)] shrink-0 z-10"}>
+                {!isSheet && (
+                    <div className="flex items-center mb-2">
+                        <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--text-color)]">
+                            <ChevronLeft size={32} />
+                        </button>
+                    </div>
+                )}
                 <div className="flex justify-between items-end">
-                    <h1 className="text-4xl font-bold text-[var(--text-color)] tracking-tight">{t("settings.title")}</h1>
+                    <h1 className={`font-bold text-[var(--text-color)] tracking-tight ${isSheet ? "text-2xl" : "text-4xl"}`}>{t("settings.title")}</h1>
                     {isPro && (
                         <div className="bg-gradient-to-r from-amber-300 to-amber-500 text-black text-[10px] font-black px-2 py-1 rounded-md mb-2 shadow-lg shadow-amber-500/20">
                             PRO
@@ -373,7 +402,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 pb-40 max-w-2xl mx-auto w-full">
+            <div className={isSheet ? "px-4 pb-10 max-w-2xl mx-auto w-full" : "flex-1 overflow-y-auto px-4 pb-40 max-w-2xl mx-auto w-full"}>
                 {/* SECTION 1: ACCOUNT */}
                 <Section title={t("settings.section.account")}>
                     <SettingsRow
@@ -481,7 +510,34 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     />
                 </Section>
 
-                {/* SECTION 5: LEGAL */}
+                {/* SECTION 5: DANGER ZONE — placed above Legal to avoid iOS scroll-tap misfire */}
+                <div className="space-y-3 mb-8">
+                    <button
+                        type="button"
+                        onPointerDown={(e) => { e.stopPropagation(); handleResetOnboarding(); }}
+                        className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] flex items-center justify-center gap-2 text-[var(--text-color)] font-semibold text-[16px]"
+                    >
+                        <RefreshCw size={18} style={{ color: "var(--accent-color)" }} />
+                        Onboarding wiederholen
+                    </button>
+                    <button
+                        type="button"
+                        onPointerDown={(e) => { e.stopPropagation(); handleLogout(); }}
+                        className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg"
+                    >
+                        {t("settings.account.logout")}
+                    </button>
+                    <button
+                        type="button"
+                        onPointerDown={(e) => { e.stopPropagation(); handleDeleteAccount(); }}
+                        className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-red-500/30 flex items-center justify-center gap-2 text-red-500/70 font-medium text-[15px]"
+                    >
+                        <UserX size={18} />
+                        {t("settings.account.deleteProfile")}
+                    </button>
+                </div>
+
+                {/* SECTION 6: LEGAL */}
                 <Section title={t("settings.section.legal")}>
                     <SettingsRow icon={Building2} iconColor="bg-zinc-500" label={t("settings.legal.imprint")} onClick={() => setActiveModal('legal')} />
                     <SettingsRow icon={FileText} iconColor="bg-zinc-500" label={t("settings.legal.privacy")} onClick={() => setActiveModal('legal')} />
@@ -489,18 +545,32 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                     <SettingsRow icon={Mail} iconColor="bg-blue-500" label={t("settings.legal.contactSupport")} onClick={() => setActiveModal('legal')} />
                 </Section>
 
-                {/* SECTION 6: DANGER ZONE */}
-                <div className="px-2 space-y-4">
-                    <button onClick={handleLogout} className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] flex items-center justify-center text-red-500 font-bold text-[17px] shadow-lg">
-                        {t("settings.account.logout")}
-                    </button>
-                    <div className="text-center pt-4">
-                        <p className="text-xs text-[var(--text-secondary)] opacity-40 font-mono">TrainQ v1.0.2 (Build 2026)</p>
-                    </div>
+                <div className="text-center pt-2 pb-4">
+                    <p className="text-xs text-[var(--text-secondary)] opacity-40 font-mono">TrainQ v1.0.2 (Build 2026)</p>
                 </div>
             </div>
 
             {/* --- MODALS --- */}
+
+            {/* LOGOUT CONFIRM DIALOG */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+                    <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
+                        <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>Abmelden?</h3>
+                        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+                            Du wirst aus deinem Konto abgemeldet.
+                        </p>
+                        <div className="flex flex-col gap-3 w-full">
+                            <button onClick={confirmLogout} className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-bold text-[16px] active:scale-95 transition-transform">
+                                Ja, abmelden
+                            </button>
+                            <button onClick={() => setShowLogoutConfirm(false)} className="w-full py-3.5 rounded-2xl font-semibold text-[16px] active:scale-95 transition-transform" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}>
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* PROFILE MODAL */}
             <SettingsModal isOpen={activeModal === 'profile'} onClose={handleSaveProfile} title={t("nav.profile")}>

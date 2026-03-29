@@ -1,6 +1,8 @@
 // src/utils/workoutHistory.ts
 import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
+import { syncWidgetData } from "../services/widgetDataSync";
 import { getActiveUserId } from "./session";
+import type { GpsPoint } from "../types/cardio";
 //
 // Source of Truth für Profil + Diagramme:
 // - wird bei completeLiveWorkout() genau 1x pro Training geschrieben
@@ -66,6 +68,17 @@ export type WorkoutHistoryEntry = {
    * Berechneter Score (0-100) für Adaptive Progress Anzeigt.
    */
   adaptiveScore?: number;
+
+  /**
+   * User rating (1–5 stars) given at workout completion.
+   */
+  rating?: number;
+
+  /**
+   * GPS-Route (Cardio):
+   * Downsampled auf max. 200 Punkte um Storage-Platz zu sparen.
+   */
+  gpsPoints?: GpsPoint[];
 };
 
 const STORAGE_KEY = "trainq_workout_history_v1";
@@ -327,6 +340,17 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
   // ✅ Gym-only volume, sonst 0 (sonst irreführend bei Cardio)
   const totalVolume = isGymSport(sport) ? computeTotalVolume(exercises) : 0;
 
+  // GPS points: keep as-is (already serialized GpsPoint[]), basic shape guard
+  const gpsPoints: GpsPoint[] | undefined =
+    Array.isArray(raw.gpsPoints) && raw.gpsPoints.length > 0
+      ? (raw.gpsPoints as GpsPoint[]).filter(
+          (p) =>
+            typeof p === "object" &&
+            typeof p.lat === "number" &&
+            typeof p.lng === "number",
+        )
+      : undefined;
+
   return {
     id,
     calendarEventId,
@@ -342,6 +366,8 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
     paceSecPerKm,
     totalVolume,
     adaptiveScore: Number.isFinite(raw.adaptiveScore) ? raw.adaptiveScore : undefined,
+    rating: Number.isFinite(Number(raw.rating)) && Number(raw.rating) >= 1 && Number(raw.rating) <= 5 ? Math.round(Number(raw.rating)) : undefined,
+    gpsPoints: gpsPoints && gpsPoints.length > 0 ? gpsPoints : undefined,
   };
 }
 
@@ -458,6 +484,7 @@ export function addWorkoutEntry(
   const next = [sanitized, ...current.filter((x) => x.id !== sanitized.id)];
 
   saveWorkoutHistory(next);
+  syncWidgetData(); // update widget after workout saved
   return sanitized;
 }
 

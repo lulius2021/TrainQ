@@ -10,6 +10,11 @@
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		A1BC0001A2E3F40000CAFE01 /* BarcodePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BC0001A2E3F40000CAFE11 /* BarcodePlugin.swift */; };
+		A1BC0002A2E3F40000CAFE01 /* BarcodePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1BC0002A2E3F40000CAFE11 /* BarcodePlugin.m */; };
+		A1BC0003A2E3F40000CAFE01 /* BarcodeScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BC0003A2E3F40000CAFE11 /* BarcodeScannerViewController.swift */; };
+		D1A10001A2E3F40000CAFE01 /* WidgetSyncPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A10001A2E3F40000CAFE11 /* WidgetSyncPlugin.swift */; };
+		D1A10002A2E3F40000CAFE01 /* WidgetSyncPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A10002A2E3F40000CAFE11 /* WidgetSyncPlugin.m */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -55,6 +60,11 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1BC0001A2E3F40000CAFE11 /* BarcodePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodePlugin.swift; sourceTree = "<group>"; };
+		A1BC0002A2E3F40000CAFE11 /* BarcodePlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BarcodePlugin.m; sourceTree = "<group>"; };
+		A1BC0003A2E3F40000CAFE11 /* BarcodeScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerViewController.swift; sourceTree = "<group>"; };
+		D1A10001A2E3F40000CAFE11 /* WidgetSyncPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSyncPlugin.swift; sourceTree = "<group>"; };
+		D1A10002A2E3F40000CAFE11 /* WidgetSyncPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = WidgetSyncPlugin.m; sourceTree = "<group>"; };
 		C6077F472F2E394B004B6009 /* TrainQWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TrainQWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6077F482F2E394B004B6009 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		C6077F4A2F2E394B004B6009 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -123,6 +133,11 @@
 				C666F0D52F0AD4C5007BE5B6 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				A1BC0001A2E3F40000CAFE11 /* BarcodePlugin.swift */,
+				A1BC0002A2E3F40000CAFE11 /* BarcodePlugin.m */,
+				A1BC0003A2E3F40000CAFE11 /* BarcodeScannerViewController.swift */,
+				D1A10001A2E3F40000CAFE11 /* WidgetSyncPlugin.swift */,
+				D1A10002A2E3F40000CAFE11 /* WidgetSyncPlugin.m */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -260,6 +275,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				A1BC0001A2E3F40000CAFE01 /* BarcodePlugin.swift in Sources */,
+				A1BC0002A2E3F40000CAFE01 /* BarcodePlugin.m in Sources */,
+				A1BC0003A2E3F40000CAFE01 /* BarcodeScannerViewController.swift in Sources */,
+				D1A10001A2E3F40000CAFE01 /* WidgetSyncPlugin.swift in Sources */,
+				D1A10002A2E3F40000CAFE01 /* WidgetSyncPlugin.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,6 +488,7 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_ENTITLEMENTS = TrainQWidget/TrainQWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HN96DP7ZYB;
@@ -478,7 +499,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = TrainQWidget;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -512,6 +533,7 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_ENTITLEMENTS = TrainQWidget/TrainQWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HN96DP7ZYB;
@@ -522,7 +544,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = TrainQWidget;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

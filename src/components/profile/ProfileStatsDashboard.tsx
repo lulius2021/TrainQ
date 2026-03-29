@@ -17,10 +17,13 @@ import {
   type DailyValue,
   type WeeklyValue,
 } from "../../utils/stats";
+import { GarminService } from "../../services/garmin/api";
+import type { GarminDailyMetrics, GarminSleepSummary } from "../../services/garmin/types";
+import { useGarminConnection } from "../../hooks/useGarminConnection";
 import { motion } from "framer-motion";
 
 type RangePreset = "7d" | "4w" | "12w" | "custom";
-type StatsTab = "overview" | "strength" | "volume" | "load";
+type StatsTab = "overview" | "strength" | "volume" | "load" | "recovery";
 
 type Props = {
   workouts: WorkoutHistoryEntry[];
@@ -136,10 +139,46 @@ const StatWidget: React.FC<{ title: string; value?: string; hint?: string; child
   </div>
 );
 
+function RecoveryChart({ series, color, label, unit }: { series: { date: string; value: number }[]; color: string; label: string; unit?: string }) {
+  if (series.length < 2) return <div className="h-24 flex items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>Nicht genügend Daten</div>;
+  const values = series.map(s => s.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(1, max - min);
+  const points = series.map((s, idx) => `${(idx / (series.length - 1)) * 100},${100 - ((s.value - min) / range) * 85 - 7}`).join(" ");
+  const last = series[series.length - 1];
+  const lastY = 100 - ((last.value - min) / range) * 85 - 7;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>{label}</span>
+        <span className="text-lg font-bold tabular-nums" style={{ color }}>{Math.round(last.value)}{unit}</span>
+      </div>
+      <div className="h-20">
+        <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+          <polyline fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points} />
+          <circle cx="100" cy={lastY} r="3" fill="#fff" stroke={color} strokeWidth="1.5" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileStatsDashboard(props: Props) {
   const { workouts, weeklyGoalMinutes = 0 } = props;
   const { preset, setPreset, range } = useRangeState();
   const [tab, setTab] = useState<StatsTab>("overview");
+  const { connected: garminConnected } = useGarminConnection();
+  const [garminMetrics, setGarminMetrics] = useState<GarminDailyMetrics[]>([]);
+  const [garminSleep, setGarminSleep] = useState<GarminSleepSummary[]>([]);
+
+  useEffect(() => {
+    if (!garminConnected || tab !== "recovery") return;
+    const from = toISODate(range.from);
+    const to = toISODate(range.to);
+    GarminService.getDailyMetrics(from, to).then(setGarminMetrics);
+    GarminService.getSleepSummaries(from, to).then(setGarminSleep);
+  }, [garminConnected, tab, range.from.getTime(), range.to.getTime()]);
 
   const workoutsInRange = useMemo(() => getWorkoutsForRange(undefined, range.from, range.to, workouts), [range, workouts]);
   const allExercises = useMemo(() => listExercises(workoutsInRange), [workoutsInRange]);
@@ -198,7 +237,7 @@ export default function ProfileStatsDashboard(props: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {(["overview", "strength", "volume", "load"] as StatsTab[]).map(k => (
+        {(["overview", "strength", "volume", "load", ...(garminConnected ? ["recovery" as StatsTab] : [])] as StatsTab[]).map(k => (
           <button key={k} type="button" onClick={() => setTab(k)}
             className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors border ${tab === k ? 'text-white shadow-lg' : 'hover:opacity-80'}`}
             style={{
@@ -207,7 +246,7 @@ export default function ProfileStatsDashboard(props: Props) {
               color: tab === k ? "#FFFFFF" : "var(--text-muted)"
             }}
           >
-            {k === "overview" ? "Übersicht" : k === "strength" ? "Kraft" : k === "volume" ? "Volumen" : "Belastung"}
+            {k === "overview" ? "Übersicht" : k === "strength" ? "Kraft" : k === "volume" ? "Volumen" : k === "load" ? "Belastung" : "Recovery"}
           </button>
         ))}
       </div>
@@ -267,6 +306,108 @@ export default function ProfileStatsDashboard(props: Props) {
               </>
             ) : <p className="text-lg" style={{ color: "var(--text-muted)" }}>Keine sRPE Daten in Trainings erfasst.</p>}
           </StatWidget>
+        )}
+
+        {tab === "recovery" && garminConnected && (
+          <>
+            {garminMetrics.length === 0 && garminSleep.length === 0 ? (
+              <StatWidget title="Recovery" className="md:col-span-2">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Keine Garmin-Daten im gewählten Zeitraum. Synchronisiere zuerst in den Einstellungen.
+                </p>
+              </StatWidget>
+            ) : (
+              <>
+                {/* Body Battery */}
+                <StatWidget title="Body Battery" className="md:col-span-2">
+                  <RecoveryChart
+                    series={garminMetrics.filter(m => m.bodyBatteryHigh > 0).map(m => ({ date: m.calendarDate, value: m.bodyBatteryHigh }))}
+                    color="#00c853"
+                    label="Aktuell"
+                    unit="%"
+                  />
+                </StatWidget>
+
+                {/* Stress */}
+                <StatWidget title="Stress-Level">
+                  <RecoveryChart
+                    series={garminMetrics.filter(m => m.avgStressLevel > 0).map(m => ({ date: m.calendarDate, value: m.avgStressLevel }))}
+                    color="#FF6B35"
+                    label="Durchschnitt"
+                    unit=""
+                  />
+                </StatWidget>
+
+                {/* Resting HR */}
+                <StatWidget title="Ruhepuls">
+                  <RecoveryChart
+                    series={garminMetrics.filter(m => m.restingHeartRate > 0).map(m => ({ date: m.calendarDate, value: m.restingHeartRate }))}
+                    color="#E63946"
+                    label="Aktuell"
+                    unit=" bpm"
+                  />
+                </StatWidget>
+
+                {/* Sleep Score */}
+                {garminSleep.length > 0 && (
+                  <StatWidget title="Schlafqualität" className="md:col-span-2">
+                    <RecoveryChart
+                      series={garminSleep.filter(s => s.sleepScore > 0).map(s => ({ date: s.calendarDate, value: s.sleepScore }))}
+                      color="#7C4DFF"
+                      label="Sleep Score"
+                      unit=""
+                    />
+                    {/* Sleep breakdown for latest night */}
+                    {(() => {
+                      const latest = garminSleep[garminSleep.length - 1];
+                      if (!latest || latest.totalSleepSeconds <= 0) return null;
+                      const total = latest.totalSleepSeconds;
+                      const deep = Math.round((latest.deepSleepSeconds / total) * 100);
+                      const light = Math.round((latest.lightSleepSeconds / total) * 100);
+                      const rem = Math.round((latest.remSleepSeconds / total) * 100);
+                      const awake = Math.round((latest.awakeSeconds / total) * 100);
+                      const hours = Math.floor(total / 3600);
+                      const mins = Math.round((total % 3600) / 60);
+                      return (
+                        <div className="mt-4">
+                          <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                            Letzte Nacht: {hours}h {mins}m
+                          </div>
+                          <div className="flex rounded-full overflow-hidden h-3">
+                            <div style={{ width: `${deep}%`, backgroundColor: "#1565C0" }} title={`Tief: ${deep}%`} />
+                            <div style={{ width: `${light}%`, backgroundColor: "#42A5F5" }} title={`Leicht: ${light}%`} />
+                            <div style={{ width: `${rem}%`, backgroundColor: "#7C4DFF" }} title={`REM: ${rem}%`} />
+                            <div style={{ width: `${awake}%`, backgroundColor: "#FF6B35" }} title={`Wach: ${awake}%`} />
+                          </div>
+                          <div className="flex gap-3 mt-2 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#1565C0" }} />Tief {deep}%</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#42A5F5" }} />Leicht {light}%</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#7C4DFF" }} />REM {rem}%</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FF6B35" }} />Wach {awake}%</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </StatWidget>
+                )}
+
+                {/* Daily Steps + Intensity */}
+                <StatWidget title="Schritte / Tag">
+                  <BarChart
+                    series={garminMetrics.filter(m => m.steps > 0).map(m => ({ date: m.calendarDate, value: m.steps }))}
+                    labelFormatter={formatShortDate}
+                  />
+                </StatWidget>
+
+                <StatWidget title="Intensitätsminuten">
+                  <BarChart
+                    series={garminMetrics.filter(m => m.intensityMinutes > 0).map(m => ({ date: m.calendarDate, value: m.intensityMinutes }))}
+                    labelFormatter={formatShortDate}
+                  />
+                </StatWidget>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

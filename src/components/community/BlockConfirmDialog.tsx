@@ -28,7 +28,7 @@ export default function BlockConfirmDialog({ blockerId, blockedId, blockedName, 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }}>
       <div
         className="w-[85%] max-w-sm rounded-2xl p-5"
         style={{ background: "var(--card-bg)" }}

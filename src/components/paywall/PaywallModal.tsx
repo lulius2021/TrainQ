@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import type { PaywallReason } from "../../utils/entitlements";
 import { useI18n } from "../../i18n/useI18n";
 import { track } from "../../analytics/track";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 
 type Props = {
   open: boolean;
@@ -54,15 +55,11 @@ export default function PaywallModal(props: Props) {
     onRestore,
   } = props;
 
-  // Lock body scroll when open
+  useBodyScrollLock(open);
+
+  // Track paywall view
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-      track("monetization_paywall_viewed", { reason });
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    if (open) track("monetization_paywall_viewed", { reason });
   }, [open, reason]);
 
   if (!open) return null;
@@ -75,7 +72,7 @@ export default function PaywallModal(props: Props) {
       data-overlay-open="true"
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }}
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       <div

@@ -51,8 +51,8 @@ export function checkSetPR(
 
   const base = baseline.get(exerciseName);
   if (!base) {
-    // First time doing this exercise - it's a PR by definition if we have data
-    return weight > 0 ? { isPR: true, prType: "weight" } : { isPR: false };
+    // First time doing this exercise — no baseline to beat, not a PR
+    return { isPR: false };
   }
 
   const isWeightPR = weight > base.bestWeight;

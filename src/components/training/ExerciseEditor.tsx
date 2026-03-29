@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
 import { useI18n } from "../../i18n/useI18n";
 import { AnimatePresence, useAnimation } from "framer-motion";
 import { MotionDiv } from "../ui/Motion";
-import { Info, MoreHorizontal, X, Plus, Trash2 } from "lucide-react";
+import { Info, MoreHorizontal, X, Plus, Trash2, ArrowLeftRight } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import type { WeightSuggestion } from "../../utils/weightSuggestion";
 
@@ -151,7 +151,7 @@ const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, is
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className="relative z-10 grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center px-0 py-1"
+        className="relative z-10 grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center px-0 py-1"
         style={{ backgroundColor: theme.colors.card }}
       >
         <div className="flex items-center justify-center">
@@ -178,7 +178,11 @@ const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, is
           className={`${isMain ? "h-10 text-base" : "h-9 text-sm"} w-full rounded-3xl text-center font-bold outline-none border-2 border-transparent ${isMain ? "focus:border-[#007AFF]/50" : "focus:border-purple-500/50"} transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
         />
         <div className="flex items-center justify-center">
-          <button type="button" onClick={onToggle}
+          <button type="button"
+            onTouchStart={(e) => e.stopPropagation()}
+            onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            style={{ touchAction: "manipulation" }}
             className={`${isMain ? "h-10 w-14" : "h-9 w-12"} rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
               ? (isMain ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]" : "bg-purple-600 border-purple-600 shadow-sm")
               : (isMain ? "border-transparent hover:border-[#007AFF]" : "border-transparent hover:border-purple-500/50")
@@ -218,6 +222,8 @@ const SwipeableSetRow = ({
 }: any) => {
   const { theme } = useTheme();
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
+  // Debounce: prevent double-fire from iOS pointer/touch event overlap
+  const lastToggleMs = useRef(0);
   const isDropset = set.type === "d" || set.type === "1D"; // Treat 'd' or '1D' as dropset-capable
 
   const { contentRef: swipeRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(
@@ -325,7 +331,7 @@ const SwipeableSetRow = ({
     // Drops: no bg or subtle
     return (
       <div
-        className={`grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center ${!isDrop ? 'rounded-3xl p-0' : 'relative pl-0'}`}
+        className={`grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center ${!isDrop ? 'rounded-3xl p-0' : 'relative pl-0'}`}
         style={{ backgroundColor: !isDrop ? theme.colors.card : 'transparent' }}
       >
 
@@ -385,12 +391,13 @@ const SwipeableSetRow = ({
             </button>
           )}
 
-          {/* Actual Check Button */}
+          {/* Actual Check Button — onTouchStart stops propagation to prevent accidental swipe-to-delete */}
           {(!isDrop && isTimerRunning && restRemainingSec !== undefined) ? (
             <div
               className="h-10 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
-    
-              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              onTouchStart={(e) => e.stopPropagation()}
+              onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
               <span className="text-[10px] font-bold text-white tabular-nums tracking-tighter leading-none">
                 {Math.floor(restRemainingSec / 60)}:{(restRemainingSec % 60).toString().padStart(2, "0")}
@@ -399,8 +406,10 @@ const SwipeableSetRow = ({
           ) : (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onToggle(); }}
-    
+              onTouchStart={(e) => e.stopPropagation()}
+              onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              style={{ touchAction: "manipulation" }}
               className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
                 ? (isDrop ? "bg-purple-600 border-purple-600 shadow-sm" : (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"))
                 : (isDrop ? "border-transparent hover:border-purple-500/50" : "border-transparent hover:border-[#007AFF]")
@@ -439,11 +448,13 @@ const SwipeableSetRow = ({
           theme={theme}
           onUpdate={(patch) => onSetChange(set.id, patch)}
           onToggle={() => {
-            let updates: any = {};
-            if (!set.weight && last?.weight) updates.weight = last.weight;
-            if (!set.reps && last?.reps) updates.reps = last.reps;
-            if (Object.keys(updates).length) onSetChange(set.id, updates);
-            onToggleSet(set.id);
+            const now = Date.now();
+            if (now - lastToggleMs.current < 400) return;
+            lastToggleMs.current = now;
+            const autofill: any = {};
+            if (!set.weight && last?.weight) autofill.weight = last.weight;
+            if (!set.reps && last?.reps) autofill.reps = last.reps;
+            onToggleSet(set.id, Object.keys(autofill).length > 0 ? autofill : undefined);
           }}
           onDelete={() => onRemoveSet(set.id)}
           label={
@@ -517,10 +528,10 @@ const SwipeableSetRow = ({
         style={{ backgroundColor: theme.colors.card }}
         className={`relative z-10 rounded-2xl overflow-hidden flex flex-col ${isDropset ? 'border border-purple-500/20' : ''}`}
       >
-        <div className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center p-0">
+        <div className="grid grid-cols-[40px_1fr_1fr_56px] gap-2 items-center p-0">
 
           {/* 1. Set Index (Type Selector) */}
-          <div className="flex items-center justify-center cursor-pointer h-10" onClick={handleTypeCycle}>
+          <div className="flex items-center justify-center cursor-pointer h-9" onClick={handleTypeCycle}>
             {/* h-10 to align with inputs */}
             <span className={`text-sm font-bold select-none ${getTypeColor(set.type)}`}>
               {getTypeLabel(set.type)}
@@ -540,7 +551,7 @@ const SwipeableSetRow = ({
             onFocus={() => onWeightFocus?.(set.id, set.weight)}
             onBlur={() => onWeightBlur?.()}
             style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-            className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
+            className={`h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
               }`}
           />
 
@@ -551,17 +562,25 @@ const SwipeableSetRow = ({
             placeholder={fmtPlaceholderNumber(last?.reps, "-")}
             onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
             style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-            className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
+            className={`h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
               }`}
             inputMode="numeric"
           />
 
           {/* 5. Check Button / Timer */}
-          <div className="flex items-center justify-center w-full h-10">
+          <div className="flex items-center justify-center w-full h-9">
             {isTimerRunning && restRemainingSec !== undefined ? (
               <div
-                className="h-10 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
-                onClick={() => onToggleSet(set.id)}
+                className="h-9 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
+                onTouchStart={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const now = Date.now();
+                  if (now - lastToggleMs.current < 400) return;
+                  lastToggleMs.current = now;
+                  onToggleSet(set.id);
+                }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
               >
                 <span className="text-[10px] font-bold text-white tabular-nums tracking-tighter leading-none">
                   {Math.floor(restRemainingSec / 60)}:{(restRemainingSec % 60).toString().padStart(2, "0")}
@@ -570,32 +589,27 @@ const SwipeableSetRow = ({
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  // Feature: Auto-fill previous values if empty
-                  let updates: any = {};
-                  let shouldUpdate = false;
-
-                  if (!set.weight && last?.weight) {
-                    updates.weight = last.weight;
-                    shouldUpdate = true;
-                  }
-
-                  if (!set.reps && last?.reps) {
-                    updates.reps = last.reps;
-                    shouldUpdate = true;
-                  }
-
-                  if (shouldUpdate) {
-                    onSetChange(set.id, updates);
-                  }
-
-                  onToggleSet(set.id);
+                onTouchStart={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const now = Date.now();
+                  if (now - lastToggleMs.current < 400) return;
+                  lastToggleMs.current = now;
+                  // Pass autofill values directly to onToggleSet (single state update)
+                  const autofill: any = {};
+                  if (!set.weight && last?.weight) autofill.weight = last.weight;
+                  if (!set.reps && last?.reps) autofill.reps = last.reps;
+                  onToggleSet(set.id, Object.keys(autofill).length > 0 ? autofill : undefined);
                 }}
-                className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                style={{
+                  backgroundColor: !set.completed ? theme.colors.inputBackground : undefined,
+                  touchAction: "manipulation",
+                }}
+                className={`h-9 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
                   ? (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
                   : "border-transparent hover:border-[#007AFF]"
                   }`}
-                style={{ backgroundColor: !set.completed ? theme.colors.inputBackground : undefined }}
               >
                 {set.completed ? (
                   <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -622,7 +636,7 @@ const SwipeableSetRow = ({
 
             {/* Drop Rows */}
             {(set.drops || []).map((drop: any, i: number) => (
-              <div key={drop.id} className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center">
+              <div key={drop.id} className="grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center">
                 {/* 1. Spacer/Icon */}
                 <div className="flex justify-center">
                   <div className="w-1 h-full bg-purple-500/20 rounded-full"></div>
@@ -682,7 +696,7 @@ const SwipeableSetRow = ({
 
 // -------------------- Main Component --------------------
 
-export default function ExerciseEditor({
+function ExerciseEditorInner({
   exercise,
   history,
   isCardio,
@@ -700,16 +714,17 @@ export default function ExerciseEditor({
   onOpenTimer,           // New Prop
   weightSuggestion,      // Weight suggestion from history
   onAddWarmupSets,       // Warmup sets callback
+  historySessionCount,   // Number of past sessions for this exercise
   prSets,                // Set<string> of set IDs that are PRs
+  onSwap,                // Swap exercise callback
 }: any) {
   const { theme } = useTheme();
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
 
   if (!theme) return null;
 
   // const { t } = useI18n(); // Removed i18n
-  const nameRef = useRef<HTMLInputElement | null>(null);
-
-  const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
   const repsUnit = isCardio ? "Min" : "Wdh.";
   const weightUnit = isCardio ? "km" : "kg";
   const addSetLabel = isCardio ? "Intervall hinzufügen" : "Satz hinzufügen";
@@ -724,7 +739,7 @@ export default function ExerciseEditor({
   };
 
   return (
-    <div className="space-y-4 rounded-3xl p-5 border-[1.5px] shadow-2xl" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
+    <div className="space-y-2 rounded-3xl p-3 border-[1.5px] shadow-2xl" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
       {/* Exercise Header */}
       <div className="flex items-center justify-between mb-2 gap-2">
         <div
@@ -769,6 +784,19 @@ export default function ExerciseEditor({
             </span>
           </button>
 
+          {/* Swap Button */}
+          {onSwap && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSwap(); }}
+              className="h-9 w-9 flex items-center justify-center rounded-2xl transition-colors"
+              style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
+              title="Übung tauschen"
+            >
+              <ArrowLeftRight size={17} />
+            </button>
+          )}
+
           {/* Remove Button */}
           <button
             type="button"
@@ -798,13 +826,11 @@ export default function ExerciseEditor({
         </div>
       )}
 
-      {/* Warmup Button */}
-      {onAddWarmupSets && !isCardio && (() => {
-        const hasWarmupSets = sets.some((s: LiveSet) => s.setType === "warmup" || (s as any).type === "w");
-        const firstWorkingSet = sets.find((s: LiveSet) => s.setType !== "warmup" && (s as any).type !== "w");
-        const firstWeight = firstWorkingSet?.weight;
-        const canAdd = !hasWarmupSets && typeof firstWeight === "number" && firstWeight > 0;
-        return canAdd ? (
+      {/* Warmup Button – only show when ≥2 sessions and no warmups exist yet */}
+      {onAddWarmupSets && !isCardio && (historySessionCount ?? 0) >= 2 && (() => {
+        const hasWarmupSets = sets.some((s: LiveSet) => (s as any).type === "w");
+        if (hasWarmupSets) return null;
+        return (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onAddWarmupSets(); }}
@@ -813,11 +839,11 @@ export default function ExerciseEditor({
           >
             <span>🔥</span> Aufwärmsätze hinzufügen
           </button>
-        ) : null;
+        );
       })()}
 
       {/* Grid Header */}
-      <div className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 items-center px-0 mb-1">
+      <div className="grid grid-cols-[40px_1fr_1fr_56px] gap-2 items-center px-0 mb-0.5">
         <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>#</span></div>
         <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{weightUnit}</span></div>
         <div className="flex justify-center"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{repsUnit}</span></div>
@@ -828,9 +854,9 @@ export default function ExerciseEditor({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 relative">
+      <div className="flex flex-col gap-1.5 relative">
         <AnimatePresence initial={false} mode="popLayout">
-          {sets.map((set: LiveSet, idx: number) => {
+          {sets.filter((s: LiveSet): s is LiveSet => !!s && !!s.id).map((set: LiveSet, idx: number) => {
             const last = lastSets[idx] as any;
             return (
               <SwipeableSetRow
@@ -856,11 +882,30 @@ export default function ExerciseEditor({
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center pt-1">
+      {/* Inline History — last session sets */}
+      {!isCardio && history && (history.sets as any[]).length > 0 && (() => {
+        const daysAgo = Math.round((Date.now() - new Date((history as any).lastPerformedAt).getTime()) / 86400000);
+        const daysLabel = daysAgo === 0 ? "heute" : daysAgo === 1 ? "gestern" : `vor ${daysAgo}T`;
+        const displaySets = (history.sets as any[]).slice(0, 3);
+        return (
+          <div className="flex items-center gap-2 px-1 mt-0.5 mb-0.5">
+            <span className="text-[11px] font-medium shrink-0" style={{ color: theme.colors.textSecondary }}>{daysLabel}:</span>
+            <div className="flex gap-2 flex-wrap">
+              {displaySets.map((s: any, i: number) => (
+                <span key={i} className="text-[11px]" style={{ color: theme.colors.textSecondary }}>
+                  {[s.weight != null ? `${s.weight}kg` : null, s.reps != null ? `×${s.reps}` : null].filter(Boolean).join("\u202F")}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="flex justify-center pt-0.5">
         <button
           type="button"
           onClick={onAddSet}
-          className="w-full h-10 flex items-center justify-center rounded-3xl transition-all active:scale-95"
+          className="w-full h-8 flex items-center justify-center rounded-3xl transition-all active:scale-95"
           style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
           aria-label={addSetLabel}
         >
@@ -872,3 +917,31 @@ export default function ExerciseEditor({
     </div>
   );
 }
+
+// Only re-render when this exercise's data or directly relevant props change.
+// Callbacks (onChange, onToggleSet, etc.) are excluded — they change every render
+// but the actual logic uses setWorkout(prev => ...) which is always fresh.
+const ExerciseEditor = memo(ExerciseEditorInner, (prev, next) => {
+  if (prev.exercise !== next.exercise) return false;
+  if (prev.history !== next.history) return false;
+  if (prev.isCardio !== next.isCardio) return false;
+  if (prev.weightSuggestion !== next.weightSuggestion) return false;
+  if (prev.prSets !== next.prSets) return false;
+  if (prev.historySessionCount !== next.historySessionCount) return false;
+
+  const exId = next.exercise?.id;
+  // activeRest: only re-render if this exercise gained or lost the active rest
+  if (prev.activeRest !== next.activeRest) {
+    const prevAffects = prev.activeRest?.exerciseId === exId;
+    const nextAffects = next.activeRest?.exerciseId === exId;
+    if (prevAffects || nextAffects) return false;
+  }
+  // restRemainingSec: only re-render the exercise that is counting down
+  if (prev.restRemainingSec !== next.restRemainingSec) {
+    if (next.activeRest?.exerciseId === exId) return false;
+  }
+
+  return true; // props are equal → skip re-render
+});
+
+export default ExerciseEditor;

@@ -9,7 +9,7 @@ import { useFoodSearch } from "../hooks/useFoodSearch";
 import { resolveToGrams } from "../features/nutrition/unitResolver";
 import { computeMacros } from "../features/nutrition/macroCalculator";
 import { isHighConfidence } from "../features/nutrition/foodMatcher";
-import { lookupBarcode } from "../features/nutrition/barcodeLookup";
+import { lookupBarcode, type OFFSearchResult } from "../features/nutrition/barcodeLookup";
 import { addCustomFood, updateCustomFood } from "../utils/customFoodsStore";
 import DailyMacroSummary from "../components/nutrition/DailyMacroSummary";
 import FoodInput from "../components/nutrition/FoodInput";
@@ -128,6 +128,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
   const [pendingUnit, setPendingUnit] = useState("g");
   const [showGoalsSheet, setShowGoalsSheet] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [barcodeModalTab, setBarcodeModalTab] = useState<"search" | "barcode">("search");
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showCreateFood, setShowCreateFood] = useState(false);
   const [createFoodInitialName, setCreateFoodInitialName] = useState("");
@@ -309,6 +310,29 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
     [showToast]
   );
 
+  const handleSelectProduct = useCallback(
+    (product: OFFSearchResult) => {
+      setShowBarcodeModal(false);
+      setEditingEntryId(null);
+      const food: FoodItem = {
+        id: `off_${product.ean || Date.now()}`,
+        name: product.brand ? `${product.name} (${product.brand})` : product.name,
+        nameEn: product.name,
+        aliases: [],
+        category: "other",
+        per100g: product.per100g,
+        servings: product.servingGrams
+          ? [{ unit: "portion", label: "1 Portion", grams: product.servingGrams }]
+          : [],
+      };
+      setBarcodeFood(food);
+      setSelectedFood(food);
+      setPendingQty(product.servingGrams || 100);
+      setPendingUnit(product.servingGrams ? "portion" : "g");
+    },
+    []
+  );
+
   const handleCloseDetailSheet = useCallback(() => {
     setSelectedFood(null);
     setBarcodeFood(null);
@@ -425,7 +449,8 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <FoodInput
                 onSubmit={handleFoodInput}
-                onBarcodeTap={() => setShowBarcodeModal(true)}
+                onSearchTap={() => { setBarcodeModalTab("search"); setShowBarcodeModal(true); }}
+                onBarcodeTap={() => { setBarcodeModalTab("barcode"); setShowBarcodeModal(true); }}
                 onCreateFood={() => {
                   setCreateFoodInitialName("");
                   setShowCreateFood(true);
@@ -500,7 +525,9 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
 
       <BarcodeScannerModal
         open={showBarcodeModal}
+        initialTab={barcodeModalTab}
         onScan={handleBarcodeScan}
+        onSelectProduct={handleSelectProduct}
         onClose={() => setShowBarcodeModal(false)}
       />
 

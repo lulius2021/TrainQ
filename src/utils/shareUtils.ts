@@ -5,11 +5,15 @@ export const captureAndShare = async (elementId: string, fileName: string = 'tra
     if (!element) throw new Error("Export-Element nicht gefunden");
 
     try {
+        // Resolve computed background color from the element
+        const computedBg = getComputedStyle(element).backgroundColor;
+        const bgColor = computedBg && computedBg !== "rgba(0, 0, 0, 0)" ? computedBg : "#18181b";
+
         // 1. Capture Canvas (High Res & CORS enabled)
         const canvas = await html2canvas(element, {
-            useCORS: true, // WICHTIG für Profilbilder/Thumbnails
-            scale: 2, // Retina Qualität
-            backgroundColor: '#18181b', // Hex für zinc-900 (Hintergrund erzwingen)
+            useCORS: true,
+            scale: 2,
+            backgroundColor: bgColor,
             logging: false,
         });
 

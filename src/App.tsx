@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { AuthContextProvider, useAuth } from "./context/AuthContext";
+import { AuthContextProvider } from "./context/AuthContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { AppRouter } from "./routes/AppRouter";
@@ -20,6 +20,13 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
 
   componentDidCatch(error: unknown, errorInfo: unknown) {
     if (import.meta.env.DEV) console.error("Global Error Boundary caught:", error, errorInfo);
+
+    // Auto-recover from transient auth-context init errors (race condition on cold start).
+    // On retry the JS module is fully loaded and the context renders correctly.
+    const msg = (error as any)?.message ?? "";
+    if (msg.includes("AuthContextProvider")) {
+      setTimeout(() => this.setState({ hasError: false, error: null }), 400);
+    }
   }
 
   handleReload = () => {

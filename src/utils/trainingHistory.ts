@@ -231,9 +231,10 @@ export function getActiveLiveWorkout(): LiveWorkout | null {
   const sport = normalizeSport((parsed as any).sport);
 
   const exercises = Array.isArray((parsed as any).exercises) ? (parsed as any).exercises : [];
-  const normalizedExercises = exercises.map((ex: any) => ({
+  const normalizedExercises = exercises.filter(Boolean).map((ex: any) => ({
     ...ex,
     restSeconds: normalizeRestSeconds(ex?.restSeconds),
+    sets: Array.isArray(ex?.sets) ? ex.sets.filter((s: any) => s && s.id) : [],
   }));
 
   return { ...parsed, sport, exercises: normalizedExercises } as LiveWorkout;
@@ -385,6 +386,7 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
     endedAt,
     durationSec: durationSeconds,
     sessionRpe: (workout as any).sessionRpe,
+    rating: (workout as any).rating,
     exercises: whExercises,
     distanceKm,
     paceSecPerKm,
@@ -471,4 +473,24 @@ export function getLastSetsForExercise(ex: { exerciseId?: string; name: string }
   }
 
   return null;
+}
+
+/**
+ * Counts how many past workout sessions included a given exercise.
+ */
+export function getExerciseSessionCount(ex: { exerciseId?: string; name: string }): number {
+  const key = ex.exerciseId || ex.name;
+  if (!key) return 0;
+
+  const list = loadWorkoutHistory();
+  let count = 0;
+  for (const w of list) {
+    for (const e2 of w.exercises || []) {
+      const match =
+        (ex.exerciseId && e2.exerciseId && e2.exerciseId === ex.exerciseId) ||
+        (!ex.exerciseId && e2.name && e2.name === ex.name);
+      if (match) { count++; break; }
+    }
+  }
+  return count;
 }
