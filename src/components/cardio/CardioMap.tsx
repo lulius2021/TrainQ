@@ -79,6 +79,8 @@ const CardioMap: React.FC<CardioMapProps> = ({
     return base;
   };
 
+  const [gpsSearching, setGpsSearching] = useState(true);
+
   // ─── Initialize map (no default view — centered on user position) ───────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -111,22 +113,11 @@ const CardioMap: React.FC<CardioMapProps> = ({
     polylineRef.current = polyline;
     tileLayerRef.current = tiles;
 
-    // Fix Leaflet size calculation when container uses flex layout
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-    });
-
-    // Center on user's actual GPS location
-    getCurrentPosition().then((pos) => {
-      if (!mapRef.current) return;
-      if (pos) {
-        mapRef.current.setView([pos.lat, pos.lng], 15, { animate: false });
-
-        // Show "you are here" dot immediately (before tracking starts)
-        _placeUserDot(mapRef.current, [pos.lat, pos.lng]);
-      }
-      // If GPS fails we stay at world view (zoom 2) — already set above
-    });
+    // Capacitor WKWebView needs multiple invalidateSize calls — the layout
+    // isn't always finalized when requestAnimationFrame fires.
+    requestAnimationFrame(() => map.invalidateSize());
+    setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize(); }, 150);
+    setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize(); }, 600);
 
     return () => {
       map.remove();
@@ -189,6 +180,7 @@ const CardioMap: React.FC<CardioMapProps> = ({
     polylineRef.current.setLatLngs(latLngs);
 
     if (latLngs.length > 0) {
+      setGpsSearching(false);
       const last = latLngs[latLngs.length - 1];
 
       // Move / create the route-end marker (distinct from the blue user dot)
@@ -266,6 +258,17 @@ const CardioMap: React.FC<CardioMapProps> = ({
         ref={containerRef}
         style={{ width: "100%", height: "100%", minHeight: 200 }}
       />
+
+      {/* GPS searching overlay */}
+      {gpsSearching && isTracking && points.length === 0 && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none"
+          style={{ zIndex: 9998, background: "rgba(0,0,0,0.45)" }}
+        >
+          <div className="w-10 h-10 rounded-full border-4 border-blue-400 border-t-transparent animate-spin" />
+          <span className="text-white text-sm font-semibold drop-shadow-md">GPS wird gesucht...</span>
+        </div>
+      )}
 
       {/* Control buttons — outside leaflet container so z-index works */}
       <div
