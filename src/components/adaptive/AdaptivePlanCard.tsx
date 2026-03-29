@@ -2,6 +2,7 @@
 import React from "react";
 import { Clock, ClipboardList, Layers, Zap, CalendarPlus, Play } from "lucide-react";
 import type { AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
+import { useI18n } from "../../i18n/useI18n";
 
 interface AdaptivePlanCardProps {
   suggestion: AdaptiveSuggestion;
@@ -12,23 +13,23 @@ interface AdaptivePlanCardProps {
   isPro?: boolean;
 }
 
-const REASON_LABELS: Record<AdaptiveReason, string> = {
-  time_low:      "Wenig Zeit",
-  time_high:     "Viel Zeit",
-  form_low:      "Niedrige Energie",
-  form_high:     "Top-Form",
-  stress_low:    "Entspannt",
-  stress_high:   "Gestresst",
-  effort_low:    "Leichtes Training gestern",
-  effort_high:   "Intensiv gestern",
-  recovery_low:  "Erholung nötig",
-  recovery_good: "Gut erholt",
+const REASON_KEYS: Record<AdaptiveReason, string> = {
+  time_low:      "adaptive.reason.timeLow",
+  time_high:     "adaptive.reason.timeHigh",
+  form_low:      "adaptive.reason.formLow",
+  form_high:     "adaptive.reason.formHigh",
+  stress_low:    "adaptive.reason.stressLow",
+  stress_high:   "adaptive.reason.stressHigh",
+  effort_low:    "adaptive.reason.effortLow",
+  effort_high:   "adaptive.reason.effortHigh",
+  recovery_low:  "adaptive.reason.recoveryLow",
+  recovery_good: "adaptive.reason.recoveryGood",
 };
 
-const PROFILE_META: Record<string, { letter: string; label: string }> = {
-  stabil:  { letter: "A", label: "Stabil" },
-  kompakt: { letter: "B", label: "Kompakt" },
-  fokus:   { letter: "C", label: "Fokus" },
+const PROFILE_META: Record<string, { letter: string; i18nKey: string }> = {
+  stabil:  { letter: "A", i18nKey: "adaptive.profile.stable" },
+  kompakt: { letter: "B", i18nKey: "adaptive.profile.compact" },
+  fokus:   { letter: "C", i18nKey: "adaptive.profile.focus" },
 };
 
 export default function AdaptivePlanCard({
@@ -39,8 +40,11 @@ export default function AdaptivePlanCard({
   disabled = false,
   isPro = false,
 }: AdaptivePlanCardProps) {
+  const { t } = useI18n();
   const isBlocked = suggestion.estimatedMinutes === 0;
-  const meta = PROFILE_META[suggestion.profile] ?? { letter: "?", label: suggestion.profile };
+  const profileInfo = PROFILE_META[suggestion.profile];
+  const profileLetter = profileInfo?.letter ?? "?";
+  const profileLabel = profileInfo ? t(profileInfo.i18nKey).split(" · ")[1] ?? suggestion.profile : suggestion.profile;
 
   return (
     <div
@@ -55,13 +59,13 @@ export default function AdaptivePlanCard({
             className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-[18px] font-black text-white"
             style={{ background: accent.solid, boxShadow: `0 4px 16px ${accent.solid}55` }}
           >
-            {meta.letter}
+            {profileLetter}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: accent.solid }}>
-                {meta.label}
+                {profileLabel}
               </span>
               {!isPro && suggestion.profile !== "stabil" && (
                 <span
@@ -86,9 +90,9 @@ export default function AdaptivePlanCard({
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { icon: <Clock size={14} />, label: "Zeit", value: isBlocked ? "—" : `${suggestion.estimatedMinutes}m` },
-            { icon: <ClipboardList size={14} />, label: "Übungen", value: isBlocked ? "—" : String(suggestion.exercisesCount) },
-            { icon: <Layers size={14} />, label: "Sätze/Ü", value: isBlocked ? "—" : String(suggestion.setsPerExercise) },
+            { icon: <Clock size={14} />, label: t("adaptive.card.time"), value: isBlocked ? "—" : `${suggestion.estimatedMinutes}m` },
+            { icon: <ClipboardList size={14} />, label: t("adaptive.card.exercises"), value: isBlocked ? "—" : String(suggestion.exercisesCount) },
+            { icon: <Layers size={14} />, label: t("adaptive.card.sets"), value: isBlocked ? "—" : String(suggestion.setsPerExercise) },
           ].map(({ icon, label, value }) => (
             <div
               key={label}
@@ -112,7 +116,7 @@ export default function AdaptivePlanCard({
           <Zap size={15} className="shrink-0 mt-0.5" style={{ color: accent.solid }} />
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: accent.solid }}>
-              Intensität
+              {t("adaptive.intensity")}
             </p>
             <p className="text-[13px] font-medium" style={{ color: "var(--text-color)" }}>
               {suggestion.intensityHint}
@@ -129,7 +133,7 @@ export default function AdaptivePlanCard({
                 className="px-2.5 py-1 rounded-full text-[12px] font-semibold"
                 style={{ backgroundColor: accent.badgeBg, color: accent.solid }}
               >
-                {REASON_LABELS[r] ?? r}
+                {t(REASON_KEYS[r] ?? "adaptive.reason.default")}
               </span>
             ))}
           </div>
@@ -147,7 +151,7 @@ export default function AdaptivePlanCard({
               style={{ borderColor: accent.solid, color: accent.solid, backgroundColor: accent.bg }}
             >
               <CalendarPlus size={16} />
-              Im Kalender speichern
+              {t("adaptive.saveToCalendar")}
             </button>
           )}
           {!isBlocked ? (
@@ -160,14 +164,14 @@ export default function AdaptivePlanCard({
               style={{ backgroundColor: accent.solid, boxShadow: `0 4px 16px ${accent.solid}44` }}
             >
               <Play size={16} />
-              Jetzt starten
+              {t("adaptive.startNow")}
             </button>
           ) : (
             <div
               className="w-full py-3.5 flex items-center justify-center rounded-2xl text-[14px] font-semibold"
               style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
             >
-              Heute nicht empfohlen
+              {t("adaptive.disabledToday")}
             </div>
           )}
         </div>

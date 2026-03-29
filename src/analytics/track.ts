@@ -14,7 +14,7 @@ type EventPayload = Record<string, string | number | boolean | undefined>;
 
 export function track(event: EventName, payload?: EventPayload): void {
   // TODO: Replace with Segment/Firebase/Mixpanel
-  if (typeof console !== "undefined") {
+  if (import.meta.env.DEV) {
     console.log(`[analytics] ${event}`, payload ?? {});
   }
 }
