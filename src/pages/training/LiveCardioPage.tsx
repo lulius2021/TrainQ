@@ -3,10 +3,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import {
-  MapPin, Pause, Play, Square, Flag, ChevronDown, Minus,
+  MapPin, Pause, Play, Square, Flag, ChevronDown,
 } from "lucide-react";
 import { useGpsTracking } from "../../hooks/useGpsTracking";
-import CardioMap from "../../components/cardio/CardioMap";
+import CardioMap, { type MapStyle } from "../../components/cardio/CardioMap";
 import { addWorkoutEntry } from "../../utils/workoutHistory";
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { clearLiveTrainingState } from "../../native/liveActivity";
@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useAuth } from "../../context/AuthContext";
 import { postWorkoutToFeed } from "../../services/community/postWorkout";
 import type { CalendarEvent, LiveWorkout } from "../../types/training";
-import type { GpsPoint, LapEntry } from "../../types/cardio";
+import type { GpsPoint, LapEntry, CardioInterval, CardioTarget } from "../../types/cardio";
 
 function downsampleGpsPoints(points: GpsPoint[], maxPoints: number): GpsPoint[] {
   if (points.length <= maxPoints) return points;
@@ -69,6 +69,36 @@ function getLapRows(laps: LapEntry[]): Array<{
       elapsed: formatElapsedSec(Math.round(lapElapsMs / 1000)),
     };
   });
+}
+
+/** ±15 s tolerance for pace zone colouring */
+const PACE_ZONE_TOLERANCE_SEC = 15;
+
+interface IntervalInfo {
+  interval: CardioInterval;
+  indexInCycle: number;
+  remainingSec: number;
+  totalIntervals: number;
+}
+
+function getIntervalInfo(intervals: CardioInterval[], elapsedSec: number): IntervalInfo | null {
+  if (!intervals.length) return null;
+  const cycleDur = intervals.reduce((s, i) => s + i.durationSec, 0);
+  if (cycleDur === 0) return null;
+  const pos = elapsedSec % cycleDur;
+  let acc = 0;
+  for (let i = 0; i < intervals.length; i++) {
+    acc += intervals[i].durationSec;
+    if (pos < acc) {
+      return {
+        interval: intervals[i],
+        indexInCycle: i,
+        remainingSec: acc - pos,
+        totalIntervals: intervals.length,
+      };
+    }
+  }
+  return null;
 }
 
 type LiveCardioPageProps = {
@@ -116,11 +146,17 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   const [showStopMenu, setShowStopMenu]           = useState(false);
   const [reviewName, setReviewName]               = useState("");
   const [xpToast, setXpToast]                     = useState<number | null>(null);
+  const [startBusy, setStartBusy]                 = useState(false);
+  const [mapStyle, setMapStyle]                   = useState<MapStyle>("street");
+  const [showMapStyleSheet, setShowMapStyleSheet] = useState(false);
 
-  // Auto-start GPS
-  useEffect(() => {
-    startTracking().then((ok) => { if (!ok) setPermissionDenied(true); });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // GPS starts on explicit user tap — iOS requires a real interaction to show the permission dialog
+  const handleStart = async () => {
+    setStartBusy(true);
+    const ok = await startTracking();
+    setStartBusy(false);
+    if (!ok) setPermissionDenied(true);
+  };
 
   // Paused-aware timer — runs once, always reads latest getElapsedMs via ref
   useEffect(() => {
@@ -148,6 +184,15 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   const isPaused = gps.status === "paused";
   const lapRows  = getLapRows(gps.laps);
 
+  // Cardio target (pace zone + intervals)
+  const cardioTarget: CardioTarget | undefined = workout.cardioTarget;
+  const intervalInfo = cardioTarget?.intervals
+    ? getIntervalInfo(cardioTarget.intervals, elapsedSec)
+    : null;
+  // Effective target pace: per-interval override OR overall target
+  const effectiveTargetPace =
+    intervalInfo?.interval.targetPaceSecPerKm ?? cardioTarget?.targetPaceSecPerKm;
+
   // ── Handlers ──────────────────────────────────────────────
 
   const handlePauseResume = async () => {
@@ -168,11 +213,14 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
 
   const confirmFinish = () => {
     stopTracking();
-    const km           = gps.distanceM / 1000;
-    const durationSec  = elapsedSec;
-    const paceSecPerKm = km > 0 && durationSec > 0 ? durationSec / km : undefined;
-    const sampled      = gps.points.length > 0
+    const km             = gps.distanceM / 1000;
+    const durationSec    = elapsedSec;
+    const paceSecPerKm   = km > 0 && durationSec > 0 ? durationSec / km : undefined;
+    const sampled        = gps.points.length > 0
       ? downsampleGpsPoints(gps.points, 200) : undefined;
+    const savedElevation = gps.elevationGainM > 0
+      ? Math.round(gps.elevationGainM) : undefined;
+    const savedCalories  = calories > 0 ? calories : undefined;
 
     const entry = addWorkoutEntry(
       {
@@ -186,7 +234,9 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
         distanceKm: km > 0 ? Math.round(km * 100) / 100 : undefined,
         paceSecPerKm: paceSecPerKm ? Math.round(paceSecPerKm) : undefined,
         gpsPoints: sampled,
-      } as any,
+        elevationGainM: savedElevation,
+        calories: savedCalories,
+      },
       { allowEmptyExercises: true },
     );
 
@@ -257,6 +307,8 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
           isTracking={gps.status === "tracking"}
           className="absolute inset-0 w-full h-full"
           controlsTopOffset={Math.max(insets.top, 16) + 56}
+          mapStyle={mapStyle}
+          onLayersPress={() => setShowMapStyleSheet(true)}
         />
 
         {/* ── Top overlay (timer + sport + minimize) ── */}
@@ -295,7 +347,7 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
         {/* ── Bottom stats + controls panel ── */}
         <div
           className="absolute bottom-0 left-0 right-0 z-10"
-          style={{
+          style={{ display: showMapStyleSheet ? "none" : undefined,
             background: "var(--card-bg)",
             backdropFilter: "blur(20px)",
             borderTopLeftRadius: 28,
@@ -313,6 +365,23 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
             </div>
             <div className="text-xs uppercase tracking-[0.25em] mt-0.5" style={{ color: "var(--text-secondary)" }}>KM</div>
           </div>
+
+          {/* Interval countdown */}
+          {intervalInfo && gps.status !== "idle" && (
+            <IntervalCountdownBar
+              info={intervalInfo}
+              intervals={cardioTarget!.intervals!}
+              isTracking={gps.status === "tracking"}
+            />
+          )}
+
+          {/* Pace zone indicator */}
+          {effectiveTargetPace && gps.status !== "idle" && (
+            <PaceZoneBar
+              targetPaceSecPerKm={effectiveTargetPace}
+              currentPaceSecPerKm={gps.currentPaceSecPerKm}
+            />
+          )}
 
           {/* Secondary metrics grid */}
           <div className="grid grid-cols-3 px-6 pt-2 pb-0 gap-x-2 text-center">
@@ -382,16 +451,20 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
               <Flag size={20} style={{ color: "var(--text-color)" }} />
             </CircleButton>
 
-            {/* Pause / Resume — big orange */}
+            {/* Start (idle) / Pause / Resume */}
             <CircleButton
-              onPress={handlePauseResume}
+              onPress={gps.status === "idle" ? handleStart : handlePauseResume}
               size={72}
               color={accentColor}
               shadow="0 0 28px rgba(37,99,235,0.5)"
             >
-              {isPaused
-                ? <Play size={30} className="text-white ml-1" />
-                : <Pause size={28} className="text-white" />}
+              {gps.status === "idle"
+                ? startBusy
+                  ? <div className="w-7 h-7 rounded-full border-4 border-white border-t-transparent animate-spin" />
+                  : <Play size={30} className="text-white ml-1" />
+                : isPaused
+                  ? <Play size={30} className="text-white ml-1" />
+                  : <Pause size={28} className="text-white" />}
             </CircleButton>
 
             {/* Stop */}
@@ -553,6 +626,79 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
         </div>
       )}
 
+      {/* ── Map style bottom sheet ── */}
+      {showMapStyleSheet && (
+        <div
+          className="fixed inset-0 z-[120] flex flex-col justify-end"
+          onClick={() => setShowMapStyleSheet(false)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative rounded-t-3xl px-5 pt-5"
+            style={{ background: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--border-color)" }} />
+            <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>Kartenansicht</p>
+
+            <div className="flex flex-col gap-2">
+              {(["street", "satellite", "dark"] as MapStyle[]).map((style) => {
+                const isActive = mapStyle === style;
+                // Static tile preview — Europe z=3 x=4 y=2
+                const previewUrl: Record<MapStyle, string> = {
+                  street:    "https://a.basemaps.cartocdn.com/rastertiles/voyager/3/4/2.png",
+                  dark:      "https://a.basemaps.cartocdn.com/dark_all/3/4/2.png",
+                  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/4",
+                };
+                const label: Record<MapStyle, string> = { street: "Karte", satellite: "Satellit", dark: "Dunkel" };
+                const sub:   Record<MapStyle, string> = { street: "Standard", satellite: "Luftbild", dark: "Nacht" };
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => { setMapStyle(style); setShowMapStyleSheet(false); }}
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 transition-all active:scale-[0.98]"
+                    style={{
+                      background: isActive ? "rgba(59,130,246,0.12)" : "var(--bg-color)",
+                      border: isActive ? "2px solid #3B82F6" : "2px solid var(--border-color)",
+                    }}
+                  >
+                    {/* Left: map tile preview */}
+                    <div className="w-20 h-14 rounded-xl overflow-hidden flex-shrink-0 border" style={{ borderColor: "var(--border-color)" }}>
+                      <img
+                        src={previewUrl[style]}
+                        alt={label[style]}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+
+                    {/* Middle: name + subtitle */}
+                    <div className="flex-1 text-left ml-3">
+                      <div className="text-sm font-semibold" style={{ color: isActive ? "#3B82F6" : "var(--text-color)" }}>
+                        {label[style]}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{sub[style]}</div>
+                    </div>
+
+                    {/* Right: checkmark */}
+                    {isActive && (
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#3B82F6" }}>
+                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                          <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ height: Math.max(insets.bottom + 16, 32) }} />
+          </div>
+        </div>
+      )}
+
       {/* XP Toast */}
       {xpToast !== null && (
         <div
@@ -626,6 +772,136 @@ function CircleButton({
     >
       {children}
     </button>
+  );
+}
+
+// ── Pace zone bar ────────────────────────────────────────────
+
+function PaceZoneBar({
+  targetPaceSecPerKm,
+  currentPaceSecPerKm,
+}: {
+  targetPaceSecPerKm: number;
+  currentPaceSecPerKm?: number;
+}) {
+  const diff = currentPaceSecPerKm != null
+    ? currentPaceSecPerKm - targetPaceSecPerKm
+    : null;
+  const onTarget = diff !== null && Math.abs(diff) <= PACE_ZONE_TOLERANCE_SEC;
+  const tooFast  = diff !== null && diff < -PACE_ZONE_TOLERANCE_SEC;
+
+  let zoneColor = "#6b7280";   // gray  → no data
+  let zoneLabel = "–";
+  let zoneSub   = `Ziel: ${formatPace(targetPaceSecPerKm)}/km`;
+  if (diff !== null) {
+    if (onTarget) {
+      zoneColor = "#22c55e";  // green
+      zoneLabel = "Im Zielbereich";
+    } else if (tooFast) {
+      zoneColor = "#f59e0b";  // amber — too fast (might be fine but warn)
+      zoneLabel = `+${Math.abs(Math.round(diff))}s schneller`;
+    } else {
+      zoneColor = "#ef4444";  // red — too slow
+      zoneLabel = `${Math.round(diff)}s langsamer`;
+    }
+    zoneSub = `Ziel ${formatPace(targetPaceSecPerKm)} · Aktuell ${formatPace(currentPaceSecPerKm)}/km`;
+  }
+
+  return (
+    <div
+      className="mx-4 mb-1 rounded-xl px-4 py-2 flex items-center gap-3"
+      style={{ background: `${zoneColor}1A`, border: `1.5px solid ${zoneColor}55` }}
+    >
+      {/* Colour dot */}
+      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: zoneColor }} />
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-bold truncate" style={{ color: zoneColor }}>{zoneLabel}</div>
+        <div className="text-[10px] truncate" style={{ color: "var(--text-secondary)" }}>{zoneSub}</div>
+      </div>
+      {/* Pace delta bar */}
+      {diff !== null && (
+        <div className="flex-shrink-0 w-16 h-2 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
+          {/* Fill represents how far off target (capped at ±30s = full bar) */}
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(100, (Math.abs(diff) / 30) * 100)}%`,
+              backgroundColor: zoneColor,
+              marginLeft: diff > 0 ? 0 : "auto",
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Interval countdown bar ───────────────────────────────────
+
+function IntervalCountdownBar({
+  info,
+  intervals,
+  isTracking,
+}: {
+  info: IntervalInfo;
+  intervals: CardioInterval[];
+  isTracking: boolean;
+}) {
+  const { interval, indexInCycle, remainingSec } = info;
+  const isWork = interval.type === "work";
+  const color  = isWork ? "#3B82F6" : "#22c55e";
+  const label  = interval.label ?? (isWork ? "Belastung" : "Erholung");
+
+  // Next interval
+  const nextInterval = intervals[(indexInCycle + 1) % intervals.length];
+
+  const mins = Math.floor(remainingSec / 60);
+  const secs = remainingSec % 60;
+  const countdown = `${mins}:${secs.toString().padStart(2, "0")}`;
+
+  // Progress within this interval (0→1)
+  const progress = 1 - remainingSec / interval.durationSec;
+
+  return (
+    <div className="mx-4 mb-2">
+      {/* Current interval row */}
+      <div
+        className="rounded-xl px-4 py-2.5 flex items-center gap-3"
+        style={{ background: `${color}1A`, border: `1.5px solid ${color}55` }}
+      >
+        {/* Type pill */}
+        <div
+          className="rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+          style={{ backgroundColor: color, color: "#fff" }}
+        >
+          {label}
+        </div>
+
+        {/* Progress bar */}
+        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
+          <div
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${progress * 100}%`, backgroundColor: color }}
+          />
+        </div>
+
+        {/* Countdown */}
+        <div
+          className="text-base font-black tabular-nums flex-shrink-0"
+          style={{ color: isTracking ? color : "var(--text-secondary)" }}
+        >
+          {countdown}
+        </div>
+      </div>
+
+      {/* Next interval hint */}
+      <div className="flex justify-end mt-0.5 pr-1">
+        <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+          Nächste: {nextInterval.label ?? (nextInterval.type === "work" ? "Belastung" : "Erholung")}
+          {" "}({Math.floor(nextInterval.durationSec / 60)}:{String(nextInterval.durationSec % 60).padStart(2, "0")} min)
+        </span>
+      </div>
+    </div>
   );
 }
 

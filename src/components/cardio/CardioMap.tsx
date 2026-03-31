@@ -14,6 +14,8 @@ interface CardioMapProps {
   isTracking: boolean;
   className?: string;
   controlsTopOffset?: number;
+  mapStyle: MapStyle;
+  onLayersPress: () => void;
 }
 
 // Tile URL templates
@@ -28,12 +30,18 @@ const SATELLITE_TILES =
 const SATELLITE_ATTRIBUTION =
   "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGS, and the GIS User Community";
 
-type MapStyle = "street" | "satellite" | "dark";
+export type MapStyle = "street" | "satellite" | "dark";
 
 const STYLE_LABELS: Record<MapStyle, string> = {
   street: "Karte",
   satellite: "Satellit",
   dark: "Dunkel",
+};
+
+const STYLE_ICONS: Record<MapStyle, string> = {
+  street:    "🗺️",
+  satellite: "🛰️",
+  dark:      "🌙",
 };
 
 const STYLE_CYCLE: MapStyle[] = ["street", "satellite", "dark"];
@@ -43,6 +51,8 @@ const CardioMap: React.FC<CardioMapProps> = ({
   isTracking,
   className,
   controlsTopOffset,
+  mapStyle,
+  onLayersPress,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -52,7 +62,6 @@ const CardioMap: React.FC<CardioMapProps> = ({
   const userDotRef = useRef<L.CircleMarker | null>(null);
   const pulseCircleRef = useRef<L.CircleMarker | null>(null);
 
-  const [mapStyle, setMapStyle] = useState<MapStyle>("street");
   const [followMode, setFollowMode] = useState(true);
 
   // Reactive theme — resolves "system" to effective mode via the ThemeProvider
@@ -243,13 +252,6 @@ const CardioMap: React.FC<CardioMapProps> = ({
     return () => { map.off("dragstart", onDrag); };
   }, [mapRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Cycle map style: street → satellite → dark ──────────────────────────────
-  const cycleMapStyle = () => {
-    setMapStyle((prev) => {
-      const idx = STYLE_CYCLE.indexOf(prev);
-      return STYLE_CYCLE[(idx + 1) % STYLE_CYCLE.length];
-    });
-  };
 
   return (
     <div className={`relative ${className || ""}`} style={{ isolation: "isolate" }}>
@@ -278,7 +280,7 @@ const CardioMap: React.FC<CardioMapProps> = ({
         {/* Map style toggle */}
         <div className="flex flex-col items-center">
           <button
-            onClick={cycleMapStyle}
+            onClick={onLayersPress}
             className="w-11 h-11 rounded-xl flex items-center justify-center shadow-xl border border-white/30 active:scale-95 transition-transform"
             style={{
               backgroundColor:
@@ -329,6 +331,7 @@ const CardioMap: React.FC<CardioMapProps> = ({
           </span>
         </div>
       </div>
+
     </div>
   );
 };

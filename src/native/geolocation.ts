@@ -7,6 +7,17 @@ import type { GpsPoint } from "../types/cardio";
 
 const isNative = Capacitor.isNativePlatform();
 
+/** Check-only — never shows a dialog. Returns true if already granted. */
+export async function checkLocationPermission(): Promise<boolean> {
+  try {
+    const status = await Geolocation.checkPermissions();
+    return status.location === "granted" || status.coarseLocation === "granted";
+  } catch {
+    return false;
+  }
+}
+
+/** Request permission if needed — may show a system dialog. */
 export async function requestLocationPermission(): Promise<boolean> {
   try {
     const status = await Geolocation.checkPermissions();

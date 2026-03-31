@@ -1,5 +1,21 @@
 // src/types/cardio.ts
 
+export interface CardioInterval {
+  type: "work" | "rest";
+  /** Display label, e.g. "Sprint" or "Erholung" */
+  label?: string;
+  durationSec: number;
+  /** Optional per-interval target pace (overrides CardioTarget.targetPaceSecPerKm) */
+  targetPaceSecPerKm?: number;
+}
+
+export interface CardioTarget {
+  /** Overall target pace in sec/km */
+  targetPaceSecPerKm?: number;
+  /** If set: interval mode — cycles through the list repeatedly */
+  intervals?: CardioInterval[];
+}
+
 export interface GpsPoint {
   lat: number;
   lng: number;

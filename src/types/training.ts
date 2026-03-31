@@ -3,6 +3,7 @@
 // ACHTUNG: Diese Datei ist die EINZIGE Quelle für Training / LiveWorkout / Plan-nahe Typen
 
 import type { AdaptiveSuggestion, AdaptiveAnswers } from "./adaptive";
+import type { CardioTarget } from "./cardio";
 
 // ---------------------------------------------
 // Kalender / Planung (Backwards Compatible)
@@ -148,6 +149,12 @@ export interface CalendarEvent {
   };
 
   /**
+   * Optional: Cardio Zielvorgaben (Laufen / Radfahren)
+   * Pace-Ziel und/oder Intervalle für den Live-Cardio-Screen.
+   */
+  cardioTarget?: CardioTarget;
+
+  /**
    * Deload Markierung (UI/Modifier, kein Status)
    */
   deload?: boolean;
@@ -271,6 +278,11 @@ export interface LiveWorkout {
   notes?: string;
 
   abortedAt?: string;
+
+  /**
+   * Optional: Cardio Zielvorgaben (Laufen / Radfahren)
+   */
+  cardioTarget?: CardioTarget;
 }
 
 export interface CompletedWorkout extends Omit<LiveWorkout, "isActive"> {

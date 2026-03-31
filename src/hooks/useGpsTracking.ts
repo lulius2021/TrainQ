@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GpsPoint, CardioSessionState, LapEntry } from "../types/cardio";
 import {
+  checkLocationPermission,
   requestLocationPermission,
   watchPosition,
   clearWatch,
@@ -11,6 +12,8 @@ import {
 import { haversineDistance, computePace } from "../utils/gpsUtils";
 
 const MAX_ACCURACY_M = 100;
+/** Minimum altitude change to count as elevation gain — filters GPS noise. */
+const MIN_ELEVATION_GAIN_M = 2;
 
 export function useGpsTracking() {
   const [state, setState] = useState<CardioSessionState>({
@@ -24,15 +27,16 @@ export function useGpsTracking() {
     laps: [],
   });
 
-  const watchIdRef       = useRef<WatchCallbackId | null>(null);
-  const pointsRef        = useRef<GpsPoint[]>([]);
-  const distanceRef      = useRef(0);
-  const elevationRef     = useRef(0);
-  const pausedAtRef      = useRef<number | undefined>(undefined);
-  const totalPausedRef   = useRef(0);
-  const startedAtRef     = useRef(0);
-  const stoppedAtRef     = useRef<number | undefined>(undefined);
-  const lapsRef          = useRef<LapEntry[]>([]);
+  const watchIdRef            = useRef<WatchCallbackId | null>(null);
+  const pointsRef             = useRef<GpsPoint[]>([]);
+  const distanceRef           = useRef(0);
+  const elevationRef          = useRef(0);
+  const pausedAtRef           = useRef<number | undefined>(undefined);
+  const totalPausedRef        = useRef(0);
+  const startedAtRef          = useRef(0);
+  const stoppedAtRef          = useRef<number | undefined>(undefined);
+  const lapsRef               = useRef<LapEntry[]>([]);
+  const permissionCacheRef    = useRef<boolean | null>(null);
 
   const addPoint = useCallback((point: GpsPoint) => {
     if (point.accuracy && point.accuracy > MAX_ACCURACY_M) return;
@@ -53,7 +57,7 @@ export function useGpsTracking() {
       typeof point.altitude === "number"
     ) {
       const diff = point.altitude - lastPoint.altitude;
-      if (diff > 0) addedElevation = diff;
+      if (diff > MIN_ELEVATION_GAIN_M) addedElevation = diff;
     }
 
     const newPoints = [...prev, point];
@@ -87,7 +91,9 @@ export function useGpsTracking() {
   }, []);
 
   const startTracking = useCallback(async () => {
-    const granted = await requestLocationPermission();
+    // Use cached result from mount pre-warm — avoids bridge round-trip on tap.
+    // If not cached yet, fall back to live check.
+    const granted = permissionCacheRef.current ?? await requestLocationPermission();
     if (!granted) return false;
 
     const now = Date.now();
@@ -111,8 +117,12 @@ export function useGpsTracking() {
       laps: [],
     });
 
-    const id = await watchPosition(addPoint);
-    watchIdRef.current = id;
+    // Don't await — GPS hardware init can take seconds on iOS.
+    // UI transitions immediately; watch ID is stored when ready.
+    watchPosition(addPoint).then((id) => {
+      watchIdRef.current = id;
+    });
+
     return true;
   }, [addPoint]);
 
@@ -130,8 +140,9 @@ export function useGpsTracking() {
       totalPausedRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = undefined;
     }
-    const id = await watchPosition(addPoint);
-    watchIdRef.current = id;
+    watchPosition(addPoint).then((id) => {
+      watchIdRef.current = id;
+    });
     setState((prev) => ({
       ...prev,
       status: "tracking",
@@ -169,7 +180,12 @@ export function useGpsTracking() {
     setState((prev) => ({ ...prev, laps: lapsRef.current }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pre-warm permission status on mount — check-only, never shows a dialog.
+  // By the time the user taps Start the result is already cached.
   useEffect(() => {
+    checkLocationPermission().then((granted) => {
+      permissionCacheRef.current = granted;
+    });
     return () => {
       if (watchIdRef.current) clearWatch(watchIdRef.current);
     };
