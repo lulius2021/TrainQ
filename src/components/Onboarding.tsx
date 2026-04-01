@@ -289,7 +289,12 @@ const GarminStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
       const supabase = getSB();
       if (!supabase) throw new Error('Nicht eingeloggt');
 
-      const { data, error: err } = await supabase.functions.invoke('garmin-auth-init');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Keine aktive Sitzung – bitte erneut einloggen');
+
+      const { data, error: err } = await supabase.functions.invoke('garmin-auth-init', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       if (err) throw err;
       if (data?.error) throw new Error(data.error);
 
@@ -314,7 +319,12 @@ const GarminStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
       const supabase = getSB();
       if (!supabase) throw new Error('Nicht eingeloggt');
 
-      const { data, error: err } = await supabase.functions.invoke('garmin-fetch-data');
+      const { data: { session: fetchSession } } = await supabase.auth.getSession();
+      if (!fetchSession) throw new Error('Keine aktive Sitzung – bitte erneut einloggen');
+
+      const { data, error: err } = await supabase.functions.invoke('garmin-fetch-data', {
+        headers: { Authorization: `Bearer ${fetchSession.access_token}` },
+      });
       if (err) throw err;
 
       const result: GarminImportResult = {
@@ -330,13 +340,36 @@ const GarminStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
     }
   };
 
-  // Listen for callback after OAuth
+  // Listen for deep link callback (native) and custom event (web/fallback)
   React.useEffect(() => {
     const onConnected = () => {
       setGarminStep('connected');
     };
     window.addEventListener('trainq:garmin_connected', onConnected);
-    return () => window.removeEventListener('trainq:garmin_connected', onConnected);
+
+    let removeAppListener: (() => void) | null = null;
+    import('@capacitor/core').then(({ Capacitor }) => {
+      if (!Capacitor.isNativePlatform()) return;
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appUrlOpen', async (event: { url: string }) => {
+          if (!event.url.includes('garmin')) return;
+          try {
+            const { Browser } = await import('@capacitor/browser');
+            await Browser.close();
+          } catch {
+            // already closed
+          }
+          setGarminStep('connected');
+        }).then((handle) => {
+          removeAppListener = () => handle.remove();
+        });
+      });
+    });
+
+    return () => {
+      window.removeEventListener('trainq:garmin_connected', onConnected);
+      removeAppListener?.();
+    };
   }, []);
 
   return (

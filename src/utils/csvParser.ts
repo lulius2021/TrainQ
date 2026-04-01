@@ -43,22 +43,52 @@ function stripTime(raw: string): string {
   return raw;
 }
 
+// German month name → zero-padded month number (after NFD normalization strips umlauts)
+const GERMAN_MONTH_MAP: Record<string, string> = {
+  januar: "01", februar: "02", marz: "03", april: "04",
+  mai: "05", juni: "06", juli: "07", august: "08", september: "09",
+  oktober: "10", november: "11", dezember: "12",
+};
+
+function normalizeMonthName(raw: string): string {
+  return raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Parse a Hevy German datetime string like "7 März 2026, 08:05"
+ * Returns { date: "2026-03-07", isoDatetime: "2026-03-07T08:05:00" } or null.
+ */
+export function parseHevyDateTime(raw: string): { date: string; isoDatetime: string } | null {
+  const m = raw.trim().match(/^(\d{1,2})\s+(\S+)\s+(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const [, day, monthRaw, year, hour, min] = m;
+  const monthKey = normalizeMonthName(monthRaw);
+  const month = GERMAN_MONTH_MAP[monthKey];
+  if (!month) return null;
+  const date = `${year}-${month}-${day.padStart(2, "0")}`;
+  const isoDatetime = `${date}T${hour.padStart(2, "0")}:${min}:00`;
+  return { date, isoDatetime };
+}
+
 /**
  * Detect date format from a sample of date strings.
- * Returns one of: "YYYY-MM-DD", "DD.MM.YYYY", "MM/DD/YYYY"
+ * Returns one of: "YYYY-MM-DD", "DD.MM.YYYY", "MM/DD/YYYY", "HEVY_DE"
  */
 export function detectDateFormat(samples: string[]): string {
   let isoCount = 0;
   let dotCount = 0;
   let slashCount = 0;
+  let hevyDeCount = 0;
 
   for (const s of samples) {
-    const trimmed = stripTime(s.trim());
-    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) isoCount++;
-    else if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(trimmed)) dotCount++;
-    else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) slashCount++;
+    const trimmed = s.trim();
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(trimmed)) isoCount++;
+    else if (/^\d{1,2}\.\d{1,2}\.\d{4}/.test(trimmed)) dotCount++;
+    else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(trimmed)) slashCount++;
+    else if (/^\d{1,2}\s+\S+\s+\d{4}/.test(trimmed)) hevyDeCount++;
   }
 
+  if (hevyDeCount > 0 && hevyDeCount >= isoCount) return "HEVY_DE";
   if (isoCount >= dotCount && isoCount >= slashCount) return "YYYY-MM-DD";
   if (dotCount >= isoCount && dotCount >= slashCount) return "DD.MM.YYYY";
   return "MM/DD/YYYY";
@@ -69,6 +99,11 @@ export function detectDateFormat(samples: string[]): string {
  * Strips any time component first (handles Hevy datetime strings like "2024-01-15 08:30:00").
  */
 export function normalizeDate(raw: string, format: string): string {
+  if (format === "HEVY_DE") {
+    const parsed = parseHevyDateTime(raw);
+    if (parsed) return parsed.date;
+  }
+
   const trimmed = stripTime(raw.trim());
 
   if (format === "YYYY-MM-DD") {
@@ -105,9 +140,8 @@ const HEADER_MAP: Record<string, string> = {
   date: "date",
   tag: "date",
   day: "date",
-  // Hevy date columns
-  "workout start": "date",  // Hevy: "Workout Start" column
-  "start time": "date",
+  // Hevy date columns (old format)
+  "workout start": "date",
   "workout date": "date",
   // Exercise
   "ubung": "exercise",
@@ -120,7 +154,7 @@ const HEADER_MAP: Record<string, string> = {
   gewicht: "weight",
   weight: "weight",
   "weight (kg)": "weight",
-  "weight (kgs)": "weight",   // Hevy uses "kgs"
+  "weight (kgs)": "weight",
   "gewicht (kg)": "weight",
   kg: "weight",
   // Reps
@@ -133,10 +167,18 @@ const HEADER_MAP: Record<string, string> = {
   "saetze": "sets",
   sets: "sets",
   "set": "sets",
-  // Hevy-specific
-  "workout name": "workoutTitle", // used as grouping key and entry title
-  "workout title": "workoutTitle", // Hevy actual column name
-  // "set order", "workout end", "workout notes", "exercise notes", "distance (meters)", "duration (seconds)", "rpe (010)" — intentionally not mapped
+  // Hevy actual export columns (underscores stripped by normalizeHeaderKey)
+  title: "workoutTitle",             // "title" column = workout name
+  "workout name": "workoutTitle",
+  "workout title": "workoutTitle",
+  "exercise title": "exercise",      // "exercise_title" → normalized
+  "start time": "startTime",         // "start_time" → normalized
+  "end time": "endTime",             // "end_time" → normalized
+  "weight kg": "weight",             // "weight_kg" → normalized
+  "set type": "setType",             // "set_type" → normalized
+  "distance km": "distanceKm",       // "distance_km" → normalized
+  "duration seconds": "durationSeconds", // "duration_seconds" → normalized
+  rpe: "rpe",
 };
 
 function normalizeHeaderKey(raw: string): string {

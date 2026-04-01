@@ -17,6 +17,7 @@ import {
   parseHeader,
   splitCsvRows,
   splitCsvLine,
+  parseHevyDateTime,
 } from "./csvParser";
 
 // -------------------- Exercise Matching --------------------
@@ -82,11 +83,12 @@ export function matchExercise(csvName: string): { matchedName: string; exerciseI
 // -------------------- Hevy Detection --------------------
 
 /**
- * Returns true if the header set contains the "workout name" column,
- * which is the reliable signal for a Hevy-format CSV export.
+ * Returns true if the headers match the actual Hevy export format.
+ * Hevy exports have a "start_time" column (→ semantic "startTime") and
+ * "exercise_title" (→ semantic "exercise" via "exercise title" mapping).
  */
 export function isHevyFormat(headers: Map<string, number>): boolean {
-  return headers.has("workoutTitle");
+  return headers.has("startTime") && (headers.has("workoutTitle") || headers.has("exercise"));
 }
 
 // -------------------- CSV Parsing --------------------
@@ -113,72 +115,123 @@ export function parseCsvForImport(content: string): CsvImportPreview {
   const separator = detectSeparator(lines.slice(0, 5));
   const headerMap = parseHeader(lines[0], separator, true);
 
-  // Validate required columns
-  const dateIdx = headerMap.get("date");
-  const exerciseIdx = headerMap.get("exercise");
-  const weightIdx = headerMap.get("weight");
-  const repsIdx = headerMap.get("reps");
-  const setsIdx = headerMap.get("sets");
-  const workoutTitleIdx = headerMap.get("workoutTitle"); // Hevy only
+  const hevy = isHevyFormat(headerMap);
 
-  if (dateIdx === undefined) warnings.push("Spalte 'Datum' / 'Date' nicht gefunden.");
-  if (exerciseIdx === undefined) warnings.push("Spalte 'Übung' / 'Exercise' nicht gefunden.");
-  if (weightIdx === undefined && repsIdx === undefined) {
-    warnings.push("Weder 'Gewicht'/'Weight' noch 'Wiederholungen'/'Reps' gefunden.");
-  }
+  if (hevy) {
+    // ---- Hevy format: one row per set ----
+    const startTimeIdx = headerMap.get("startTime")!;
+    const endTimeIdx   = headerMap.get("endTime");
+    const exerciseIdx  = headerMap.get("exercise")!;
+    const workoutTitleIdx = headerMap.get("workoutTitle");
+    const weightIdx    = headerMap.get("weight");
+    const repsIdx      = headerMap.get("reps");
+    const setTypeIdx   = headerMap.get("setType");
+    const rpeIdx       = headerMap.get("rpe");
+    const distKmIdx    = headerMap.get("distanceKm");
+    const durSecIdx    = headerMap.get("durationSeconds");
 
-  if (dateIdx === undefined || exerciseIdx === undefined) {
-    return {
-      rows: [],
-      matchedExercises: new Map(),
-      unmatchedExercises: [],
-      totalWorkouts: 0,
-      dateRange: { from: "", to: "" },
-      warnings,
-    };
-  }
+    let parseErrors = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = splitCsvLine(lines[i], separator);
 
-  // Detect date format from samples
-  const dateSamples: string[] = [];
-  for (let i = 1; i < Math.min(lines.length, 20); i++) {
-    const cols = splitCsvLine(lines[i], separator);
-    if (cols[dateIdx]) dateSamples.push(cols[dateIdx].trim());
-  }
-  const dateFormat = detectDateFormat(dateSamples);
+      const rawStart   = cols[startTimeIdx] || "";
+      const exercise   = (exerciseIdx !== undefined ? cols[exerciseIdx] : "") || "";
+      const workoutTitle = workoutTitleIdx !== undefined ? (cols[workoutTitleIdx] || "").trim() : undefined;
 
-  // Parse data rows
-  let parseErrors = 0;
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCsvLine(lines[i], separator);
+      if (!rawStart || !exercise) { parseErrors++; continue; }
 
-    const rawDate = cols[dateIdx] || "";
-    const exercise = cols[exerciseIdx] || "";
-    const rawWeight = weightIdx !== undefined ? cols[weightIdx] : "0";
-    const rawReps = repsIdx !== undefined ? cols[repsIdx] : "0";
-    const rawSets = setsIdx !== undefined ? cols[setsIdx] : "1";
-    const workoutTitle = workoutTitleIdx !== undefined ? (cols[workoutTitleIdx] || "").trim() : undefined;
+      const parsed = parseHevyDateTime(rawStart);
+      if (!parsed) { parseErrors++; continue; }
 
-    if (!rawDate || !exercise) {
-      parseErrors++;
-      continue;
+      const rawEnd = endTimeIdx !== undefined ? cols[endTimeIdx] || "" : "";
+      const endParsed = rawEnd ? parseHevyDateTime(rawEnd) : null;
+
+      const weightKg = weightIdx !== undefined ? Math.max(0, parseFloat((cols[weightIdx] || "0").replace(",", ".")) || 0) : 0;
+      const reps     = repsIdx   !== undefined ? Math.max(0, Math.round(parseFloat((cols[repsIdx]   || "0").replace(",", ".")) || 0)) : 0;
+
+      // set_type → TrainQ setType
+      let setType: CsvParsedRow["setType"] = undefined;
+      if (setTypeIdx !== undefined) {
+        const rawType = (cols[setTypeIdx] || "").trim().toLowerCase();
+        if (rawType === "warmup")  setType = "warmup";
+        else if (rawType === "failure") setType = "failure";
+        else setType = "normal";
+      }
+
+      const rpe     = rpeIdx    !== undefined ? (parseFloat(cols[rpeIdx]    || "") || undefined) : undefined;
+      const distKm  = distKmIdx !== undefined ? (parseFloat(cols[distKmIdx] || "") || undefined) : undefined;
+      const durSec  = durSecIdx !== undefined ? (parseFloat(cols[durSecIdx] || "") || undefined) : undefined;
+
+      rows.push({
+        date: parsed.date,
+        exercise,
+        weightKg,
+        reps,
+        sets: 1,
+        workoutTitle: workoutTitle || undefined,
+        startTime: parsed.isoDatetime,
+        endTime: endParsed?.isoDatetime,
+        setType,
+        rpe,
+        durationSeconds: durSec,
+        distanceKm: distKm,
+      });
     }
 
-    const date = normalizeDate(rawDate, dateFormat);
-    // Validate the normalized date looks correct
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      parseErrors++;
-      continue;
+    if (parseErrors > 0) {
+      warnings.push(`${parseErrors} Zeile(n) konnten nicht gelesen werden.`);
+    }
+  } else {
+    // ---- Generic format ----
+    const dateIdx      = headerMap.get("date");
+    const exerciseIdx  = headerMap.get("exercise");
+    const weightIdx    = headerMap.get("weight");
+    const repsIdx      = headerMap.get("reps");
+    const setsIdx      = headerMap.get("sets");
+    const workoutTitleIdx = headerMap.get("workoutTitle");
+
+    if (dateIdx === undefined) warnings.push("Spalte 'Datum' / 'Date' nicht gefunden.");
+    if (exerciseIdx === undefined) warnings.push("Spalte 'Übung' / 'Exercise' nicht gefunden.");
+    if (weightIdx === undefined && repsIdx === undefined) {
+      warnings.push("Weder 'Gewicht'/'Weight' noch 'Wiederholungen'/'Reps' gefunden.");
     }
 
-    const weightKg = Math.max(0, parseFloat(rawWeight.replace(",", ".")) || 0);
-    const reps = Math.max(0, Math.round(parseFloat(rawReps.replace(",", ".")) || 0));
-    const sets = Math.max(1, Math.round(parseFloat(rawSets.replace(",", ".")) || 1));
+    if (dateIdx === undefined || exerciseIdx === undefined) {
+      return { rows: [], matchedExercises: new Map(), unmatchedExercises: [], totalWorkouts: 0, dateRange: { from: "", to: "" }, warnings };
+    }
 
-    rows.push({ date, exercise, weightKg, reps, sets, workoutTitle: workoutTitle || undefined });
-  }
+    const dateSamples: string[] = [];
+    for (let i = 1; i < Math.min(lines.length, 20); i++) {
+      const cols = splitCsvLine(lines[i], separator);
+      if (cols[dateIdx]) dateSamples.push(cols[dateIdx].trim());
+    }
+    const dateFormat = detectDateFormat(dateSamples);
 
-  if (parseErrors > 0) {
-    warnings.push(`${parseErrors} Zeile(n) konnten nicht gelesen werden.`);
+    let parseErrors = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = splitCsvLine(lines[i], separator);
+      const rawDate  = cols[dateIdx] || "";
+      const exercise = cols[exerciseIdx] || "";
+      const rawWeight = weightIdx !== undefined ? cols[weightIdx] : "0";
+      const rawReps   = repsIdx   !== undefined ? cols[repsIdx]   : "0";
+      const rawSets   = setsIdx   !== undefined ? cols[setsIdx]   : "1";
+      const workoutTitle = workoutTitleIdx !== undefined ? (cols[workoutTitleIdx] || "").trim() : undefined;
+
+      if (!rawDate || !exercise) { parseErrors++; continue; }
+
+      const date = normalizeDate(rawDate, dateFormat);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { parseErrors++; continue; }
+
+      const weightKg = Math.max(0, parseFloat(rawWeight.replace(",", ".")) || 0);
+      const reps     = Math.max(0, Math.round(parseFloat(rawReps.replace(",", ".")) || 0));
+      const sets     = Math.max(1, Math.round(parseFloat(rawSets.replace(",", ".")) || 1));
+
+      rows.push({ date, exercise, weightKg, reps, sets, workoutTitle: workoutTitle || undefined });
+    }
+
+    if (parseErrors > 0) {
+      warnings.push(`${parseErrors} Zeile(n) konnten nicht gelesen werden.`);
+    }
   }
 
   // Match exercises
@@ -201,20 +254,15 @@ export function parseCsvForImport(content: string): CsvImportPreview {
     );
   }
 
-  // Compute date range and total workouts
   const dates = rows.map((r) => r.date).sort();
-  const dateRange = {
-    from: dates[0] || "",
-    to: dates[dates.length - 1] || "",
-  };
+  const dateRange = { from: dates[0] || "", to: dates[dates.length - 1] || "" };
 
-  // For Hevy CSVs, multiple workouts can share the same date; count unique date+workoutTitle combos.
+  // Count unique workouts: for Hevy, use startTime as the key; for generic, date+workoutTitle
   const uniqueWorkoutKeys = new Set(
-    rows.map((r) => (r.workoutTitle ? `${r.date}\0${r.workoutTitle}` : r.date))
+    rows.map((r) => r.startTime ? r.startTime : (r.workoutTitle ? `${r.date}\0${r.workoutTitle}` : r.date))
   );
   const totalWorkouts = uniqueWorkoutKeys.size;
 
-  // 300-entry limit warning
   const existingHistory = loadWorkoutHistory();
   if (existingHistory.length + totalWorkouts > 300) {
     warnings.push(
@@ -222,21 +270,16 @@ export function parseCsvForImport(content: string): CsvImportPreview {
     );
   }
 
-  return {
-    rows,
-    matchedExercises,
-    unmatchedExercises,
-    totalWorkouts,
-    dateRange,
-    warnings,
-  };
+  return { rows, matchedExercises, unmatchedExercises, totalWorkouts, dateRange, warnings };
 }
 
 // -------------------- Grouping --------------------
 
 interface GroupedWorkout {
   date: string;
-  title: string;  // workout title: Hevy workout name or fallback "Import YYYY-MM-DD"
+  title: string;        // workout title: Hevy workout name or fallback "Import YYYY-MM-DD"
+  startedAt: string;    // ISO datetime
+  endedAt: string;      // ISO datetime
   exercises: WorkoutHistoryExercise[];
 }
 
@@ -253,22 +296,34 @@ export function groupRowsIntoEntries(
   rows: CsvParsedRow[],
   matches: Map<string, string>
 ): GroupedWorkout[] {
-  // Build composite key: "date\0workoutTitle" for Hevy, just "date" for generic.
-  const byKey = new Map<string, { date: string; title: string; rows: CsvParsedRow[] }>();
+  // Key: Hevy uses startTime (unique per session); generic uses date+workoutTitle or date.
+  const byKey = new Map<string, {
+    date: string;
+    title: string;
+    startedAt: string;
+    endedAt: string;
+    rows: CsvParsedRow[];
+  }>();
 
   for (const row of rows) {
-    const key = row.workoutTitle ? `${row.date}\0${row.workoutTitle}` : row.date;
+    const key = row.startTime ?? (row.workoutTitle ? `${row.date}\0${row.workoutTitle}` : row.date);
     if (!byKey.has(key)) {
       const title = row.workoutTitle || `Import ${row.date}`;
-      byKey.set(key, { date: row.date, title, rows: [] });
+      const startedAt = row.startTime ? `${row.startTime}` : `${row.date}T08:00:00`;
+      const endedAt   = row.endTime   ? `${row.endTime}`   : `${row.date}T09:00:00`;
+      byKey.set(key, { date: row.date, title, startedAt, endedAt, rows: [] });
     }
-    byKey.get(key)!.rows.push(row);
+    // Update endedAt if this row has a later endTime (all rows share same workout end)
+    const bucket = byKey.get(key)!;
+    if (row.endTime && row.endTime > bucket.endedAt) {
+      bucket.endedAt = row.endTime;
+    }
+    bucket.rows.push(row);
   }
 
   const result: GroupedWorkout[] = [];
 
-  for (const { date, title, rows: workoutRows } of byKey.values()) {
-    // Group by exercise name within this workout
+  for (const { date, title, startedAt, endedAt, rows: workoutRows } of byKey.values()) {
     const byExercise = new Map<string, CsvParsedRow[]>();
     for (const row of workoutRows) {
       const existing = byExercise.get(row.exercise) || [];
@@ -284,12 +339,14 @@ export function groupRowsIntoEntries(
 
       const sets: WorkoutHistorySet[] = [];
       for (const row of exRows) {
-        // Each row may represent multiple sets
         for (let s = 0; s < row.sets; s++) {
-          sets.push({
-            reps: row.reps,
-            weight: row.weightKg,
-          });
+          const set: WorkoutHistorySet = { reps: row.reps, weight: row.weightKg };
+          if (row.setType) {
+            set.setType = row.setType;
+            if (row.setType === "warmup") set.isWarmup = true;
+          }
+          if (row.rpe !== undefined) set.rpe = row.rpe;
+          sets.push(set);
         }
       }
 
@@ -300,10 +357,9 @@ export function groupRowsIntoEntries(
       });
     }
 
-    result.push({ date, title, exercises });
+    result.push({ date, title, startedAt, endedAt, exercises });
   }
 
-  // Sort by date (then title for same-day workouts)
   result.sort((a, b) => {
     const dateCmp = a.date.localeCompare(b.date);
     return dateCmp !== 0 ? dateCmp : a.title.localeCompare(b.title);
@@ -387,12 +443,16 @@ export function executeImport(preview: CsvImportPreview): CsvImportResult {
 
     importedCount += workoutImported;
 
-    // Build WorkoutHistoryEntry
-    const dateISO = workout.date;
-    const startedAt = `${dateISO}T08:00:00.000Z`;
-    const endedAt = `${dateISO}T09:00:00.000Z`;
-
     const totalVolume = computeTotalVolume(dedupedExercises);
+    void totalVolume; // used by addWorkoutEntry internally
+
+    const startedAt = workout.startedAt;
+    const endedAt   = workout.endedAt;
+    const startMs   = new Date(startedAt).getTime();
+    const endMs     = new Date(endedAt).getTime();
+    const durationSec = !isNaN(startMs) && !isNaN(endMs) && endMs > startMs
+      ? Math.round((endMs - startMs) / 1000)
+      : 3600;
 
     try {
       addWorkoutEntry(
@@ -401,13 +461,13 @@ export function executeImport(preview: CsvImportPreview): CsvImportResult {
           sport: "Gym",
           startedAt,
           endedAt,
-          durationSec: 3600,
+          durationSec,
           exercises: dedupedExercises,
         },
         { allowEmptyExercises: false }
       );
     } catch (err) {
-      errors.push(`Fehler beim Import von ${dateISO}: ${String(err)}`);
+      errors.push(`Fehler beim Import von ${workout.date}: ${String(err)}`);
     }
   }
 

@@ -947,6 +947,7 @@ const MainAppShell: React.FC = () => {
             })}
 
             <PaywallModal open={paywallOpen} reason={paywallReason} onClose={() => setPaywallOpen(false)} isPro={isPro} adaptiveBCRemaining={Math.max(0, adaptiveBCRemaining)} planShiftRemaining={Math.max(0, planShiftRemaining)} calendar7DaysRemaining={Math.max(0, calendar7DaysRemaining)} onBuyMonthly={() => handlePurchase("monthly")} onBuyYearly={() => handlePurchase("yearly")} onRestore={handleRestorePurchases} />
+
         </MainLayout>
     );
 };

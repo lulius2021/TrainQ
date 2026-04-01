@@ -15,6 +15,7 @@ import ChallengeCompletionModal from "../../components/challenges/ChallengeCompl
 import CreateSoloChallengeModal from "../../components/challenges/CreateSoloChallengeModal";
 import RewardBanner from "../../components/challenges/RewardBanner";
 import type { ChallengeDefinition } from "../../types/challenge";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   onOpenPostDetail?: (postId: string) => void;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenNotifications, onBack }: Props) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const userId = user?.id;
 
@@ -132,8 +134,8 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
     setClaimError(null);
     try {
       const result = await claimReward(completionDef.id);
-      if (result && !result.ok && result.error) { setClaimError("Fehler beim Einlösen."); return; }
-    } catch { setClaimError("Fehler beim Einlösen."); return; }
+      if (result && !result.ok && result.error) { setClaimError(t("community.challenges.claimError")); return; }
+    } catch { setClaimError(t("community.challenges.claimError")); return; }
     finally { setClaimLoadingId(null); }
     setShowCompletionModal(false);
     setCompletionDef(null);
@@ -215,7 +217,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
       <div className="flex flex-col h-full items-center justify-center px-6" style={{ background: "var(--bg-color)" }}>
         <Users size={48} style={{ color: "var(--text-secondary)" }} className="mb-4" />
         <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
-          Melde dich an, um die Community zu nutzen.
+          {t("community.login.prompt")}
         </p>
       </div>
     );
@@ -228,28 +230,28 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
       {error === "tables_missing" ? (
         <>
           <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
-            Community wird eingerichtet
+            {t("community.error.tablesSetup")}
           </p>
           <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
-            Die Community-Tabellen müssen noch in Supabase angelegt werden.
+            {t("community.error.tablesSetupDesc")}
           </p>
         </>
       ) : error === "timeout" ? (
         <>
           <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
-            Verbindung dauert zu lange
+            {t("community.error.timeout")}
           </p>
           <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
-            Überprüfe deine Internetverbindung und versuche es erneut.
+            {t("community.error.timeoutDesc")}
           </p>
         </>
       ) : (
         <>
           <p className="text-sm font-medium text-center mb-1" style={{ color: "var(--text-color)" }}>
-            Feed konnte nicht geladen werden
+            {t("community.error.loadFeed")}
           </p>
           <p className="text-xs text-center mb-4" style={{ color: "var(--text-secondary)" }}>
-            Bitte versuche es erneut.
+            {t("community.error.loadFeedDesc")}
           </p>
         </>
       )}
@@ -258,7 +260,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
         className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
         style={{ background: "var(--accent-color)", color: "#fff" }}
       >
-        <RefreshCw size={14} /> Erneut versuchen
+        <RefreshCw size={14} /> {t("community.error.retry")}
       </button>
     </div>
   ) : null;
@@ -300,7 +302,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Nutzer suchen..."
+                placeholder={t("community.search.placeholder")}
                 autoFocus
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "var(--text-color)" }}
@@ -347,7 +349,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
                           color: u.isFollowing ? "var(--text-color)" : "#fff",
                         }}
                       >
-                        {u.isFollowing ? "Folge ich" : "Folgen"}
+                        {u.isFollowing ? t("community.follow.following") : t("community.follow.follow")}
                       </button>
                     )}
                   </button>
@@ -356,7 +358,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             )}
             {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
               <div className="py-4 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
-                Keine Nutzer gefunden
+                {t("community.search.noResults")}
               </div>
             )}
           </div>
@@ -365,7 +367,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
         {/* Feed tabs */}
         {!showSearch && (
           <div className="flex px-4 gap-1 pb-2">
-            {([["forYou", "Für dich"], ["following", "Folge ich"], ["discover", "Entdecken"], ["challenges", "Challenges"]] as const).map(([tab, label]) => (
+            {([["forYou", "community.tabs.forYou"], ["following", "community.tabs.following"], ["discover", "community.tabs.discover"], ["challenges", "community.tabs.challenges"]] as const).map(([tab, key]) => (
               <button
                 key={tab}
                 onClick={() => handleTabSwitch(tab)}
@@ -375,7 +377,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
                   color: activeTab === tab ? "#fff" : "var(--text-secondary)",
                 }}
               >
-                {label}
+                {t(key)}
               </button>
             ))}
           </div>
@@ -388,13 +390,13 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
           <div className="px-4 py-3 space-y-3">
             {/* Sub-tabs */}
             <div className="flex gap-1 bg-[var(--button-bg)] rounded-2xl p-1">
-              {([["available", "Verfügbar"], ["active", "Aktiv"], ["completed", "Abgeschlossen"]] as const).map(([id, label]) => (
+              {([["available", "community.challenges.available"], ["active", "community.challenges.active"], ["completed", "community.challenges.completed"]] as const).map(([id, key]) => (
                 <button
                   key={id}
                   onClick={() => setChallTab(id)}
                   className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition-all ${challTab === id ? "bg-[var(--card-bg)] text-[var(--text-color)] shadow-sm" : "text-[var(--text-secondary)]"}`}
                 >
-                  {label}
+                  {t(key)}
                 </button>
               ))}
             </div>
@@ -406,7 +408,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             {challTab === "available" && (
               <>
                 {sortedAvailable.length === 0 ? (
-                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Keine Challenges verfügbar</p></div>
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">{t("community.challenges.noAvailable")}</p></div>
                 ) : (
                   sortedAvailable.map((def) => {
                     const sc = serverChallenges.find((c) => c.id === def.id);
@@ -430,7 +432,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             {challTab === "active" && (
               <>
                 {activeChallenges.length === 0 ? (
-                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Keine aktiven Challenges</p></div>
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">{t("community.challenges.noActive")}</p></div>
                 ) : (
                   activeChallenges.map((ac) => (
                     <ChallengeCard
@@ -449,7 +451,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             {challTab === "completed" && (
               <>
                 {completedChallenges.length === 0 ? (
-                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">Noch keine abgeschlossenen Challenges</p></div>
+                  <div className="text-center py-12 text-[var(--text-secondary)]"><p className="text-sm">{t("community.challenges.noCompleted")}</p></div>
                 ) : (
                   completedChallenges.map((cc) => (
                     <ChallengeCard
@@ -472,7 +474,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-[var(--border-color)] text-[var(--text-secondary)] transition-colors"
             >
               <Plus size={18} />
-              <span className="text-sm font-semibold">Eigene Challenge erstellen</span>
+              <span className="text-sm font-semibold">{t("community.challenges.create")}</span>
             </button>
 
             <CreateSoloChallengeModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreate} />
@@ -496,7 +498,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
               <div className="flex flex-col items-center justify-center py-16 px-4">
                 <Users size={40} style={{ color: "var(--text-secondary)" }} className="mb-3" />
                 <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                  Noch keine anderen Nutzer vorhanden.
+                  {t("community.empty.discover")}
                 </p>
               </div>
             )}
@@ -529,7 +531,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
                         color: u.isFollowing ? "var(--text-color)" : "#fff",
                       }}
                     >
-                      {u.isFollowing ? "Folge ich" : "Folgen"}
+                      {u.isFollowing ? t("community.follow.following") : t("community.follow.follow")}
                     </button>
                   </button>
                 ))}
@@ -552,7 +554,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
             {!loading && !error && posts.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 px-4">
                 <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                  {feedType === "following" ? "Folge anderen Nutzern, um ihre Beiträge zu sehen." : "Noch keine Beiträge vorhanden."}
+                  {feedType === "following" ? t("community.empty.following") : t("community.empty.feed")}
                 </p>
               </div>
             )}
@@ -569,7 +571,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
                 onReport={(id) => setReportTarget({ id })}
                 onBlock={(blockedId) => {
                   const author = post.author;
-                  setBlockTarget({ id: blockedId, name: author?.displayName ?? "Nutzer" });
+                  setBlockTarget({ id: blockedId, name: author?.displayName ?? t("community.user.user") });
                 }}
               />
             ))}
@@ -582,7 +584,7 @@ export default function CommunityPage({ onOpenPostDetail, onOpenProfile, onOpenN
 
             {!hasMore && posts.length > 0 && (
               <div className="py-6 text-center text-xs" style={{ color: "var(--text-secondary)" }}>
-                Keine weiteren Beiträge
+                {t("community.feed.noMore")}
               </div>
             )}
           </>

@@ -44,6 +44,8 @@ import {
 } from "../../utils/liveTrainingSeed";
 
 import { applyAdaptiveToSeed } from "../../utils/adaptiveSeed";
+import { upsertTrainingTemplate, buildTrainingTemplateSignature } from "../../services/trainingTemplatesService";
+import type { TrainingTemplate, TrainingTemplateExercise } from "../../types/trainingTemplates";
 
 import {
   getActiveLiveWorkout,
@@ -245,6 +247,15 @@ export default function LiveTrainingPage({
   const [showAbortConfirm, setShowAbortConfirm] = useState(false);
   const [reviewName, setReviewName] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
+
+  // Save-as-Template Flow
+  const [showSaveTemplatePrompt, setShowSaveTemplatePrompt] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplEmoji, setTplEmoji] = useState("💪");
+  const [tplColor, setTplColor] = useState("#3B82F6");
+  const pendingCompletedWorkoutRef = useRef<import("../../types/training").CompletedWorkout | null>(null);
+  const postFinishExitFnRef = useRef<(() => void) | null>(null);
 
   // PR Detection State
   const [prBaseline, setPrBaseline] = useState<Map<string, PRBaseline> | null>(null);
@@ -1232,6 +1243,14 @@ export default function LiveTrainingPage({
     setShowFinishReview(true);
   };
 
+  const doExit = (workoutId: string) => {
+    if (typeof onShareWorkout === "function") {
+      onShareWorkout(workoutId);
+    } else {
+      onExit();
+    }
+  };
+
   const confirmFinish = () => {
     if (!workout) return;
     const finalWorkout = { ...workout, title: reviewName, rating: reviewRating > 0 ? reviewRating : undefined } as any; // Apply renamed title + rating
@@ -1257,11 +1276,69 @@ export default function LiveTrainingPage({
       return;
     }
 
-    if (typeof onShareWorkout === "function") {
-      onShareWorkout(completed.id);
-    } else {
-      onExit();
+    setShowFinishReview(false);
+
+    // Free training (no calendar event) → offer to save as template
+    if (!eventId && !isCardioWorkout) {
+      pendingCompletedWorkoutRef.current = completed;
+      postFinishExitFnRef.current = () => doExit(completed.id);
+      setTplName(reviewName || completed.title || "Training");
+      setTplEmoji("💪");
+      setTplColor("#3B82F6");
+      setShowSaveTemplatePrompt(true);
+      return;
     }
+
+    doExit(completed.id);
+  };
+
+  const handleSkipSaveTemplate = () => {
+    setShowSaveTemplatePrompt(false);
+    setShowSaveTemplateModal(false);
+    postFinishExitFnRef.current?.();
+    postFinishExitFnRef.current = null;
+  };
+
+  const handleConfirmSaveTemplate = () => {
+    setShowSaveTemplatePrompt(false);
+    setShowSaveTemplateModal(true);
+  };
+
+  const handleSaveTemplate = () => {
+    const completed = pendingCompletedWorkoutRef.current;
+    if (!completed || !authUser?.id) {
+      handleSkipSaveTemplate();
+      return;
+    }
+    const templateExercises: TrainingTemplateExercise[] = (completed.exercises || []).map((ex) => ({
+      id: ex.id,
+      exerciseId: ex.exerciseId,
+      name: ex.name,
+      sets: (ex.sets || [])
+        .filter((s) => s.completed)
+        .map((s) => ({
+          id: s.id,
+          reps: s.reps,
+          weight: s.weight,
+          setType: s.setType,
+          notes: s.notes,
+        })),
+    }));
+    const now = new Date().toISOString();
+    const tpl: TrainingTemplate = {
+      id: `tpl_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      userId: authUser.id,
+      name: tplName.trim() || completed.title || "Training",
+      sportType: completed.sport,
+      exercises: templateExercises,
+      signature: buildTrainingTemplateSignature(templateExercises),
+      createdAt: now,
+      updatedAt: now,
+    };
+    upsertTrainingTemplate(authUser.id, tpl);
+    setShowSaveTemplateModal(false);
+    postFinishExitFnRef.current?.();
+    postFinishExitFnRef.current = null;
   };
 
   const handleAbortClick = () => {
@@ -1660,6 +1737,130 @@ export default function LiveTrainingPage({
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Zurück zum Training
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save as Template – Prompt */}
+        {showSaveTemplatePrompt && (
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
+            <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
+              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
+              <div className="text-4xl text-center mb-4">📋</div>
+              <h2 className="text-xl font-bold text-center mb-2" style={{ color: "var(--text-color)" }}>Als Vorlage speichern?</h2>
+              <p className="text-sm text-center mb-8" style={{ color: "var(--text-secondary)" }}>
+                Speichere dieses Training als Vorlage, um es später schnell wieder zu starten.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleConfirmSaveTemplate}
+                  className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
+                >
+                  Ja, als Vorlage speichern
+                </button>
+                <button
+                  onClick={handleSkipSaveTemplate}
+                  className="w-full py-3 rounded-xl font-medium transition-colors"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Überspringen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save as Template – Editor */}
+        {showSaveTemplateModal && (
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
+            <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
+              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
+              <h2 className="text-xl font-bold mb-6" style={{ color: "var(--text-color)" }}>Vorlage erstellen</h2>
+
+              {/* Emoji Picker */}
+              <div className="mb-5">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-secondary)" }}>Emoji</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["💪", "🏋️", "🔥", "⚡", "🎯", "🦾", "💥", "🏆"].map((em) => (
+                    <button
+                      key={em}
+                      type="button"
+                      onClick={() => setTplEmoji(em)}
+                      className="w-11 h-11 rounded-xl text-xl flex items-center justify-center transition-all active:scale-90"
+                      style={{
+                        backgroundColor: tplEmoji === em ? tplColor + "33" : "var(--bg-color)",
+                        border: tplEmoji === em ? `2px solid ${tplColor}` : "2px solid transparent",
+                      }}
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Picker */}
+              <div className="mb-5">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-secondary)" }}>Farbe</label>
+                <div className="flex gap-3">
+                  {["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setTplColor(c)}
+                      className="w-9 h-9 rounded-full transition-all active:scale-90"
+                      style={{
+                        backgroundColor: c,
+                        outline: tplColor === c ? `3px solid ${c}` : "none",
+                        outlineOffset: "2px",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Name Input */}
+              <div className="mb-8">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>Name</label>
+                <input
+                  type="text"
+                  value={tplName}
+                  onChange={(e) => setTplName(e.target.value)}
+                  className="w-full text-base font-semibold px-4 py-3.5 rounded-xl border border-transparent focus:outline-none transition-all"
+                  style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)", border: `1.5px solid ${tplColor}40` }}
+                  placeholder="Vorlage benennen…"
+                  maxLength={60}
+                />
+              </div>
+
+              {/* Exercises Preview */}
+              {pendingCompletedWorkoutRef.current && pendingCompletedWorkoutRef.current.exercises.length > 0 && (
+                <div className="mb-8 p-3 rounded-xl" style={{ backgroundColor: "var(--bg-color)" }}>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>Übungen</p>
+                  {pendingCompletedWorkoutRef.current.exercises.slice(0, 5).map((ex) => (
+                    <p key={ex.id} className="text-sm py-0.5" style={{ color: "var(--text-color)" }}>· {ex.name}</p>
+                  ))}
+                  {pendingCompletedWorkoutRef.current.exercises.length > 5 && (
+                    <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>+{pendingCompletedWorkoutRef.current.exercises.length - 5} weitere</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSaveTemplate}
+                  className="w-full py-4 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-[0.98] transition-all"
+                  style={{ backgroundColor: tplColor, boxShadow: `0 8px 24px ${tplColor}40` }}
+                >
+                  {tplEmoji} Vorlage speichern
+                </button>
+                <button
+                  onClick={handleSkipSaveTemplate}
+                  className="w-full py-3 rounded-xl font-medium transition-colors"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Abbrechen
                 </button>
               </div>
             </div>

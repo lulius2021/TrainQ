@@ -3,8 +3,9 @@ import { X } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { createReport } from "../../services/community/api";
 import type { ReportReason, ReportTarget } from "../../services/community/types";
-import { REPORT_REASON_LABELS } from "../../services/community/types";
+import { REPORT_REASON_KEYS } from "../../services/community/types";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   reporterId: string;
@@ -18,6 +19,7 @@ const REASONS: ReportReason[] = ["spam", "harassment", "hate", "nudity", "self_h
 
 export default function ReportSheet({ reporterId, targetType, targetId, onClose, onDone }: Props) {
   useBodyScrollLock(true);
+  const { t } = useI18n();
   const [selected, setSelected] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,18 +47,18 @@ export default function ReportSheet({ reporterId, targetType, targetId, onClose,
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <span className="font-semibold text-base" style={{ color: "var(--text-color)" }}>Melden</span>
+          <span className="font-semibold text-base" style={{ color: "var(--text-color)" }}>{t("community.report.title")}</span>
           <button onClick={onClose} className="p-1" style={{ color: "var(--text-secondary)" }}><X size={20} /></button>
         </div>
 
         {done ? (
           <div className="py-8 text-center">
-            <p className="text-sm font-medium" style={{ color: "var(--text-color)" }}>Danke für deine Meldung!</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Wir prüfen den Inhalt.</p>
+            <p className="text-sm font-medium" style={{ color: "var(--text-color)" }}>{t("community.report.thanks")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{t("community.report.review")}</p>
           </div>
         ) : (
           <>
-            <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>Warum möchtest du dies melden?</p>
+            <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>{t("community.report.prompt")}</p>
             <div className="flex flex-col gap-1.5">
               {REASONS.map((r) => (
                 <button
@@ -68,7 +70,7 @@ export default function ReportSheet({ reporterId, targetType, targetId, onClose,
                     color: selected === r ? "#fff" : "var(--text-color)",
                   }}
                 >
-                  {REPORT_REASON_LABELS[r]}
+                  {t(REPORT_REASON_KEYS[r])}
                 </button>
               ))}
             </div>
@@ -77,7 +79,7 @@ export default function ReportSheet({ reporterId, targetType, targetId, onClose,
               <textarea
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                placeholder="Beschreibe das Problem..."
+                placeholder={t("community.report.detailsPlaceholder")}
                 maxLength={500}
                 className="w-full mt-3 p-3 rounded-xl text-sm bg-transparent border resize-none h-20 outline-none"
                 style={{ borderColor: "var(--border-color)", color: "var(--text-color)" }}
@@ -92,7 +94,7 @@ export default function ReportSheet({ reporterId, targetType, targetId, onClose,
               isLoading={submitting}
               className="mt-4"
             >
-              Absenden
+              {t("community.report.submit")}
             </AppButton>
           </>
         )}

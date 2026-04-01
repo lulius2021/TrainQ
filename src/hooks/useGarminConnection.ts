@@ -17,27 +17,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export function useGarminConnection() {
   const [status, setStatus] = useState<GarminConnectionStatus>({ connected: false, garminUserId: null, lastSyncAt: null });
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const checkStatus = useCallback(async () => {
     const supabase = getSupabaseClient();
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) { setStatusLoading(false); return; }
 
     try {
-      setLoading(true);
+      setStatusLoading(true);
       const { data, error: err } = await withTimeout(
         supabase.functions.invoke("garmin-status"),
         TIMEOUT_MS
       );
       if (err) throw err;
       setStatus(data as GarminConnectionStatus);
-      setError(null);
     } catch (e) {
       // Silently ignore status check errors — show as disconnected
       setStatus({ connected: false, garminUserId: null, lastSyncAt: null });
     } finally {
-      setLoading(false);
+      setStatusLoading(false);
     }
   }, []);
 
@@ -48,8 +48,15 @@ export function useGarminConnection() {
     try {
       setLoading(true);
       setError(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        return;
+      }
       const { data, error: err } = await withTimeout(
-        supabase.functions.invoke("garmin-auth-init"),
+        supabase.functions.invoke("garmin-auth-init", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
         TIMEOUT_MS
       );
       if (err) throw err;
@@ -74,8 +81,15 @@ export function useGarminConnection() {
     try {
       setLoading(true);
       setError(null);
+      const { data: { session: discSession } } = await supabase.auth.getSession();
+      if (!discSession) {
+        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        return;
+      }
       const { error: err } = await withTimeout(
-        supabase.functions.invoke("garmin-disconnect"),
+        supabase.functions.invoke("garmin-disconnect", {
+          headers: { Authorization: `Bearer ${discSession.access_token}` },
+        }),
         TIMEOUT_MS
       );
       if (err) throw err;
@@ -94,8 +108,15 @@ export function useGarminConnection() {
     try {
       setSyncing(true);
       setError(null);
+      const { data: { session: syncSession } } = await supabase.auth.getSession();
+      if (!syncSession) {
+        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        return;
+      }
       const { data, error: err } = await withTimeout(
-        supabase.functions.invoke("garmin-fetch-data"),
+        supabase.functions.invoke("garmin-fetch-data", {
+          headers: { Authorization: `Bearer ${syncSession.access_token}` },
+        }),
         TIMEOUT_MS
       );
       if (err) throw err;
@@ -124,8 +145,15 @@ export function useGarminConnection() {
     let removeAppListener: (() => void) | null = null;
     if (Capacitor.isNativePlatform()) {
       import("@capacitor/app").then(({ App }) => {
-        App.addListener("appUrlOpen", (event: { url: string }) => {
+        App.addListener("appUrlOpen", async (event: { url: string }) => {
           if (event.url.includes("garmin")) {
+            // Close the in-app browser after OAuth redirect
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close();
+            } catch {
+              // ignore if already closed
+            }
             window.dispatchEvent(new CustomEvent("trainq:garmin_connected"));
           }
         }).then((handle) => {
@@ -145,6 +173,7 @@ export function useGarminConnection() {
     garminUserId: status.garminUserId,
     lastSyncAt: status.lastSyncAt,
     loading,
+    statusLoading,
     syncing,
     error,
     connect,

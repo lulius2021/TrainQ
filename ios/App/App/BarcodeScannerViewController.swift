@@ -8,6 +8,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     private let captureSession = AVCaptureSession()
     private var previewLayer: AVCaptureVideoPreviewLayer!
     private var hasReturned = false
+    private var overlaySetUp = false
 
     // MARK: - Lifecycle
 
@@ -15,7 +16,15 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         super.viewDidLoad()
         view.backgroundColor = .black
         setupCamera()
-        setupOverlay()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+        if !overlaySetUp && view.bounds.width > 0 {
+            overlaySetUp = true
+            setupOverlay()
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -27,7 +36,9 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        captureSession.stopRunning()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession.stopRunning()
+        }
     }
 
     override var prefersStatusBarHidden: Bool { true }
@@ -56,11 +67,6 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         previewLayer.videoGravity = .resizeAspectFill
         previewLayer.frame = view.bounds
         view.layer.addSublayer(previewLayer)
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        previewLayer?.frame = view.bounds
     }
 
     // MARK: - Overlay
@@ -192,9 +198,13 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     private func returnResult(_ barcode: String?) {
         guard !hasReturned else { return }
         hasReturned = true
-        captureSession.stopRunning()
-        dismiss(animated: true) { [weak self] in
-            self?.onResult?(barcode)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession.stopRunning()
+            DispatchQueue.main.async {
+                self?.dismiss(animated: true) {
+                    self?.onResult?(barcode)
+                }
+            }
         }
     }
 }

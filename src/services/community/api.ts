@@ -465,11 +465,12 @@ export async function markNotificationRead(notificationId: string): Promise<void
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const { count } = await client()
+  const { count, error } = await client()
     .from("community_notifications")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
     .is("read_at", null);
+  if (error) throw error;
   return count ?? 0;
 }
 

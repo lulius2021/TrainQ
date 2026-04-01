@@ -5,6 +5,7 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage, clearUserScopedData } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { authStorageAdapter } from "../lib/authStorageAdapter";
 import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
@@ -183,6 +184,12 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setUser(mockUser);
   }, []);
 
+  // 0. Initialize SocialLogin (required by @capgo/capacitor-social-login v8 before any login call)
+  useEffect(() => {
+    if (!isNativeIOS()) return;
+    SocialLogin.initialize({ apple: { clientId: "com.trainq.app" } }).catch(() => {});
+  }, []);
+
   // 1. Init Listener
   useEffect(() => {
     let cancelled = false;
@@ -220,7 +227,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Hard safety: loading NEVER stays stuck longer than 2s
     const safetyTimer = setTimeout(() => {
       if (!cancelled) {
-        ensureLocalUser();
         setLoading(false);
       }
     }, 2000);
@@ -232,13 +238,13 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (session) {
           await syncSessionToUser(session);
         } else {
-          // No valid session — clear cached auth and fall back to local
+          // No valid session — show login screen
           try { localStorage.removeItem(CACHED_AUTH_KEY); } catch { /* ignore */ }
-          ensureLocalUser();
+          setUser(null);
         }
       } catch (err) {
         if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
-        if (!cancelled) ensureLocalUser();
+        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) {
           clearTimeout(safetyTimer);
@@ -315,6 +321,16 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } catch {
       // signOut may fail if network is unavailable — proceed with local cleanup
     }
+    // Explicitly clear Supabase session from storage (handles signOut failure + SecureStorage on iOS)
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    if (supabaseUrl) {
+      const projectRef = supabaseUrl.replace("https://", "").split(".")[0];
+      try {
+        await authStorageAdapter.removeItem(`sb-${projectRef}-auth-token`);
+      } catch {
+        // ignore
+      }
+    }
     // Clear scoped user data before wiping session
     const uid = user?.id;
     if (uid) {
@@ -323,9 +339,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     localStorage.removeItem("isDemoSession");
     localStorage.removeItem(LOCAL_USER_KEY);
     localStorage.removeItem(CACHED_AUTH_KEY);
-    setUser(null);
     clearActiveSession();
-    window.location.reload();
+    setUser(null);
   }, [getSafeClient, user?.id]);
 
   // -------------------- Apple --------------------
@@ -382,7 +397,12 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { ok: true, session: data.session, user: data.user };
 
     } catch (e: any) {
-      return { ok: false, error: e?.message || "Apple Login fehlgeschlagen." };
+      const msg: string = e?.message || "";
+      // User cancelled — no error shown
+      if (msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("abgebrochen") || e?.code === "1001") {
+        return { ok: false };
+      }
+      return { ok: false, error: msg || "Apple Login fehlgeschlagen." };
     }
   }, [getSafeClient]);
 
@@ -399,16 +419,13 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSafeClient();
     if (!client) return;
 
-    try {
-      // Attempt to update metadata
-      await client.auth.updateUser({
-        data: { plan: isPro ? "pro" : "free" }
-      });
-      // Also try updating profile table if it exists, though trigger usually handles sync
-      await client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id);
-    } catch (e) {
-      if (import.meta.env.DEV) console.warn("Could not update user metadata/profile.", e);
-    }
+    // Fire-and-forget — UI state already updated above; don't block on network
+    client.auth.updateUser({ data: { plan: isPro ? "pro" : "free" } })
+      .then(() => {})
+      .catch((e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update user metadata:", e); });
+    client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id)
+      .then(() => {})
+      .catch((e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update profile is_pro:", e); });
   }, [user, getSafeClient]);
 
   const completeOnboarding = useCallback(async (): Promise<void> => {
@@ -425,9 +442,10 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       cacheOnboardingCompleted(user.id);
       const client = getSafeClient();
       if (client) {
-        try {
-          await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
-        } catch (e) { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); }
+        // Fire-and-forget — local state is already updated; don't block navigation on network
+        client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
+          .then(() => {})
+          .catch((e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); });
       }
     }
   }, [user, getSafeClient]);
@@ -442,7 +460,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } else {
       clearOnboardingCache();
       const client = getSafeClient();
-      if (client) await client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id);
+      if (client) {
+        client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id)
+          .then(() => {})
+          .catch((e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] resetOnboarding update failed:", e); });
+      }
     }
   }, [user, getSafeClient]);
 

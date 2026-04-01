@@ -5,6 +5,7 @@ import type { CommunityProfile, CommunityPost } from "../../services/community/t
 import PostCard from "../../components/community/PostCard";
 import ReportSheet from "../../components/community/ReportSheet";
 import BlockConfirmDialog from "../../components/community/BlockConfirmDialog";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   profileUserId: string;
@@ -87,6 +88,7 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   }, []);
 
+  const { t } = useI18n();
   const isOwnProfile = profileUserId === viewerId;
 
   return (
@@ -97,7 +99,7 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
           <button onClick={onBack} className="p-1" style={{ color: "var(--text-color)" }}>
             <ChevronLeft size={24} />
           </button>
-          <span className="font-semibold" style={{ color: "var(--text-color)" }}>{profile?.displayName ?? "Profil"}</span>
+          <span className="font-semibold" style={{ color: "var(--text-color)" }}>{profile?.displayName ?? t("community.profile.title")}</span>
         </div>
       </div>
 
@@ -109,19 +111,19 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <AlertTriangle size={32} style={{ color: "var(--text-secondary)" }} className="mb-3" />
           <p className="text-sm text-center mb-4" style={{ color: "var(--text-secondary)" }}>
-            Profil konnte nicht geladen werden
+            {t("community.profile.loadError")}
           </p>
           <button
             onClick={loadProfile}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "var(--accent-color)", color: "#fff" }}
           >
-            <RefreshCw size={14} /> Erneut versuchen
+            <RefreshCw size={14} /> {t("community.error.retry")}
           </button>
         </div>
       ) : !profile ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Profil nicht gefunden</div>
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("community.profile.notFound")}</div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
@@ -149,11 +151,11 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
             <div className="flex gap-5 mt-3">
               <div>
                 <span className="font-bold text-sm" style={{ color: "var(--text-color)" }}>{followers}</span>
-                <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>Follower</span>
+                <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>{t("community.profile.followers")}</span>
               </div>
               <div>
                 <span className="font-bold text-sm" style={{ color: "var(--text-color)" }}>{following}</span>
-                <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>Folge ich</span>
+                <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>{t("community.profile.following")}</span>
               </div>
             </div>
 
@@ -167,7 +169,7 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
                   color: isFollowed ? "var(--text-color)" : "#fff",
                 }}
               >
-                {isFollowed ? <><UserMinus size={16} /> Entfolgen</> : <><UserPlus size={16} /> Folgen</>}
+                {isFollowed ? <><UserMinus size={16} /> {t("community.follow.unfollow")}</> : <><UserPlus size={16} /> {t("community.follow.follow")}</>}
               </button>
             )}
           </div>
@@ -175,11 +177,11 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
           {/* Posts */}
           <div className="border-t" style={{ borderColor: "var(--border-color)" }}>
             <div className="px-4 py-3">
-              <span className="font-semibold text-sm" style={{ color: "var(--text-color)" }}>Beiträge</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-color)" }}>{t("community.profile.posts")}</span>
             </div>
             {posts.length === 0 && (
               <div className="py-8 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
-                Noch keine Beiträge
+                {t("community.profile.noPosts")}
               </div>
             )}
             {posts.map((post) => (
@@ -191,7 +193,7 @@ export default function CommunityProfilePage({ profileUserId, viewerId, onBack, 
                 onLikeChanged={handleLikeChanged}
                 onDeleted={handleDeleted}
                 onReport={(id) => setReportTarget({ id })}
-                onBlock={(blockedId) => setBlockTarget({ id: blockedId, name: post.author?.displayName ?? "Nutzer" })}
+                onBlock={(blockedId) => setBlockTarget({ id: blockedId, name: post.author?.displayName ?? t("community.user.user") })}
               />
             ))}
           </div>

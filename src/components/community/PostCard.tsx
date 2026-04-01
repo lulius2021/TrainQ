@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Trash2, Flag, Ban } from "lucide-react";
 import { likePost, unlikePost, deletePost as apiDeletePost } from "../../services/community/api";
 import type { CommunityPost } from "../../services/community/types";
-import { POST_TYPE_LABELS, VISIBILITY_LABELS } from "../../services/community/types";
+import { POST_TYPE_KEYS, VISIBILITY_KEYS } from "../../services/community/types";
+import { useI18n } from "../../i18n/useI18n";
 import WorkoutCard from "./WorkoutCard";
 import GarminActivityCard from "./GarminActivityCard";
 
@@ -17,22 +18,23 @@ interface Props {
   onBlock?: (userId: string) => void;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "gerade eben";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
-}
-
 export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeChanged, onDeleted, onReport, onBlock }: Props) {
+  const { t, lang } = useI18n();
   const [showMenu, setShowMenu] = useState(false);
   const isOwn = post.authorId === viewerId;
   const author = post.author;
+
+  function timeAgo(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t("community.timeAgo.justNow");
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return new Date(iso).toLocaleDateString(lang, { day: "numeric", month: "short" });
+  }
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,7 +79,7 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <button onClick={(e) => { e.stopPropagation(); onAuthorTap?.(); }} className="font-semibold text-sm truncate" style={{ color: "var(--text-color)" }}>
-              {author?.displayName ?? "Unbekannt"}
+              {author?.displayName ?? t("community.user.unknown")}
             </button>
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>@{author?.handle ?? "?"}</span>
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>&middot; {timeAgo(post.createdAt)}</span>
@@ -86,11 +88,11 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
           {/* Type + visibility badge */}
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "var(--border-color)", color: "var(--text-secondary)" }}>
-              {POST_TYPE_LABELS[post.type]}
+              {t(POST_TYPE_KEYS[post.type])}
             </span>
             {post.visibility !== "public" && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "var(--border-color)", color: "var(--text-secondary)" }}>
-                {VISIBILITY_LABELS[post.visibility]}
+                {t(VISIBILITY_KEYS[post.visibility])}
               </span>
             )}
           </div>
@@ -156,15 +158,15 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
         >
           {isOwn ? (
             <button onClick={handleDelete} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-500 rounded-lg hover:bg-red-500/10">
-              <Trash2 size={16} /> Löschen
+              <Trash2 size={16} /> {t("community.post.delete")}
             </button>
           ) : (
             <>
               <button onClick={() => { setShowMenu(false); onReport?.(post.id); }} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm rounded-lg" style={{ color: "var(--text-color)" }}>
-                <Flag size={16} /> Melden
+                <Flag size={16} /> {t("community.post.report")}
               </button>
               <button onClick={() => { setShowMenu(false); onBlock?.(post.authorId); }} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-500 rounded-lg hover:bg-red-500/10">
-                <Ban size={16} /> Blockieren
+                <Ban size={16} /> {t("community.post.block")}
               </button>
             </>
           )}

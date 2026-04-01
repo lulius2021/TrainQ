@@ -7,6 +7,13 @@ export interface CsvParsedRow {
   reps: number;
   sets: number;           // how many sets (default 1)
   workoutTitle?: string;  // optional: Hevy "Workout Name" column
+  // Hevy-specific per-set fields:
+  startTime?: string;     // ISO datetime from start_time column
+  endTime?: string;       // ISO datetime from end_time column
+  setType?: "normal" | "warmup" | "failure" | "1D";
+  rpe?: number;
+  durationSeconds?: number;
+  distanceKm?: number;
 }
 
 export interface CsvImportPreview {

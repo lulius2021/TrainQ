@@ -53,11 +53,23 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Logi
     }
   };
 
+  const { loginAsDemoUser } = useAuth();
+
   return (
     <div
       className="flex flex-col min-h-screen"
       style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
     >
+      {/* Admin bypass button */}
+      <button
+        type="button"
+        onClick={loginAsDemoUser}
+        className="absolute top-16 left-4 px-3 py-1 rounded-xl text-xs font-semibold z-50"
+        style={{ backgroundColor: "var(--card-bg)", color: "var(--text-secondary)", border: "1px solid var(--border-color)" }}
+      >
+        Admin
+      </button>
+
       {/* Hero section */}
       <div className="flex flex-col items-center justify-center flex-1 px-6 pt-16 pb-8">
         <img

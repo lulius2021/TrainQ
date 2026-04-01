@@ -37,11 +37,15 @@ function saveSearchCache(cache: Record<string, SearchCacheEntry>): void {
 
 // ── HTTP helper — plain fetch, OFF has CORS: * ───────────────────────────────
 
-async function fetchJSON(url: string, timeoutMs = 5000): Promise<any> {
+const OFF_HEADERS = {
+  "User-Agent": "TrainQ/1.0 (iOS; trainq.app) - trainq.app",
+};
+
+async function fetchJSON(url: string, timeoutMs = 8000): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const resp = await fetch(url, { signal: controller.signal });
+    const resp = await fetch(url, { signal: controller.signal, headers: OFF_HEADERS });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return await resp.json();
   } finally {

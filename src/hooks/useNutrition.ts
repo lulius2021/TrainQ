@@ -11,6 +11,7 @@ import {
   onNutritionUpdated,
 } from "../utils/nutritionStore";
 import { sumMacros, computeProgress } from "../features/nutrition/macroCalculator";
+import { pullAndMerge } from "../services/nutritionSync";
 
 const DEFAULT_GOALS: NutritionGoals = {
   kcal: 2000,
@@ -32,6 +33,16 @@ export function useNutrition(dateISO?: string) {
   const date = dateISO || todayISO();
   const [entries, setEntries] = useState<DiaryEntry[]>(() => loadDiaryEntries(date));
   const [goals, setGoalsState] = useState<NutritionGoals>(() => loadGoals() || DEFAULT_GOALS);
+
+  // Pull from Supabase on mount (fire-and-forget; bails silently for local users)
+  useEffect(() => {
+    pullAndMerge().then(() => {
+      setEntries(loadDiaryEntries(date));
+      const g = loadGoals();
+      if (g) setGoalsState(g);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reload on external updates
   useEffect(() => {

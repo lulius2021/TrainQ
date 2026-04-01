@@ -6,6 +6,7 @@ import PostCard from "../../components/community/PostCard";
 import CommentSection from "../../components/community/CommentSection";
 import ReportSheet from "../../components/community/ReportSheet";
 import BlockConfirmDialog from "../../components/community/BlockConfirmDialog";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   postId: string;
@@ -41,6 +42,8 @@ export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, 
     setPost((prev) => prev ? { ...prev, commentCount: prev.commentCount + delta } : prev);
   }, []);
 
+  const { t } = useI18n();
+
   const handleDeleted = useCallback((id: string) => {
     onPostDeleted?.(id);
     onBack();
@@ -54,7 +57,7 @@ export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, 
           <button onClick={onBack} className="p-1" style={{ color: "var(--text-color)" }}>
             <ChevronLeft size={24} />
           </button>
-          <span className="font-semibold" style={{ color: "var(--text-color)" }}>Beitrag</span>
+          <span className="font-semibold" style={{ color: "var(--text-color)" }}>{t("community.postDetail.title")}</span>
         </div>
       </div>
 
@@ -68,21 +71,21 @@ export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <AlertTriangle size={32} style={{ color: "var(--text-secondary)" }} className="mb-3" />
           <p className="text-sm text-center mb-4" style={{ color: "var(--text-secondary)" }}>
-            Beitrag konnte nicht geladen werden
+            {t("community.postDetail.loadError")}
           </p>
           <button
             onClick={loadPost}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: "var(--accent-color)", color: "#fff" }}
           >
-            <RefreshCw size={14} /> Erneut versuchen
+            <RefreshCw size={14} /> {t("community.error.retry")}
           </button>
         </div>
       )}
 
       {!loading && !error && !post && (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Beitrag nicht gefunden</div>
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("community.postDetail.notFound")}</div>
         </div>
       )}
 
@@ -98,7 +101,7 @@ export default function PostDetailPage({ postId, viewerId, onBack, onAuthorTap, 
               onDeleted={handleDeleted}
               onReport={(id) => setReportTarget({ id })}
               onBlock={(blockedId) => {
-                setBlockTarget({ id: blockedId, name: post.author?.displayName ?? "Nutzer" });
+                setBlockTarget({ id: blockedId, name: post.author?.displayName ?? t("community.user.user") });
               }}
             />
           </div>

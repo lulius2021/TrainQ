@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AppButton } from "../ui/AppButton";
 import { blockUser } from "../../services/community/api";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   blockerId: string;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function BlockConfirmDialog({ blockerId, blockedId, blockedName, onClose, onBlocked }: Props) {
+  const { t } = useI18n();
   const [submitting, setSubmitting] = useState(false);
 
   const handleBlock = async () => {
@@ -35,17 +37,17 @@ export default function BlockConfirmDialog({ blockerId, blockedId, blockedName, 
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-base mb-2" style={{ color: "var(--text-color)" }}>
-          {blockedName} blockieren?
+          {t("community.block.title", { name: blockedName })}
         </h3>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          Blockierte Nutzer können deine Beiträge nicht sehen und dir nicht folgen. Du siehst auch deren Inhalte nicht mehr.
+          {t("community.block.description")}
         </p>
         <div className="flex gap-3">
           <AppButton onClick={onClose} variant="secondary" size="sm" className="flex-1">
-            Abbrechen
+            {t("common.cancel")}
           </AppButton>
           <AppButton onClick={handleBlock} variant="danger" size="sm" className="flex-1" isLoading={submitting}>
-            Blockieren
+            {t("community.block.confirm")}
           </AppButton>
         </div>
       </div>

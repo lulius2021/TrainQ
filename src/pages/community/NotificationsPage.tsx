@@ -2,24 +2,13 @@ import React, { useEffect } from "react";
 import { ChevronLeft, Heart, MessageCircle, UserPlus } from "lucide-react";
 import { useNotifications } from "../../hooks/community/useNotifications";
 import type { CommunityNotification } from "../../services/community/types";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   userId: string;
   onBack: () => void;
   onOpenPostDetail?: (postId: string) => void;
   onOpenProfile?: (userId: string) => void;
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "gerade eben";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
 }
 
 function NotificationIcon({ type }: { type: CommunityNotification["type"] }) {
@@ -30,17 +19,30 @@ function NotificationIcon({ type }: { type: CommunityNotification["type"] }) {
   }
 }
 
-function notificationText(n: CommunityNotification): string {
-  const name = n.actor?.displayName ?? "Jemand";
-  switch (n.type) {
-    case "like": return `${name} gefällt dein Beitrag`;
-    case "comment": return `${name} hat kommentiert`;
-    case "follow": return `${name} folgt dir jetzt`;
-  }
-}
-
 export default function NotificationsPage({ userId, onBack, onOpenPostDetail, onOpenProfile }: Props) {
+  const { t, lang } = useI18n();
   const { notifications, loading, load, markRead } = useNotifications(userId);
+
+  function timeAgo(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t("community.timeAgo.justNow");
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return new Date(iso).toLocaleDateString(lang, { day: "numeric", month: "short" });
+  }
+
+  function notificationText(n: CommunityNotification): string {
+    const name = n.actor?.displayName ?? t("community.user.someone");
+    switch (n.type) {
+      case "like": return t("community.notifications.like", { name });
+      case "comment": return t("community.notifications.comment", { name });
+      case "follow": return t("community.notifications.follow", { name });
+    }
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -61,20 +63,20 @@ export default function NotificationsPage({ userId, onBack, onOpenPostDetail, on
           <button onClick={onBack} className="p-1" style={{ color: "var(--text-color)" }}>
             <ChevronLeft size={24} />
           </button>
-          <span className="font-semibold" style={{ color: "var(--text-color)" }}>Benachrichtigungen</span>
+          <span className="font-semibold" style={{ color: "var(--text-color)" }}>{t("community.notifications.title")}</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {loading && notifications.length === 0 && (
           <div className="flex items-center justify-center py-12">
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Lade...</div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("community.notifications.loading")}</div>
           </div>
         )}
 
         {!loading && notifications.length === 0 && (
           <div className="flex items-center justify-center py-16">
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Benachrichtigungen</div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("community.notifications.empty")}</div>
           </div>
         )}
 

@@ -79,6 +79,12 @@ export type WorkoutHistoryEntry = {
    * Downsampled auf max. 200 Punkte um Storage-Platz zu sparen.
    */
   gpsPoints?: GpsPoint[];
+
+  /** Höhenmeter (nur positive Anstiege, Laufen/Radfahren). */
+  elevationGainM?: number;
+
+  /** Verbrannte Kalorien (grobe Schätzung). */
+  calories?: number;
 };
 
 const STORAGE_KEY = "trainq_workout_history_v1";
@@ -351,6 +357,16 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
         )
       : undefined;
 
+  const elevationGainM =
+    Number.isFinite(Number(raw.elevationGainM)) && Number(raw.elevationGainM) >= 0
+      ? Math.round(Number(raw.elevationGainM))
+      : undefined;
+
+  const calories =
+    Number.isFinite(Number(raw.calories)) && Number(raw.calories) > 0
+      ? Math.round(Number(raw.calories))
+      : undefined;
+
   return {
     id,
     calendarEventId,
@@ -368,6 +384,8 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
     adaptiveScore: Number.isFinite(raw.adaptiveScore) ? raw.adaptiveScore : undefined,
     rating: Number.isFinite(Number(raw.rating)) && Number(raw.rating) >= 1 && Number(raw.rating) <= 5 ? Math.round(Number(raw.rating)) : undefined,
     gpsPoints: gpsPoints && gpsPoints.length > 0 ? gpsPoints : undefined,
+    elevationGainM,
+    calories,
   };
 }
 

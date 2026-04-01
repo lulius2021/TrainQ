@@ -3,7 +3,8 @@ import { X, ChevronDown } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { createPost } from "../../services/community/api";
 import type { PostType, Visibility } from "../../services/community/types";
-import { DEFAULT_VISIBILITY, POST_TYPE_LABELS, VISIBILITY_LABELS } from "../../services/community/types";
+import { DEFAULT_VISIBILITY, POST_TYPE_KEYS, VISIBILITY_KEYS } from "../../services/community/types";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   userId: string;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function PostComposer({ userId, onClose, onCreated }: Props) {
+  const { t } = useI18n();
   const [postType, setPostType] = useState<PostType>("text_post");
   const [text, setText] = useState("");
   const [visibility, setVisibility] = useState<Visibility>(DEFAULT_VISIBILITY.text_post);
@@ -35,7 +37,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
       onCreated();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Fehler beim Posten");
+      setError(e instanceof Error ? e.message : t("community.composer.error"));
     } finally {
       setSubmitting(false);
     }
@@ -49,9 +51,9 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
         <button onClick={onClose} className="p-1" style={{ color: "var(--text-color)" }}>
           <X size={24} />
         </button>
-        <span className="font-semibold" style={{ color: "var(--text-color)" }}>Neuer Beitrag</span>
+        <span className="font-semibold" style={{ color: "var(--text-color)" }}>{t("community.composer.title")}</span>
         <AppButton onClick={handleSubmit} variant="primary" size="sm" disabled={!isValid || submitting} isLoading={submitting}>
-          Posten
+          {t("community.composer.post")}
         </AppButton>
       </div>
       </div>
@@ -68,7 +70,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
               color: postType === type ? "#fff" : "var(--text-secondary)",
             }}
           >
-            {POST_TYPE_LABELS[type]}
+            {t(POST_TYPE_KEYS[type])}
           </button>
         ))}
       </div>
@@ -80,7 +82,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
           className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg"
           style={{ background: "var(--border-color)", color: "var(--text-secondary)" }}
         >
-          {VISIBILITY_LABELS[visibility]} <ChevronDown size={12} />
+          {t(VISIBILITY_KEYS[visibility])} <ChevronDown size={12} />
         </button>
         {showVisMenu && (
           <div className="absolute left-4 top-full mt-1 z-10 rounded-xl border shadow-lg p-1" style={{ background: "var(--card-bg)", borderColor: "var(--border-color)" }}>
@@ -91,7 +93,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
                 className="block w-full text-left px-3 py-2 text-sm rounded-lg"
                 style={{ color: visibility === v ? "var(--accent-color)" : "var(--text-color)" }}
               >
-                {VISIBILITY_LABELS[v]}
+                {t(VISIBILITY_KEYS[v])}
               </button>
             ))}
           </div>
@@ -103,7 +105,7 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Was hast du trainiert?"
+          placeholder={t("community.composer.placeholder")}
           maxLength={1000}
           className="w-full h-48 resize-none bg-transparent text-base outline-none"
           style={{ color: "var(--text-color)" }}

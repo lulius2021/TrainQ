@@ -13,7 +13,7 @@ interface Props {
 
 export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
   const { t } = useTranslation();
-  const { connected, garminUserId, lastSyncAt, loading, syncing, error, connect, disconnect, fetchLatest } = useGarminConnection();
+  const { connected, garminUserId, lastSyncAt, loading, statusLoading, syncing, error, connect, disconnect, fetchLatest } = useGarminConnection();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   useBodyScrollLock(isOpen);
@@ -36,15 +36,15 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-[160] bg-black/60 backdrop-blur-md"
           />
 
           <MotionDiv
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed inset-x-0 bottom-0 z-[70] h-[92vh] rounded-t-[32px] bg-[var(--modal-bg)] overflow-hidden flex flex-col border-t border-[var(--border-color)] shadow-2xl"
+            transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.9 }}
+            className="fixed inset-x-0 bottom-0 z-[170] h-[92vh] rounded-t-[32px] bg-[var(--modal-bg)] overflow-hidden flex flex-col border-t border-[var(--border-color)] shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-[var(--modal-header)] z-10">
@@ -63,9 +63,16 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] p-5">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-base font-semibold text-[var(--text-color)]">Status</span>
-                  <span className={`text-sm font-medium px-3 py-1 rounded-full ${connected ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-500/20 text-zinc-400"}`}>
-                    {connected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
-                  </span>
+                  {statusLoading ? (
+                    <span className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full bg-zinc-500/20 text-zinc-400">
+                      <Loader2 size={13} className="animate-spin" />
+                      {t("common.loading", "Laden...")}
+                    </span>
+                  ) : (
+                    <span className={`text-sm font-medium px-3 py-1 rounded-full ${connected ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-500/20 text-zinc-400"}`}>
+                      {connected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
+                    </span>
+                  )}
                 </div>
 
                 {connected && garminUserId && (

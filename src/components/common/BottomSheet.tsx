@@ -24,8 +24,8 @@ type BottomSheetProps = {
   contentClassName?: string;
 };
 
-const CLOSE_OFFSET_PX = 120;
-const CLOSE_VELOCITY_PX = 800;
+const CLOSE_OFFSET_PX = 80;
+const CLOSE_VELOCITY_PX = 500;
 
 export function BottomSheet({
   open,
@@ -65,20 +65,37 @@ export function BottomSheet({
     if (open) { push(); return () => pop(); }
   }, [open, push, pop]);
 
-  // Lock body scroll
+  // Lock body scroll — prevents background from scrolling while sheet is open
   useEffect(() => {
     if (!open) return;
     const scrollY = window.scrollY;
+    const prev = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = "100%";
+
+    // Prevent touchmove on the document root for extra iOS reliability
+    const preventScroll = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      // Allow scrolling inside the sheet content
+      if (target.closest("[data-sheet-content]")) return;
+      e.preventDefault();
+    };
+    document.addEventListener("touchmove", preventScroll, { passive: false });
+
     return () => {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
+      document.body.style.overflow = prev.overflow;
+      document.body.style.position = prev.position;
+      document.body.style.top = prev.top;
+      document.body.style.width = prev.width;
       window.scrollTo(0, scrollY);
+      document.removeEventListener("touchmove", preventScroll);
     };
   }, [open]);
 
@@ -113,6 +130,7 @@ export function BottomSheet({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
         >
           {/* Backdrop */}
           <div
@@ -131,13 +149,13 @@ export function BottomSheet({
               style={{ ...sheetStyle, height, maxHeight, background: sheetStyle?.background ?? "var(--card-bg)" }}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 360, damping: 32 }}
+              exit={{ y: "105%" }}
+              transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.9 }}
               drag="y"
               dragControls={dragControls}
               dragListener={false}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.2}
+              dragConstraints={{ top: 0 }}
+              dragElastic={{ top: 0.15, bottom: 0 }}
               onDragEnd={handleDragEnd}
             >
               {/* Handle / header drag zone — tall touch target for easy swipe */}
@@ -154,7 +172,7 @@ export function BottomSheet({
                 {header && <div className="pt-1">{header}</div>}
               </div>
 
-              <div className={contentClassName ?? "flex-1 overflow-y-auto"}>{children}</div>
+              <div data-sheet-content className={contentClassName ?? "flex-1 overflow-y-auto"}>{children}</div>
 
               {footer && (
                 <div className="shrink-0" style={{ ...footerBaseStyle, ...footerStyle }}>

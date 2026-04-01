@@ -89,24 +89,24 @@ export const DEFAULT_VISIBILITY: Record<PostType, Visibility> = {
   garmin_activity: "public",
 };
 
-export const VISIBILITY_LABELS: Record<Visibility, string> = {
-  public: "Öffentlich",
-  followers: "Follower",
-  private: "Privat",
+export const VISIBILITY_KEYS: Record<Visibility, string> = {
+  public: "community.visibility.public",
+  followers: "community.visibility.followers",
+  private: "community.visibility.private",
 };
 
-export const POST_TYPE_LABELS: Record<PostType, string> = {
-  workout_share: "Workout teilen",
-  text_post: "Beitrag",
-  progress_update: "Fortschritt",
-  garmin_activity: "Garmin Aktivität",
+export const POST_TYPE_KEYS: Record<PostType, string> = {
+  workout_share: "community.postType.workout_share",
+  text_post: "community.postType.text_post",
+  progress_update: "community.postType.progress_update",
+  garmin_activity: "community.postType.garmin_activity",
 };
 
-export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
-  spam: "Spam",
-  harassment: "Belästigung",
-  hate: "Hassrede",
-  nudity: "Nacktheit",
-  self_harm: "Selbstverletzung",
-  other: "Sonstiges",
+export const REPORT_REASON_KEYS: Record<ReportReason, string> = {
+  spam: "community.report.reason.spam",
+  harassment: "community.report.reason.harassment",
+  hate: "community.report.reason.hate",
+  nudity: "community.report.reason.nudity",
+  self_harm: "community.report.reason.self_harm",
+  other: "community.report.reason.other",
 };
