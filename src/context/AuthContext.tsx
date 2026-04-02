@@ -361,12 +361,13 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         };
       };
 
+      if (import.meta.env.DEV) console.log("[Apple] SocialLogin.login() wird aufgerufen...");
       const result = (await SocialLogin.login({
         provider: "apple",
         options: { scopes: ["email", "name"] },
       })) as AppleResponse;
 
-
+      if (import.meta.env.DEV) console.log("[Apple] Native Response erhalten:", JSON.stringify(result));
 
       // Extract identityToken
       let idToken = result.result?.response?.identityToken;
@@ -378,9 +379,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       if (!idToken) {
-        if (import.meta.env.DEV) console.error("Apple Sign-In failed: No identityToken found in result.", result);
+        if (import.meta.env.DEV) console.error("[Apple] FEHLER: Kein identityToken in Response:", JSON.stringify(result));
         return { ok: false, error: "Kein Identity Token erhalten." };
       }
+
+      if (import.meta.env.DEV) console.log("[Apple] idToken gefunden, Länge:", idToken.length, "— rufe Supabase signInWithIdToken auf...");
 
       const client = getSafeClient();
       if (!client) return { ok: false, error: "Systemfehler: Auth-Dienst nicht bereitzustellen." };
@@ -393,11 +396,16 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         nonce: nonce,
       });
 
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        if (import.meta.env.DEV) console.error("[Apple] Supabase signInWithIdToken FEHLER:", error.message, error);
+        return { ok: false, error: error.message };
+      }
+      if (import.meta.env.DEV) console.log("[Apple] Supabase Login erfolgreich, User:", data.user?.id);
       return { ok: true, session: data.session, user: data.user };
 
     } catch (e: any) {
       const msg: string = e?.message || "";
+      if (import.meta.env.DEV) console.error("[Apple] CATCH-Fehler (native layer):", msg, "— vollständiges Objekt:", JSON.stringify(e));
       // User cancelled — no error shown
       if (msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("abgebrochen") || e?.code === "1001") {
         return { ok: false };
