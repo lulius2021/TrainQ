@@ -242,7 +242,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [syncSessionToUser, loginAsDemoUser, ensureLocalUser]);
+  }, [syncSessionToUser, ensureLocalUser]);
 
   const getSafeClient = useCallback((): ReturnType<typeof getSupabaseClient> => {
     let client = getSupabaseClient();
