@@ -1560,7 +1560,7 @@ export default function LiveTrainingPage({
             {activeRest && restRemainingSec != null && restRemainingSec > 0 && (
               <div className="absolute top-0 left-0 right-0 h-[5px] overflow-hidden">
                 <div
-                  className="h-full bg-red-500 absolute right-0 transition-all duration-1000 ease-linear"
+                  className="h-full bg-[#007AFF] absolute right-0 transition-all duration-1000 ease-linear"
                   style={{ width: `${(restRemainingSec / activeRest.restSeconds) * 100}%` }}
                 />
               </div>
