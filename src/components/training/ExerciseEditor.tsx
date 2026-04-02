@@ -550,9 +550,11 @@ const SwipeableSetRow = ({
             onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
             onFocus={() => onWeightFocus?.(set.id, set.weight)}
             onBlur={() => onWeightBlur?.()}
-            style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-            className={`h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
-              }`}
+            style={{
+              backgroundColor: set.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: set.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
           />
 
           {/* 4. Input 2 (Reps) */}
@@ -561,9 +563,11 @@ const SwipeableSetRow = ({
             value={typeof set.reps === "number" ? set.reps : ""}
             placeholder={fmtPlaceholderNumber(last?.reps, "-")}
             onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
-            style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-            className={`h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${set.completed ? "opacity-50" : ""
-              }`}
+            style={{
+              backgroundColor: set.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: set.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
             inputMode="numeric"
           />
 
