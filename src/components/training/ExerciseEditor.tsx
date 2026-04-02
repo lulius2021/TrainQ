@@ -738,77 +738,98 @@ function ExerciseEditorInner({
     if (onOpenTimer) onOpenTimer(exercise.id);
   };
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="space-y-2 rounded-3xl p-3 border-[1.5px] shadow-2xl" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>
       {/* Exercise Header */}
-      <div className="flex items-center justify-between mb-2 gap-2">
+      <div className="flex items-center gap-2 mb-2">
+        {/* Exercise Image */}
         <div
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id);
-          }}
-          className="flex-1 min-w-0 flex items-start gap-2 cursor-pointer hover:opacity-75 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id); }}
+          className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden cursor-pointer"
+          style={{ backgroundColor: "var(--input-bg)" }}
+        >
+          {exercise.imageSrc ? (
+            <img src={exercise.imageSrc} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-base font-bold" style={{ color: "var(--text-secondary)" }}>
+              {(exercise.name || "?")[0].toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        {/* Name + Info */}
+        <div
+          onClick={(e) => { e.stopPropagation(); if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id); }}
+          className="flex-1 min-w-0 flex items-center gap-1.5 cursor-pointer hover:opacity-75 transition-opacity"
         >
           <h3
-            className="text-xl font-bold w-full pr-2 leading-tight"
-            style={{
-              color: theme.colors.text,
-              flexWrap: 'wrap',
-              wordBreak: 'break-word',
-              whiteSpace: 'normal',
-              overflow: 'visible',
-              flex: 1
-            }}
+            className="text-sm font-semibold leading-tight truncate"
+            style={{ color: theme.colors.text }}
           >
             {exercise.name || "Neue Übung"}
           </h3>
-          <Info size={20} className="text-[#007AFF] shrink-0 self-start mt-1" />
+          <Info size={16} className="text-[#007AFF] shrink-0" />
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Timer Button */}
+        {/* Timer Button */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleTimerClick(); }}
+          className="h-8 px-2.5 flex items-center justify-center rounded-xl transition-colors text-xs font-medium gap-1 shrink-0"
+          style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
+        >
+          <span>⏱️</span>
+          <span>
+            {typeof exercise.restSeconds === 'number' && exercise.restSeconds > 0
+              ? exercise.restSeconds < 60
+                ? `${exercise.restSeconds}s`
+                : `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}`
+              : "-"}
+          </span>
+        </button>
+
+        {/* 3-dot Menu */}
+        <div className="relative shrink-0">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); handleTimerClick(); }}
-            className="h-9 px-3 flex items-center justify-center rounded-2xl transition-colors text-sm font-medium gap-1.5"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            className="h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
             style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
           >
-            <span>⏱️</span>
-            <span>
-              {typeof exercise.restSeconds === 'number' && exercise.restSeconds > 0
-                ? exercise.restSeconds < 60
-                  ? `${exercise.restSeconds}s`
-                  : `${Math.floor(exercise.restSeconds / 60)}:${(exercise.restSeconds % 60).toString().padStart(2, '0')}`
-                : "-"}
-            </span>
+            <MoreHorizontal size={17} />
           </button>
-
-          {/* Swap Button */}
-          {onSwap && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onSwap(); }}
-              className="h-9 w-9 flex items-center justify-center rounded-2xl transition-colors"
-              style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
-              title="Übung tauschen"
-            >
-              <ArrowLeftRight size={17} />
-            </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div
+                className="absolute right-0 top-10 z-50 rounded-2xl shadow-lg border overflow-hidden min-w-[160px]"
+                style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}
+              >
+                {onSwap && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwap(); }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-colors hover:opacity-75"
+                    style={{ color: theme.colors.text }}
+                  >
+                    <ArrowLeftRight size={16} />
+                    Übung tauschen
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemove(); }}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-colors hover:opacity-75"
+                  style={{ color: "#ef4444" }}
+                >
+                  <X size={16} />
+                  Übung entfernen
+                </button>
+              </div>
+            </>
           )}
-
-          {/* Remove Button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="h-9 w-9 flex items-center justify-center rounded-2xl hover:bg-red-500/20 hover:text-red-400 transition-colors"
-            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
-            title="Übung entfernen"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       </div>
 
