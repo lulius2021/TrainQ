@@ -135,8 +135,9 @@ export function BottomSheet({
           {/* Backdrop */}
           <div
             className={backdropClassName ?? "absolute inset-0"}
-            style={!backdropClassName ? { backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", touchAction: "none" } : undefined}
+            style={!backdropClassName ? { backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", touchAction: "none", overscrollBehavior: "none" } : undefined}
             onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); handleClose(); } }}
+            onTouchMove={(e) => e.preventDefault()}
           />
 
           {/* Sheet */}
@@ -160,19 +161,27 @@ export function BottomSheet({
             >
               {/* Handle / header drag zone — tall touch target for easy swipe */}
               <div
-                className={showHandle || header ? "pt-2 pb-1" : ""}
+                className={showHandle || header ? "pt-3 pb-5" : ""}
                 onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
-                style={{ cursor: "grab" }}
+                onTouchStart={(e: React.TouchEvent) => {
+                  const pe = e as unknown as React.PointerEvent;
+                  dragControls.start(pe);
+                }}
+                style={{ cursor: "grab", touchAction: "none" }}
               >
                 {showHandle && (
-                  <div className="flex justify-center py-2">
-                    <div className="h-1.5 w-10 rounded-full" style={{ background: "var(--border-color)" }} />
+                  <div className="flex justify-center pt-1 pb-2">
+                    <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border-color)" }} />
                   </div>
                 )}
                 {header && <div className="pt-1">{header}</div>}
               </div>
 
-              <div data-sheet-content className={contentClassName ?? "flex-1 overflow-y-auto"}>{children}</div>
+              <div
+                data-sheet-content
+                className={contentClassName ?? "flex-1 overflow-y-auto"}
+                style={{ overscrollBehavior: "contain" }}
+              >{children}</div>
 
               {footer && (
                 <div className="shrink-0" style={{ ...footerBaseStyle, ...footerStyle }}>
