@@ -40,7 +40,6 @@ export type AuthContextValue = {
   completeOnboardingLocal: () => void; // @deprecated
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
-  loginAsDemoUser: () => Promise<void>;
   loading: boolean;
 };
 
@@ -167,23 +166,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  const loginAsDemoUser = useCallback(async (): Promise<void> => {
-    if (!import.meta.env.DEV) return;
-    const mockUser: AuthUser = {
-      id: "apple-review-id",
-      provider: "email",
-      email: "apple@trainq.app",
-      displayName: "Apple Review",
-      isPro: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      onboardingCompleted: true
-    };
-    localStorage.setItem("isDemoSession", "trainq_demo_2026");
-    setActiveSession({ userId: mockUser.id, isPro: true, email: mockUser.email });
-    setUser(mockUser);
-  }, []);
-
   // 0. Initialize SocialLogin (required by @capgo/capacitor-social-login v8 before any login call)
   useEffect(() => {
     if (!isNativeIOS()) return;
@@ -195,13 +177,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let cancelled = false;
 
     const client = getSupabaseClient();
-
-    // A. Demo Session
-    if (import.meta.env.DEV && localStorage.getItem("isDemoSession") === "trainq_demo_2026") {
-      loginAsDemoUser();
-      setLoading(false);
-      return;
-    }
 
     // B. Supabase Session
     if (!client) {
@@ -336,7 +311,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (uid) {
       clearUserScopedData(uid);
     }
-    localStorage.removeItem("isDemoSession");
     localStorage.removeItem(LOCAL_USER_KEY);
     localStorage.removeItem(CACHED_AUTH_KEY);
     clearActiveSession();
@@ -487,9 +461,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     completeOnboardingLocal: completeOnboarding,
     completeOnboarding,
     resetOnboarding,
-    loginAsDemoUser,
     loading
-  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loginAsDemoUser, loading]);
+  }), [user, login, register, requestPasswordReset, loginWithApple, logout, setUserPro, completeOnboarding, resetOnboarding, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
