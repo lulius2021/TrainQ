@@ -1556,8 +1556,17 @@ export default function LiveTrainingPage({
               paddingBottom: "env(safe-area-inset-bottom)"
             }}
           >
-            <div className="mx-auto w-full max-w-5xl">
+            {/* Rest Timer Progress Bar */}
+            {activeRest && restRemainingSec != null && restRemainingSec > 0 && (
+              <div className="absolute top-0 left-0 right-0 h-[3px] overflow-hidden">
+                <div
+                  className="h-full bg-[#007AFF] absolute right-0 transition-all duration-1000 ease-linear"
+                  style={{ width: `${(restRemainingSec / activeRest.restSeconds) * 100}%` }}
+                />
+              </div>
+            )}
 
+            <div className="mx-auto w-full max-w-5xl">
               <div className="flex gap-3">
                 <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12 btn-haptic bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]">
                   Minimieren
