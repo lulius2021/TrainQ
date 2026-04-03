@@ -36,6 +36,8 @@ const NativeScanButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan
     } catch (e: any) {
       if (e?.code === "ERR_NO_CAMERA") {
         setError("Kamera nicht verfügbar. Bitte auf echtem Gerät nutzen.");
+      } else if (e?.code === "ERR_PERMISSION_DENIED") {
+        setError("Kamera-Zugriff verweigert. Bitte unter Einstellungen → TrainQ → Kamera aktivieren.");
       } else {
         setError("Scan fehlgeschlagen. Bitte erneut versuchen.");
       }

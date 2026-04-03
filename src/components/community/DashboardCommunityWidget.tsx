@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, ChevronRight, Users } from "lucide-react";
+import { Bell, ChevronRight, Users, ArrowRight } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n/useI18n";
 import { useDashboardFeed } from "../../hooks/community/useDashboardFeed";
 import { useNotifications } from "../../hooks/community/useNotifications";
 import CompactPostCard from "./CompactPostCard";
 import CommunityOverlay from "./CommunityOverlay";
+import { useModalStore } from "../../store/useModalStore";
 
 export default function DashboardCommunityWidget() {
   const { user } = useAuth();
@@ -25,10 +26,13 @@ export default function DashboardCommunityWidget() {
     if (userId) load();
   }, [userId, load]);
 
+  const activateShield = useModalStore((s) => s.activateShield);
+
   const handleOverlayClose = useCallback(() => {
+    activateShield();
     setOverlayOpen(false);
     refresh();
-  }, [refresh]);
+  }, [refresh, activateShield]);
 
   const openOverlay = useCallback((view: "feed" | "notifications" = "feed") => {
     setOverlayInitialView(view);
@@ -44,18 +48,10 @@ export default function DashboardCommunityWidget() {
   return (
     <div ref={sentinelRef}>
       {/* Section header */}
-      <div className="flex items-center justify-between mb-2 pl-1">
+      <div className="flex items-center mb-2 pl-1">
         <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">
           {t("dashboard.community.title")}
         </h3>
-        <button
-          onClick={() => openOverlay("feed")}
-          className="flex items-center gap-0.5 text-[12px] font-semibold pr-1"
-          style={{ color: "var(--accent-color)" }}
-        >
-          {t("dashboard.community.showAll")}
-          <ChevronRight size={14} />
-        </button>
       </div>
 
       {/* Notification banner */}
@@ -107,15 +103,24 @@ export default function DashboardCommunityWidget() {
 
       {posts.length > 0 && (
         <div className="flex flex-col gap-2.5">
-          {posts.map((post) => (
+          {posts.slice(0, 5).map((post) => (
             <CompactPostCard
               key={post.id}
               post={post}
               viewerId={userId}
               onTap={() => openOverlay("feed")}
+              onCommentTap={() => openOverlay("feed")}
               onLikeChanged={handleLikeChanged}
             />
           ))}
+          <button
+            onClick={() => openOverlay("feed")}
+            className="w-full mt-1 py-3 rounded-[20px] flex items-center justify-center gap-2 text-[13px] font-semibold active:scale-[0.98] transition-transform"
+            style={{ background: "var(--card-bg)", color: "var(--accent-color)" }}
+          >
+            {t("dashboard.community.showAll")}
+            <ArrowRight size={15} />
+          </button>
         </div>
       )}
 

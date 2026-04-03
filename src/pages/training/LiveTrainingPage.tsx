@@ -46,6 +46,7 @@ import {
 import { applyAdaptiveToSeed } from "../../utils/adaptiveSeed";
 import { upsertTrainingTemplate, buildTrainingTemplateSignature } from "../../services/trainingTemplatesService";
 import type { TrainingTemplate, TrainingTemplateExercise } from "../../types/trainingTemplates";
+import { saveTemplate as saveTemplateLite } from "../../utils/trainingTemplatesStore";
 
 import {
   getActiveLiveWorkout,
@@ -60,10 +61,8 @@ import {
 import { loadWorkoutHistory } from "../../utils/workoutHistory";
 
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
-import { grantWorkoutXp } from "../../store/useAvatarStore";
 import { useAuth } from "../../context/AuthContext";
 import { postWorkoutToFeed } from "../../services/community/postWorkout";
-import AvatarStageUpModal from "../../components/avatar/AvatarStageUpModal";
 import { buildPRBaseline, checkSetPR, type PRBaseline } from "../../utils/prDetection";
 import { getWeightSuggestion, type WeightSuggestion } from "../../utils/weightSuggestion";
 import { calculateWarmupSets } from "../../utils/warmupCalculator";
@@ -261,9 +260,6 @@ export default function LiveTrainingPage({
   const [prBaseline, setPrBaseline] = useState<Map<string, PRBaseline> | null>(null);
   const [prSets, setPrSets] = useState<Set<string>>(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
-  const [stageUpData, setStageUpData] = useState<{ stage: number; variant: "bulk" | "speed" } | null>(null);
-  const [xpToast, setXpToast] = useState<number | null>(null);
-  const completedWorkoutIdRef = useRef<string | null>(null);
 
   const { theme } = useTheme();
 
@@ -1260,20 +1256,9 @@ export default function LiveTrainingPage({
     useLiveTrainingStore.getState().finishWorkout();
     Haptics.notification({ type: NotificationType.Success }).catch(() => { });
 
-    // Auto-post to community feed (fire-and-forget)
-    if (authUser?.id) {
+    // Auto-post to community feed (fire-and-forget, unless disabled in settings)
+    if (authUser?.id && localStorage.getItem("trainq_pref_auto_share_workout") !== "false") {
       postWorkoutToFeed(completed, authUser.id);
-    }
-
-    // Grant avatar XP
-    const { granted, stageUp } = grantWorkoutXp(completed);
-    if (granted > 0) setXpToast(granted);
-
-    if (stageUp) {
-      completedWorkoutIdRef.current = completed.id;
-      setStageUpData(stageUp);
-      // Delay exit until modal is dismissed
-      return;
     }
 
     setShowFinishReview(false);
@@ -1336,6 +1321,17 @@ export default function LiveTrainingPage({
       updatedAt: now,
     };
     upsertTrainingTemplate(authUser.id, tpl);
+    // Also save to StartTodayPage store so the template appears in the Train tab
+    saveTemplateLite({
+      title: tpl.name,
+      sportType: tpl.sportType,
+      exercises: templateExercises.map((ex) => ({
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        sets: (ex.sets || []).map((s) => ({ reps: s.reps, weight: s.weight })),
+      })),
+    });
+    window.dispatchEvent(new CustomEvent('trainq:template-saved'));
     setShowSaveTemplateModal(false);
     postFinishExitFnRef.current?.();
     postFinishExitFnRef.current = null;
@@ -1876,30 +1872,6 @@ export default function LiveTrainingPage({
           </div>
         )}
 
-        {/* XP Toast */}
-        {xpToast !== null && (
-          <div
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-green-500/90 text-white font-bold text-sm shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
-            onAnimationEnd={() => setTimeout(() => setXpToast(null), 1500)}
-          >
-            +{xpToast} XP
-          </div>
-        )}
-
-        {/* Stage-Up Modal */}
-        <AvatarStageUpModal
-          data={stageUpData}
-          onDismiss={() => {
-            setStageUpData(null);
-            const cid = completedWorkoutIdRef.current;
-            completedWorkoutIdRef.current = null;
-            if (typeof onShareWorkout === "function" && cid) {
-              onShareWorkout(cid);
-            } else {
-              onExit();
-            }
-          }}
-        />
 
       </LiveTrainingErrorBoundary>
     </>

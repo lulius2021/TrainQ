@@ -416,6 +416,13 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
         setTemplates(getTemplates());
     }, []);
 
+    // Listen for templates saved from LiveTrainingPage
+    useEffect(() => {
+        const handler = () => setTemplates(getTemplates());
+        window.addEventListener("trainq:template-saved", handler);
+        return () => window.removeEventListener("trainq:template-saved", handler);
+    }, []);
+
     const askConfirm = useCallback((label: string, action: () => void) => {
         setConfirmPending({ label, onConfirm: action });
     }, []);

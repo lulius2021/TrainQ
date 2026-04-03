@@ -1,181 +1,117 @@
 // src/components/adaptive/AdaptivePlanCard.tsx
 import React from "react";
-import { Clock, ClipboardList, Layers, Zap, CalendarPlus, Play } from "lucide-react";
-import type { AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
-import { useI18n } from "../../i18n/useI18n";
+import type { AdaptiveSuggestion } from "../../types/adaptive";
 
 interface AdaptivePlanCardProps {
   suggestion: AdaptiveSuggestion;
-  accent: { solid: string; bg: string; border: string; badgeBg: string };
-  onSelect: () => void;
-  onSaveToCalendar?: () => void;
-  disabled?: boolean;
   isPro?: boolean;
 }
 
-const REASON_KEYS: Record<AdaptiveReason, string> = {
-  time_low:      "adaptive.reason.timeLow",
-  time_high:     "adaptive.reason.timeHigh",
-  form_low:      "adaptive.reason.formLow",
-  form_high:     "adaptive.reason.formHigh",
-  stress_low:    "adaptive.reason.stressLow",
-  stress_high:   "adaptive.reason.stressHigh",
-  effort_low:    "adaptive.reason.effortLow",
-  effort_high:   "adaptive.reason.effortHigh",
-  recovery_low:  "adaptive.reason.recoveryLow",
-  recovery_good: "adaptive.reason.recoveryGood",
+const GRADIENTS: Record<string, { base: string; blob1: string; blob2: string }> = {
+  stabil: {
+    base:  "linear-gradient(145deg, #020c1b 0%, #071425 100%)",
+    blob1: "radial-gradient(ellipse 85% 65% at 18% 18%, rgba(0,100,255,0.58) 0%, transparent 65%)",
+    blob2: "radial-gradient(ellipse 65% 55% at 82% 88%, rgba(0,40,150,0.32) 0%, transparent 60%)",
+  },
+  kompakt: {
+    base:  "linear-gradient(145deg, #180404 0%, #220707 100%)",
+    blob1: "radial-gradient(ellipse 85% 65% at 18% 18%, rgba(220,40,28,0.60) 0%, transparent 65%)",
+    blob2: "radial-gradient(ellipse 65% 55% at 82% 88%, rgba(120,15,8,0.32) 0%, transparent 60%)",
+  },
+  fokus: {
+    base:  "linear-gradient(145deg, #030d06 0%, #071610 100%)",
+    blob1: "radial-gradient(ellipse 85% 65% at 18% 18%, rgba(18,155,58,0.60) 0%, transparent 65%)",
+    blob2: "radial-gradient(ellipse 65% 55% at 82% 88%, rgba(8,75,28,0.32) 0%, transparent 60%)",
+  },
 };
 
-const PROFILE_META: Record<string, { letter: string; i18nKey: string }> = {
-  stabil:  { letter: "A", i18nKey: "adaptive.profile.stable" },
-  kompakt: { letter: "B", i18nKey: "adaptive.profile.compact" },
-  fokus:   { letter: "C", i18nKey: "adaptive.profile.focus" },
+const SPORT_ICONS: Record<string, string> = {
+  stabil:  "🏋️",
+  kompakt: "⚡",
+  fokus:   "🎯",
 };
 
-export default function AdaptivePlanCard({
-  suggestion,
-  accent,
-  onSelect,
-  onSaveToCalendar,
-  disabled = false,
-  isPro = false,
-}: AdaptivePlanCardProps) {
-  const { t } = useI18n();
+export default function AdaptivePlanCard({ suggestion, isPro = false }: AdaptivePlanCardProps) {
   const isBlocked = suggestion.estimatedMinutes === 0;
-  const profileInfo = PROFILE_META[suggestion.profile];
-  const profileLetter = profileInfo?.letter ?? "?";
-  const profileLabel = profileInfo ? t(profileInfo.i18nKey).split(" · ")[1] ?? suggestion.profile : suggestion.profile;
+  const g = GRADIENTS[suggestion.profile] ?? GRADIENTS.stabil;
+  const icon = SPORT_ICONS[suggestion.profile] ?? "🏋️";
 
   return (
     <div
-      className={`rounded-[22px] overflow-hidden transition-all ${isBlocked ? "opacity-55" : ""}`}
-      style={{ backgroundColor: "var(--card-bg)", border: `1.5px solid ${accent.border}` }}
+      className="rounded-[28px] overflow-hidden relative select-none w-full"
+      style={{ height: 220, background: g.base }}
     >
-      {/* ── Colored Header Strip ── */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start justify-between gap-3">
-          {/* Letter badge */}
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-[18px] font-black text-white"
-            style={{ background: accent.solid, boxShadow: `0 4px 16px ${accent.solid}55` }}
-          >
-            {profileLetter}
-          </div>
+      {/* Aurora blobs */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: g.blob1 }} />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: g.blob2 }} />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: accent.solid }}>
-                {profileLabel}
-              </span>
-              {!isPro && suggestion.profile !== "stabil" && (
-                <span
-                  className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                  style={{ backgroundColor: accent.badgeBg, color: accent.solid }}
-                >
-                  Pro
-                </span>
-              )}
+      {/* Diagonal shine */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%)" }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 h-full flex flex-col justify-between p-5 force-white">
+        {/* Top row */}
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-1">
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {isBlocked ? "— · —" : `${suggestion.estimatedMinutes} min · ${suggestion.exercisesCount} Übungen`}
             </div>
-            <h3 className="text-[17px] font-black leading-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.3px" }}>
-              {suggestion.title}
-            </h3>
-            <p className="text-[13px] mt-0.5 leading-snug" style={{ color: "var(--text-secondary)" }}>
-              {suggestion.subtitle}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 pb-4 space-y-3">
-        {/* ── Stats Row ── */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { icon: <Clock size={14} />, label: t("adaptive.card.time"), value: isBlocked ? "—" : `${suggestion.estimatedMinutes}m` },
-            { icon: <ClipboardList size={14} />, label: t("adaptive.card.exercises"), value: isBlocked ? "—" : String(suggestion.exercisesCount) },
-            { icon: <Layers size={14} />, label: t("adaptive.card.sets"), value: isBlocked ? "—" : String(suggestion.setsPerExercise) },
-          ].map(({ icon, label, value }) => (
-            <div
-              key={label}
-              className="rounded-2xl p-3 flex flex-col gap-1"
-              style={{ backgroundColor: accent.bg }}
-            >
-              <div className="flex items-center gap-1.5" style={{ color: accent.solid }}>
-                {icon}
-                <span className="text-[10px] font-bold uppercase tracking-wide">{label}</span>
-              </div>
-              <p className="text-[16px] font-black" style={{ color: "var(--text-color)" }}>{value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Intensity ── */}
-        <div
-          className="rounded-2xl p-3 flex items-start gap-2.5"
-          style={{ backgroundColor: "var(--button-bg)", borderLeft: `3px solid ${accent.solid}` }}
-        >
-          <Zap size={15} className="shrink-0 mt-0.5" style={{ color: accent.solid }} />
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: accent.solid }}>
-              {t("adaptive.intensity")}
-            </p>
-            <p className="text-[13px] font-medium" style={{ color: "var(--text-color)" }}>
-              {suggestion.intensityHint}
-            </p>
-          </div>
-        </div>
-
-        {/* ── Reasons ── */}
-        {suggestion.reasons && suggestion.reasons.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {suggestion.reasons.slice(0, 4).map((r) => (
+            {!isPro && suggestion.profile !== "stabil" && (
               <span
-                key={r}
-                className="px-2.5 py-1 rounded-full text-[12px] font-semibold"
-                style={{ backgroundColor: accent.badgeBg, color: accent.solid }}
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#fff",
+                  background: "rgba(255,255,255,0.18)",
+                  borderRadius: 6,
+                  padding: "2px 7px",
+                  letterSpacing: "0.05em",
+                }}
               >
-                {t(REASON_KEYS[r] ?? "adaptive.reason.default")}
+                PRO
               </span>
-            ))}
+            )}
           </div>
-        )}
+          <span style={{ fontSize: 38, lineHeight: 1, filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.6))" }}>
+            {icon}
+          </span>
+        </div>
 
-        {/* ── Action Buttons ── */}
-        <div className="flex flex-col gap-2 pt-1">
-          {onSaveToCalendar && !isBlocked && (
-            <button
-              onClick={onSaveToCalendar}
-              disabled={disabled}
-              className={`w-full py-3.5 flex items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition-all border ${
-                disabled ? "opacity-40 cursor-not-allowed" : "active:scale-[0.97]"
-              }`}
-              style={{ borderColor: accent.solid, color: accent.solid, backgroundColor: accent.bg }}
-            >
-              <CalendarPlus size={16} />
-              {t("adaptive.saveToCalendar")}
-            </button>
-          )}
-          {!isBlocked ? (
-            <button
-              onClick={() => { onSaveToCalendar?.(); onSelect(); }}
-              disabled={disabled}
-              className={`w-full py-3.5 flex items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition-all text-white ${
-                disabled ? "opacity-40 cursor-not-allowed" : "active:scale-[0.97]"
-              }`}
-              style={{ backgroundColor: accent.solid, boxShadow: `0 4px 16px ${accent.solid}44` }}
-            >
-              <Play size={16} />
-              {t("adaptive.startNow")}
-            </button>
-          ) : (
-            <div
-              className="w-full py-3.5 flex items-center justify-center rounded-2xl text-[14px] font-semibold"
-              style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
-            >
-              {t("adaptive.disabledToday")}
-            </div>
-          )}
+        {/* Bottom: title + subtitle */}
+        <div>
+          <h3
+            style={{
+              color: "#fff",
+              fontSize: 26,
+              fontWeight: 900,
+              letterSpacing: "-0.5px",
+              lineHeight: 1.15,
+              margin: 0,
+            }}
+          >
+            {suggestion.title}
+          </h3>
+          <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, marginTop: 5, lineHeight: 1.4 }}>
+            {suggestion.subtitle}
+          </p>
         </div>
       </div>
+
+      {/* Blocked overlay */}
+      {isBlocked && (
+        <div
+          className="absolute inset-0 rounded-[28px] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)" }}
+        >
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>
+            Heute nicht empfohlen
+          </span>
+        </div>
+      )}
     </div>
   );
 }

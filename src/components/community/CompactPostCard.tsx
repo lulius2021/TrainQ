@@ -19,10 +19,11 @@ interface Props {
   post: CommunityPost;
   viewerId: string;
   onTap: () => void;
+  onCommentTap?: () => void;
   onLikeChanged?: (postId: string, liked: boolean, newCount: number) => void;
 }
 
-export default function CompactPostCard({ post, viewerId, onTap, onLikeChanged }: Props) {
+export default function CompactPostCard({ post, viewerId, onTap, onCommentTap, onLikeChanged }: Props) {
   const author = post.author;
   const wd = post.workoutData;
 
@@ -39,11 +40,16 @@ export default function CompactPostCard({ post, viewerId, onTap, onLikeChanged }
     } catch { /* ignore */ }
   };
 
+  const handleCommentTap = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    (onCommentTap ?? onTap)();
+  };
+
   return (
     <button
       type="button"
       onClick={onTap}
-      className="w-full text-left bg-[var(--card-bg)] rounded-[20px] p-3.5 border border-[var(--border-color)] active:scale-[0.98] transition-transform"
+      className="w-full text-left bg-[var(--card-bg)] rounded-[20px] p-3.5 active:scale-[0.98] transition-transform"
     >
       {/* Header: avatar, name, time, like & comment counts */}
       <div className="flex items-center gap-2">
@@ -63,12 +69,10 @@ export default function CompactPostCard({ post, viewerId, onTap, onLikeChanged }
             <Heart size={14} fill={post.isLiked ? "#E63946" : "none"} />
             {post.likeCount > 0 && <span className="tabular-nums">{post.likeCount}</span>}
           </button>
-          {post.commentCount > 0 && (
-            <span className="flex items-center gap-1 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-              <MessageCircle size={14} />
-              <span className="tabular-nums">{post.commentCount}</span>
-            </span>
-          )}
+          <button onClick={handleCommentTap} className="flex items-center gap-1 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+            <MessageCircle size={14} />
+            {post.commentCount > 0 && <span className="tabular-nums">{post.commentCount}</span>}
+          </button>
         </div>
       </div>
 

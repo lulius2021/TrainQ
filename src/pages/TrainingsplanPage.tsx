@@ -6,6 +6,7 @@ import type { SportType } from "../types/training";
 import type { TrainingPlanTemplate, TrainingTemplate as StoredTrainingTemplate, TrainingTemplateExercise } from "../types/trainingTemplates";
 import { type Exercise } from "../data/exerciseLibrary";
 import ExerciseLibraryModal from "../components/training/ExerciseLibraryModal";
+import { BottomSheet } from "../components/common/BottomSheet";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
 import PlanView from "../components/training/PlanView";
@@ -714,11 +715,15 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const estMin = estimateDurationMinutes(draft.exercises, isCardioLibrary);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" data-overlay-open="true">
-      <AppCard variant="glass" className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl" style={{ backgroundColor: "var(--modal-bg)", border: "1px solid var(--border-color)" }}>
-
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10 border-b backdrop-blur-xl" style={{ backgroundColor: "var(--modal-bg)", borderColor: "var(--border-color)" }}>
+    <>
+    <BottomSheet
+      open={true}
+      onClose={onClose}
+      zIndex={60}
+      height="82dvh"
+      maxHeight="85dvh"
+      header={
+        <div className="flex items-center justify-between px-5 pb-2">
           <button onClick={onClose} className="text-[17px] font-medium" style={{ color: "var(--accent-red, #FF3B30)" }}>
             Abbrechen
           </button>
@@ -739,8 +744,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             Sichern
           </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+      }
+    >
+      <div className="overflow-y-auto scrollbar-hide">
 
           {/* ── Hero Banner: Emoji + Farbe ── */}
           <div
@@ -1041,7 +1047,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
 
           </div>
         </div>
-      </AppCard>
+      </BottomSheet>
 
       <ExerciseLibraryModal
         open={libraryOpen}
@@ -1052,7 +1058,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         onPick={(exercise: Exercise) => handleAddExerciseFromLibrary(exercise)}
         onPickCustom={handleAddCustomExercise}
       />
-    </div>
+    </>
   );
 };
 
@@ -1076,21 +1082,41 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
   const estMin = estimateDurationMinutes(state.exercises, state.isCardio);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" data-overlay-open="true">
-      <AppCard variant="glass" className="w-full max-w-2xl overflow-hidden !rounded-2xl !p-0 shadow-xl">
-        <div className="flex items-start justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>{state.title}</div>
-            <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              {state.subtitle} · ca. {estMin} min
-            </div>
+    <BottomSheet
+      open={true}
+      onClose={onClose}
+      zIndex={50}
+      header={
+        <div className="px-5 pb-2">
+          <div className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>{state.title}</div>
+          <div className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+            {state.subtitle} · ca. {estMin} min
           </div>
-          <AppButton onClick={onClose} variant="secondary" size="sm" className="py-1 px-2 text-xs">
-            ✕
+        </div>
+      }
+      footer={
+        <div className="flex items-center justify-between gap-2 px-5 py-3">
+          <AppButton onClick={onClose} variant="secondary" className="text-sm flex-1">
+            Schließen
+          </AppButton>
+          <AppButton
+            onClick={() =>
+              startLiveTrainingWithSeed({
+                title: state.title,
+                sport: state.sport,
+                isCardio: state.isCardio,
+                exercises: state.exercises,
+              })
+            }
+            variant="primary"
+            className="text-sm font-semibold flex-1"
+          >
+            Start
           </AppButton>
         </div>
-
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4 pb-[160px]">
+      }
+    >
+      <div className="px-5 py-4 pb-6">
           {state.exercises.length === 0 ? (
             <div className="rounded-2xl border p-4 text-sm" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}>
               Keine Übungen
@@ -1154,29 +1180,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
             </div>
           )}
         </div>
-
-        <div className="flex items-center justify-between gap-2 border-t px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-          <AppButton onClick={onClose} variant="secondary" className="text-sm">
-            Schließen
-          </AppButton>
-
-          <AppButton
-            onClick={() =>
-              startLiveTrainingWithSeed({
-                title: state.title,
-                sport: state.sport,
-                isCardio: state.isCardio,
-                exercises: state.exercises,
-              })
-            }
-            variant="primary"
-            className="text-sm font-semibold"
-          >
-            Start
-          </AppButton>
-        </div>
-      </AppCard>
-    </div>
+    </BottomSheet>
   );
 };
 
@@ -1269,6 +1273,15 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   useEffect(() => {
     const stored = loadTrainingTemplates(userId ?? "");
     setWorkoutTemplates(stored.map(storedTemplateToWorkoutTemplate));
+  }, [userId]);
+
+  useEffect(() => {
+    const handler = () => {
+      const stored = loadTrainingTemplates(userId ?? "");
+      setWorkoutTemplates(stored.map(storedTemplateToWorkoutTemplate));
+    };
+    window.addEventListener('trainq:template-saved', handler);
+    return () => window.removeEventListener('trainq:template-saved', handler);
   }, [userId]);
 
   // Modals
@@ -2122,60 +2135,58 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       </div>
 
       {/* Sport Picker Sheet */}
-      {sportPicker && (
-        <div
-          className="fixed inset-0 z-[300] flex items-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
-          onClick={() => setSportPicker(null)}
-        >
-          <div
-            className="w-full rounded-t-[28px] p-4 pb-10 space-y-2"
-            style={{ backgroundColor: "var(--card-bg)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ backgroundColor: "var(--border-color)" }} />
-            <p className="text-xs font-bold uppercase tracking-wider text-center mb-4" style={{ color: "var(--text-secondary)" }}>
+      <BottomSheet
+        open={!!sportPicker}
+        onClose={() => setSportPicker(null)}
+        zIndex={300}
+        height="auto"
+        header={
+          <div className="px-5 pb-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-center" style={{ color: "var(--text-secondary)" }}>
               Sportart wählen
             </p>
-            {([
-              { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: "🏋️" },
-              { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: "🏃" },
-              { key: "Radfahren", label: "Radfahren",  desc: "Rad, Indoor-Bike",             icon: "🚴" },
-              { key: "Custom",    label: "Custom",     desc: "Eigene Sportart",              icon: "⚡" },
-              { key: "Ruhetag",   label: "Ruhetag",    desc: "Kein Training",                icon: "😴" },
-            ] as { key: WeeklySportType; label: string; desc: string; icon: string }[]).map(({ key, label, desc, icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  if (sportPicker.kind === "weekly") {
-                    handleWeeklyDayChange(sportPicker.id, "sport", key);
-                  } else {
-                    handleRoutineBlockChange(sportPicker.id, "sport", key);
-                  }
-                  setSportPicker(null);
-                }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-transform"
-                style={{
-                  backgroundColor: sportPicker.current === key ? "rgba(0,122,255,0.1)" : "var(--border-color)",
-                  border: sportPicker.current === key ? "1.5px solid rgba(0,122,255,0.4)" : "1.5px solid transparent",
-                }}
-              >
-                <span className="text-2xl">{icon}</span>
-                <div className="text-left">
-                  <div className="text-sm font-bold" style={{ color: sportPicker.current === key ? "#007AFF" : "var(--text-color)" }}>{label}</div>
-                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{desc}</div>
-                </div>
-                {sportPicker.current === key && (
-                  <div className="ml-auto w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: "#007AFF" }}>
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
-                )}
-              </button>
-            ))}
           </div>
+        }
+      >
+        <div className="px-4 pb-6 space-y-2">
+          {sportPicker && ([
+            { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: "🏋️" },
+            { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: "🏃" },
+            { key: "Radfahren", label: "Radfahren",  desc: "Rad, Indoor-Bike",             icon: "🚴" },
+            { key: "Custom",    label: "Custom",     desc: "Eigene Sportart",              icon: "⚡" },
+            { key: "Ruhetag",   label: "Ruhetag",    desc: "Kein Training",                icon: "😴" },
+          ] as { key: WeeklySportType; label: string; desc: string; icon: string }[]).map(({ key, label, desc, icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                if (sportPicker.kind === "weekly") {
+                  handleWeeklyDayChange(sportPicker.id, "sport", key);
+                } else {
+                  handleRoutineBlockChange(sportPicker.id, "sport", key);
+                }
+                setSportPicker(null);
+              }}
+              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-transform"
+              style={{
+                backgroundColor: sportPicker.current === key ? "rgba(0,122,255,0.1)" : "var(--border-color)",
+                border: sportPicker.current === key ? "1.5px solid rgba(0,122,255,0.4)" : "1.5px solid transparent",
+              }}
+            >
+              <span className="text-2xl">{icon}</span>
+              <div className="text-left">
+                <div className="text-sm font-bold" style={{ color: sportPicker.current === key ? "#007AFF" : "var(--text-color)" }}>{label}</div>
+                <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{desc}</div>
+              </div>
+              {sportPicker.current === key && (
+                <div className="ml-auto w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: "#007AFF" }}>
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </div>
+              )}
+            </button>
+          ))}
         </div>
-      )}
+      </BottomSheet>
 
       {/* Training-Modal */}
       {activeTrainingTemplate && (
@@ -2215,442 +2226,353 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
       <TrainingPreviewModal state={previewState} onClose={() => setPreviewState(null)} />
 
       {/* Weekly Vorschau Modal */}
-      {weeklyPreviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-              <h3 className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>Wochenvorschau</h3>
-              <AppButton
-                variant="ghost"
-                size="sm"
-                onClick={() => setWeeklyPreviewOpen(false)}
-                className="h-8 w-8 !p-0"
-                style={{ color: "var(--text-secondary)" } as React.CSSProperties}
-              >
-                ✕
-              </AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-              <div className="grid grid-cols-1 gap-2">
-                {weeklyDays.map((raw, idx) => {
-                  const day = normalizeWeeklyDay(raw as any, idx + 1);
-                  const isRest = isRestSport(day.sport);
-                  return (
-                    <div key={day.id} className="rounded-2xl border p-3" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold" style={{ color: "var(--text-color)" }}>Tag {day.id}</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "" : "bg-green-500/10 text-green-500"}`}
-                          style={isRest ? { backgroundColor: "var(--bg-color)", color: "var(--text-secondary)" } : {}}
-                        >
-                          {isRest ? "Ruhetag" : day.sport}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                        {isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}
-                      </div>
-                      {!isRest && day.startTime && <div className="mt-1 text-[10px]" style={{ color: "var(--text-secondary)" }}>Startzeit: {day.startTime}</div>}
-                    </div>
-                  );
-                })}
+      <BottomSheet
+        open={weeklyPreviewOpen}
+        onClose={() => setWeeklyPreviewOpen(false)}
+        zIndex={50}
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Wochenvorschau</h3></div>}
+        footer={
+          <div className="px-5 py-3">
+            <AppButton variant="secondary" onClick={() => setWeeklyPreviewOpen(false)} className="w-full">Schließen</AppButton>
+          </div>
+        }
+      >
+        <div className="px-4 py-2 pb-4 space-y-2">
+          {weeklyDays.map((raw, idx) => {
+            const day = normalizeWeeklyDay(raw as any, idx + 1);
+            const isRest = isRestSport(day.sport);
+            return (
+              <div key={day.id} className="rounded-2xl border p-3" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-color)" }}>Tag {day.id}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isRest ? "" : "bg-green-500/10 text-green-500"}`}
+                    style={isRest ? { backgroundColor: "var(--bg-color)", color: "var(--text-secondary)" } : {}}
+                  >
+                    {isRest ? "Ruhetag" : day.sport}
+                  </span>
+                </div>
+                <div className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  {isRest ? "Ruhetag" : day.focus || "Keine Bezeichnung definiert"}
+                </div>
+                {!isRest && day.startTime && <div className="mt-1 text-[10px]" style={{ color: "var(--text-secondary)" }}>Startzeit: {day.startTime}</div>}
               </div>
-            </div>
-          </AppCard>
+            );
+          })}
         </div>
-      )}
+      </BottomSheet>
 
       {/* Routine Vorschau Modal */}
-      {routinePreviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-              <h3 className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>Routinevorschau</h3>
-              <AppButton
-                variant="ghost"
-                size="sm"
-                onClick={() => setRoutinePreviewOpen(false)}
-                className="h-8 w-8 !p-0"
-                style={{ color: "var(--text-secondary)" } as React.CSSProperties}
-              >
-                ✕
-              </AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-              <div className="grid grid-cols-1 gap-2">
-                {routinePreview.map((item, index) => {
-                  const block = normalizeRoutineBlock(item.block as any, index + 1);
-                  const isRest = block.type === "Rest" || isRestSport(block.sport);
-                  return (
-                    <div key={index} className="rounded-2xl border p-3" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold" style={{ color: "var(--text-color)" }}>{item.label}</span>
-                        <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{isRest ? "Ruhetag" : block.sport}</span>
-                      </div>
-                      <div className="mt-1 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                        {isRest ? "Ruhetag" : block.label}
-                      </div>
-                      {!isRest && block.startTime && <div className="mt-1 text-[10px]" style={{ color: "var(--text-secondary)" }}>Startzeit: {block.startTime}</div>}
-                    </div>
-                  );
-                })}
+      <BottomSheet
+        open={routinePreviewOpen}
+        onClose={() => setRoutinePreviewOpen(false)}
+        zIndex={50}
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Routinevorschau</h3></div>}
+        footer={
+          <div className="px-5 py-3">
+            <AppButton variant="secondary" onClick={() => setRoutinePreviewOpen(false)} className="w-full">Schließen</AppButton>
+          </div>
+        }
+      >
+        <div className="px-4 py-2 pb-4 space-y-2">
+          {routinePreview.map((item, index) => {
+            const block = normalizeRoutineBlock(item.block as any, index + 1);
+            const isRest = block.type === "Rest" || isRestSport(block.sport);
+            return (
+              <div key={index} className="rounded-2xl border p-3" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold" style={{ color: "var(--text-color)" }}>{item.label}</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{isRest ? "Ruhetag" : block.sport}</span>
+                </div>
+                <div className="mt-1 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  {isRest ? "Ruhetag" : block.label}
+                </div>
+                {!isRest && block.startTime && <div className="mt-1 text-[10px]" style={{ color: "var(--text-secondary)" }}>Startzeit: {block.startTime}</div>}
               </div>
-            </div>
-          </AppCard>
+            );
+          })}
         </div>
-      )}
+      </BottomSheet>
 
       {/* Reine Trainings Vorlagen Modal (Management) */}
-      {workoutTemplatesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-              <h3 className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>Deine Trainingsvorlagen</h3>
-              <AppButton
-                variant="ghost"
-                size="sm"
-                onClick={() => setWorkoutTemplatesOpen(false)}
-                className="h-8 w-8 !p-0"
-                style={{ color: "var(--text-secondary)" } as React.CSSProperties}
-              >
-                ✕
-              </AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 pb-[160px] scrollbar-hide">
-              {workoutTemplates.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen" und klicke oben im Editor auf „Vorlage speichern".
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {workoutTemplates
-                    .slice()
-                    .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""))
-                    .map((tpl) => (
-                      <div
-                        key={tpl.id}
-                        className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
-                        style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
-                      >
-                        <div className="min-w-0 text-sm" style={{ color: "var(--text-color)" }}>
-                          <div className="truncate font-medium">{tpl.name}</div>
-                          <div className="truncate text-xs" style={{ color: "var(--text-secondary)" }}>
-                            {tpl.isCardio ? "Cardio" : "Gym"} · {tpl.sport} · {tpl.exercises?.length ?? 0}{" "}
-                            {tpl.isCardio ? "Einheit(en)" : "Übung(en)"}
-                          </div>
-                        </div>
-                        <AppButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (window.confirm(`Vorlage "${tpl.name}" löschen?`)) deleteWorkoutTemplate(tpl.id);
-                          }}
-                          className="shrink-0 text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200"
-                        >
-                          Löschen
-                        </AppButton>
+      <BottomSheet
+        open={workoutTemplatesOpen}
+        onClose={() => setWorkoutTemplatesOpen(false)}
+        zIndex={50}
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Deine Trainingsvorlagen</h3></div>}
+      >
+        <div className="px-4 py-2 pb-8">
+          {workoutTemplates.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Noch keine Trainingsvorlagen gespeichert. Öffne „Training erstellen" und klicke oben im Editor auf „Vorlage speichern".
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {workoutTemplates
+                .slice()
+                .sort((a, b) => (b.createdAtISO || "").localeCompare(a.createdAtISO || ""))
+                .map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
+                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                  >
+                    <div className="min-w-0 text-sm" style={{ color: "var(--text-color)" }}>
+                      <div className="truncate font-medium">{tpl.name}</div>
+                      <div className="truncate text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {tpl.isCardio ? "Cardio" : "Gym"} · {tpl.sport} · {tpl.exercises?.length ?? 0}{" "}
+                        {tpl.isCardio ? "Einheit(en)" : "Übung(en)"}
                       </div>
-                    ))}
-                </div>
-              )}
+                    </div>
+                    <AppButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm(`Vorlage "${tpl.name}" löschen?`)) deleteWorkoutTemplate(tpl.id);
+                      }}
+                      className="shrink-0 text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                    >
+                      Löschen
+                    </AppButton>
+                  </div>
+                ))}
             </div>
-          </AppCard>
+          )}
         </div>
-      )}
+      </BottomSheet>
 
       {/* Trainingspläne Vorlagen Modal (Weekly) */}
-      {weeklyTemplatesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-          <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-              <h3 className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>Deine Wochenpläne</h3>
-              <AppButton
-                variant="ghost"
-                size="sm"
-                onClick={() => setWeeklyTemplatesOpen(false)}
-                className="h-8 w-8 !p-0"
-                style={{ color: "var(--text-secondary)" } as React.CSSProperties}
-              >
-                ✕
-              </AppButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-              {weeklyTemplates.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Vorlagen gefunden.</p>
-              ) : (
-                <div className="space-y-2">
-                  {weeklyTemplates.map((tpl) => (
-                    <div
-                      key={tpl.id}
-                      className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
-                      style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
-                    >
-                      <div className="text-sm" style={{ color: "var(--text-color)" }}>
-                        <div className="font-medium">{tpl.name}</div>
-                        <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                          {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.days.length} Tage
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <AppButton
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setPreviewTemplate(tpl)}
-                          className="text-xs gap-1"
-                        >
-                          <Eye size={14} />
-                        </AppButton>
-                        <AppButton
-                          variant="primary"
-                          size="sm"
-                          onClick={() => applyWeeklyTemplate(tpl)}
-                          className="text-xs"
-                        >
-                          Übernehmen
-                        </AppButton>
-                      </div>
+      <BottomSheet
+        open={weeklyTemplatesOpen}
+        onClose={() => setWeeklyTemplatesOpen(false)}
+        zIndex={50}
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Deine Wochenpläne</h3></div>}
+      >
+        <div className="px-4 py-2 pb-8">
+          {weeklyTemplates.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Vorlagen gefunden.</p>
+          ) : (
+            <div className="space-y-2">
+              {weeklyTemplates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
+                  style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                >
+                  <div className="text-sm" style={{ color: "var(--text-color)" }}>
+                    <div className="font-medium">{tpl.name}</div>
+                    <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.days.length} Tage
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <AppButton variant="secondary" size="sm" onClick={() => setPreviewTemplate(tpl)} className="text-xs gap-1">
+                      <Eye size={14} />
+                    </AppButton>
+                    <AppButton variant="primary" size="sm" onClick={() => applyWeeklyTemplate(tpl)} className="text-xs">
+                      Übernehmen
+                    </AppButton>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </AppCard>
-        </div >
-      )}
+          )}
+        </div>
+      </BottomSheet>
 
       {/* Trainingspläne Vorlagen Modal (Routine) */}
-      {
-        routineTemplatesOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-            <AppCard variant="glass" className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl">
-              <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
-                <h3 className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>Deine Routinen</h3>
-                <AppButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRoutineTemplatesOpen(false)}
-                  className="h-8 w-8 !p-0"
-                  style={{ color: "var(--text-secondary)" } as React.CSSProperties}
+      <BottomSheet
+        open={routineTemplatesOpen}
+        onClose={() => setRoutineTemplatesOpen(false)}
+        zIndex={50}
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Deine Routinen</h3></div>}
+      >
+        <div className="px-4 py-2 pb-8">
+          {routineTemplates.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Vorlagen gefunden.</p>
+          ) : (
+            <div className="space-y-2">
+              {routineTemplates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
+                  style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                 >
-                  ✕
-                </AppButton>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-                {routineTemplates.length === 0 ? (
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Vorlagen gefunden.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {routineTemplates.map((tpl) => (
-                      <div
-                        key={tpl.id}
-                        className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
-                        style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
-                      >
-                        <div className="text-sm" style={{ color: "var(--text-color)" }}>
-                          <div className="font-medium">{tpl.name}</div>
-                          <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                            {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im
-                            Zyklus
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <AppButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setPreviewTemplate(tpl)}
-                            className="text-xs gap-1"
-                          >
-                            <Eye size={14} />
-                          </AppButton>
-                          <AppButton
-                            variant="primary"
-                            size="sm"
-                            onClick={() => applyRoutineTemplate(tpl)}
-                            className="text-xs"
-                          >
-                            Übernehmen
-                          </AppButton>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-sm" style={{ color: "var(--text-color)" }}>
+                    <div className="font-medium">{tpl.name}</div>
+                    <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {tpl.durationWeeks} Woche{tpl.durationWeeks !== 1 ? "n" : ""}, {tpl.blocks.length} Tage im Zyklus
+                    </div>
                   </div>
-                )}
-              </div>
-            </AppCard >
-          </div >
-        )
-      }
+                  <div className="flex gap-2">
+                    <AppButton variant="secondary" size="sm" onClick={() => setPreviewTemplate(tpl)} className="text-xs gap-1">
+                      <Eye size={14} />
+                    </AppButton>
+                    <AppButton variant="primary" size="sm" onClick={() => applyRoutineTemplate(tpl)} className="text-xs">
+                      Übernehmen
+                    </AppButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </BottomSheet>
 
       {/* Preview Modal */}
-      {
-        
-        previewTemplate && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-            <AppCard variant="glass" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden !rounded-[24px] !p-0 shadow-2xl border border-white/10">
-              <div className="flex items-center justify-between border-b border-white/10 bg-zinc-900/80 px-4 py-3 sticky top-0 backdrop-blur-md z-10">
-                <h3 className="font-bold text-white text-lg truncate pr-4">{previewTemplate.name}</h3>
-                <button
-                  onClick={() => setPreviewTemplate(null)}
-                  className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide bg-zinc-950/50">
-
-                {/* Weekly Review */}
-                {/* Weekly Review */}
-                {(previewTemplate as any)?.days?.map((day: any, i: number) => {
-                  if (!day) return null;
-                  const isRest = day.sport === "Ruhetag";
-                  return (
-                    <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{day.label}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-black/40 text-zinc-400 border border-white/5">{day.sport}</span>
-                      </div>
-                      {!isRest && day.exercises?.length > 0 && (
-                        <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
-                          {(day.exercises || []).map((ex: any, j: number) => {
-                            if (!ex) return null;
-                            return (
-                              <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
-                                <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
-                                <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+      <BottomSheet
+        open={!!previewTemplate}
+        onClose={() => setPreviewTemplate(null)}
+        zIndex={60}
+        header={
+          previewTemplate ? (
+            <div className="px-5 pb-2">
+              <h3 className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>{previewTemplate.name}</h3>
+            </div>
+          ) : undefined
+        }
+        footer={
+          previewTemplate ? (
+            <div className="flex gap-3 px-5 py-3">
+              <AppButton variant="secondary" onClick={() => setPreviewTemplate(null)} className="flex-1">
+                Schließen
+              </AppButton>
+              <AppButton
+                variant="primary"
+                onClick={() => {
+                  const isWeekly = !!(previewTemplate as any).days;
+                  if (isWeekly) applyWeeklyTemplate(previewTemplate as any);
+                  else applyRoutineTemplate(previewTemplate as any);
+                  setPreviewTemplate(null);
+                  if (isWeekly) setWeeklyTemplatesOpen(false);
+                  else setRoutineTemplatesOpen(false);
+                }}
+                className="flex-1 font-bold"
+              >
+                Übernehmen
+              </AppButton>
+            </div>
+          ) : undefined
+        }
+      >
+        {previewTemplate && (
+          <div className="px-4 py-2 pb-4 space-y-3">
+            {/* Weekly Review */}
+            {(previewTemplate as any)?.days?.map((day: any, i: number) => {
+              if (!day) return null;
+              const isRest = day.sport === "Ruhetag";
+              return (
+                <div key={i} className="rounded-2xl border p-3" style={{ backgroundColor: isRest ? "var(--bg-color)" : "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-sm" style={{ color: isRest ? "var(--text-secondary)" : "var(--text-color)" }}>{day.label}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-secondary)", border: "1px solid var(--border-color)" }}>{day.sport}</span>
+                  </div>
+                  {!isRest && day.exercises?.length > 0 && (
+                    <div className="space-y-1.5 pl-2" style={{ borderLeft: "2px solid var(--border-color)" }}>
+                      {(day.exercises || []).map((ex: any, j: number) => {
+                        if (!ex) return null;
+                        return (
+                          <div key={j} className="text-xs flex items-start gap-2" style={{ color: "var(--text-secondary)" }}>
+                            <span className="font-mono min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
+                            <span className="line-clamp-1" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-
-                {/* Routine Review */}
-
-                {(previewTemplate as any)?.blocks?.map((block: any, i: number) => {
-                  if (!block) return null;
-                  const isRest = block.type === "Rest";
-                  return (
-                    <div key={i} className={`p-3 rounded-2xl border ${isRest ? 'bg-zinc-900/30 border-dashed border-zinc-800' : 'bg-zinc-900 border-zinc-800'}`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`font-medium text-sm ${isRest ? 'text-zinc-500' : 'text-zinc-200'}`}>{block.label || `Block ${i + 1}`}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-black/40 text-zinc-400 border border-white/5">{block.sport}</span>
-                      </div>
-                      {!isRest && block.exercises?.length > 0 && (
-                        <div className="space-y-1.5 pl-2 border-l-2 border-zinc-800">
-                          {(block.exercises || []).map((ex: any, j: number) => {
-                            if (!ex) return null;
-                            return (
-                              <div key={j} className="text-xs text-zinc-400 flex items-start gap-2">
-                                <span className="font-mono text-zinc-500 min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
-                                <span className="text-zinc-300 line-clamp-1">{ex.name}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                  )}
+                </div>
+              );
+            })}
+            {/* Routine Review */}
+            {(previewTemplate as any)?.blocks?.map((block: any, i: number) => {
+              if (!block) return null;
+              const isRest = block.type === "Rest";
+              return (
+                <div key={i} className="rounded-2xl border p-3" style={{ backgroundColor: isRest ? "var(--bg-color)" : "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-sm" style={{ color: isRest ? "var(--text-secondary)" : "var(--text-color)" }}>{block.label || `Block ${i + 1}`}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-secondary)", border: "1px solid var(--border-color)" }}>{block.sport}</span>
+                  </div>
+                  {!isRest && block.exercises?.length > 0 && (
+                    <div className="space-y-1.5 pl-2" style={{ borderLeft: "2px solid var(--border-color)" }}>
+                      {(block.exercises || []).map((ex: any, j: number) => {
+                        if (!ex) return null;
+                        return (
+                          <div key={j} className="text-xs flex items-start gap-2" style={{ color: "var(--text-secondary)" }}>
+                            <span className="font-mono min-w-[20px] text-right">{ex.sets?.length || 0}×</span>
+                            <span className="line-clamp-1" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-
-              <div className="p-4 border-t border-white/10 bg-zinc-900/80 backdrop-blur-md flex gap-3 sticky bottom-0 z-10">
-                <AppButton variant="secondary" onClick={() => setPreviewTemplate(null)} className="flex-1">
-                  Schließen
-                </AppButton>
-                <AppButton
-                  variant="primary"
-                  onClick={() => {
-                    const isWeekly = !!(previewTemplate as any).days;
-                    if (isWeekly) applyWeeklyTemplate(previewTemplate as any);
-                    else applyRoutineTemplate(previewTemplate as any);
-                    setPreviewTemplate(null);
-                    if (isWeekly) setWeeklyTemplatesOpen(false);
-                    else setRoutineTemplatesOpen(false);
-                  }}
-                  className="flex-1 font-bold"
-                >
-                  Übernehmen
-                </AppButton>
-              </div>
-            </AppCard>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )
-      }
+        )}
+      </BottomSheet>
 
       {/* Save Dialogs (Plan) */}
-      {
-        weeklySaveDialogOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-            <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-              <h3 className="text-base font-semibold" style={{ color: "var(--text-color)" }}>Wochenplan anwenden</h3>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Möchtest du diesen Plan auch als Vorlage speichern?</p>
-              <div className="mt-4 space-y-2">
-                <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>Vorlagen-Name</label>
-                <input
-                  type="text"
-                  value={weeklyTemplateName}
-                  onChange={(e) => setWeeklyTemplateName(e.target.value)}
-                  className="w-full rounded-3xl border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                  style={{ backgroundColor: "var(--bg-color)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                />
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <AppButton
-                  onClick={() => saveWeeklyTemplateAndCalendar(false)}
-                  variant="secondary"
-                >
-                  Nur Kalender
-                </AppButton>
-                <AppButton
-                  onClick={() => saveWeeklyTemplateAndCalendar(true)}
-                  variant="primary"
-                >
-                  Kalender + Vorlage
-                </AppButton>
-              </div>
-            </AppCard>
+      <BottomSheet
+        open={weeklySaveDialogOpen}
+        onClose={() => setWeeklySaveDialogOpen(false)}
+        zIndex={50}
+        height="auto"
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Wochenplan anwenden</h3></div>}
+        footer={
+          <div className="flex gap-3 px-5 py-3">
+            <AppButton onClick={() => saveWeeklyTemplateAndCalendar(false)} variant="secondary" className="flex-1">
+              Nur Kalender
+            </AppButton>
+            <AppButton onClick={() => saveWeeklyTemplateAndCalendar(true)} variant="primary" className="flex-1">
+              Kalender + Vorlage
+            </AppButton>
           </div>
-        )
-      }
+        }
+      >
+        <div className="px-5 pb-4">
+          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>Möchtest du diesen Plan auch als Vorlage speichern?</p>
+          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Vorlagen-Name</label>
+          <input
+            type="text"
+            value={weeklyTemplateName}
+            onChange={(e) => setWeeklyTemplateName(e.target.value)}
+            className="w-full rounded-3xl border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+            style={{ backgroundColor: "var(--bg-color)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+          />
+        </div>
+      </BottomSheet>
 
-      {
-        routineSaveDialogOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" data-overlay-open="true">
-            <AppCard variant="glass" className="w-full max-w-md !rounded-[24px] !p-6 shadow-2xl">
-              <h3 className="text-base font-semibold" style={{ color: "var(--text-color)" }}>Routine anwenden</h3>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Möchtest du diesen Plan auch als Vorlage speichern?</p>
-              <div className="mt-4 space-y-2">
-                <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>Vorlagen-Name</label>
-                <input
-                  type="text"
-                  value={routineTemplateName}
-                  onChange={(e) => setRoutineTemplateName(e.target.value)}
-                  className="w-full rounded-3xl border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                  style={{ backgroundColor: "var(--bg-color)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                />
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <AppButton
-                  onClick={() => saveRoutineTemplateAndCalendar(false)}
-                  variant="secondary"
-                >
-                  Nur Kalender
-                </AppButton>
-                <AppButton
-                  onClick={() => saveRoutineTemplateAndCalendar(true)}
-                  variant="primary"
-                >
-                  Kalender + Vorlage
-                </AppButton>
-              </div>
-            </AppCard>
+      <BottomSheet
+        open={routineSaveDialogOpen}
+        onClose={() => setRoutineSaveDialogOpen(false)}
+        zIndex={50}
+        height="auto"
+        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Routine anwenden</h3></div>}
+        footer={
+          <div className="flex gap-3 px-5 py-3">
+            <AppButton onClick={() => saveRoutineTemplateAndCalendar(false)} variant="secondary" className="flex-1">
+              Nur Kalender
+            </AppButton>
+            <AppButton onClick={() => saveRoutineTemplateAndCalendar(true)} variant="primary" className="flex-1">
+              Kalender + Vorlage
+            </AppButton>
           </div>
-        )
-      }
+        }
+      >
+        <div className="px-5 pb-4">
+          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>Möchtest du diesen Plan auch als Vorlage speichern?</p>
+          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Vorlagen-Name</label>
+          <input
+            type="text"
+            value={routineTemplateName}
+            onChange={(e) => setRoutineTemplateName(e.target.value)}
+            className="w-full rounded-3xl border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+            style={{ backgroundColor: "var(--bg-color)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+          />
+        </div>
+      </BottomSheet>
     </div>
   );
 };

@@ -4,6 +4,8 @@ import { OnboardingProvider } from "./context/OnboardingContext";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
+import { KeyboardDismissBar } from "./components/common/KeyboardDismissBar";
+import { useModalStore } from "./store/useModalStore";
 
 // Types explicitly exported to maintain compatibility
 export type { TabKey } from "./types";
@@ -89,6 +91,19 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
 
 }
 
+function GlobalClickShield() {
+  const shieldActive = useModalStore((s) => s.shieldActive);
+  if (!shieldActive) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[99999]"
+      style={{ touchAction: "none" }}
+      onPointerDown={(e) => e.preventDefault()}
+      onClick={(e) => e.preventDefault()}
+    />
+  );
+}
+
 export const App: React.FC = () => {
   const seededRef = useRef(false);
 
@@ -106,6 +121,8 @@ export const App: React.FC = () => {
         <ThemeProvider>
           <OnboardingProvider>
             <AppRouter />
+            <KeyboardDismissBar />
+            <GlobalClickShield />
           </OnboardingProvider>
         </ThemeProvider>
       </AuthContextProvider>

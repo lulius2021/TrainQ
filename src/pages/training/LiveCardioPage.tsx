@@ -16,7 +16,6 @@ import {
   abortLiveWorkout,
   applyTrainingStatusToEvent,
 } from "../../utils/trainingHistory";
-import { grantWorkoutXp } from "../../store/useAvatarStore";
 import { ProfileService } from "../../services/ProfileService";
 import {
   formatPace,
@@ -145,7 +144,6 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   const [showAbortConfirm, setShowAbortConfirm]  = useState(false);
   const [showStopMenu, setShowStopMenu]           = useState(false);
   const [reviewName, setReviewName]               = useState("");
-  const [xpToast, setXpToast]                     = useState<number | null>(null);
   const [startBusy, setStartBusy]                 = useState(false);
   const [mapStyle, setMapStyle]                   = useState<MapStyle>("street");
   const [showMapStyleSheet, setShowMapStyleSheet] = useState(false);
@@ -251,10 +249,7 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
 
-    if (authUser?.id) postWorkoutToFeed(entry, authUser.id);
-
-    const { granted } = grantWorkoutXp(entry);
-    if (granted > 0) setXpToast(granted);
+    if (authUser?.id && localStorage.getItem("trainq_pref_auto_share_workout") !== "false") postWorkoutToFeed(entry, authUser.id);
 
     if (typeof onShareWorkout === "function") onShareWorkout(entry.id);
     else onExit();
@@ -699,16 +694,6 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
         </div>
       )}
 
-      {/* XP Toast */}
-      {xpToast !== null && (
-        <div
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full text-white font-bold text-sm shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
-          style={{ backgroundColor: accentColor }}
-          onAnimationEnd={() => setTimeout(() => setXpToast(null), 1500)}
-        >
-          +{xpToast} XP
-        </div>
-      )}
     </>
   );
 };

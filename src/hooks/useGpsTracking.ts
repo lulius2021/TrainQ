@@ -1,6 +1,7 @@
 // src/hooks/useGpsTracking.ts
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { App } from "@capacitor/app";
 import type { GpsPoint, CardioSessionState, LapEntry } from "../types/cardio";
 import {
   checkLocationPermission,
@@ -37,6 +38,17 @@ export function useGpsTracking() {
   const stoppedAtRef          = useRef<number | undefined>(undefined);
   const lapsRef               = useRef<LapEntry[]>([]);
   const permissionCacheRef    = useRef<boolean | null>(null);
+  // Tracks current status without triggering re-renders — used by the appStateChange listener.
+  const stateStatusRef        = useRef<CardioSessionState["status"]>("idle");
+
+  // Wrapper so every setState call also keeps stateStatusRef in sync.
+  const setStateWithRef = useCallback((next: CardioSessionState | ((prev: CardioSessionState) => CardioSessionState)) => {
+    setState((prev) => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      stateStatusRef.current = resolved.status;
+      return resolved;
+    });
+  }, []);
 
   const addPoint = useCallback((point: GpsPoint) => {
     if (point.accuracy && point.accuracy > MAX_ACCURACY_M) return;
@@ -78,7 +90,7 @@ export function useGpsTracking() {
         : 0;
     const pace = computePace(recentDistance, recentDurationMs);
 
-    setState({
+    setStateWithRef({
       status: "tracking",
       points: newPoints,
       startedAt: startedAtRef.current,
@@ -106,7 +118,7 @@ export function useGpsTracking() {
     stoppedAtRef.current    = undefined;
     lapsRef.current         = [];
 
-    setState({
+    setStateWithRef({
       status: "tracking",
       points: [],
       startedAt: now,
@@ -132,7 +144,7 @@ export function useGpsTracking() {
       watchIdRef.current = null;
     }
     pausedAtRef.current = Date.now();
-    setState((prev) => ({ ...prev, status: "paused", pausedAt: Date.now() }));
+    setStateWithRef((prev) => ({ ...prev, status: "paused", pausedAt: Date.now() }));
   }, []);
 
   const resumeTracking = useCallback(async () => {
@@ -143,7 +155,7 @@ export function useGpsTracking() {
     watchPosition(addPoint).then((id) => {
       watchIdRef.current = id;
     });
-    setState((prev) => ({
+    setStateWithRef((prev) => ({
       ...prev,
       status: "tracking",
       pausedAt: undefined,
@@ -161,7 +173,7 @@ export function useGpsTracking() {
       pausedAtRef.current = undefined;
     }
     stoppedAtRef.current = Date.now();
-    setState((prev) => ({
+    setStateWithRef((prev) => ({
       ...prev,
       status: "stopped",
       totalPausedMs: totalPausedRef.current,
@@ -177,7 +189,7 @@ export function useGpsTracking() {
       elapsedMs,
     };
     lapsRef.current = [...lapsRef.current, newLap];
-    setState((prev) => ({ ...prev, laps: lapsRef.current }));
+    setStateWithRef((prev) => ({ ...prev, laps: lapsRef.current }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-warm permission status on mount — check-only, never shows a dialog.
@@ -190,6 +202,26 @@ export function useGpsTracking() {
       if (watchIdRef.current) clearWatch(watchIdRef.current);
     };
   }, []);
+
+  // Safety-net: if iOS killed the GPS watch while the app was backgrounded,
+  // restart it automatically when the app comes back to the foreground.
+  useEffect(() => {
+    let listener: Awaited<ReturnType<typeof App.addListener>> | null = null;
+
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (!isActive) return; // going to background — nothing to do (backgroundMessage keeps GPS alive)
+
+      // App just became active again — check if we were tracking but the watch is gone
+      const statusRef = stateStatusRef.current;
+      if (statusRef === "tracking" && !watchIdRef.current) {
+        watchPosition(addPoint).then((id) => {
+          watchIdRef.current = id;
+        });
+      }
+    }).then((h) => { listener = h; });
+
+    return () => { listener?.remove(); };
+  }, [addPoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getElapsedMsNow(): number {
     if (startedAtRef.current === 0) return 0;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { useModalStore } from "../../store/useModalStore";
 import { hapticSheetClose } from "../../native/haptics";
@@ -47,54 +47,35 @@ export function BottomSheet({
   const dragControls = useDragControls();
   const push = useModalStore((s) => s.push);
   const pop  = useModalStore((s) => s.pop);
-  const [clickShield, setClickShield] = useState(false);
-  const shieldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activateShield = useModalStore((s) => s.activateShield);
 
   const handleClose = React.useCallback(() => {
     hapticSheetClose();
+    activateShield();
     onClose();
-    setClickShield(true);
-    if (shieldTimer.current) clearTimeout(shieldTimer.current);
-    shieldTimer.current = setTimeout(() => setClickShield(false), 400);
-  }, [onClose]);
-
-  useEffect(() => () => { if (shieldTimer.current) clearTimeout(shieldTimer.current); }, []);
+  }, [onClose, activateShield]);
 
   // Register with modal store so BottomNav hides
   useEffect(() => {
     if (open) { push(); return () => pop(); }
   }, [open, push, pop]);
 
-  // Lock body scroll — prevents background from scrolling while sheet is open
+  // Lock ALL scroll containers while sheet is open — adds/removes .modal-open on #root
   useEffect(() => {
     if (!open) return;
-    const scrollY = window.scrollY;
-    const prev = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
+    const root = document.getElementById("root");
+    root?.classList.add("modal-open");
 
-    // Prevent touchmove on the document root for extra iOS reliability
+    // Prevent touchmove outside sheet content for extra iOS reliability
     const preventScroll = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
-      // Allow scrolling inside the sheet content
       if (target.closest("[data-sheet-content]")) return;
       e.preventDefault();
     };
     document.addEventListener("touchmove", preventScroll, { passive: false });
 
     return () => {
-      document.body.style.overflow = prev.overflow;
-      document.body.style.position = prev.position;
-      document.body.style.top = prev.top;
-      document.body.style.width = prev.width;
-      window.scrollTo(0, scrollY);
+      root?.classList.remove("modal-open");
       document.removeEventListener("touchmove", preventScroll);
     };
   }, [open]);
@@ -113,15 +94,6 @@ export function BottomSheet({
 
   return (
     <>
-      {/* Click shield: absorbs ghost clicks for 400ms after close */}
-      {clickShield && !open && (
-        <div
-          className="fixed inset-0"
-          style={{ zIndex: zIndex + 1, touchAction: "none" }}
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={(e) => e.preventDefault()}
-        />
-      )}
     <AnimatePresence>
       {open && (
         <MotionDiv
@@ -159,27 +131,30 @@ export function BottomSheet({
               dragElastic={{ top: 0.15, bottom: 0 }}
               onDragEnd={handleDragEnd}
             >
-              {/* Handle / header drag zone — tall touch target for easy swipe */}
+              {/* Handle / header drag zone */}
               <div
-                className={showHandle || header ? "pt-3 pb-5" : ""}
+                className="relative shrink-0"
                 onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
                 onTouchStart={(e: React.TouchEvent) => {
                   const pe = e as unknown as React.PointerEvent;
                   dragControls.start(pe);
                 }}
-                style={{ cursor: "grab", touchAction: "none" }}
+                style={{ cursor: "grab", touchAction: "none", minHeight: 64 }}
               >
                 {showHandle && (
-                  <div className="flex justify-center pt-1 pb-2">
-                    <div className="h-1.5 w-12 rounded-full" style={{ background: "var(--border-color)" }} />
+                  <div className="flex justify-center pt-3 pb-1">
+                    <div className="h-1.5 w-14 rounded-full" style={{ background: "var(--border-color)" }} />
                   </div>
                 )}
-                {header && <div className="pt-1">{header}</div>}
+                {header
+                  ? <div className="pt-2 pb-3">{header}</div>
+                  : showHandle && <div style={{ height: 36 }} />
+                }
               </div>
 
               <div
                 data-sheet-content
-                className={contentClassName ?? "flex-1 overflow-y-auto"}
+                className={contentClassName ?? "flex-1 min-h-0 overflow-y-auto"}
                 style={{ overscrollBehavior: "contain" }}
               >{children}</div>
 

@@ -17,7 +17,7 @@ export function useDashboardFeed(viewerId: string | undefined, enabled: boolean)
         setTimeout(() => reject(new Error("timeout")), 6000)
       );
       const result = await Promise.race([
-        getFeed({ type: "forYou", limit: 3 }, viewerId),
+        getFeed({ type: "forYou", limit: 5 }, viewerId),
         timeout,
       ]);
       setPosts(result);
@@ -38,7 +38,7 @@ export function useDashboardFeed(viewerId: string | undefined, enabled: boolean)
         setTimeout(() => reject(new Error("timeout")), 6000)
       );
       const result = await Promise.race([
-        getFeed({ type: "forYou", limit: 3 }, viewerId),
+        getFeed({ type: "forYou", limit: 5 }, viewerId),
         timeout,
       ]);
       setPosts(result);

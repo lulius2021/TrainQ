@@ -146,6 +146,7 @@ export function buildSeedFromCalendarEvent(event: CalendarEvent): LiveTrainingSe
 
 import { readOnboardingDataFromStorage } from "../context/OnboardingContext";
 import { getAdaptiveTemplate } from "../data/adaptiveTemplates";
+import type { UserAdaptiveContext } from "./adaptivePersonalization";
 
 /**
  * Wird in LiveTrainingPage importiert.
@@ -155,7 +156,12 @@ import { getAdaptiveTemplate } from "../data/adaptiveTemplates";
  * - Übungen/Sätze skaliert nach Profil (kompakt/fokus)
  * - NEU: Falls Seed leer (z.B. reines CalendarEvent), wird ein passendes Template injectet
  */
-export function applyAdaptiveToSeed(seed: LiveTrainingSeed, suggestion: AdaptiveSuggestion, answers?: AdaptiveAnswers): LiveTrainingSeedWithAdaptiveMeta {
+export function applyAdaptiveToSeed(
+  seed: LiveTrainingSeed,
+  suggestion: AdaptiveSuggestion,
+  answers?: AdaptiveAnswers,
+  context?: UserAdaptiveContext
+): LiveTrainingSeedWithAdaptiveMeta {
   const safeSeed: LiveTrainingSeed =
     seed ?? ({ title: "Training", sport: "Gym", isCardio: false, exercises: [] } as LiveTrainingSeed);
 
@@ -165,31 +171,59 @@ export function applyAdaptiveToSeed(seed: LiveTrainingSeed, suggestion: Adaptive
   const nextTitle = baseTitle.includes("(Adaptiv") ? baseTitle : `${baseTitle}${suffix}`;
 
   // 2. Persona laden (für Fallback-Templates)
-  // Wir lesen direkt aus Storage, da diese Utility oft ohne React-Context läuft.
   const onboarding = readOnboardingDataFromStorage();
   const persona = onboarding.personal.persona || "beginner";
 
-  // 3. Fallback: Keine Übungen? Template injecten!
+  // 3. Übungen bestimmen: persönliche History > Template > leeres Seed
   let currentExercises = safeSeed.exercises || [];
-  if (currentExercises.length === 0 && normalizeSport(safeSeed.sport) === "Gym") {
-    // Hole Template basierend auf Titel (z.B. "Push")
-    const template = getAdaptiveTemplate(baseTitle, persona);
+  const sport = normalizeSport(safeSeed.sport);
 
-    // Mappe Template -> Seed
-    currentExercises = template.map((t) => ({
-      name: t.name,
-      sets: t.defaultSets.map((s, i) => ({
-        id: i + 1,
-        reps: s.reps,
-        weight: s.weight,
-        notes: "",
-      })),
-    }));
+  if (sport === "Gym") {
+    if (context?.topExercises && context.topExercises.length >= 2) {
+      const weightMod = context.weightModifier ?? 1.0;
+
+      // Filter by next split; fall back to all if not enough exercises in that split
+      const splitFiltered = context.nextSplit && context.nextSplit !== "full"
+        ? context.topExercises.filter(
+            ex => (ex as any).splitType === context.nextSplit || (ex as any).splitType === "full"
+          )
+        : context.topExercises;
+      const toUse = splitFiltered.length >= 2 ? splitFiltered : context.topExercises;
+
+      currentExercises = toUse.map((ex) => {
+        // Progressive overload: use suggestedWeight (already +2.5kg) when ready,
+        // otherwise apply day-form weight modifier to avgWeight.
+        const baseW = (ex as any).progressionReady
+          ? ((ex as any).suggestedWeight ?? ex.avgWeight)
+          : (ex.avgWeight > 0 ? Math.round(ex.avgWeight * weightMod * 10) / 10 : 0);
+
+        return {
+          name: ex.name,
+          sets: Array.from({ length: Math.max(1, ex.setCount) }, (_, i) => ({
+            id: i + 1,
+            reps: ex.avgReps || 8,
+            weight: baseW,
+            notes: "",
+          })),
+        };
+      });
+    } else if (currentExercises.length === 0) {
+      // Fallback: Template basierend auf Titel (z.B. "Push")
+      const template = getAdaptiveTemplate(baseTitle, persona);
+      currentExercises = template.map((t) => ({
+        name: t.name,
+        sets: t.defaultSets.map((s, i) => ({
+          id: i + 1,
+          reps: s.reps,
+          weight: s.weight,
+          notes: "",
+        })),
+      }));
+    }
   }
 
   // 4. Skalieren (Volume/Intensität anpassen)
   const factor = factorFromProfile(suggestion.profile);
-  const sport = normalizeSport(safeSeed.sport);
   const nextExercises = scaleExercisesAndSets(currentExercises, factor, sport);
 
   const meta: LiveTrainingSeedWithAdaptiveMeta = {

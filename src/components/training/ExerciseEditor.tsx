@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { hapticSuccess, hapticLight } from "../../native/haptics";
 import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
 import { useI18n } from "../../i18n/useI18n";
 import { AnimatePresence, useAnimation } from "framer-motion";
@@ -451,6 +452,7 @@ const SwipeableSetRow = ({
             const now = Date.now();
             if (now - lastToggleMs.current < 400) return;
             lastToggleMs.current = now;
+            set.completed ? hapticLight() : hapticSuccess();
             const autofill: any = {};
             if (!set.weight && last?.weight) autofill.weight = last.weight;
             if (!set.reps && last?.reps) autofill.reps = last.reps;
@@ -582,6 +584,7 @@ const SwipeableSetRow = ({
                   const now = Date.now();
                   if (now - lastToggleMs.current < 400) return;
                   lastToggleMs.current = now;
+                  set.completed ? hapticLight() : hapticSuccess();
                   onToggleSet(set.id);
                 }}
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}

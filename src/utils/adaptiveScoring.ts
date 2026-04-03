@@ -84,14 +84,33 @@ function reasonsFromAnswers(a: AdaptiveAnswers): AdaptiveReason[] {
 // Hauptfunktion (NAMED EXPORT)
 // ------------------------------
 
-export function buildAdaptiveSuggestions(answers: AdaptiveAnswers): AdaptiveSuggestion[] {
+export function buildAdaptiveSuggestions(answers: AdaptiveAnswers, avgDurationMin = 0): AdaptiveSuggestion[] {
   const lowRecovery = hasLowRecovery(answers);
   const timeLimited = hasTimeConstraint(answers);
+  const sport = answers.sport ?? "gym";
 
-  const baseMinutes = approxMinutesFromBucket(answers.timeToday);
+  // Calibrate base minutes: blend user's actual history (60%) with bucket estimate (40%)
+  let baseMinutes = approxMinutesFromBucket(answers.timeToday);
+  if (avgDurationMin > 5) {
+    baseMinutes = Math.round(avgDurationMin * 0.6 + baseMinutes * 0.4);
+  }
+
   const baseReasons = reasonsFromAnswers(answers);
 
-  const stabil: AdaptiveSuggestion = {
+  // Sport-specific titles/subtitles/intensities
+  const isCardio = sport === "laufen" || sport === "radfahren";
+  const sportLabel = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : "";
+
+  const stabil: AdaptiveSuggestion = isCardio ? {
+    profile: "stabil",
+    title: `Stabil · Grundlage`,
+    subtitle: `Lockeres ${sportLabel}-Tempo, Komfortzone`,
+    estimatedMinutes: timeLimited ? Math.min(25, baseMinutes) : Math.max(30, baseMinutes),
+    exercisesCount: 1,
+    setsPerExercise: 1,
+    intensityHint: lowRecovery ? "Sehr locker, Herzfrequenz niedrig halten" : "RPE 5–6, entspannte Atmung",
+    reasons: dedupeReasons([...baseReasons, ...(lowRecovery ? (["recovery_low"] as const) : ([] as const))]),
+  } : {
     profile: "stabil",
     title: "Stabil · Plan-nah",
     subtitle: "Sauber trainieren, im Rhythmus bleiben",
@@ -99,13 +118,19 @@ export function buildAdaptiveSuggestions(answers: AdaptiveAnswers): AdaptiveSugg
     exercisesCount: timeLimited ? 4 : 5,
     setsPerExercise: lowRecovery ? 2 : 3,
     intensityHint: lowRecovery ? "Leicht bis moderat, Fokus Technik & Gefühl" : "Moderat, RPE 7–8",
-    reasons: dedupeReasons([
-      ...baseReasons,
-      ...(lowRecovery ? (["recovery_low"] as const) : ([] as const)),
-    ]),
+    reasons: dedupeReasons([...baseReasons, ...(lowRecovery ? (["recovery_low"] as const) : ([] as const))]),
   };
 
-  const kompakt: AdaptiveSuggestion = {
+  const kompakt: AdaptiveSuggestion = isCardio ? {
+    profile: "kompakt",
+    title: "Kompakt · Kurze Einheit",
+    subtitle: `Schnell rein, schnell raus – ${sport === "laufen" ? "kurze Runde" : "kurze Ausfahrt"}`,
+    estimatedMinutes: answers.timeToday === "lt20" ? 15 : 20,
+    exercisesCount: 1,
+    setsPerExercise: 1,
+    intensityHint: "Mittleres Tempo, zügig aber kontrolliert",
+    reasons: dedupeReasons(["time_low", ...baseReasons]),
+  } : {
     profile: "kompakt",
     title: "Kompakt · Kurz & Effizient",
     subtitle: "Alles Wichtige, wenig Zeit",
@@ -116,7 +141,16 @@ export function buildAdaptiveSuggestions(answers: AdaptiveAnswers): AdaptiveSugg
     reasons: dedupeReasons(["time_low", ...baseReasons]),
   };
 
-  const fokus: AdaptiveSuggestion = {
+  const fokus: AdaptiveSuggestion = isCardio ? {
+    profile: "fokus",
+    title: "Fokus · Intervall",
+    subtitle: `Kurze Hochintervalle, volle Konzentration`,
+    estimatedMinutes: 35,
+    exercisesCount: 1,
+    setsPerExercise: 1,
+    intensityHint: "Intervalle: 4×4 Min bei RPE 8–9, nur wenn du dich gut fühlst",
+    reasons: dedupeReasons(["form_high", "recovery_good"]),
+  } : {
     profile: "fokus",
     title: "Fokus · Intensiv",
     subtitle: "Wenige Übungen, klarer Leistungsreiz",

@@ -39,7 +39,7 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
 import { loadNotificationPrefs } from "../utils/notificationStorage";
 import { requestNotificationPermission } from "../native/notifications";
-import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
+import { purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
 import { track } from "../analytics/track";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
@@ -811,30 +811,27 @@ const MainAppShell: React.FC = () => {
     }, [activeLiveEventId]);
     const abortFromMiniBar = useCallback(() => { const active: any = getActiveLiveWorkout(); if (active && active.isActive) abortLiveWorkout(active); exitLiveTraining(); }, [exitLiveTraining]);
 
-    const handlePurchase = useCallback(async (plan: "monthly" | "yearly") => {
+    const handlePurchase = useCallback(async (plan: "monthly" | "yearly"): Promise<void> => {
         if (!user) return;
-        try {
-            const supported = await isBillingSupported();
-            if (!supported) { alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar."); return; }
-            await purchaseSubscription(plan);
-            const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
-            if (!nextIsPro) alert("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
-            else track("monetization_purchase_success", { plan });
-            setPaywallOpen(false);
-        } catch (e: any) { track("monetization_purchase_failed", { plan, error: String(e?.message ?? "unknown") }); alert(String(e?.message ?? "Kauf fehlgeschlagen.")); }
+        const result = await purchaseSubscription(plan);
+        if (!result.ok) {
+            if (result.cancelled) return; // user dismissed Apple Pay / payment sheet — silent
+            track("monetization_purchase_failed", { plan, error: result.error });
+            throw new Error(result.error || "Kauf fehlgeschlagen.");
+        }
+        const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
+        if (!nextIsPro) throw new Error("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
+        track("monetization_purchase_success", { plan });
+        // PaywallModal shows success state and closes itself — do NOT call setPaywallOpen here
     }, [user]);
 
-    const handleRestorePurchases = useCallback(async () => {
+    const handleRestorePurchases = useCallback(async (): Promise<void> => {
         if (!user) return;
-        try {
-            const supported = await isBillingSupported();
-            if (!supported) { alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar."); return; }
-            const nextIsPro = await restorePurchases();
-            await syncProToSession({ id: user.id, email: user.email });
-            if (!nextIsPro) alert("Kein aktives Abo gefunden.");
-            else track("monetization_restore_success", {});
-            setPaywallOpen(false);
-        } catch (e: any) { alert(String(e?.message ?? "Wiederherstellung fehlgeschlagen.")); }
+        const nextIsPro = await restorePurchases();
+        await syncProToSession({ id: user.id, email: user.email });
+        if (!nextIsPro) throw new Error("Kein aktives Abo gefunden.");
+        track("monetization_restore_success", {});
+        // PaywallModal shows success state and closes itself
     }, [user]);
 
     // ---------- Routing Views ----------
@@ -878,7 +875,7 @@ const MainAppShell: React.FC = () => {
                 if (next !== "profile") setProfileScreen("profile");
             }}
             onActiveTap={handleActiveTap}
-            showNavBar={true}
+            showNavBar={route !== "/workout-share"}
             floatingWidget={<LiveTrainingMiniBar visible={showMiniBar} onMaximize={maximizeLiveTraining} onAbort={abortFromMiniBar} />}
         >
             {/* ── Special full-screen overlays (workout share, public profile) ── */}
@@ -919,11 +916,11 @@ const MainAppShell: React.FC = () => {
                             overflowY: "auto",
                             overflowX: "hidden",
                             WebkitOverflowScrolling: "touch",
-                            // Fade in when becoming active; hide instantly when leaving
                             opacity: isVisible ? 1 : 0,
                             visibility: isVisible ? "visible" : "hidden",
                             pointerEvents: isVisible ? "auto" : "none",
-                            transition: isVisible ? "opacity 0.13s ease" : "none",
+                            transform: isVisible ? "scale(1) translateY(0px)" : "scale(0.98) translateY(6px)",
+                            transition: isVisible ? "opacity 0.22s ease, transform 0.22s ease" : "none",
                         }}
                         aria-hidden={!isVisible}
                     >
@@ -946,7 +943,14 @@ const MainAppShell: React.FC = () => {
                 );
             })}
 
-            <PaywallModal open={paywallOpen} reason={paywallReason} onClose={() => setPaywallOpen(false)} isPro={isPro} adaptiveBCRemaining={Math.max(0, adaptiveBCRemaining)} planShiftRemaining={Math.max(0, planShiftRemaining)} calendar7DaysRemaining={Math.max(0, calendar7DaysRemaining)} onBuyMonthly={() => handlePurchase("monthly")} onBuyYearly={() => handlePurchase("yearly")} onRestore={handleRestorePurchases} />
+            <PaywallModal
+              open={paywallOpen}
+              reason={paywallReason}
+              onClose={() => setPaywallOpen(false)}
+              onBuyMonthly={() => handlePurchase("monthly")}
+              onBuyYearly={() => handlePurchase("yearly")}
+              onRestore={handleRestorePurchases}
+            />
 
         </MainLayout>
     );

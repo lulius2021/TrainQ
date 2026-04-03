@@ -32,7 +32,8 @@ import {
     Activity,
     Bell,
     UserX,
-    RefreshCw
+    RefreshCw,
+    Users,
 } from "lucide-react";
 import NotificationSettings from "../components/settings/NotificationSettings";
 import { getMuscleDetailMode, setMuscleDetailMode, type MuscleDetailMode } from "../utils/muscleGrouping";
@@ -267,6 +268,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
     const [hapticEnabled, setHapticEnabled] = useState(true);
     const { theme, setTheme, mode } = useTheme();
     const [soundEnabled, setSoundEnabled] = useState(true);
+    const [autoShareWorkout, setAutoShareWorkout] = useState(true);
     const [muscleDetail, setMuscleDetail] = useState<MuscleDetailMode>(() => getMuscleDetailMode());
     const [warmupConfig, setWarmupConfigState] = useState<WarmupConfig>(() => loadWarmupConfig());
 
@@ -297,12 +299,16 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
         const storedSound = localStorage.getItem("trainq_pref_sound");
         if (storedSound !== null) setSoundEnabled(storedSound === "true");
 
+        const storedAutoShare = localStorage.getItem("trainq_pref_auto_share_workout");
+        if (storedAutoShare !== null) setAutoShareWorkout(storedAutoShare === "true");
+
     }, []);
 
     // Persist Preferences
     useEffect(() => { localStorage.setItem("trainq_pref_haptic", String(hapticEnabled)); }, [hapticEnabled]);
     // useEffect(() => { localStorage.setItem("trainq_pref_dark", String(darkModeForce)); }, [darkModeForce]); // Managed by ThemeContext
     useEffect(() => { localStorage.setItem("trainq_pref_sound", String(soundEnabled)); }, [soundEnabled]);
+    useEffect(() => { localStorage.setItem("trainq_pref_auto_share_workout", String(autoShareWorkout)); }, [autoShareWorkout]);
 
     const handleSaveProfile = () => {
         ProfileService.updateUserProfile({
@@ -766,6 +772,18 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                             <p className="text-xs text-[var(--text-secondary)] px-1">
                                 {t("settings.preferences.warmupSteps")}
                             </p>
+                        </div>
+                    </div>
+
+                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
+                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.community")}</h3>
+                        <div className="space-y-3">
+                            <ToggleSwitch
+                                label={t("settings.preferences.autoShareWorkout")}
+                                checked={autoShareWorkout}
+                                onChange={setAutoShareWorkout}
+                                icon={Users}
+                            />
                         </div>
                     </div>
                 </div>

@@ -27,9 +27,6 @@ import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/s
 import SettingPage from "./SettingPage";
 import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
-import HumanAvatarSvg from "../components/avatar/HumanAvatarSvg";
-import { useAvatarState } from "../store/useAvatarStore";
-import { levelFromPoints, overallLevel, detectPose } from "../utils/avatarProgression";
 import { useStatistics, type TimeRange } from "../hooks/useStatistics";
 import { StatsChart } from "../components/stats/StatsChart";
 import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
@@ -216,18 +213,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
   }, [onOpenPaywall]);
 
-  const avatarState = useAvatarState();
-  const avatarPose = detectPose(avatarState, new Date().toISOString().slice(0, 10));
-  const avatarOverallLevel = overallLevel(avatarState);
-  const avatarBodyLevels = {
-    chest:     levelFromPoints(avatarState.bodyParts.chest.points),
-    back:      levelFromPoints(avatarState.bodyParts.back.points),
-    shoulders: levelFromPoints(avatarState.bodyParts.shoulders.points),
-    arms:      levelFromPoints(avatarState.bodyParts.arms.points),
-    legs:      levelFromPoints(avatarState.bodyParts.legs.points),
-    core:      levelFromPoints(avatarState.bodyParts.core.points),
-    cardio:    levelFromPoints(avatarState.bodyParts.cardio.points),
-  };
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
@@ -651,9 +636,19 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-xl font-semibold truncate text-[var(--text-color)]">{profileName}</h2>
                     {isPro ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-blue-500/10 border border-blue-500/20 text-blue-500">Pro</span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold bg-[#007AFF]/15 border border-[#007AFF]/40 text-[#007AFF]"
+                        style={{ boxShadow: "0 0 10px rgba(0,122,255,0.25)" }}
+                      >
+                        ✦ Pro
+                      </span>
                     ) : (
-                      <button type="button" onClick={openPaywall} className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-green-500/10 border border-green-500/20 text-green-500 hover:opacity-90" title={t("profile.upgradeToPro")}>
+                      <button
+                        type="button"
+                        onClick={openPaywall}
+                        className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:opacity-80"
+                        title={t("profile.upgradeToPro")}
+                      >
                         Free
                       </button>
                     )}
@@ -754,6 +749,28 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
 
             {/* Statistics */}
               <div className="space-y-4">
+
+                {/* Streak Card */}
+                {streaks.current > 0 && (
+                  <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,149,0,0.15)" }}>
+                      <Flame size={24} className="text-orange-400" fill="currentColor" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Streak</div>
+                      <div className="text-[22px] font-black text-[var(--text-color)] leading-tight">
+                        {streaks.current} {streaks.current === 1 ? "Tag" : "Tage"}
+                      </div>
+                    </div>
+                    {streaks.longest > streaks.current && (
+                      <div className="text-right shrink-0">
+                        <div className="text-[11px] text-[var(--text-secondary)]">Rekord</div>
+                        <div className="text-[16px] font-bold text-[var(--text-secondary)]">{streaks.longest}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Heatmap Top */}
                 <SectionErrorBoundary name="Heatmap">
                 <ShareableStatCard titleForFile={`trainq-heatmap-${new Date().toISOString().split('T')[0]}`}>

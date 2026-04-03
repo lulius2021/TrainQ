@@ -19,21 +19,19 @@ public class BarcodePlugin: CAPPlugin {
                         if granted {
                             self.presentScanner(call)
                         } else {
-                            call.resolve(["barcode": NSNull()])
+                            call.reject("ERR_PERMISSION_DENIED", "Kamera-Zugriff wurde verweigert")
                         }
                     }
                 }
             default:
-                DispatchQueue.main.async {
-                    self.showPermissionAlert(call)
-                }
+                self.showPermissionAlert(call)
             }
         }
     }
 
     private func showPermissionAlert(_ call: CAPPluginCall) {
         guard let vc = self.bridge?.viewController else {
-            call.resolve(["barcode": NSNull()])
+            call.reject("ERR_PERMISSION_DENIED", "Kamera-Zugriff wurde verweigert")
             return
         }
         let alert = UIAlertController(
@@ -45,10 +43,10 @@ public class BarcodePlugin: CAPPlugin {
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
             }
-            call.resolve(["barcode": NSNull()])
+            call.reject("ERR_PERMISSION_DENIED", "Kamera-Zugriff wurde verweigert")
         })
         alert.addAction(UIAlertAction(title: "Abbrechen", style: .cancel) { _ in
-            call.resolve(["barcode": NSNull()])
+            call.reject("ERR_PERMISSION_DENIED", "Kamera-Zugriff wurde verweigert")
         })
         vc.present(alert, animated: true)
     }

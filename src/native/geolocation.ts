@@ -58,8 +58,16 @@ export async function watchPosition(
   const id = await Geolocation.watchPosition(
     {
       enableHighAccuracy: true,
-      // On native, background tracking works automatically
-      ...(isNative ? {} : { timeout: 10000, maximumAge: 0 }),
+      // backgroundMessage enables allowsBackgroundLocationUpdates on iOS — REQUIRED for
+      // GPS to keep running when the screen is locked or app is backgrounded.
+      // Without this the CLLocationManager suspends updates even if UIBackgroundModes
+      // contains "location" in Info.plist.
+      ...(isNative
+        ? {
+            backgroundMessage: "TrainQ zeichnet deine Route auf",
+            backgroundTitle: "GPS-Tracking aktiv",
+          }
+        : { timeout: 10000, maximumAge: 0 }),
     },
     (position, err) => {
       if (err) {

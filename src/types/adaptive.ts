@@ -24,6 +24,7 @@ export type AdaptiveReason =
 
 // Antworten aus dem Modal
 export interface AdaptiveAnswers {
+  sport: "gym" | "laufen" | "radfahren";
   timeToday: TimeTodayBucket;
   dayForm: DayFormBucket;
   stress: StressBucket;

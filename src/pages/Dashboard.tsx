@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   Calendar,
@@ -20,7 +20,6 @@ import {
   Flame,
   // Users — removed (community widget handles it)
 } from 'lucide-react';
-import { computeStreaks } from '../utils/stats';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { parseISODateLocal } from '../utils/calendarGeneration';
@@ -51,11 +50,13 @@ import WellbeingCheckIn from '../components/wellness/WellbeingCheckIn';
 import { useDeloadScore } from '../hooks/useDeloadScore';
 import { writeGlobalLiveSeed, type LiveTrainingSeed } from '../utils/liveTrainingSeed';
 import { applyAdaptiveToSeed } from '../utils/adaptiveSeed';
+import { buildUserAdaptiveContext } from '../utils/adaptivePersonalization';
+import { getAdaptiveTemplate } from '../data/adaptiveTemplates';
+import { readOnboardingDataFromStorage } from '../context/OnboardingContext';
 import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHistory';
 import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
-import AvatarDashboardSection from '../components/avatar/AvatarDashboardSection';
 import DashboardCommunityWidget from '../components/community/DashboardCommunityWidget';
 import { useI18n } from '../i18n/useI18n';
 
@@ -179,7 +180,6 @@ const DashboardPage = () => {
   const [weeklyDistanceKm, setWeeklyDistanceKm] = useState(0);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
   const [lastActivity, setLastActivity] = useState<WorkoutHistoryEntry | null>(null);
-  const [streaks, setStreaks] = useState({ current: 0, longest: 0 });
 
   // Live Training Check
   const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
@@ -363,7 +363,6 @@ const DashboardPage = () => {
 
         // Last activity
         setLastActivity(history[0]);
-        setStreaks(computeStreaks(history));
 
         // Weekly stats from history
         const now = new Date();
@@ -409,6 +408,15 @@ const DashboardPage = () => {
   // Adaptive Training State
   const [showAdaptiveModal, setShowAdaptiveModal] = useState(false);
 
+  const adaptivePreviewExercises = useMemo(() => {
+    // Fallback preview for gym (used when user has no workout history yet)
+    const onboarding = readOnboardingDataFromStorage();
+    const persona = onboarding.personal.persona || "beginner";
+    const template = getAdaptiveTemplate("Push", persona);
+    return template.map(t => ({ name: t.name }));
+    // The modal will override this with personal history when available
+  }, []);
+
   const handleOpenAdaptive = () => {
     if (!canUseSuggestion()) {
       window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "suggestion_weekly_limit" } }));
@@ -425,8 +433,12 @@ const DashboardPage = () => {
     const userId = getActiveUserId() || "user";
     const eventId = crypto.randomUUID();
     const now = new Date();
-    const baseSeed: LiveTrainingSeed = { title: "Training", sport: "Gym", isCardio: false, exercises: [] };
-    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
+    const sport = answers.sport ?? "gym";
+    const seedSport = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : "Gym";
+    const isCardio = seedSport !== "Gym";
+    const baseSeed: LiveTrainingSeed = { title: "Training", sport: seedSport, isCardio, exercises: [] };
+    const context = buildUserAdaptiveContext(sport, answers);
+    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers, context);
 
     const calendarEvent = {
       id: eventId,
@@ -469,8 +481,12 @@ const DashboardPage = () => {
   /** Save to calendar AND start live training */
   const handleAdaptiveSelect = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
     const eventId = saveAdaptiveToCalendar(suggestion, answers);
-    const baseSeed: LiveTrainingSeed = { title: "Training", sport: "Gym", isCardio: false, exercises: [] };
-    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers);
+    const sport = answers.sport ?? "gym";
+    const seedSport = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : "Gym";
+    const isCardio = seedSport !== "Gym";
+    const baseSeed: LiveTrainingSeed = { title: "Training", sport: seedSport, isCardio, exercises: [] };
+    const context = buildUserAdaptiveContext(sport, answers);
+    const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers, context);
     writeGlobalLiveSeed({ ...adaptedSeed, calendarEventId: eventId });
     consumeSuggestion();
     track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile, action: "calendar_save_and_start" });
@@ -548,63 +564,43 @@ const DashboardPage = () => {
           </div>
         </button>
 
-        {/* STREAK CARD */}
-        {streaks.current > 0 && (
-          <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,149,0,0.15)" }}>
-              <Flame size={24} className="text-orange-400" fill="currentColor" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Streak</div>
-              <div className="text-[22px] font-black text-[var(--text-color)] leading-tight">
-                {streaks.current} {streaks.current === 1 ? "Tag" : "Tage"}
-              </div>
-            </div>
-            {streaks.longest > streaks.current && (
-              <div className="text-right shrink-0">
-                <div className="text-[11px] text-[var(--text-secondary)]">Rekord</div>
-                <div className="text-[16px] font-bold text-[var(--text-secondary)]">{streaks.longest}</div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* QUICK START — alle Sportarten gleichwertig */}
         <div>
           <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.startTraining")}</h3>
           <div className="grid grid-cols-3 gap-2.5">
-            <button
-              onClick={() => startFreeTraining("gym")}
-              disabled={isWorkoutActive}
-              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                <Dumbbell size={22} />
-              </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.gym")}</span>
-            </button>
+              <button
+                onClick={() => startFreeTraining("gym")}
+                disabled={isWorkoutActive}
+                className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <Dumbbell size={22} />
+                </div>
+                <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.gym")}</span>
+              </button>
 
-            <button
-              onClick={() => startFreeTraining("laufen")}
-              disabled={isWorkoutActive}
-              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500">
-                <Footprints size={22} />
-              </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.running")}</span>
-            </button>
+              <button
+                onClick={() => startFreeTraining("laufen")}
+                disabled={isWorkoutActive}
+                className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500">
+                  <Footprints size={22} />
+                </div>
+                <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.running")}</span>
+              </button>
 
-            <button
-              onClick={() => startFreeTraining("radfahren")}
-              disabled={isWorkoutActive}
-              className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-                <Bike size={22} />
-              </div>
-              <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.cycling")}</span>
-            </button>
+              <button
+                onClick={() => startFreeTraining("radfahren")}
+                disabled={isWorkoutActive}
+                className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                  <Bike size={22} />
+                </div>
+                <span className="text-[12px] font-bold text-[var(--text-color)]">{t("dashboard.quickStart.cycling")}</span>
+              </button>
           </div>
         </div>
 
@@ -612,19 +608,19 @@ const DashboardPage = () => {
         <div>
           <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.quickAccess")}</h3>
           <div className="grid grid-cols-2 gap-2.5">
-            <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                <Plus size={22} strokeWidth={3} />
-              </div>
-              <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
-            </button>
+              <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <Plus size={22} strokeWidth={3} />
+                </div>
+                <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
+              </button>
 
-            <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
-              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
-                <RefreshCw size={20} />
-              </div>
-              <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
-            </button>
+              <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic">
+                <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+                  <RefreshCw size={20} />
+                </div>
+                <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
+              </button>
           </div>
         </div>
 
@@ -636,8 +632,6 @@ const DashboardPage = () => {
         {/* COMMUNITY */}
         <DashboardCommunityWidget />
 
-        {/* ROBOT AVATAR PROGRESSION */}
-        <AvatarDashboardSection />
 
       </div>
 
@@ -664,6 +658,7 @@ const DashboardPage = () => {
         onSaveToCalendar={handleAdaptiveSaveToCalendar}
         isPro={isPro}
         adaptiveLeftBC={adaptiveBCRemaining}
+        previewExercises={adaptivePreviewExercises}
       />
 
       <WorkoutPlannerModal

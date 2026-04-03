@@ -459,11 +459,11 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
   ];
   const currentTemplate = TEMPLATES[templateIndex];
 
-  const [swipeDir, setSwipeDir] = useState<1 | -1>(1);
+  const swipeDir = useRef<1 | -1>(1);
   const swipeTouchStartX = useRef<number | null>(null);
 
-  const nextT = () => { setSwipeDir(1); setTemplateIndex((p) => (p + 1) % TEMPLATES.length); };
-  const prevT = () => { setSwipeDir(-1); setTemplateIndex((p) => (p - 1 + TEMPLATES.length) % TEMPLATES.length); };
+  const nextT = () => { swipeDir.current = 1; setTemplateIndex((p) => (p + 1) % TEMPLATES.length); };
+  const prevT = () => { swipeDir.current = -1; setTemplateIndex((p) => (p - 1 + TEMPLATES.length) % TEMPLATES.length); };
 
   const handleSwipeTouchStart = (e: React.TouchEvent) => {
     swipeTouchStartX.current = e.touches[0].clientX;
@@ -546,13 +546,13 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         onTouchStart={handleSwipeTouchStart}
         onTouchEnd={handleSwipeTouchEnd}
       >
-        <AnimatePresence mode="wait" initial={false} custom={swipeDir}>
+        <AnimatePresence mode="wait" initial={false} custom={swipeDir.current}>
           <motion.div
             key={templateIndex}
-            custom={swipeDir}
-            initial={{ x: swipeDir * 300, opacity: 0 }}
+            custom={swipeDir.current}
+            initial={{ x: swipeDir.current * 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: swipeDir * -300, opacity: 0 }}
+            exit={{ x: swipeDir.current * -300, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
             className="transform scale-[0.60] xs:scale-[0.68] sm:scale-[0.76] shadow-2xl shadow-blue-900/10 rounded-[32px] overflow-hidden"
             style={{ border: "1px solid var(--border-color)" }}

@@ -152,7 +152,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: newId,
         provider: "local",
         displayName: "Gast",
-        isPro: true, // Default to PRO for local/offline users as requested ("Apple-only, local-first" implies premium experience)
+        isPro: false,
         createdAt: new Date().toISOString(),
         onboardingCompleted: false
       };
@@ -160,7 +160,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(newUser));
       setUser(newUser);
-      setActiveSession({ userId: newUser.id, isPro: true, email: undefined });
+      setActiveSession({ userId: newUser.id, isPro: false, email: undefined });
     } catch (e) {
       if (import.meta.env.DEV) console.error("[Auth] Failed to ensure local user:", e);
     }
@@ -213,13 +213,30 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (session) {
           await syncSessionToUser(session);
         } else {
-          // No valid session — show login screen
-          try { localStorage.removeItem(CACHED_AUTH_KEY); } catch { /* ignore */ }
-          setUser(null);
+          // No valid session in storage.
+          // Check if we have a cached Supabase user — if so, the Keychain might be
+          // temporarily locked (e.g., device just rebooted and not yet unlocked).
+          // Don't log out in that case; let autoRefreshToken recover on next API call.
+          const hasCachedUser = (() => {
+            try {
+              const raw = localStorage.getItem(CACHED_AUTH_KEY);
+              if (!raw) return false;
+              const parsed = JSON.parse(raw) as AuthUser;
+              return !!(parsed?.id && parsed?.provider !== "local");
+            } catch { return false; }
+          })();
+
+          if (!hasCachedUser) {
+            // Truly no session and no cached user — show login screen.
+            setUser(null);
+          }
+          // If hasCachedUser: keep optimistic state; next Supabase call will either
+          // succeed (token refreshed) or trigger SIGNED_OUT via onAuthStateChange.
         }
       } catch (err) {
+        // Don't log out on transient errors (SecureStorage locked, network hiccup).
+        // The optimistic cache already shows the correct UI state.
         if (import.meta.env.DEV) console.error("[Auth] Session restore failed:", err);
-        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) {
           clearTimeout(safetyTimer);
@@ -230,11 +247,19 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     init();
 
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       if (session) {
         syncSessionToUser(session);
+      } else if (event === "SIGNED_OUT") {
+        // Explicit sign-out (either via logout() or expired refresh token).
+        // Clear cached state so the login screen is shown.
+        try { localStorage.removeItem(CACHED_AUTH_KEY); } catch { /* ignore */ }
+        setUser(null);
       }
+      // TOKEN_REFRESH_FAILURE and other null-session events are intentionally ignored:
+      // autoRefreshToken will retry; forcing logout here would cause spurious logouts
+      // on transient network errors.
     });
 
     return () => {
