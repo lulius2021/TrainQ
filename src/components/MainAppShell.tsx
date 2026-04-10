@@ -37,7 +37,6 @@ import { useEntitlements } from "../hooks/useEntitlements";
 // Utils
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
 import { loadNotificationPrefs } from "../utils/notificationStorage";
-import { requestNotificationPermission } from "../native/notifications";
 import { track } from "../analytics/track";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
@@ -431,12 +430,10 @@ const MainAppShell: React.FC = () => {
 
     useEffect(() => { writeEventsToStorage(events, userId); }, [events, userId]);
 
-    // Request notification permission once on app start
-    useEffect(() => {
-        requestNotificationPermission().catch(() => {
-            // Permission denied or unavailable — non-blocking
-        });
-    }, []);
+    // NOTE: Notification permission is requested explicitly in PermissionsStep during onboarding.
+    // Auto-requesting on mount caused a SIGABRT crash on iOS 26 (Capacitor local-notifications
+    // Dictionary._Variant.lookup bug in willPresent when called during permission grant callback).
+    // DO NOT auto-request here.
 
     // Schedule local notifications when events change
     useEffect(() => {
