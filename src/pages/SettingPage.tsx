@@ -510,7 +510,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                         className="w-full h-14 bg-[var(--card-bg)] active:bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] flex items-center justify-center gap-2 text-[var(--text-color)] font-semibold text-[16px]"
                     >
                         <RefreshCw size={18} style={{ color: "var(--accent-color)" }} />
-                        Onboarding wiederholen
+                        {t("settings.data.resetOnboarding")}
                     </button>
                     <button
                         type="button"
@@ -548,16 +548,16 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
             {showLogoutConfirm && (
                 <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
                     <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
-                        <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>Abmelden?</h3>
+                        <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>{t("settings.logout.confirmTitle")}</h3>
                         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-                            Du wirst aus deinem Konto abgemeldet.
+                            {t("settings.logout.confirmMessage")}
                         </p>
                         <div className="flex flex-col gap-3 w-full">
                             <button onClick={confirmLogout} className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-bold text-[16px] active:scale-95 transition-transform">
-                                Ja, abmelden
+                                {t("settings.logout.confirmButton")}
                             </button>
                             <button onClick={() => setShowLogoutConfirm(false)} className="w-full py-3.5 rounded-2xl font-semibold text-[16px] active:scale-95 transition-transform" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}>
-                                Abbrechen
+                                {t("common.cancel")}
                             </button>
                         </div>
                     </div>
@@ -580,7 +580,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
 
                             {/* Overlay Hint */}
                             <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                <span className="text-xs font-bold text-white">Edit</span>
+                                <span className="text-xs font-bold text-white">{t("common.edit")}</span>
                             </div>
                         </div>
                         <button
