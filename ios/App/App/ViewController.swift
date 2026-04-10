@@ -10,31 +10,23 @@ class ViewController: CAPBridgeViewController {
         if #available(iOS 16.4, *) {
             wv.isInspectable = true
         }
+        // Set background color to avoid black flash during WebView reload
+        wv.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.965, alpha: 1.0) // #F2F2F7
+        wv.scrollView.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.965, alpha: 1.0)
+        wv.isOpaque = false
         return wv
     }
 
     override func capacitorDidLoad() {
-        print("CAP_DIAG: capacitorDidLoad fired, webView=\(String(describing: self.webView))")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            print("CAP_DIAG: injecting JS...")
-            self.webView?.evaluateJavaScript("""
-                JSON.stringify({
-                    rootChildren: (document.getElementById('root') || {childElementCount: -1}).childElementCount,
-                    bodyBg: getComputedStyle(document.body).backgroundColor,
-                    title: document.title,
-                    url: location.href
-                });
-            """) { result, error in
-                if let error = error {
-                    print("CAP_DIAG JS error: \(error)")
-                } else {
-                    print("CAP_DIAG result: \(String(describing: result))")
-                }
-            }
-        }
+        // Set WebView background color after load to prevent black screen on WKWebView resume
+        self.webView?.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.965, alpha: 1.0)
+        self.webView?.scrollView.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.965, alpha: 1.0)
+        self.webView?.isOpaque = false
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Set view background to avoid black flash
+        self.view.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.965, alpha: 1.0)
     }
 }
