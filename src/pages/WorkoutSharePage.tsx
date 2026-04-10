@@ -335,6 +335,8 @@ const TemplateRoute = ({ workout, isExportMode }: { workout: any, isExportMode?:
           points={points}
           isTracking={false}
           className="w-full h-full"
+          mapStyle="street"
+          onLayersPress={() => {}}
         />
       </div>
       {workout.distanceKm != null && (

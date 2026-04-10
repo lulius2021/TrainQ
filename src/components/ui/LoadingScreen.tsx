@@ -12,15 +12,15 @@ export const LoadingScreen: React.FC = () => {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "var(--bg-color)",
+                backgroundColor: "var(--bg-color, #F2F2F7)",
                 gap: 0,
             }}
         >
             <style>{`
                 @keyframes tq-logo-in {
-                    0%   { opacity: 0; transform: scale(0.78); }
-                    60%  { opacity: 1; transform: scale(1.04); }
-                    100% { opacity: 1; transform: scale(1.0); }
+                    0%   { transform: scale(0.78); }
+                    60%  { transform: scale(1.04); }
+                    100% { transform: scale(1.0); }
                 }
                 @keyframes tq-glow-pulse {
                     0%, 100% { opacity: 0.18; transform: scale(1); }
@@ -59,7 +59,6 @@ export const LoadingScreen: React.FC = () => {
                     height: 80,
                     borderRadius: 20,
                     animation: "tq-logo-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
-                    opacity: 0,
                     position: "relative",
                 }}
             />
@@ -71,10 +70,7 @@ export const LoadingScreen: React.FC = () => {
                     fontSize: 22,
                     fontWeight: 700,
                     letterSpacing: "-0.5px",
-                    color: "var(--text-color)",
-                    animation: "tq-wordmark-in 0.4s ease forwards",
-                    animationDelay: "0.35s",
-                    opacity: 0,
+                    color: "var(--text-color, #1C1C1E)",
                     position: "relative",
                 }}
             >

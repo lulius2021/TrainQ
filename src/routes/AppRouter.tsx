@@ -25,6 +25,22 @@ export const AppRouter: React.FC = () => {
         }
     }, [user?.onboardingCompleted, loading, !!user]);
 
+    // Block iOS WKWebView back gesture during auth and onboarding.
+    // MainAppShell manages its own popstate for tab navigation — only intercept
+    // when MainAppShell is NOT active (i.e., user is unauthenticated or in onboarding).
+    useEffect(() => {
+        const isMainAppActive = !!user && user.onboardingCompleted !== false;
+        if (isMainAppActive) return;
+
+        const handler = () => {
+            window.history.pushState(null, "", window.location.href);
+        };
+        // Seed a history entry so there is always something to push back against
+        window.history.pushState(null, "", window.location.href);
+        window.addEventListener("popstate", handler);
+        return () => window.removeEventListener("popstate", handler);
+    }, [loading, user?.onboardingCompleted, !!user]);
+
     // 0. Loading State
     if (loading) {
         return <LoadingScreen />;

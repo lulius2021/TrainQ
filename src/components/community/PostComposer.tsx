@@ -1,10 +1,20 @@
-import React, { useState } from "react";
-import { X, ChevronDown } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { createPost } from "../../services/community/api";
-import type { PostType, Visibility } from "../../services/community/types";
+import type { PostType, Visibility, WorkoutData } from "../../services/community/types";
 import { DEFAULT_VISIBILITY, POST_TYPE_KEYS, VISIBILITY_KEYS } from "../../services/community/types";
 import { useI18n } from "../../i18n/useI18n";
+import { loadWorkoutHistory } from "../../utils/workoutHistory";
+import { computeWorkoutShareStats } from "../../utils/workoutShare";
+import WorkoutCard from "./WorkoutCard";
+
+interface RecentWorkout {
+  refId: string;
+  title: string;
+  dateLabel: string;
+  data: WorkoutData;
+}
 
 interface Props {
   userId: string;
@@ -21,11 +31,47 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Workout share state
+  const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
+  const [selectedWorkout, setSelectedWorkout] = useState<RecentWorkout | null>(null);
+  const [showWorkoutPicker, setShowWorkoutPicker] = useState(false);
+
   const isValid = text.trim().length > 0 && text.length <= 1000;
+
+  // Load last 5 workouts when workout_share is selected
+  useEffect(() => {
+    if (postType !== "workout_share") return;
+    const history = loadWorkoutHistory().slice(0, 5);
+    const workouts: RecentWorkout[] = history.map((entry) => {
+      const stats = computeWorkoutShareStats(entry);
+      return {
+        refId: entry.id,
+        title: stats.title,
+        dateLabel: stats.dateLabel,
+        data: {
+          title: stats.title,
+          sport: stats.sport,
+          durationMin: stats.durationMin,
+          durationLabel: stats.durationLabel,
+          totalVolumeKg: stats.totalVolumeKg,
+          totalSets: stats.totalSets,
+          totalExercises: stats.totalExercises,
+          topExercises: stats.topExercises,
+          muscleGroups: stats.muscleGroups,
+        },
+      };
+    });
+    setRecentWorkouts(workouts);
+    setSelectedWorkout(workouts[0] ?? null);
+  }, [postType]);
 
   const handleTypeChange = (type: PostType) => {
     setPostType(type);
     setVisibility(DEFAULT_VISIBILITY[type]);
+    if (type !== "workout_share") {
+      setSelectedWorkout(null);
+      setShowWorkoutPicker(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -33,7 +79,13 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await createPost(userId, { type: postType, text: text.trim(), visibility });
+      await createPost(userId, {
+        type: postType,
+        text: text.trim(),
+        visibility,
+        workoutRefId: selectedWorkout?.refId,
+        workoutData: selectedWorkout?.data,
+      });
       onCreated();
       onClose();
     } catch (e) {
@@ -115,6 +167,58 @@ export default function PostComposer({ userId, onClose, onCreated }: Props) {
           {text.length}/1000
         </div>
       </div>
+
+      {/* Workout picker (workout_share only) */}
+      {postType === "workout_share" && (
+        <div className="px-4 pb-3">
+          {recentWorkouts.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              {t("community.composer.noWorkouts")}
+            </p>
+          ) : (
+            <>
+              {/* Selector button */}
+              <button
+                onClick={() => setShowWorkoutPicker(!showWorkoutPicker)}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-medium"
+                style={{ background: "var(--border-color)", color: "var(--text-color)" }}
+              >
+                <Dumbbell size={14} style={{ color: "var(--accent-color)" }} />
+                <span className="flex-1 text-left truncate">
+                  {selectedWorkout ? `${selectedWorkout.title} · ${selectedWorkout.dateLabel}` : t("community.composer.selectWorkout")}
+                </span>
+                <ChevronRight size={14} className={`transition-transform ${showWorkoutPicker ? "rotate-90" : ""}`} style={{ color: "var(--text-secondary)" }} />
+              </button>
+
+              {/* Dropdown list */}
+              {showWorkoutPicker && (
+                <div className="mt-1 rounded-xl border overflow-hidden" style={{ borderColor: "var(--border-color)", background: "var(--card-bg)" }}>
+                  {recentWorkouts.map((w) => (
+                    <button
+                      key={w.refId}
+                      onClick={() => { setSelectedWorkout(w); setShowWorkoutPicker(false); }}
+                      className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left border-b last:border-b-0"
+                      style={{
+                        borderColor: "var(--border-color)",
+                        color: selectedWorkout?.refId === w.refId ? "var(--accent-color)" : "var(--text-color)",
+                        background: selectedWorkout?.refId === w.refId ? "var(--bg-color)" : "transparent",
+                      }}
+                    >
+                      <span className="flex-1 truncate font-medium">{w.title}</span>
+                      <span className="text-xs shrink-0" style={{ color: "var(--text-secondary)" }}>{w.dateLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected workout preview */}
+              {selectedWorkout && !showWorkoutPicker && (
+                <WorkoutCard data={selectedWorkout.data} />
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mx-4 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm">

@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from "react";
+import { TriangleAlert, Info, Lightbulb } from "lucide-react";
 
 export interface AdaptiveInfoBadgeProps {
     /** Main reason for the adjustment */
@@ -51,15 +52,15 @@ export function AdaptiveInfoBadge({
         return "bg-white/10 border-white/20 text-white";
     };
 
-    const getIcon = () => {
-        if (isDeload) return "⚠️";
+    const getIcon = (): React.ReactNode => {
+        if (isDeload) return <TriangleAlert size={12} />;
         if (recoveryScore !== undefined) {
-            if (recoveryScore < 40) return "🔴";
-            if (recoveryScore < 60) return "🟡";
-            if (recoveryScore < 80) return "🔵";
-            return "🟢";
+            if (recoveryScore < 40) return <div className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />;
+            if (recoveryScore < 60) return <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />;
+            if (recoveryScore < 80) return <div className="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0" />;
+            return <div className="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0" />;
         }
-        return "ℹ️";
+        return <Info size={12} />;
     };
 
     return (
@@ -70,7 +71,7 @@ export function AdaptiveInfoBadge({
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl border text-xs font-medium transition-all ${getBadgeColor()} hover:opacity-80`}
                 title="Click for details"
             >
-                <span>{getIcon()}</span>
+                <span className="flex items-center">{getIcon()}</span>
                 <span>{reason}</span>
                 {recoveryScore !== undefined && (
                     <span className="opacity-70">({recoveryScore}%)</span>
@@ -102,7 +103,7 @@ export function AdaptiveInfoBadge({
 export function AdaptiveSetLabel({ label }: { label: string }) {
     return (
         <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-gray-400">
-            <span className="opacity-60">💡</span>
+            <Lightbulb size={10} className="opacity-60 shrink-0" />
             <span>{label}</span>
         </div>
     );

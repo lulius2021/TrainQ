@@ -134,10 +134,10 @@ export function BottomSheet({
               {/* Handle / header drag zone */}
               <div
                 className="relative shrink-0"
-                onPointerDown={(e: React.PointerEvent) => dragControls.start(e)}
-                onTouchStart={(e: React.TouchEvent) => {
-                  const pe = e as unknown as React.PointerEvent;
-                  dragControls.start(pe);
+                onPointerDown={(e: React.PointerEvent) => {
+                  // Don't start drag when tapping interactive elements (buttons, links, etc.)
+                  if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
+                  dragControls.start(e);
                 }}
                 style={{ cursor: "grab", touchAction: "none", minHeight: 64 }}
               >

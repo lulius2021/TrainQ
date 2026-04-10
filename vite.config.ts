@@ -17,9 +17,22 @@ const capacitorSharedWorkerFix = {
   }
 };
 
+// Plugin: Strip `crossorigin` attribute from all script/link tags in the built HTML.
+// WKWebView's custom URL scheme handler (capacitor://) does not send CORS response headers,
+// so `crossorigin` on ES module scripts causes a silent load failure → black screen on iOS.
+const stripCrossOrigin = {
+  name: 'strip-crossorigin',
+  transformIndexHtml: {
+    order: 'post' as const,
+    handler(html: string) {
+      return html.replace(/ crossorigin(?:="[^"]*")?/g, '');
+    }
+  }
+};
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), capacitorSharedWorkerFix],
+  plugins: [react(), capacitorSharedWorkerFix, stripCrossOrigin],
   server: {
     hmr: {
       protocol: 'ws',

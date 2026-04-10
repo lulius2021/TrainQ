@@ -44,7 +44,6 @@ import { computeStreaks } from "../utils/stats";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
-  onOpenPaywall?: () => void;
   onOpenWorkoutShare?: (workoutId: string, returnTo?: "dashboard" | "profile") => void;
 }
 
@@ -202,16 +201,15 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 }
 
-const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
+const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenWorkoutShare }) => {
   const { t } = useI18n();
   const { user, logout } = useAuth();
   const { isPro, canViewStatsRange } = useEntitlements(user?.id);
   const { unclaimedRewards, unclaimedCount, activeGrants, hasActiveGrant, claimReward: claimChallengeReward, isLoading: rewardsLoading } = useChallengeRewards();
 
   const openPaywall = useCallback(() => {
-    if (onOpenPaywall) return onOpenPaywall();
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
-  }, [onOpenPaywall]);
+  }, []);
 
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
@@ -1129,7 +1127,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenP
         <SettingPage
           onBack={() => setSettingsOpen(false)}
           onClearCalendar={onClearCalendar || (() => { })}
-          onOpenPaywall={openPaywall}
           onOpenGoals={() => { }}
           isSheet
         />

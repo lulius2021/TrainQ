@@ -172,9 +172,9 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
               title: t("adaptive.sport.question"),
               sub: t("adaptive.sport.sub"),
               options: [
-                ["gym",       `🏋️ ${t("adaptive.sport.gym")}`],
-                ["laufen",    `🏃 ${t("adaptive.sport.laufen")}`],
-                ["radfahren", `🚴 ${t("adaptive.sport.radfahren")}`],
+                ["gym",       t("adaptive.sport.gym")],
+                ["laufen",    t("adaptive.sport.laufen")],
+                ["radfahren", t("adaptive.sport.radfahren")],
               ],
             },
             {

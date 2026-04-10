@@ -146,16 +146,30 @@ export function useGarminConnection() {
     if (Capacitor.isNativePlatform()) {
       import("@capacitor/app").then(({ App }) => {
         App.addListener("appUrlOpen", async (event: { url: string }) => {
-          if (event.url.includes("garmin")) {
-            // Close the in-app browser after OAuth redirect
-            try {
-              const { Browser } = await import("@capacitor/browser");
-              await Browser.close();
-            } catch {
-              // ignore if already closed
-            }
-            window.dispatchEvent(new CustomEvent("trainq:garmin_connected"));
+          if (!event.url.includes("garmin")) return;
+
+          // Always close the in-app browser first
+          try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.close();
+          } catch {
+            // ignore if already closed
           }
+
+          // Parse OAuth callback status
+          try {
+            const parsed = new URL(event.url);
+            const status = parsed.searchParams.get("status");
+            if (status === "error") {
+              const raw = parsed.searchParams.get("message") ?? "Garmin-Verbindung fehlgeschlagen";
+              setError(decodeURIComponent(raw));
+              return;
+            }
+          } catch {
+            // URL parsing failed — treat as success and let checkStatus decide
+          }
+
+          window.dispatchEvent(new CustomEvent("trainq:garmin_connected"));
         }).then((handle) => {
           removeAppListener = () => handle.remove();
         });

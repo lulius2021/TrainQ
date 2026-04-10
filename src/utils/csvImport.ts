@@ -4,6 +4,9 @@
 import type { CsvParsedRow, CsvImportPreview, CsvImportResult } from "../types/csvImport";
 import type { WorkoutHistoryEntry, WorkoutHistoryExercise, WorkoutHistorySet } from "./workoutHistory";
 import { addWorkoutEntry, loadWorkoutHistory, computeTotalVolume } from "./workoutHistory";
+import { getActiveUserId } from "./session";
+import { loadTrainingTemplates, upsertTrainingTemplate } from "../services/trainingTemplatesService";
+import type { TrainingTemplate, TrainingTemplateExercise } from "../types/trainingTemplates";
 import {
   findExerciseByToken,
   normalizeExerciseToken,
@@ -404,6 +407,7 @@ export function executeImport(preview: CsvImportPreview): CsvImportResult {
   const errors: string[] = [];
   let importedCount = 0;
   let skippedCount = 0;
+  let templatesCreated = 0;
 
   const existingHistory = loadWorkoutHistory();
   const grouped = groupRowsIntoEntries(preview.rows, preview.matchedExercises);
@@ -471,5 +475,55 @@ export function executeImport(preview: CsvImportPreview): CsvImportResult {
     }
   }
 
-  return { importedCount, skippedCount, errors };
+  // Create training templates for each unique workout title
+  const userId = getActiveUserId();
+  if (userId) {
+    const existingTemplates = loadTrainingTemplates(userId);
+    const existingNames = new Set(existingTemplates.map((t) => t.name.toLowerCase().trim()));
+
+    // Collect the most recent grouped workout per unique title
+    const latestByTitle = new Map<string, typeof grouped[number]>();
+    for (const workout of grouped) {
+      const existing = latestByTitle.get(workout.title);
+      if (!existing || workout.startedAt > existing.startedAt) {
+        latestByTitle.set(workout.title, workout);
+      }
+    }
+
+    for (const [title, workout] of latestByTitle) {
+      if (existingNames.has(title.toLowerCase().trim())) continue;
+
+      const templateExercises: TrainingTemplateExercise[] = workout.exercises.map((ex) => ({
+        name: ex.name,
+        exerciseId: ex.exerciseId,
+        sets: ex.sets.map((s) => ({
+          reps: s.reps,
+          weight: s.weight,
+          setType: s.setType,
+          rpe: s.rpe,
+        })),
+      }));
+
+      const template: TrainingTemplate = {
+        id: "",
+        userId,
+        name: title,
+        sportType: "Gym",
+        exercises: templateExercises,
+        createdAt: "",
+        updatedAt: "",
+      };
+
+      try {
+        upsertTrainingTemplate(userId, template);
+        templatesCreated++;
+        existingNames.add(title.toLowerCase().trim());
+      } catch (err) {
+        // Template creation is non-blocking; don't fail the whole import
+        errors.push(`Vorlage für "${title}" konnte nicht erstellt werden: ${String(err)}`);
+      }
+    }
+  }
+
+  return { importedCount, skippedCount, templatesCreated, errors };
 }

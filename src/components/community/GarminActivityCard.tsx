@@ -1,19 +1,20 @@
 import React from "react";
 import { Clock, Flame, Heart, MapPin } from "lucide-react";
 import type { GarminActivityData } from "../../services/community/types";
+import { useI18n } from "../../i18n/useI18n";
 
-const ACTIVITY_LABELS: Record<string, { label: string; emoji: string }> = {
-  running: { label: "Laufen", emoji: "🏃" },
-  cycling: { label: "Radfahren", emoji: "🚴" },
-  swimming: { label: "Schwimmen", emoji: "🏊" },
-  hiking: { label: "Wandern", emoji: "🥾" },
-  walking: { label: "Gehen", emoji: "🚶" },
-  strength_training: { label: "Krafttraining", emoji: "🏋️" },
-  yoga: { label: "Yoga", emoji: "🧘" },
-  elliptical: { label: "Crosstrainer", emoji: "🏃" },
-  indoor_cycling: { label: "Indoor Cycling", emoji: "🚴" },
-  treadmill_running: { label: "Laufband", emoji: "🏃" },
-  other: { label: "Aktivität", emoji: "⚡" },
+const ACTIVITY_EMOJIS: Record<string, string> = {
+  running: "🏃",
+  cycling: "🚴",
+  swimming: "🏊",
+  hiking: "🥾",
+  walking: "🚶",
+  strength_training: "🏋️",
+  yoga: "🧘",
+  elliptical: "🏃",
+  indoor_cycling: "🚴",
+  treadmill_running: "🏃",
+  other: "⚡",
 };
 
 function formatDuration(seconds: number): string {
@@ -34,7 +35,10 @@ interface Props {
 }
 
 export default function GarminActivityCard({ data }: Props) {
-  const activityInfo = ACTIVITY_LABELS[data.activityType] ?? ACTIVITY_LABELS.other;
+  const { t } = useI18n();
+  const activityKey = `community.garmin.activity.${data.activityType}` as const;
+  const activityLabel = t(activityKey) !== activityKey ? t(activityKey) : t("community.garmin.activity.other");
+  const activityEmoji = ACTIVITY_EMOJIS[data.activityType] ?? ACTIVITY_EMOJIS.other;
   const distance = formatDistance(data.distanceMeters);
 
   return (
@@ -44,9 +48,9 @@ export default function GarminActivityCard({ data }: Props) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">{activityInfo.emoji}</span>
+        <span className="text-lg">{activityEmoji}</span>
         <span className="font-semibold text-sm" style={{ color: "var(--text-color)" }}>
-          {activityInfo.label}
+          {activityLabel}
         </span>
         <span
           className="text-[10px] ml-auto px-2 py-0.5 rounded-full font-medium"
@@ -63,7 +67,7 @@ export default function GarminActivityCard({ data }: Props) {
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {formatDuration(data.durationSeconds)}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Dauer</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.garmin.duration")}</span>
         </div>
 
         {distance && (
@@ -72,7 +76,7 @@ export default function GarminActivityCard({ data }: Props) {
             <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
               {distance}
             </span>
-            <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Distanz</span>
+            <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.garmin.distance")}</span>
           </div>
         )}
 
@@ -81,7 +85,7 @@ export default function GarminActivityCard({ data }: Props) {
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {data.calories > 0 ? data.calories : "–"}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>kcal</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.garmin.calories")}</span>
         </div>
 
         <div className="flex flex-col items-center rounded-xl py-2" style={{ background: "var(--bg-color)" }}>
@@ -89,7 +93,7 @@ export default function GarminActivityCard({ data }: Props) {
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {data.avgHeartRate > 0 ? data.avgHeartRate : "–"}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Puls</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.garmin.heartRate")}</span>
         </div>
       </div>
     </div>

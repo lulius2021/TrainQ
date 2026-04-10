@@ -7,6 +7,11 @@ import "./index.css";
 import "./i18n/config"; // Initialize i18n
 
 import { applyTheme, loadTheme } from "./utils/theme";
+import { SplashScreen } from "@capacitor/splash-screen";
+
+// Force-hide SplashScreen as early as possible — iOS 26 may not fire
+// webViewDidFinishNavigation reliably, so auto-hide can get stuck.
+SplashScreen.hide({ fadeOutDuration: 150 }).catch(() => {});
 
 
 // Theme initial anwenden (light/dark/system)

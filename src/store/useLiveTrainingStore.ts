@@ -13,7 +13,7 @@ interface LiveTrainingStore {
     finishWorkout: () => void;
 }
 
-const MAX_WORKOUT_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MAX_WORKOUT_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — clear stale state faster
 
 export const useLiveTrainingStore = create(
     persist<LiveTrainingStore>(
@@ -31,13 +31,27 @@ export const useLiveTrainingStore = create(
             name: 'trainq-active-workout-storage',
             storage: createJSONStorage(() => localStorage),
             onRehydrateStorage: () => (state: LiveTrainingStore | undefined) => {
-                // Auto-clear zombie sessions older than 12 hours
-                if (state?.activeWorkout?.startedAt) {
-                    const age = Date.now() - new Date(state.activeWorkout.startedAt).getTime();
-                    if (age > MAX_WORKOUT_AGE_MS) {
+                if (!state) return;
+                try {
+                    const workout = state.activeWorkout;
+                    if (!workout) return;
+
+                    // Clear if no valid startedAt (corrupt state)
+                    if (!workout.startedAt) {
+                        state.activeWorkout = null;
+                        state.activeExerciseIndex = 0;
+                        return;
+                    }
+
+                    // Clear if older than MAX_WORKOUT_AGE_MS
+                    const age = Date.now() - new Date(workout.startedAt).getTime();
+                    if (age > MAX_WORKOUT_AGE_MS || isNaN(age)) {
                         state.activeWorkout = null;
                         state.activeExerciseIndex = 0;
                     }
+                } catch {
+                    state.activeWorkout = null;
+                    state.activeExerciseIndex = 0;
                 }
             },
         }

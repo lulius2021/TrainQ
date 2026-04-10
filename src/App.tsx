@@ -47,38 +47,42 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
     alert("Fehlercode in die Zwischenablage kopiert.");
   };
 
+  handleClearAndReload = () => {
+    try { localStorage.removeItem('trainq-active-workout-storage'); } catch { /* ignore */ }
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }} className="flex h-screen w-full flex-col items-center justify-center px-6 text-center">
-          <h2 className="mb-2 text-xl font-bold">Ups, etwas ist schiefgelaufen.</h2>
-          <p className="mb-6 text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>
-            Keine Sorge, deine Daten sind sicher. Wir bringen dich zurück.
+        <div style={{ backgroundColor: '#1a1a1a', color: '#ffffff', fontFamily: 'system-ui, sans-serif' }} className="flex h-screen w-full flex-col items-center justify-center px-6 text-center">
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ups, etwas ist schiefgelaufen.</h2>
+          <p style={{ fontSize: 14, color: '#aaaaaa', marginBottom: 24, maxWidth: 280 }}>
+            Keine Sorge, deine Daten sind sicher.
           </p>
 
-          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-xs w-full">
-            <p className="text-xs font-mono text-red-400 break-words mb-2">
+          <div style={{ marginBottom: 24, padding: 16, backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 16, maxWidth: 280, width: '100%' }}>
+            <p style={{ fontSize: 12, fontFamily: 'monospace', color: '#f87171', wordBreak: 'break-all', marginBottom: 8 }}>
               {(this.state.error as any)?.message || "Unbekannter Fehler"}
             </p>
             <button
               onClick={this.handleCopyError}
-              className="text-[10px] uppercase tracking-wider font-bold text-red-400/70 hover:text-red-400 underline"
+              style={{ fontSize: 10, color: '#f87171', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
             >
               Fehlercode kopieren
             </button>
           </div>
 
-          <div className="flex flex-col gap-3 w-full max-w-xs">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 280 }}>
             <button
-              onClick={this.handleReload}
-              className="w-full rounded-3xl bg-blue-600 px-4 py-3 font-semibold text-white active:scale-95 transition-transform shadow-lg shadow-blue-500/20"
+              onClick={this.handleClearAndReload}
+              style={{ width: '100%', borderRadius: 24, backgroundColor: '#2563eb', padding: '12px 16px', fontWeight: 600, color: '#ffffff', border: 'none', fontSize: 16, cursor: 'pointer' }}
             >
-              Seite neu laden
+              Neu starten
             </button>
             <button
               onClick={this.handleBackToDashboard}
-              className="w-full rounded-3xl px-4 py-3 font-semibold active:scale-95 transition-transform border"
-              style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-color)' }}
+              style={{ width: '100%', borderRadius: 24, backgroundColor: '#2a2a2a', padding: '12px 16px', fontWeight: 600, color: '#ffffff', border: '1px solid #444', fontSize: 16, cursor: 'pointer' }}
             >
               Zurück zum Dashboard
             </button>

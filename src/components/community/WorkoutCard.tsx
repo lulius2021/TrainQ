@@ -1,12 +1,14 @@
 import React from "react";
 import { Clock, Dumbbell, Layers, Flame } from "lucide-react";
 import type { WorkoutData } from "../../services/community/types";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
   data: WorkoutData;
 }
 
 export default function WorkoutCard({ data }: Props) {
+  const { t } = useI18n();
   return (
     <div
       className="mt-3 rounded-2xl border p-4"
@@ -30,21 +32,21 @@ export default function WorkoutCard({ data }: Props) {
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {data.durationLabel}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Dauer</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.workout.duration")}</span>
         </div>
         <div className="flex flex-col items-center rounded-xl py-2" style={{ background: "var(--bg-color)" }}>
           <Flame size={14} className="mb-1" style={{ color: "var(--accent-color)" }} />
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {data.totalVolumeKg > 0 ? `${data.totalVolumeKg.toLocaleString("de-DE")} kg` : "–"}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Volumen</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.workout.volume")}</span>
         </div>
         <div className="flex flex-col items-center rounded-xl py-2" style={{ background: "var(--bg-color)" }}>
           <Layers size={14} className="mb-1" style={{ color: "var(--accent-color)" }} />
           <span className="text-sm font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
             {data.totalSets}
           </span>
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Sätze</span>
+          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("community.workout.sets")}</span>
         </div>
       </div>
 

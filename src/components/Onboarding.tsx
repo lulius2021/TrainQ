@@ -7,7 +7,7 @@ import { AppButton } from './ui/AppButton';
 import CsvPreviewTable from './import/CsvPreviewTable';
 import CsvImportSummary from './import/CsvImportSummary';
 import PermissionsStep from './onboarding/PermissionsStep';
-import { CheckCircle, Upload, FileSpreadsheet, ArrowLeft, Watch, Loader2, Link, AlertCircle, Activity, Heart, Moon } from 'lucide-react';
+import { CheckCircle, Upload, FileSpreadsheet, ArrowLeft, Watch, Loader2, Link, AlertCircle, Activity, Heart, Moon, Trophy, Briefcase, Sprout } from 'lucide-react';
 const logo = '/logo.png';
 
 /* ─── Animation variants ─── */
@@ -84,9 +84,9 @@ const WelcomeStep: React.FC<{ onNext: () => void }> = ({ onNext }) => (
 /* ─── Step 2: Fokus ─── */
 
 const personas = [
-  { id: 'pro', label: 'Athlet', emoji: '🏆', desc: 'Maximale Leistung' },
-  { id: 'manager', label: 'Effizient', emoji: '💼', desc: 'Zeitsparend & fokussiert' },
-  { id: 'beginner', label: 'Gesundheit', emoji: '🌱', desc: 'Nachhaltiger Aufbau' },
+  { id: 'pro', label: 'Athlet', icon: <Trophy size={28} />, desc: 'Maximale Leistung' },
+  { id: 'manager', label: 'Effizient', icon: <Briefcase size={28} />, desc: 'Zeitsparend & fokussiert' },
+  { id: 'beginner', label: 'Gesundheit', icon: <Sprout size={28} />, desc: 'Nachhaltiger Aufbau' },
 ];
 
 const FokusStep: React.FC<{ value: string; onChange: (v: string) => void; onNext: () => void }> = ({
@@ -115,7 +115,7 @@ const FokusStep: React.FC<{ value: string; onChange: (v: string) => void; onNext
               backgroundColor: selected ? 'var(--accent-color-bg, rgba(0,122,255,0.1))' : 'var(--card-bg)',
             }}
           >
-            <span className="text-3xl">{p.emoji}</span>
+            <span className="text-[var(--accent-color)]">{p.icon}</span>
             <div>
               <div className="text-base font-bold" style={{ color: selected ? 'var(--accent-color)' : 'var(--text-color)' }}>
                 {p.label}

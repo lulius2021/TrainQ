@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Minus, Rocket } from "lucide-react";
 import type { DeloadPlan } from "../../types/deload";
 import {
   addDeloadHistoryEntry,
@@ -45,7 +45,7 @@ export default function PostDeloadFeedback({ plan, onClose }: PostDeloadFeedback
     return (
       <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 pb-8 px-4">
         <div className="w-full max-w-lg rounded-[28px] border border-[var(--border-color)] bg-[var(--card-bg)] p-6 text-center space-y-3">
-          <div className="text-3xl">🚀</div>
+          <div className="flex justify-center text-[var(--accent-color)]"><Rocket size={36} /></div>
           <div className="text-base font-bold text-[var(--text-color)]">Leistungsboost registriert!</div>
           <p className="text-sm text-[var(--text-secondary)]">
             Dein Feedback hilft, zukünftige Deload-Empfehlungen zu verbessern.

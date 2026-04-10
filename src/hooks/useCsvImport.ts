@@ -1,7 +1,7 @@
 // src/hooks/useCsvImport.ts
 // Multi-step CSV import flow hook.
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { CsvImportStep, CsvImportPreview, CsvImportResult } from "../types/csvImport";
 import { parseCsvForImport, executeImport } from "../utils/csvImport";
 import { useI18n } from "../i18n/useI18n";
@@ -13,20 +13,26 @@ export function useCsvImport() {
   const [result, setResult] = useState<CsvImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const pickFile = useCallback(() => {
     setStep("picking");
     setError(null);
 
-    // Create a hidden file input and trigger it
+    // Create a visually-hidden file input and trigger it.
+    // NOTE: We use opacity/position instead of display:none because iOS WKWebView
+    // does not reliably fire the 'change' event on display:none inputs.
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".csv,.txt";
-    input.style.display = "none";
-    fileInputRef.current = input;
+    input.style.cssText =
+      "position:fixed;top:0;left:0;opacity:0;pointer-events:none;width:1px;height:1px;";
 
     let settled = false;
+
+    const cleanup = () => {
+      input.removeEventListener("change", handleChange);
+      input.removeEventListener("cancel", handleCancel);
+      input.remove();
+    };
 
     const handleChange = () => {
       if (settled) return;
@@ -86,29 +92,8 @@ export function useCsvImport() {
       cleanup();
     };
 
-    // Fallback for browsers that don't fire "cancel"
-    const handleFocus = () => {
-      // Give the file dialog time to close before checking
-      setTimeout(() => {
-        if (!settled) {
-          // If no file was picked after dialog close, reset
-          if (!input.files || input.files.length === 0) {
-            handleCancel();
-          }
-        }
-      }, 500);
-    };
-
-    const cleanup = () => {
-      input.removeEventListener("change", handleChange);
-      input.removeEventListener("cancel", handleCancel);
-      window.removeEventListener("focus", handleFocus);
-      input.remove();
-    };
-
     input.addEventListener("change", handleChange);
     input.addEventListener("cancel", handleCancel);
-    window.addEventListener("focus", handleFocus, { once: true });
 
     document.body.appendChild(input);
     input.click();

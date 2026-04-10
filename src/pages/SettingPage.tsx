@@ -238,7 +238,6 @@ const LanguageModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
 type Props = {
     onBack: () => void;
     onClearCalendar: () => void;
-    onOpenPaywall: () => void;
     onOpenGoals: () => void;
     isSheet?: boolean;
 };
@@ -246,10 +245,9 @@ type Props = {
 // Demo Generator (kept but minimized)
 
 
-const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall, onOpenGoals, isSheet }) => {
+const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, isSheet }) => {
     const { t, lang } = useI18n();
     const { user, logout, resetOnboarding } = useAuth();
-    const { isPro } = useEntitlements(user?.id);
 
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -400,11 +398,6 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 )}
                 <div className="flex justify-between items-end">
                     <h1 className={`font-bold text-[var(--text-color)] tracking-tight ${isSheet ? "text-2xl" : "text-4xl"}`}>{t("settings.title")}</h1>
-                    {isPro && (
-                        <div className="bg-gradient-to-r from-amber-300 to-amber-500 text-black text-[10px] font-black px-2 py-1 rounded-md mb-2 shadow-lg shadow-amber-500/20">
-                            PRO
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -417,13 +410,6 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                         label={t("nav.profile")}
                         value={user?.email || "User"}
                         onClick={() => setActiveModal('profile')}
-                    />
-                    <SettingsRow
-                        icon={Star}
-                        iconColor="bg-amber-500"
-                        label={t("settings.pro.title")}
-                        value={isPro ? t("settings.pro.active") : t("settings.pro.buy")}
-                        onClick={() => setActiveModal('subscription')}
                     />
                 </Section>
 
@@ -627,42 +613,6 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenPaywall,
                 </div>
             </SettingsModal>
 
-            {/* SUBSCRIPTION MODAL */}
-            <SettingsModal isOpen={activeModal === 'subscription'} onClose={() => setActiveModal(null)} title={t("settings.pro.title")}>
-                <div className="flex flex-col items-center text-center space-y-6 pt-6">
-                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl ${isPro ? 'bg-amber-500' : 'bg-[var(--card-bg)] border border-[var(--border-color)]'}`}>
-                        <Star size={40} className="text-white" fill={isPro ? "white" : "none"} />
-                    </div>
-                    <div>
-                        <h3 className="text-2xl font-bold text-[var(--text-color)] mb-2">{isPro ? t("settings.subscription.proActive") : t("settings.subscription.freePlan")}</h3>
-                        <p className="text-[var(--text-secondary)] max-w-xs mx-auto">
-                            {isPro
-                                ? t("settings.subscription.proDescription")
-                                : t("settings.subscription.freeDescription")}
-                        </p>
-                    </div>
-
-                    {!isPro && (
-                        <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
-                            <h4 className="font-bold text-amber-400 mb-2">{t("settings.subscription.proBenefits")}</h4>
-                            <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
-                                <li className="flex gap-2"><span>✨</span> {t("settings.subscription.benefitHistory")}</li>
-                                <li className="flex gap-2"><span>📈</span> {t("settings.subscription.benefitStats")}</li>
-                                <li className="flex gap-2"><span>🤖</span> {t("settings.subscription.benefitAI")}</li>
-                            </ul>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={() => { setActiveModal(null); onOpenPaywall(); }}
-                        className={`w-full py-4 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] ${isPro ? 'bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'}`}
-                    >
-                        {isPro ? t("settings.subscription.manage") : t("settings.subscription.upgradeNow")}
-                    </button>
-
-                    {isPro && <p className="text-xs text-[var(--text-secondary)]">{t("settings.subscription.managedByAppStore")}</p>}
-                </div>
-            </SettingsModal>
 
             {/* PREFERENCES MODAL */}
             <SettingsModal isOpen={activeModal === 'preferences'} onClose={() => setActiveModal(null)} title={t("settings.preferences.title")}>

@@ -44,7 +44,7 @@ const CardioSummary: React.FC<CardioSummaryProps> = ({
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
       {/* Map */}
       <div className="h-48 w-full">
-        <CardioMap points={points} isTracking={false} />
+        <CardioMap points={points} isTracking={false} mapStyle="street" onLayersPress={() => {}} />
       </div>
 
       {/* Title */}

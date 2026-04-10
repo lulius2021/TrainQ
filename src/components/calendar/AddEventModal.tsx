@@ -5,7 +5,8 @@ import { EVENT_CATEGORIES } from "../../constants/events";
 import ExerciseLibraryModal from "../training/ExerciseLibraryModal";
 import type { NewCalendarEvent, LiveExercise } from "../../types/training";
 import type { Exercise } from "../../data/exerciseLibrary";
-import { Dumbbell, Footprints, Bike, Star } from "lucide-react";
+import { Dumbbell, Footprints, Bike, Star, Sparkles } from "lucide-react";
+import { RunnerIcon } from "../icons/AppIcons";
 import { useI18n } from "../../i18n/useI18n";
 
 interface AddEventModalProps {
@@ -352,7 +353,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             <div key={ex.id || idx} className="flex justify-between items-center p-3.5 bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] group">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center text-lg">
-                                                        {trainingCategory === 'gym' ? '🏋️' : trainingCategory === 'running' ? '🏃' : trainingCategory === 'cycling' ? '🚴' : '✨'}
+                                                        {trainingCategory === 'gym' ? <Dumbbell size={18} /> : trainingCategory === 'running' ? <RunnerIcon size={18} /> : trainingCategory === 'cycling' ? <Bike size={18} /> : <Sparkles size={18} />}
                                                     </div>
                                                     <div>
                                                         <div className="text-[var(--text-color)] font-medium">{ex.name}</div>

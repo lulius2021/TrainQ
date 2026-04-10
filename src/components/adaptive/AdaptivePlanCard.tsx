@@ -1,6 +1,8 @@
 // src/components/adaptive/AdaptivePlanCard.tsx
 import React from "react";
 import type { AdaptiveSuggestion } from "../../types/adaptive";
+import { useI18n } from "../../i18n/useI18n";
+import { Dumbbell, Zap, Target } from "lucide-react";
 
 interface AdaptivePlanCardProps {
   suggestion: AdaptiveSuggestion;
@@ -25,16 +27,17 @@ const GRADIENTS: Record<string, { base: string; blob1: string; blob2: string }> 
   },
 };
 
-const SPORT_ICONS: Record<string, string> = {
-  stabil:  "🏋️",
-  kompakt: "⚡",
-  fokus:   "🎯",
-};
+function getSportIcon(profile: string): React.ReactNode {
+  if (profile === "kompakt") return <Zap size={38} />;
+  if (profile === "fokus") return <Target size={38} />;
+  return <Dumbbell size={38} />;
+}
 
 export default function AdaptivePlanCard({ suggestion, isPro = false }: AdaptivePlanCardProps) {
+  const { t } = useI18n();
   const isBlocked = suggestion.estimatedMinutes === 0;
   const g = GRADIENTS[suggestion.profile] ?? GRADIENTS.stabil;
-  const icon = SPORT_ICONS[suggestion.profile] ?? "🏋️";
+  const icon = getSportIcon(suggestion.profile);
 
   return (
     <div
@@ -57,7 +60,7 @@ export default function AdaptivePlanCard({ suggestion, isPro = false }: Adaptive
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              {isBlocked ? "— · —" : `${suggestion.estimatedMinutes} min · ${suggestion.exercisesCount} Übungen`}
+              {isBlocked ? "— · —" : `${suggestion.estimatedMinutes} min · ${suggestion.exercisesCount} ${t("adaptive.card.exercises")}`}
             </div>
             {!isPro && suggestion.profile !== "stabil" && (
               <span
@@ -76,7 +79,7 @@ export default function AdaptivePlanCard({ suggestion, isPro = false }: Adaptive
               </span>
             )}
           </div>
-          <span style={{ fontSize: 38, lineHeight: 1, filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.6))" }}>
+          <span style={{ lineHeight: 1, filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.6))", color: "rgba(255,255,255,0.9)" }}>
             {icon}
           </span>
         </div>
@@ -108,7 +111,7 @@ export default function AdaptivePlanCard({ suggestion, isPro = false }: Adaptive
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)" }}
         >
           <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>
-            Heute nicht empfohlen
+            {t("adaptive.disabledToday")}
           </span>
         </div>
       )}

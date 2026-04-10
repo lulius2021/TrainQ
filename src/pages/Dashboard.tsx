@@ -58,18 +58,19 @@ import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
 import DashboardCommunityWidget from '../components/community/DashboardCommunityWidget';
+import AICoachCard from '../components/ai/AICoachCard';
 import { useI18n } from '../i18n/useI18n';
 
 // --- HELPER ---
 const formatNumber = (num: number) => {
-  return num.toLocaleString('de-DE');
+  return num.toLocaleString(navigator.language);
 };
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 
 // --- LAST ACTIVITY CARD ---
 const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const sport = (workout.sport || "Gym").toLowerCase();
   const isCardio = sport.includes("laufen") || sport.includes("radfahren");
   const isRun = sport.includes("laufen");
@@ -84,7 +85,7 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
       const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
       if (diffDays === 0) return t("dashboard.lastActivity.today");
       if (diffDays === 1) return t("dashboard.lastActivity.yesterday");
-      return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
+      return d.toLocaleDateString(lang === "de" ? "de-DE" : "en-US", { day: "2-digit", month: "short" });
     } catch { return ""; }
   })();
 
@@ -180,6 +181,25 @@ const DashboardPage = () => {
   const [weeklyDistanceKm, setWeeklyDistanceKm] = useState(0);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
   const [lastActivity, setLastActivity] = useState<WorkoutHistoryEntry | null>(null);
+
+  // AI Coach Context – gebaut aus vorhandenen Dashboard-Daten
+  const aiCoachContext = useMemo(() => {
+    const onboarding = readOnboardingDataFromStorage();
+    const persona = onboarding.personal.persona || "beginner";
+    const goals = onboarding.personal.goals ?? [];
+    const recentWorkouts = (lastActivity ? [lastActivity] : [])
+      .map((w) => ({
+        sport: w.sport ?? "Gym",
+        durationMin: Math.round((w.durationSec ?? 0) / 60),
+        date: (w.endedAt || w.startedAt).slice(0, 10),
+      }));
+    const recoveryScore = (() => {
+      // Map deload score (0=fresh, 100=exhausted) to recovery score (0–10)
+      // deloadScore.score is not directly exposed, use level as proxy
+      return undefined; // will be populated once deloadScore is available below
+    })();
+    return { fitnessLevel: persona, goals, recentWorkouts, recoveryScore };
+  }, [lastActivity]);
 
   // Live Training Check
   const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
@@ -632,6 +652,8 @@ const DashboardPage = () => {
         {/* COMMUNITY */}
         <DashboardCommunityWidget />
 
+        {/* AI COACH */}
+        <AICoachCard userContext={aiCoachContext} />
 
       </div>
 

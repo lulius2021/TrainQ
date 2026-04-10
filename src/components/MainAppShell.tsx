@@ -27,7 +27,6 @@ const NotificationsPage    = React.lazy(() => import("../pages/community/Notific
 
 // Components
 import { MainLayout } from "../layouts/MainLayout";
-import PaywallModal from "../components/paywall/PaywallModal";
 import { PageErrorBoundary } from "../components/common/PageErrorBoundary";
 
 // Hooks & Context
@@ -39,7 +38,6 @@ import { useEntitlements } from "../hooks/useEntitlements";
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
 import { loadNotificationPrefs } from "../utils/notificationStorage";
 import { requestNotificationPermission } from "../native/notifications";
-import { purchaseSubscription, restorePurchases, syncProToSession } from "../services/purchases";
 import { track } from "../analytics/track";
 import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "../utils/trainingHistory";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore"; // ✅ NEW IMPORT
@@ -49,15 +47,8 @@ import { getScopedItem, removeScopedItem, setScopedItem } from "../utils/scopedS
 import { getActiveUserId } from "../utils/session";
 import { applyDeloadToEvent } from "../utils/deload/apply";
 import {
-    clearDeloadDismissedUntil,
     clearDeloadPlan,
-    readDeloadDismissedUntil,
     readDeloadPlan,
-    readLastDeloadIntervalWeeks,
-    readLastDeloadStartISO,
-    writeDeloadDismissedUntil,
-    writeDeloadPlan,
-    writeLastDeloadIntervalWeeks,
     writeLastDeloadStartISO,
 } from "../utils/deload/storage";
 import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks } from "../utils/deload/schedule";
@@ -66,7 +57,6 @@ import { computeAvgSessionsPerWeek, mapSessionsToIntervalWeeks } from "../utils/
 import type { CalendarEvent, NewCalendarEvent, UpcomingTraining } from "../types/training";
 import type { DeloadPlan, DeloadRule } from "../types/deload";
 import type { TabKey } from "../types";
-import type { PaywallReason } from "../utils/entitlements";
 
 // Local Constants & Types
 type AppRoute =
@@ -109,7 +99,6 @@ const pageSlideUp = {
 
 const STORAGE_KEY_EVENTS = "trainq_calendar_events";
 const STORAGE_KEY_ACTIVE_LIVE_EVENT_ID = "trainq_active_live_event_id_v1";
-const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
 // 6px clearance above the visual top of the floating tab bar pill
 const MINI_BAR_BOTTOM = "calc(var(--tab-bar-height) + env(safe-area-inset-bottom) + 6px)";
 const INITIAL_EVENTS: CalendarEvent[] = [];
@@ -386,6 +375,7 @@ type ProfileScreen = "profile" | "settings";
 const MainAppShell: React.FC = () => {
     const { user } = useAuth();
     const userId = user?.id;
+    const { isPro } = useEntitlements(userId);
     const { t } = useI18n();
 
     const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -399,7 +389,7 @@ const MainAppShell: React.FC = () => {
         return "today"; // Default /train -> today tab
     });
     // Per-tab scroll refs — used by active-tap scroll-to-top
-    const tabScrollRefs: Record<TabKey, React.RefObject<HTMLDivElement>> = {
+    const tabScrollRefs: Record<TabKey, React.RefObject<HTMLDivElement | null>> = {
         dashboard: useRef<HTMLDivElement>(null),
         calendar:  useRef<HTMLDivElement>(null),
         today:     useRef<HTMLDivElement>(null),
@@ -426,9 +416,6 @@ const MainAppShell: React.FC = () => {
     const [communityPostId, setCommunityPostId] = useState<string | null>(null);
     const [communityProfileId, setCommunityProfileId] = useState<string | null>(null);
 
-    const { isPro, adaptiveBCRemaining, planShiftRemaining, calendar7DaysRemaining, suggestionsRemaining } = useEntitlements(userId);
-    const [paywallOpen, setPaywallOpen] = useState(false);
-    const [paywallReason, setPaywallReason] = useState<PaywallReason>("calendar_7days");
 
     const [events, setEvents] = useState<CalendarEvent[]>(() => {
         const loaded = readEventsFromStorage(userId);
@@ -440,11 +427,7 @@ const MainAppShell: React.FC = () => {
         });
     });
 
-    const [planStartISO, setPlanStartISO] = useState<string | null>(() => getScopedItem(STORAGE_KEY_PLAN_START_ISO, userId));
     const [deloadPlan, setDeloadPlan] = useState<DeloadPlan | null>(() => readDeloadPlan(userId));
-    const [deloadDismissedUntilISO, setDeloadDismissedUntilISO] = useState<string | null>(() => readDeloadDismissedUntil(userId));
-    const [lastDeloadStartISO, setLastDeloadStartISO] = useState<string | null>(() => readLastDeloadStartISO(userId));
-    const [lastDeloadIntervalWeeks, setLastDeloadIntervalWeeks] = useState<number | null>(() => readLastDeloadIntervalWeeks(userId));
 
     useEffect(() => { writeEventsToStorage(events, userId); }, [events, userId]);
 
@@ -487,32 +470,35 @@ const MainAppShell: React.FC = () => {
         if (restoreChecked.current) return;
         restoreChecked.current = true;
 
-        const stored = useLiveTrainingStore.getState().activeWorkout;
-        if (stored && stored.isActive) {
-            if (stored.calendarEventId) setActiveLiveEventId(stored.calendarEventId);
-            setRoute("/live-training");
-            window.history.replaceState(null, "", "/live-training");
+        try {
+            const stored = useLiveTrainingStore.getState().activeWorkout;
+            // Only restore if state looks valid: has isActive, startedAt within 2h, and exercises
+            const isValid = stored &&
+                stored.isActive &&
+                stored.startedAt &&
+                Array.isArray(stored.exercises) &&
+                stored.exercises.length > 0 &&
+                (Date.now() - new Date(stored.startedAt).getTime()) < 2 * 60 * 60 * 1000;
+
+            if (isValid) {
+                if (stored!.calendarEventId) setActiveLiveEventId(stored!.calendarEventId);
+                setRoute("/live-training");
+                window.history.replaceState(null, "", "/live-training");
+            } else if (stored) {
+                // State exists but is invalid — clear it
+                useLiveTrainingStore.getState().cancelWorkout();
+            }
+        } catch {
+            // If anything goes wrong reading state, just clear it
+            try { useLiveTrainingStore.getState().cancelWorkout(); } catch { /* ignore */ }
         }
     }, []);
 
-    // ✅ SYNC PRO STATUS ON LOGIN — restores Pro for returning subscribers on app launch
-    const proSyncedForUser = useRef<string | undefined>(undefined);
-    useEffect(() => {
-        if (!user || proSyncedForUser.current === user.id) return;
-        proSyncedForUser.current = user.id;
-        syncProToSession({ id: user.id, email: user.email }).catch(() => {
-            // Non-blocking — session remains as-is if sync fails
-        });
-    }, [user]);
 
     useEffect(() => {
         setEvents(readEventsFromStorage(userId));
         setActiveLiveEventId(readActiveLiveEventId(userId));
-        setPlanStartISO(getScopedItem(STORAGE_KEY_PLAN_START_ISO, userId));
         setDeloadPlan(readDeloadPlan(userId));
-        setDeloadDismissedUntilISO(readDeloadDismissedUntil(userId));
-        setLastDeloadStartISO(readLastDeloadStartISO(userId));
-        setLastDeloadIntervalWeeks(readLastDeloadIntervalWeeks(userId));
     }, [userId]);
 
     useEffect(() => {
@@ -520,7 +506,6 @@ const MainAppShell: React.FC = () => {
         const today = todayISO();
         if (today <= deloadPlan.endISO) return;
         writeLastDeloadStartISO(userId, deloadPlan.startISO);
-        setLastDeloadStartISO(deloadPlan.startISO);
         clearDeloadPlan(userId);
         setDeloadPlan(null);
         setEvents((prev) => prev.map((ev) => (ev.deload ? { ...ev, deload: undefined } : ev)));
@@ -680,14 +665,11 @@ const MainAppShell: React.FC = () => {
     useEffect(() => {
         if (typeof window === "undefined") return;
         const onOpenSettings = () => { setActiveTab("profile"); setProfileScreen("settings"); };
-        const onOpenPaywall = (e: Event) => { if (isPro) return; const reason = (e as CustomEvent)?.detail?.reason; setPaywallReason(reason || "calendar_7days"); setPaywallOpen(true); };
         window.addEventListener("trainq:open_settings", onOpenSettings as EventListener);
-        window.addEventListener("trainq:open_paywall", onOpenPaywall as EventListener);
         return () => {
             window.removeEventListener("trainq:open_settings", onOpenSettings as EventListener);
-            window.removeEventListener("trainq:open_paywall", onOpenPaywall as EventListener);
         };
-    }, [isPro]);
+    }, []);
 
     const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
     // ✅ CRITICAL FIX: MiniPlayer works globally whenever training is active but NOT on screen
@@ -699,15 +681,14 @@ const MainAppShell: React.FC = () => {
     const showMiniBar = hasActiveWorkout && route !== "/live-training" && !modalOpen;
 
     const isSwipeBlocked = useCallback(() => {
-        if (paywallOpen) return true;
         if (typeof document === "undefined") return false;
         if (document.documentElement.classList.contains("modal-open")) return true;
         return !!document.querySelector('[data-overlay-open="true"]');
-    }, [paywallOpen]);
+    }, []);
 
     const tabOrder: TabKey[] = ["dashboard", "calendar", "today", "plan", "profile"];
     const isTabRoute = route === "/" || route === "/dashboard" || route === "/train" || route === "/today" || route === "/calendar" || route === "/plan" || route === "/profile";
-    const tabSwipeEnabled = isTabRoute && profileScreen === "profile" && !paywallOpen;
+    const tabSwipeEnabled = isTabRoute && profileScreen === "profile";
 
     useTabSwipeNavigation({
         enabled: false, // ❌ Global Swipe Disabled per User Request
@@ -811,28 +792,6 @@ const MainAppShell: React.FC = () => {
     }, [activeLiveEventId]);
     const abortFromMiniBar = useCallback(() => { const active: any = getActiveLiveWorkout(); if (active && active.isActive) abortLiveWorkout(active); exitLiveTraining(); }, [exitLiveTraining]);
 
-    const handlePurchase = useCallback(async (plan: "monthly" | "yearly"): Promise<void> => {
-        if (!user) return;
-        const result = await purchaseSubscription(plan);
-        if (!result.ok) {
-            if (result.cancelled) return; // user dismissed Apple Pay / payment sheet — silent
-            track("monetization_purchase_failed", { plan, error: result.error });
-            throw new Error(result.error || "Kauf fehlgeschlagen.");
-        }
-        const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
-        if (!nextIsPro) throw new Error("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
-        track("monetization_purchase_success", { plan });
-        // PaywallModal shows success state and closes itself — do NOT call setPaywallOpen here
-    }, [user]);
-
-    const handleRestorePurchases = useCallback(async (): Promise<void> => {
-        if (!user) return;
-        const nextIsPro = await restorePurchases();
-        await syncProToSession({ id: user.id, email: user.email });
-        if (!nextIsPro) throw new Error("Kein aktives Abo gefunden.");
-        track("monetization_restore_success", {});
-        // PaywallModal shows success state and closes itself
-    }, [user]);
 
     // ---------- Routing Views ----------
 
@@ -932,7 +891,7 @@ const MainAppShell: React.FC = () => {
                                 {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />}
                                 {tab === "profile" && (
                                     profileScreen === "settings" ? (
-                                        <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenPaywall={() => setPaywallOpen(true)} onOpenGoals={() => alert("Funktion folgt.")} />
+                                        <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenGoals={() => alert("Funktion folgt.")} />
                                     ) : (
                                         <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
                                     )
@@ -943,14 +902,6 @@ const MainAppShell: React.FC = () => {
                 );
             })}
 
-            <PaywallModal
-              open={paywallOpen}
-              reason={paywallReason}
-              onClose={() => setPaywallOpen(false)}
-              onBuyMonthly={() => handlePurchase("monthly")}
-              onBuyYearly={() => handlePurchase("yearly")}
-              onRestore={handleRestorePurchases}
-            />
 
         </MainLayout>
     );

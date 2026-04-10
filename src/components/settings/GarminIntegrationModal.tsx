@@ -48,7 +48,7 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-[var(--modal-header)] z-10">
-              <h2 className="text-xl font-bold text-[var(--text-color)]">Garmin Connect</h2>
+              <h2 className="text-xl font-bold text-[var(--text-color)]">{t("settings.integrations.garmin")}</h2>
               <button
                 onClick={onClose}
                 className="p-2 -mr-2 bg-[var(--button-bg)] rounded-full hover:opacity-80 text-[var(--text-secondary)] hover:text-[var(--text-color)] transition-colors"
@@ -62,7 +62,7 @@ export default function GarminIntegrationModal({ isOpen, onClose }: Props) {
               {/* Status Card */}
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-base font-semibold text-[var(--text-color)]">Status</span>
+                  <span className="text-base font-semibold text-[var(--text-color)]">{t("settings.integrations.status")}</span>
                   {statusLoading ? (
                     <span className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full bg-zinc-500/20 text-zinc-400">
                       <Loader2 size={13} className="animate-spin" />

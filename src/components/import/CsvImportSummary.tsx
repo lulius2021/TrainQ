@@ -64,6 +64,17 @@ const CsvImportSummary: React.FC<CsvImportSummaryProps> = ({ result, dateRange }
               {t("csvImport.setsSkipped")}
             </div>
           </div>
+
+          {result.templatesCreated > 0 && (
+            <div className="col-span-2 bg-[var(--card-bg)] rounded-2xl p-3 border border-[var(--border-color)]">
+              <div className="text-2xl font-bold text-blue-400 tabular-nums">
+                {result.templatesCreated}
+              </div>
+              <div className="text-xs text-[var(--text-secondary)] mt-1">
+                {t("csvImport.templatesCreated")}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Date range */}

@@ -30,5 +30,6 @@ export type CsvImportStep = "idle" | "picking" | "parsing" | "preview" | "import
 export interface CsvImportResult {
   importedCount: number;
   skippedCount: number;
+  templatesCreated: number;
   errors: string[];
 }

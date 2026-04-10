@@ -13,7 +13,6 @@ import { useLiveTrainingStore } from "../store/useLiveTrainingStore";
 import { PageHeader } from "../components/ui/PageHeader";
 import { AppButton } from "../components/ui/AppButton";
 import { useEntitlements } from "../hooks/useEntitlements";
-import { FREE_LIMITS } from "../utils/entitlements";
 import { track } from "../analytics/track";
 import { getActiveUserId } from "../utils/session";
 import {

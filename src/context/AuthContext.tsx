@@ -250,7 +250,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       if (session) {
-        syncSessionToUser(session);
+        syncSessionToUser(session).catch(() => {});
       } else if (event === "SIGNED_OUT") {
         // Explicit sign-out (either via logout() or expired refresh token).
         // Clear cached state so the login screen is shown.
@@ -428,11 +428,9 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // Fire-and-forget — UI state already updated above; don't block on network
     client.auth.updateUser({ data: { plan: isPro ? "pro" : "free" } })
-      .then(() => {})
-      .catch((e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update user metadata:", e); });
-    client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id)
-      .then(() => {})
-      .catch((e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update profile is_pro:", e); });
+      .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update user metadata:", e); });
+    void Promise.resolve(client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id))
+      .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update profile is_pro:", e); });
   }, [user, getSafeClient]);
 
   const completeOnboarding = useCallback(async (): Promise<void> => {
@@ -450,9 +448,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const client = getSafeClient();
       if (client) {
         // Fire-and-forget — local state is already updated; don't block navigation on network
-        client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
-          .then(() => {})
-          .catch((e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); });
+        void Promise.resolve(client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id))
+          .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); });
       }
     }
   }, [user, getSafeClient]);
@@ -468,9 +465,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       clearOnboardingCache();
       const client = getSafeClient();
       if (client) {
-        client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id)
-          .then(() => {})
-          .catch((e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] resetOnboarding update failed:", e); });
+        void Promise.resolve(client.from('profiles').update({ onboarding_completed: false }).eq('id', user.id))
+          .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] resetOnboarding update failed:", e); });
       }
     }
   }, [user, getSafeClient]);

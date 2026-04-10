@@ -1,5 +1,6 @@
 // src/components/paywall/PaywallModal.tsx
 import { useState, useEffect, useRef } from "react";
+import { Sparkles } from "lucide-react";
 import type { PaywallReason } from "../../utils/entitlements";
 import { useI18n } from "../../i18n/useI18n";
 import { track } from "../../analytics/track";
@@ -68,10 +69,10 @@ export default function PaywallModal({ open, reason, onClose, onBuyMonthly, onBu
 
   function priceFor(plan: "yearly" | "monthly"): string | null {
     const prod = products.find((p) =>
-      p.productIdentifier?.toLowerCase().includes(plan) ||
+      p.identifier?.toLowerCase().includes(plan) ||
       p.title?.toLowerCase().includes(plan)
     );
-    return prod?.localizedPrice ?? null;
+    return prod?.priceString ?? null;
   }
 
   async function handleBuy() {
@@ -227,7 +228,7 @@ export default function PaywallModal({ open, reason, onClose, onBuyMonthly, onBu
         />
         <div className="relative p-5 flex flex-col gap-1.5">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-2xl">✨</span>
+            <Sparkles size={24} className="text-white/80" />
             <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.6)" }}>TrainQ Pro</span>
           </div>
           <p className="text-[21px] font-black leading-tight" style={{ color: "#ffffff" }}>

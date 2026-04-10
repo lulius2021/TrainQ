@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { X, Dumbbell, Footprints, Bike } from "lucide-react";
+import { X, Dumbbell, Footprints, Bike, Zap } from "lucide-react";
 import type { DeloadPlan, DeloadRule } from "../../types/deload";
 import { getWeekStartISO, addDaysISO } from "../../utils/deload/schedule";
 import { loadWorkoutHistory } from "../../utils/workoutHistory";
@@ -109,7 +109,7 @@ export default function DeloadPlanModal({ open, onClose, onSave }: DeloadPlanMod
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-base font-bold">⚡ Leistungsboost-Woche</div>
+            <div className="text-base font-bold flex items-center gap-1.5"><Zap size={16} className="text-amber-400" /> Leistungsboost-Woche</div>
             <div className="text-xs text-[var(--text-secondary)] mt-0.5">Strategische Erholung für mehr Gains</div>
           </div>
           <button type="button" onClick={onClose}

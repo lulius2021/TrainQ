@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Trash2, Flag, Ban } from "lucide-react";
 import { likePost, unlikePost, deletePost as apiDeletePost } from "../../services/community/api";
 import type { CommunityPost } from "../../services/community/types";
@@ -6,6 +6,7 @@ import { POST_TYPE_KEYS, VISIBILITY_KEYS } from "../../services/community/types"
 import { useI18n } from "../../i18n/useI18n";
 import WorkoutCard from "./WorkoutCard";
 import GarminActivityCard from "./GarminActivityCard";
+import { Share } from "@capacitor/share";
 
 interface Props {
   post: CommunityPost;
@@ -21,8 +22,23 @@ interface Props {
 export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeChanged, onDeleted, onReport, onBlock }: Props) {
   const { t, lang } = useI18n();
   const [showMenu, setShowMenu] = useState(false);
+  const [isLiked, setIsLiked] = useState(post.isLiked);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isOwn = post.authorId === viewerId;
   const author = post.author;
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [showMenu]);
 
   function timeAgo(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
@@ -38,15 +54,30 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    const newLiked = !isLiked;
+    const newCount = newLiked ? likeCount + 1 : likeCount - 1;
+    setIsLiked(newLiked);
+    setLikeCount(newCount);
     try {
-      if (post.isLiked) {
+      if (!newLiked) {
         await unlikePost(post.id, viewerId);
-        onLikeChanged?.(post.id, false, post.likeCount - 1);
       } else {
         await likePost(post.id, viewerId);
-        onLikeChanged?.(post.id, true, post.likeCount + 1);
       }
-    } catch { /* ignore */ }
+      onLikeChanged?.(post.id, newLiked, newCount);
+    } catch {
+      // Revert on failure
+      setIsLiked(isLiked);
+      setLikeCount(likeCount);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const text = post.text ? `${author?.displayName ?? ""}: ${post.text}` : author?.displayName ?? "";
+      await Share.share({ text, dialogTitle: t("community.post.share") });
+    } catch { /* user cancelled or not supported */ }
   };
 
   const handleDelete = async () => {
@@ -134,9 +165,9 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
 
       {/* Actions: Like, Comment, Share */}
       <div className="flex items-center gap-6 mt-3">
-        <button onClick={handleLike} className="flex items-center gap-1.5 text-sm" style={{ color: post.isLiked ? "#E63946" : "var(--text-secondary)" }}>
-          <Heart size={18} fill={post.isLiked ? "#E63946" : "none"} />
-          {post.likeCount > 0 && <span className="tabular-nums">{post.likeCount}</span>}
+        <button onClick={handleLike} className="flex items-center gap-1.5 text-sm" style={{ color: isLiked ? "#E63946" : "var(--text-secondary)" }}>
+          <Heart size={18} fill={isLiked ? "#E63946" : "none"} />
+          {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
         </button>
 
         <button onClick={onTap} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -144,7 +175,7 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
           {post.commentCount > 0 && <span className="tabular-nums">{post.commentCount}</span>}
         </button>
 
-        <button className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+        <button onClick={handleShare} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
           <Share2 size={18} />
         </button>
       </div>
@@ -152,6 +183,7 @@ export default function PostCard({ post, viewerId, onTap, onAuthorTap, onLikeCha
       {/* Dropdown menu */}
       {showMenu && (
         <div
+          ref={menuRef}
           className="mt-2 rounded-xl border shadow-lg p-1"
           style={{ background: "var(--card-bg)", borderColor: "var(--border-color)" }}
           onClick={(e) => e.stopPropagation()}

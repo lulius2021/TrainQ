@@ -2,6 +2,7 @@
 import { Capacitor } from "@capacitor/core";
 import { NativePurchases, PURCHASE_TYPE, type Product, type Transaction } from "@capgo/native-purchases";
 import { setActiveSession } from "../utils/session";
+import i18n from "../i18n/config";
 
 export type SubscriptionPlan = "monthly" | "yearly";
 
@@ -64,14 +65,14 @@ export type PurchaseResult =
 
 export async function purchaseSubscription(plan: SubscriptionPlan): Promise<PurchaseResult> {
   if (!isNative()) {
-    return { ok: false, cancelled: false, error: "In-App-Käufe sind nur auf Geräten verfügbar." };
+    return { ok: false, cancelled: false, error: i18n.t("paywall.error.notSupported") };
   }
 
   const supported = await isBillingSupported();
-  if (!supported) return { ok: false, cancelled: false, error: "Billing wird auf diesem Gerät nicht unterstützt." };
+  if (!supported) return { ok: false, cancelled: false, error: i18n.t("paywall.error.notSupported") };
 
   const productIdentifier = plan === "yearly" ? YEARLY_ID : MONTHLY_ID;
-  if (!productIdentifier) return { ok: false, cancelled: false, error: "Produkt-ID fehlt. Bitte Store-IDs konfigurieren." };
+  if (!productIdentifier) return { ok: false, cancelled: false, error: i18n.t("paywall.error.missingProductId") };
 
   const platform = Capacitor.getPlatform();
   const planIdentifier =
@@ -101,7 +102,7 @@ export async function purchaseSubscription(plan: SubscriptionPlan): Promise<Purc
     return {
       ok: false,
       cancelled,
-      error: cancelled ? "" : (msg || "Kauf fehlgeschlagen. Bitte erneut versuchen."),
+      error: cancelled ? "" : (msg || i18n.t("paywall.error.generic")),
     };
   }
 }

@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { Heart } from "lucide-react";
 import { useWellness } from "../../hooks/useWellness";
-
-const WELLBEING_EMOJI = ["", "😩", "😣", "😔", "😕", "😐", "🙂", "😊", "😃", "😄", "🤩"];
-const SLEEP_EMOJI    = ["", "😴", "😴", "😪", "🥱", "😶", "🙂", "😊", "😃", "😄", "⚡"];
+import { MoodFaceIcon, SleepFaceIcon } from "../icons/AppIcons";
 
 export default function WellbeingCheckIn() {
   const { todayEntry, saveEntry } = useWellness();
@@ -36,8 +34,8 @@ export default function WellbeingCheckIn() {
         <div>
           <div className="flex justify-between text-xs text-[var(--text-secondary)] mb-1.5">
             <span>Wohlbefinden</span>
-            <span className="font-semibold text-[var(--text-color)]">
-              {WELLBEING_EMOJI[wellbeing]} {wellbeing}/10
+            <span className="font-semibold text-[var(--text-color)] flex items-center gap-1">
+              <MoodFaceIcon level={wellbeing} size={20} /> {wellbeing}/10
             </span>
           </div>
           <input
@@ -55,8 +53,8 @@ export default function WellbeingCheckIn() {
         <div>
           <div className="flex justify-between text-xs text-[var(--text-secondary)] mb-1.5">
             <span>Schlafqualität</span>
-            <span className="font-semibold text-[var(--text-color)]">
-              {SLEEP_EMOJI[sleep]} {sleep}/10
+            <span className="font-semibold text-[var(--text-color)] flex items-center gap-1">
+              <SleepFaceIcon level={sleep} size={20} /> {sleep}/10
             </span>
           </div>
           <input

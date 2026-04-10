@@ -12,6 +12,8 @@ import { AppButton } from "../components/ui/AppButton";
 import PlanView from "../components/training/PlanView";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Eye, X, Dumbbell, Timer, Bike, Zap, Moon, ChevronUp, ChevronDown, Clock } from "lucide-react";
+import { TemplateIcon, TEMPLATE_ICON_IDS_GYM, TEMPLATE_ICON_IDS_CARDIO } from "../components/icons/AppIcons";
+import type { TemplateIconId } from "../components/icons/AppIcons";
 
 // History für graue Werte in der Vorschau
 import { getLastSetsForExercise } from "../utils/trainingHistory";
@@ -32,9 +34,9 @@ import { useProGuard } from "../hooks/useProGuard";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../theme/ThemeContext";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
-import { FREE_LIMITS } from "../utils/entitlements";
 
 import type { TranslationKey } from "../i18n/index";
+import { useI18n } from "../i18n/useI18n";
 import {
   buildTrainingTemplateSignature,
   deleteTrainingTemplate,
@@ -486,6 +488,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -493,17 +496,19 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : ""));
   const [selectedWorkoutTemplateId, setSelectedWorkoutTemplateId] = useState<string>("");
 
-  // Emoji, Color, Tags, Feedback
-  const TEMPLATE_EMOJIS = isCardioLibrary
-    ? ["🏃", "🚴", "🏊", "⛷️", "🔥", "⚡", "💨", "🎯"]
-    : ["💪", "🏋️", "🔥", "⚡", "🎯", "🦾", "🧠", "😤"];
+  // Icon, Color, Tags, Feedback
+  const TEMPLATE_EMOJIS: TemplateIconId[] = isCardioLibrary
+    ? TEMPLATE_ICON_IDS_CARDIO
+    : TEMPLATE_ICON_IDS_GYM;
   const TEMPLATE_COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF2D55", "#AF52DE", "#5AC8FA"];
   const MUSCLE_TAGS = isCardioLibrary
     ? ["Ausdauer", "Intervall", "Tempo", "Fettverbrennung", "Erholung", "Wettkampf"]
     : ["Brust", "Rücken", "Beine", "Schultern", "Arme", "Core", "Ganzkörper", "Hintern"];
   const REST_OPTIONS = [{ label: "—", value: 0 }, { label: "45s", value: 45 }, { label: "60s", value: 60 }, { label: "90s", value: 90 }, { label: "2 min", value: 120 }, { label: "3 min", value: 180 }];
 
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(template.emoji ?? (isCardioLibrary ? "🏃" : "💪"));
+  const [selectedEmoji, setSelectedEmoji] = useState<TemplateIconId>(
+    (template.emoji as TemplateIconId) ?? (isCardioLibrary ? "runner" : "bicep")
+  );
   const [selectedColor, setSelectedColor] = useState<string>(template.color ?? "#007AFF");
   const [selectedTags, setSelectedTags] = useState<string[]>(template.tags ?? []);
   const [savedFeedback, setSavedFeedback] = useState(false);
@@ -706,9 +711,9 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
     }
   };
 
-  const repsPlaceholder = isCardioLibrary ? "Dauer (min)" : "Wdh";
-  const weightPlaceholder = isCardioLibrary ? "Distanz (km)" : "kg";
-  const notesPlaceholder = isCardioLibrary ? "Pace / Intervall" : "Notizen";
+  const repsPlaceholder = isCardioLibrary ? t("plan.placeholder.duration") : t("plan.placeholder.reps");
+  const weightPlaceholder = isCardioLibrary ? t("plan.placeholder.distance") : t("plan.placeholder.weight");
+  const notesPlaceholder = isCardioLibrary ? t("plan.placeholder.pace") : t("plan.placeholder.notes");
 
   const existingExerciseIds = draft.exercises.map((ex) => ex.exerciseId).filter(Boolean) as string[];
 
@@ -760,13 +765,14 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   <button
                     key={e}
                     onClick={() => setSelectedEmoji(e)}
-                    className="w-9 h-9 rounded-2xl text-xl flex items-center justify-center transition-all active:scale-90"
+                    className="w-9 h-9 rounded-2xl flex items-center justify-center transition-all active:scale-90"
                     style={{
                       background: selectedEmoji === e ? `${selectedColor}30` : "var(--card-bg)",
                       border: selectedEmoji === e ? `2px solid ${selectedColor}` : "2px solid transparent",
+                      color: selectedEmoji === e ? selectedColor : "var(--text-secondary)",
                     }}
                   >
-                    {e}
+                    <TemplateIcon iconId={e} size={18} />
                   </button>
                 ))}
               </div>
@@ -843,7 +849,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   >
                     <option value="">Auswählen</option>
                     {compatibleWorkoutTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.emoji ? `${t.emoji} ` : ""}{t.name}</option>
+                      <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#007AFF" }}>
@@ -1189,6 +1195,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
   // Fallback Theme Guard
   const { theme } = useTheme() || { theme: { colors: { text: '#fff', background: '#000', card: '#1c1c1e', border: '#27272a' } } };
+  const { lang } = useI18n();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("weekly");
   const { user } = useAuth();
@@ -1892,11 +1899,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
           }}
           onShowPreview={() => { }}
           isPro={effectiveIsPro}
-          freeLimitRemaining={
-            Number.isFinite(calendar7DaysRemaining as number)
-              ? (calendar7DaysRemaining as number)
-              : FREE_LIMITS.calendar7DaysPerMonth
-          }
+          freeLimitRemaining={Number.MAX_SAFE_INTEGER}
         />
 
         {/* Weekly */}
@@ -1994,7 +1997,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               </button>
               <button
                 onClick={() => {
-                  setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString("de-DE")})`);
+                  setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString(lang === "de" ? "de-DE" : "en-US")})`);
                   setWeeklySaveDialogOpen(true);
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"
@@ -2121,7 +2124,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
               </button>
               <button
                 onClick={() => {
-                  setRoutineTemplateName(`Routine-Zyklus (${new Date().toLocaleDateString("de-DE")})`);
+                  setRoutineTemplateName(`Routine-Zyklus (${new Date().toLocaleDateString(lang === "de" ? "de-DE" : "en-US")})`);
                   setRoutineSaveDialogOpen(true);
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"

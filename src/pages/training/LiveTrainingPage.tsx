@@ -47,6 +47,8 @@ import { applyAdaptiveToSeed } from "../../utils/adaptiveSeed";
 import { upsertTrainingTemplate, buildTrainingTemplateSignature } from "../../services/trainingTemplatesService";
 import type { TrainingTemplate, TrainingTemplateExercise } from "../../types/trainingTemplates";
 import { saveTemplate as saveTemplateLite } from "../../utils/trainingTemplatesStore";
+import { TemplateIcon, TEMPLATE_ICON_IDS_GYM } from "../../components/icons/AppIcons";
+import type { TemplateIconId } from "../../components/icons/AppIcons";
 
 import {
   getActiveLiveWorkout,
@@ -251,7 +253,7 @@ export default function LiveTrainingPage({
   const [showSaveTemplatePrompt, setShowSaveTemplatePrompt] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [tplName, setTplName] = useState("");
-  const [tplEmoji, setTplEmoji] = useState("💪");
+  const [tplEmoji, setTplEmoji] = useState<TemplateIconId>("bicep");
   const [tplColor, setTplColor] = useState("#3B82F6");
   const pendingCompletedWorkoutRef = useRef<import("../../types/training").CompletedWorkout | null>(null);
   const postFinishExitFnRef = useRef<(() => void) | null>(null);
@@ -1265,10 +1267,10 @@ export default function LiveTrainingPage({
 
     // Free training (no calendar event) → offer to save as template
     if (!eventId && !isCardioWorkout) {
-      pendingCompletedWorkoutRef.current = completed;
+      pendingCompletedWorkoutRef.current = completed as unknown as import("../../types/training").CompletedWorkout;
       postFinishExitFnRef.current = () => doExit(completed.id);
       setTplName(reviewName || completed.title || "Training");
-      setTplEmoji("💪");
+      setTplEmoji("bicep");
       setTplColor("#3B82F6");
       setShowSaveTemplatePrompt(true);
       return;
@@ -1324,7 +1326,7 @@ export default function LiveTrainingPage({
     // Also save to StartTodayPage store so the template appears in the Train tab
     saveTemplateLite({
       title: tpl.name,
-      sportType: tpl.sportType,
+      sportType: tpl.sportType.toLowerCase() as TrainingType,
       exercises: templateExercises.map((ex) => ({
         exerciseId: ex.exerciseId,
         name: ex.name,
@@ -1784,22 +1786,23 @@ export default function LiveTrainingPage({
               <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
               <h2 className="text-xl font-bold mb-6" style={{ color: "var(--text-color)" }}>Vorlage erstellen</h2>
 
-              {/* Emoji Picker */}
+              {/* Icon Picker */}
               <div className="mb-5">
-                <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-secondary)" }}>Emoji</label>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-secondary)" }}>Symbol</label>
                 <div className="flex gap-2 flex-wrap">
-                  {["💪", "🏋️", "🔥", "⚡", "🎯", "🦾", "💥", "🏆"].map((em) => (
+                  {TEMPLATE_ICON_IDS_GYM.map((em) => (
                     <button
                       key={em}
                       type="button"
                       onClick={() => setTplEmoji(em)}
-                      className="w-11 h-11 rounded-xl text-xl flex items-center justify-center transition-all active:scale-90"
+                      className="w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-90"
                       style={{
                         backgroundColor: tplEmoji === em ? tplColor + "33" : "var(--bg-color)",
                         border: tplEmoji === em ? `2px solid ${tplColor}` : "2px solid transparent",
+                        color: tplEmoji === em ? tplColor : "var(--text-secondary)",
                       }}
                     >
-                      {em}
+                      <TemplateIcon iconId={em} size={20} />
                     </button>
                   ))}
                 </div>
@@ -1858,7 +1861,7 @@ export default function LiveTrainingPage({
                   className="w-full py-4 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-[0.98] transition-all"
                   style={{ backgroundColor: tplColor, boxShadow: `0 8px 24px ${tplColor}40` }}
                 >
-                  {tplEmoji} Vorlage speichern
+                  <span className="flex items-center justify-center gap-2"><TemplateIcon iconId={tplEmoji} size={18} /> Vorlage speichern</span>
                 </button>
                 <button
                   onClick={handleSkipSaveTemplate}

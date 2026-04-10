@@ -17,6 +17,23 @@
 </head>
 
 <body>
+  <script>
+    // Sofortiger Theme-Init: verhindert schwarzen Blitz vor React-Render.
+    // Wird synchron ausgeführt bevor CSS & JS geladen ist.
+    (function() {
+      try {
+        var stored = localStorage.getItem('trainq_theme');
+        var isLight = stored === 'light' ||
+          (stored !== 'dark' && window.matchMedia('(prefers-color-scheme: light)').matches);
+        if (isLight) {
+          document.body.classList.add('light-theme');
+          document.body.style.backgroundColor = '#F2F2F7';
+        } else {
+          document.body.style.backgroundColor = '#000000';
+        }
+      } catch(e) {}
+    })();
+  </script>
   <div id="root"></div>
   <!-- Persistent error overlay - always visible, outside React -->
   <div id="trainq-error-overlay" style="display:none;position:fixed;inset:0;z-index:99999;padding:60px 20px 40px;font-family:system-ui;color:#ff3b30;background:#000;overflow-y:auto;"></div>

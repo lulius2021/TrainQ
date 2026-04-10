@@ -10,6 +10,7 @@ import type {
   AdaptiveReason,
   AdaptiveSuggestion,
 } from "../types/adaptive";
+import i18n from "../i18n/config";
 
 // Apple HIG Color Palette
 // Plan A (stabil): Apple Blue #007AFF - rgb(0, 122, 255)
@@ -99,71 +100,71 @@ export function buildAdaptiveSuggestions(answers: AdaptiveAnswers, avgDurationMi
 
   // Sport-specific titles/subtitles/intensities
   const isCardio = sport === "laufen" || sport === "radfahren";
-  const sportLabel = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : "";
+  const sportLabel = sport === "laufen" ? i18n.t("adaptive.sport.laufen") : sport === "radfahren" ? i18n.t("adaptive.sport.radfahren") : "";
 
   const stabil: AdaptiveSuggestion = isCardio ? {
     profile: "stabil",
-    title: `Stabil · Grundlage`,
-    subtitle: `Lockeres ${sportLabel}-Tempo, Komfortzone`,
+    title: i18n.t("adaptive.card.stabil_cardio.title"),
+    subtitle: i18n.t("adaptive.card.stabil_cardio.subtitle", { sport: sportLabel }),
     estimatedMinutes: timeLimited ? Math.min(25, baseMinutes) : Math.max(30, baseMinutes),
     exercisesCount: 1,
     setsPerExercise: 1,
-    intensityHint: lowRecovery ? "Sehr locker, Herzfrequenz niedrig halten" : "RPE 5–6, entspannte Atmung",
+    intensityHint: lowRecovery ? i18n.t("adaptive.card.stabil_cardio.intensityLow") : i18n.t("adaptive.card.stabil_cardio.intensity"),
     reasons: dedupeReasons([...baseReasons, ...(lowRecovery ? (["recovery_low"] as const) : ([] as const))]),
   } : {
     profile: "stabil",
-    title: "Stabil · Plan-nah",
-    subtitle: "Sauber trainieren, im Rhythmus bleiben",
+    title: i18n.t("adaptive.card.stabil.title"),
+    subtitle: i18n.t("adaptive.card.stabil.subtitle"),
     estimatedMinutes: timeLimited ? Math.min(35, baseMinutes) : Math.max(45, baseMinutes),
     exercisesCount: timeLimited ? 4 : 5,
     setsPerExercise: lowRecovery ? 2 : 3,
-    intensityHint: lowRecovery ? "Leicht bis moderat, Fokus Technik & Gefühl" : "Moderat, RPE 7–8",
+    intensityHint: lowRecovery ? i18n.t("adaptive.card.stabil.intensityLow") : i18n.t("adaptive.card.stabil.intensity"),
     reasons: dedupeReasons([...baseReasons, ...(lowRecovery ? (["recovery_low"] as const) : ([] as const))]),
   };
 
   const kompakt: AdaptiveSuggestion = isCardio ? {
     profile: "kompakt",
-    title: "Kompakt · Kurze Einheit",
-    subtitle: `Schnell rein, schnell raus – ${sport === "laufen" ? "kurze Runde" : "kurze Ausfahrt"}`,
+    title: i18n.t("adaptive.card.kompakt_cardio.title"),
+    subtitle: sport === "laufen" ? i18n.t("adaptive.card.kompakt_cardio.subtitleLaufen") : i18n.t("adaptive.card.kompakt_cardio.subtitleRadfahren"),
     estimatedMinutes: answers.timeToday === "lt20" ? 15 : 20,
     exercisesCount: 1,
     setsPerExercise: 1,
-    intensityHint: "Mittleres Tempo, zügig aber kontrolliert",
+    intensityHint: i18n.t("adaptive.card.kompakt_cardio.intensity"),
     reasons: dedupeReasons(["time_low", ...baseReasons]),
   } : {
     profile: "kompakt",
-    title: "Kompakt · Kurz & Effizient",
-    subtitle: "Alles Wichtige, wenig Zeit",
+    title: i18n.t("adaptive.card.kompakt.title"),
+    subtitle: i18n.t("adaptive.card.kompakt.subtitle"),
     estimatedMinutes: answers.timeToday === "lt20" ? 20 : 30,
     exercisesCount: 3,
     setsPerExercise: 2,
-    intensityHint: "Zügig, sauber, keine Maximalversuche",
+    intensityHint: i18n.t("adaptive.card.kompakt.intensity"),
     reasons: dedupeReasons(["time_low", ...baseReasons]),
   };
 
   const fokus: AdaptiveSuggestion = isCardio ? {
     profile: "fokus",
-    title: "Fokus · Intervall",
-    subtitle: `Kurze Hochintervalle, volle Konzentration`,
+    title: i18n.t("adaptive.card.fokus_cardio.title"),
+    subtitle: i18n.t("adaptive.card.fokus_cardio.subtitle"),
     estimatedMinutes: 35,
     exercisesCount: 1,
     setsPerExercise: 1,
-    intensityHint: "Intervalle: 4×4 Min bei RPE 8–9, nur wenn du dich gut fühlst",
+    intensityHint: i18n.t("adaptive.card.fokus_cardio.intensity"),
     reasons: dedupeReasons(["form_high", "recovery_good"]),
   } : {
     profile: "fokus",
-    title: "Fokus · Intensiv",
-    subtitle: "Wenige Übungen, klarer Leistungsreiz",
+    title: i18n.t("adaptive.card.fokus.title"),
+    subtitle: i18n.t("adaptive.card.fokus.subtitle"),
     estimatedMinutes: 45,
     exercisesCount: 2,
     setsPerExercise: 3,
-    intensityHint: "Topset + Backoff, nur wenn du dich gut fühlst",
+    intensityHint: i18n.t("adaptive.card.fokus.intensity"),
     reasons: dedupeReasons(["form_high", "recovery_good"]),
   };
 
   // Blockiere Fokus bei schlechter Erholung oder krasser Zeitknappheit
   if (lowRecovery || timeLimited) {
-    fokus.intensityHint = "Heute nicht empfohlen (Erholung/Zeit nicht optimal)";
+    fokus.intensityHint = i18n.t("adaptive.card.fokus.intensityBlocked");
     fokus.estimatedMinutes = 0;
   }
 

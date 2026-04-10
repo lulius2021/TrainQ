@@ -14,6 +14,7 @@
  */
 
 import type { DeloadScoreResult, DeloadScoreFactor, WellnessEntry } from "../types/wellness";
+import i18n from "../i18n/config";
 import { computeTrainingLoadSnapshot, getRecentPerformanceTrend } from "./TrainingLoadService";
 import { getScopedItem } from "../utils/scopedStorage";
 import {
@@ -143,47 +144,48 @@ export function computeDeloadScore(userId?: string | null): DeloadScoreResult {
     }
   }
 
+  const acwrValue = snapshot.acwr.toFixed(2);
   const factors: DeloadScoreFactor[] = [
     {
       key: "cycle",
-      label: `${weeksSinceDeload}/${cycleLength} Wo. seit letztem Deload`,
+      label: i18n.t("deload.factor.cycle", { weeks: weeksSinceDeload, cycle: cycleLength }),
       points: 20,
       applies: weeksSinceDeload >= cycleLength,
     },
     {
       key: "acwr",
-      label: `Trainingsbelastung: ACWR ${snapshot.acwr.toFixed(2)}${snapshot.acwr > 1.5 ? " ⚠️" : ""}`,
+      label: i18n.t("deload.factor.acwr", { value: acwrValue }),
       points: 25,
       applies: snapshot.acwr > 1.3,
-      detail: snapshot.acwr > 1.5 ? "Verletzungsrisiko erhöht" : undefined,
+      detail: snapshot.acwr > 1.5 ? i18n.t("deload.factor.acwrWarning") : undefined,
     },
     {
       key: "performance",
-      label: "Performance-Trend negativ (letzte 3 Sessions)",
+      label: i18n.t("deload.factor.performance"),
       points: 15,
       applies: trend === "negative",
     },
     {
       key: "wellbeing",
       label: wellness
-        ? `Wohlbefinden ${wellness.wellbeingScore}/10`
-        : "Wohlbefinden nicht erfasst",
+        ? i18n.t("deload.factor.wellbeingScore", { score: wellness.wellbeingScore })
+        : i18n.t("deload.factor.wellbeingNa"),
       points: 15,
       applies: wellness != null && wellness.wellbeingScore < 5,
     },
     {
       key: "hrv",
       label: garmin.hrv7DayNegative !== null
-        ? "HRV-Trend negativ (letzte 7 Tage)"
-        : "HRV nicht verfügbar",
+        ? i18n.t("deload.factor.hrvNegative")
+        : i18n.t("deload.factor.hrvNa"),
       points: 15,
       applies: garmin.hrv7DayNegative === true,
     },
     {
       key: "rhr",
       label: garmin.rhrAboveBaseline !== null
-        ? "Ruheherzfrequenz > 5 bpm über Baseline"
-        : "Ruheherzfrequenz nicht verfügbar",
+        ? i18n.t("deload.factor.rhrHigh")
+        : i18n.t("deload.factor.rhrNa"),
       points: 10,
       applies: garmin.rhrAboveBaseline === true,
     },

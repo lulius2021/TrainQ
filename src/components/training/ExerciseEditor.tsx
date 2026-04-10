@@ -183,12 +183,11 @@ const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, is
             onTouchStart={(e) => e.stopPropagation()}
             onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-            style={{ touchAction: "manipulation" }}
             className={`${isMain ? "h-10 w-14" : "h-9 w-12"} rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
               ? (isMain ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]" : "bg-purple-600 border-purple-600 shadow-sm")
               : (isMain ? "border-transparent hover:border-[#007AFF]" : "border-transparent hover:border-purple-500/50")
             }`}
-            style={{ backgroundColor: !isCompleted ? theme.colors.inputBackground : undefined }}
+            style={{ touchAction: "manipulation", backgroundColor: !isCompleted ? theme.colors.inputBackground : undefined }}
           >
             {isCompleted ? (
               <svg viewBox="0 0 24 24" className={`${isMain ? "h-5 w-5" : "h-4 w-4"} text-white`} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
@@ -410,12 +409,12 @@ const SwipeableSetRow = ({
               onTouchStart={(e) => e.stopPropagation()}
               onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-              style={{ touchAction: "manipulation" }}
               className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
                 ? (isDrop ? "bg-purple-600 border-purple-600 shadow-sm" : (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"))
                 : (isDrop ? "border-transparent hover:border-purple-500/50" : "border-transparent hover:border-[#007AFF]")
                 }`}
               style={{
+                touchAction: "manipulation",
                 backgroundColor: !isCompleted ? (isDrop ? (theme.mode === 'dark' ? 'rgba(44,44,46,0.5)' : '#E5E5EA') : theme.colors.inputBackground) : undefined
               }}
             >

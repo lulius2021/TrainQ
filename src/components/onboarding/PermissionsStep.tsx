@@ -3,6 +3,7 @@
 // Requests camera, location, and notification permissions
 
 import React, { useState } from "react";
+import { Camera, MapPin, Bell } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { requestLocationPermission } from "../../native/geolocation";
 import { requestNotificationPermission } from "../../native/notifications";
@@ -11,7 +12,7 @@ type PermissionStatus = "idle" | "granted" | "denied";
 
 interface PermissionItem {
   key: "camera" | "location" | "notifications";
-  emoji: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
 }
@@ -19,19 +20,19 @@ interface PermissionItem {
 const PERMISSIONS: PermissionItem[] = [
   {
     key: "camera",
-    emoji: "📷",
+    icon: <Camera size={24} />,
     title: "Kamera",
     description: "Für Food-Scanning und Fortschrittsfotos",
   },
   {
     key: "location",
-    emoji: "📍",
+    icon: <MapPin size={24} />,
     title: "Standort",
     description: "Für GPS-Tracking beim Laufen & Radfahren",
   },
   {
     key: "notifications",
-    emoji: "🔔",
+    icon: <Bell size={24} />,
     title: "Benachrichtigungen",
     description: "Für Trainingserinnerungen & Motivation",
   },
@@ -116,7 +117,7 @@ const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                   : "var(--border-color)",
               }}
             >
-              <span className="text-3xl shrink-0">{item.emoji}</span>
+              <span className="text-[var(--text-secondary)] shrink-0">{item.icon}</span>
 
               <div className="flex-1 min-w-0">
                 <div
