@@ -597,8 +597,16 @@ const MainAppShell: React.FC = () => {
     useEffect(() => {
         let cleanup: (() => void) | undefined;
         import("@capacitor/app").then(({ App: CapApp }) => {
-            const promise = CapApp.addListener("appUrlOpen", (event: { url: string }) => {
+            const promise = CapApp.addListener("appUrlOpen", async (event: { url: string }) => {
                 if (event.url.includes("garmin-callback")) {
+                    // Close the in-app browser first
+                    try {
+                        const { Browser } = await import("@capacitor/browser");
+                        await Browser.close();
+                    } catch {
+                        // ignore if already closed
+                    }
+
                     try {
                         const url = new URL(event.url);
                         const status = url.searchParams.get("status");

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Capacitor } from "@capacitor/core";
+import i18next from "i18next";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import type { GarminConnectionStatus } from "../services/garmin/types";
 
@@ -9,7 +9,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Zeitüberschreitung — bitte prüfe deine Verbindung.")), ms)
+      setTimeout(() => reject(new Error(i18next.t("garmin.error.timeout"))), ms)
     ),
   ]);
 }
@@ -50,7 +50,7 @@ export function useGarminConnection() {
       setError(null);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        setError(i18next.t("garmin.error.noSession"));
         return;
       }
       const { data, error: err } = await withTimeout(
@@ -63,12 +63,12 @@ export function useGarminConnection() {
       if (data?.error) throw new Error(data.error);
 
       const { authorizeUrl } = data as { authorizeUrl: string };
-      if (!authorizeUrl) throw new Error("Keine Authorize-URL erhalten");
+      if (!authorizeUrl) throw new Error(i18next.t("garmin.error.noAuthorizeUrl"));
 
       const { Browser } = await import("@capacitor/browser");
       await Browser.open({ url: authorizeUrl });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verbindung fehlgeschlagen");
+      setError(e instanceof Error ? e.message : i18next.t("garmin.error.connectFailed"));
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export function useGarminConnection() {
       setError(null);
       const { data: { session: discSession } } = await supabase.auth.getSession();
       if (!discSession) {
-        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        setError(i18next.t("garmin.error.noSession"));
         return;
       }
       const { error: err } = await withTimeout(
@@ -95,7 +95,7 @@ export function useGarminConnection() {
       if (err) throw err;
       setStatus({ connected: false, garminUserId: null, lastSyncAt: null });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Trennung fehlgeschlagen");
+      setError(e instanceof Error ? e.message : i18next.t("garmin.error.disconnectFailed"));
     } finally {
       setLoading(false);
     }
@@ -110,7 +110,7 @@ export function useGarminConnection() {
       setError(null);
       const { data: { session: syncSession } } = await supabase.auth.getSession();
       if (!syncSession) {
-        setError("Keine aktive Sitzung – bitte erneut einloggen");
+        setError(i18next.t("garmin.error.noSession"));
         return;
       }
       const { data, error: err } = await withTimeout(
@@ -121,12 +121,12 @@ export function useGarminConnection() {
       );
       if (err) throw err;
       if (data?.skipped) {
-        setError("Bitte warte ein paar Minuten vor der nächsten Synchronisation.");
+        setError(i18next.t("garmin.error.syncCooldown"));
         return;
       }
       await checkStatus();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sync fehlgeschlagen");
+      setError(e instanceof Error ? e.message : i18next.t("garmin.error.syncFailed"));
     } finally {
       setSyncing(false);
     }
@@ -137,48 +137,21 @@ export function useGarminConnection() {
     checkStatus();
   }, [checkStatus]);
 
-  // Listen for deep link callback — both custom event and Capacitor appUrlOpen
+  // Listen for deep link callback via custom events dispatched by MainAppShell
   useEffect(() => {
     const onConnected = () => { checkStatus(); };
+    const onError = (e: Event) => {
+      const detail = (e as CustomEvent<{ message?: string }>).detail;
+      const raw = detail?.message ?? i18next.t("garmin.error.connectionFailed");
+      setError(decodeURIComponent(raw));
+    };
+
     window.addEventListener("trainq:garmin_connected", onConnected);
-
-    let removeAppListener: (() => void) | null = null;
-    if (Capacitor.isNativePlatform()) {
-      import("@capacitor/app").then(({ App }) => {
-        App.addListener("appUrlOpen", async (event: { url: string }) => {
-          if (!event.url.includes("garmin")) return;
-
-          // Always close the in-app browser first
-          try {
-            const { Browser } = await import("@capacitor/browser");
-            await Browser.close();
-          } catch {
-            // ignore if already closed
-          }
-
-          // Parse OAuth callback status
-          try {
-            const parsed = new URL(event.url);
-            const status = parsed.searchParams.get("status");
-            if (status === "error") {
-              const raw = parsed.searchParams.get("message") ?? "Garmin-Verbindung fehlgeschlagen";
-              setError(decodeURIComponent(raw));
-              return;
-            }
-          } catch {
-            // URL parsing failed — treat as success and let checkStatus decide
-          }
-
-          window.dispatchEvent(new CustomEvent("trainq:garmin_connected"));
-        }).then((handle) => {
-          removeAppListener = () => handle.remove();
-        });
-      });
-    }
+    window.addEventListener("trainq:garmin_error", onError);
 
     return () => {
       window.removeEventListener("trainq:garmin_connected", onConnected);
-      removeAppListener?.();
+      window.removeEventListener("trainq:garmin_error", onError);
     };
   }, [checkStatus]);
 

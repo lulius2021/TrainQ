@@ -1392,5 +1392,14 @@
     "aiCoach.error.unauthorized": "Please sign in again.",
     "aiCoach.error.notConfigured": "AI Coach is being set up.",
     "aiCoach.error.network": "Connection error. Check your internet connection.",
-    "aiCoach.error.unknown": "Something went wrong. Please try again."
+    "aiCoach.error.unknown": "Something went wrong. Please try again.",
+
+    "garmin.error.timeout": "Request timed out — please check your connection.",
+    "garmin.error.noSession": "No active session – please log in again.",
+    "garmin.error.noAuthorizeUrl": "No authorization URL received.",
+    "garmin.error.connectFailed": "Connection failed.",
+    "garmin.error.disconnectFailed": "Disconnection failed.",
+    "garmin.error.syncCooldown": "Please wait a few minutes before syncing again.",
+    "garmin.error.syncFailed": "Sync failed.",
+    "garmin.error.connectionFailed": "Garmin connection failed."
 }

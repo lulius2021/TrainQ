@@ -1221,5 +1221,14 @@
     "aiCoach.error.unauthorized": "Bitte erneut anmelden.",
     "aiCoach.error.notConfigured": "KI-Coach wird gerade eingerichtet.",
     "aiCoach.error.network": "Verbindungsfehler. Bitte prüfe deine Internetverbindung.",
-    "aiCoach.error.unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    "aiCoach.error.unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+
+    "garmin.error.timeout": "Zeitüberschreitung — bitte prüfe deine Verbindung.",
+    "garmin.error.noSession": "Keine aktive Sitzung – bitte erneut einloggen.",
+    "garmin.error.noAuthorizeUrl": "Keine Authorize-URL erhalten.",
+    "garmin.error.connectFailed": "Verbindung fehlgeschlagen.",
+    "garmin.error.disconnectFailed": "Trennung fehlgeschlagen.",
+    "garmin.error.syncCooldown": "Bitte warte ein paar Minuten vor der nächsten Synchronisation.",
+    "garmin.error.syncFailed": "Synchronisation fehlgeschlagen.",
+    "garmin.error.connectionFailed": "Garmin-Verbindung fehlgeschlagen."
 }
