@@ -302,21 +302,21 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
       <div className="space-y-8">
         {/* Overview */}
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Übersicht</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.overview")}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
               <div className="flex items-center gap-2 mb-2">
                 <CalendarDays size={14} style={{ color: "var(--accent-color)" }} />
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Ø Frequenz</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.avgFrequency")}</span>
               </div>
               <span className="text-2xl font-black" style={{ color: "var(--text-color)" }}>
-                {allStats.avgFrequency.toFixed(1)}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-secondary)" }}>/ Woche</span>
+                {allStats.avgFrequency.toFixed(1)}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.perWeek")}</span>
               </span>
             </div>
             <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
               <div className="flex items-center gap-2 mb-2">
                 <Clock size={14} style={{ color: "#F59E0B" }} />
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Ø Dauer</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.avgDuration")}</span>
               </div>
               <span className="text-2xl font-black" style={{ color: "var(--text-color)" }}>
                 {Math.round(allStats.avgDuration)}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-secondary)" }}>min</span>
@@ -327,7 +327,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
 
         {/* Training Days */}
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Beliebteste Trainingstage</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.popularDays")}</h3>
           <div className="flex items-end gap-2 h-24">
             {allStats.trainingDays.map((d) => (
               <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
@@ -343,7 +343,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
 
         {/* Frequency Chart (last 8 weeks) */}
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Sessions / Woche (letzte 8)</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.weeklySessionsChart")}</h3>
           <div className="flex items-end gap-2 h-20">
             {allStats.weekBuckets.map((count, i) => {
               const max = Math.max(...allStats.weekBuckets, 1);
@@ -364,7 +364,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Medal size={14} style={{ color: "#F59E0B" }} />
-              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Persönliche Rekorde</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.personalRecords")}</h3>
             </div>
             <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
               {allStats.prs.map((pr, i) => (
@@ -391,7 +391,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Dumbbell size={14} style={{ color: "#007AFF" }} />
-              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Top Übungen</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.topExercises")}</h3>
             </div>
             <div className="space-y-2.5">
               {allStats.topExercises.map((ex) => {

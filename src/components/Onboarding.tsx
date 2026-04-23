@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { getSupabaseClient } from '../lib/supabaseClient';
+import { FEATURE_FLAGS } from '../config/featureFlags';
 import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from '../context/OnboardingContext';
 import { useCsvImport } from '../hooks/useCsvImport';
 import { useTheme } from '../context/ThemeContext';
@@ -740,8 +741,6 @@ export const Onboarding: React.FC = () => {
     setDir(1);
     setStep((s) => {
       let next = Math.min(s + 1, 7);
-      // Skip Garmin step (6) when feature is disabled
-      const { FEATURE_FLAGS } = require("../config/featureFlags");
       if (next === 6 && !FEATURE_FLAGS.garmin) next = 7;
       return next;
     });
@@ -751,8 +750,6 @@ export const Onboarding: React.FC = () => {
     setDir(-1);
     setStep((s) => {
       let prev = Math.max(s - 1, 0);
-      // Skip Garmin step (6) when feature is disabled
-      const { FEATURE_FLAGS } = require("../config/featureFlags");
       if (prev === 6 && !FEATURE_FLAGS.garmin) prev = 5;
       return prev;
     });

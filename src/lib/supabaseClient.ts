@@ -34,8 +34,9 @@ export function getSupabaseClient(): SupabaseClient | null {
           autoRefreshToken: true,
           detectSessionInUrl: true,
           storage: authStorageAdapter,
+          // No-op lock: WKWebView's navigator.locks is unstable → bypass with direct execution
           lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => await fn(),
-          flowType: "implicit",
+          flowType: "pkce",
         },
       });
     } catch (err) {

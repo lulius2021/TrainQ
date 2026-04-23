@@ -764,7 +764,7 @@ function ExerciseEditorInner({
 
   if (!theme) return null;
 
-  // const { t } = useI18n(); // Removed i18n
+  const { t } = useI18n();
   const repsUnit = isCardio ? "Min" : "Wdh.";
   const weightUnit = isCardio ? "km" : "kg";
   const addSetLabel = isCardio ? "Intervall hinzufügen" : "Satz hinzufügen";
@@ -843,13 +843,13 @@ function ExerciseEditorInner({
                     style={{ color: theme.colors.text }}
                   >
                     <ArrowLeftRight size={16} />
-                    Übung tauschen
+                    {t("training.swapExercise")}
                   </button>
                 )}
                 {sets.length > 0 && (
                   <>
                     <div className="px-4 pt-2 pb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>Satz löschen</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{t("training.deleteSet")}</span>
                     </div>
                     {sets.map((s: any, i: number) => (
                       <button
@@ -956,7 +956,7 @@ function ExerciseEditorInner({
         const lastDate = (history as any).lastPerformedAt;
         if (!lastDate) return null;
         const daysAgo = Math.round((Date.now() - new Date(lastDate).getTime()) / 86400000);
-        const daysLabel = daysAgo === 0 ? "heute" : daysAgo === 1 ? "gestern" : `vor ${daysAgo} Tagen`;
+        const daysLabel = daysAgo === 0 ? t("training.today") : daysAgo === 1 ? t("training.yesterday") : t("training.daysAgo", { count: daysAgo });
         const displaySets = (history.sets as any[]).slice(0, 3).filter((s: any) => s.weight != null || s.reps != null);
         if (displaySets.length === 0) return null;
         return (

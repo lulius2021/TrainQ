@@ -33,3 +33,9 @@ export function resolveExerciseImageSrc(exercise?: Exercise | null): string | nu
   const candidates = getExerciseImageCandidates(exercise);
   return candidates[0] ?? null;
 }
+
+/** Returns the GIF path for exercise detail view (animated preview) */
+export function resolveExerciseGifSrc(exercise?: Exercise | null): string | null {
+  if (!exercise?.id) return null;
+  return `/exercises/${exercise.id}.gif`;
+}

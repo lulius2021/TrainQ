@@ -87,10 +87,15 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
             onboardingCompleted = true;
             cacheOnboardingCompleted(u.id);
           } else if (cachedStatus.completed) {
-            // Cache says completed but DB disagrees — trust cache, fix DB
+            // Cache says completed but DB disagrees — trust cache, fix DB with retry
             onboardingCompleted = true;
-            client.from('profiles').update({ onboarding_completed: true }).eq('id', u.id)
-              .then(() => {}, () => {});
+            (async () => {
+              for (let i = 0; i < 3; i++) {
+                const { error } = await client.from('profiles').update({ onboarding_completed: true }).eq('id', u.id);
+                if (!error) break;
+                if (i < 2) await new Promise(r => setTimeout(r, (i + 1) * 500));
+              }
+            })().catch(() => {});
           }
         } else {
           onboardingCompleted = cachedStatus.completed;

@@ -4,6 +4,7 @@ import { Info, Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { useExerciseImage } from "../../hooks/useExerciseImage";
+import { resolveExerciseGifSrc } from "../../utils/exerciseImage";
 import { loadWorkoutHistory, type WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { getInstructionsForExercise } from "../../data/exerciseInstructions";
@@ -136,6 +137,11 @@ const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" 
 
 export default function ExerciseDetailView({ isOpen, onClose, exercise }: ExerciseDetailViewProps) {
     const imageUrl = useExerciseImage(exercise);
+    const gifSrc = useMemo(() => resolveExerciseGifSrc(exercise), [exercise?.id]);
+    const [gifFailed, setGifFailed] = useState(false);
+
+    // Reset gif error state when exercise changes
+    useEffect(() => { setGifFailed(false); }, [exercise?.id]);
 
     // Live Workout Store Hook
     const activeWorkout = useLiveTrainingStore(state => state.activeWorkout);
@@ -284,14 +290,24 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                         {exercise.name}
                     </h1>
 
-                    {imageUrl && (
+                    {(gifSrc || imageUrl) && (
                         <div className="flex justify-center py-3">
-                            <img
-                                src={imageUrl}
-                                alt={exercise.name}
-                                className="w-full max-w-[280px] rounded-2xl object-cover"
-                                style={{ aspectRatio: "3/2" }}
-                            />
+                            {gifSrc && !gifFailed ? (
+                                <img
+                                    src={gifSrc}
+                                    alt={exercise.name}
+                                    onError={() => setGifFailed(true)}
+                                    className="w-full max-w-[300px] rounded-2xl object-contain"
+                                    style={{ backgroundColor: "#111" }}
+                                />
+                            ) : imageUrl ? (
+                                <img
+                                    src={imageUrl}
+                                    alt={exercise.name}
+                                    className="w-full max-w-[280px] rounded-2xl object-cover"
+                                    style={{ aspectRatio: "3/2" }}
+                                />
+                            ) : null}
                         </div>
                     )}
 

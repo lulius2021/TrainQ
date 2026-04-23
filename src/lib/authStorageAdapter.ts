@@ -39,8 +39,8 @@ async function secureSet(key: string, value: string): Promise<void> {
     return enqueue(async () => {
         try {
             await SecureStoragePlugin.set({ key, value });
-        } catch {
-            // Silently fail — session will be restored from Supabase on next launch
+        } catch (e) {
+            if (import.meta.env.DEV) console.error("[SecureStorage] set failed:", e);
         }
     });
 }

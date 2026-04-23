@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { scanBarcode } from "../../native/barcodeScanner";
 import { searchFoodByName, type OFFSearchResult } from "../../features/nutrition/barcodeLookup";
 import { BottomSheet } from "../common/BottomSheet";
+import { useI18n } from "../../i18n/useI18n";
 
 type TabMode = "search" | "barcode";
 
@@ -19,7 +20,7 @@ interface BarcodeScannerModalProps {
 
 // ─── Native Camera Scanner Button ──────────────────────────────────────────
 
-const NativeScannerButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan }) => {
+const NativeScannerButton: React.FC<{ onScan: (code: string) => void; t: (key: string) => string }> = ({ onScan, t }) => {
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
@@ -35,16 +36,16 @@ const NativeScannerButton: React.FC<{ onScan: (code: string) => void }> = ({ onS
     } catch (e: any) {
       const msg = String(e?.message || e || "");
       if (msg.includes("PERMISSION_DENIED")) {
-        setError("Kamera-Zugriff verweigert. Bitte unter Einstellungen → TrainQ → Kamera aktivieren.");
+        setError(t("barcode.error.permissionDenied"));
       } else if (msg.includes("NO_CAMERA")) {
-        setError("Keine Kamera verfügbar.");
+        setError(t("barcode.error.noCamera"));
       } else {
-        setError(`Scanner-Fehler: ${msg}`);
+        setError(t("barcode.error.generic"));
       }
     } finally {
       setScanning(false);
     }
-  }, [onScan]);
+  }, [onScan, t]);
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
@@ -61,10 +62,10 @@ const NativeScannerButton: React.FC<{ onScan: (code: string) => void }> = ({ onS
           <Camera size={28} className="text-white" />
         </div>
         <span className="text-base font-bold" style={{ color: "var(--text-color)" }}>
-          {scanning ? "Scanner öffnet..." : "Barcode scannen"}
+          {scanning ? t("barcode.scanning") : t("barcode.scan")}
         </span>
         <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Kamera öffnet sich automatisch
+          {t("barcode.hint")}
         </span>
       </button>
       {error && (
@@ -86,6 +87,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   onSelectProduct,
   onClose,
 }) => {
+  const { t } = useI18n();
   const [tab, setTab] = useState<TabMode>("search");
   const [query, setQuery] = useState("");
   const [ean, setEan] = useState("");
@@ -148,18 +150,18 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       showHandle
       header={
         <div className="px-5 pb-1">
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Barcode scannen</h2>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t("barcode.title")}</h2>
         </div>
       }
       contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-8"
     >
       <div className="flex flex-col items-center gap-5">
-        <NativeScannerButton onScan={handleScan} />
+        <NativeScannerButton onScan={handleScan} t={t} />
 
         {/* Divider */}
         <div className="flex items-center gap-3 w-full">
           <div className="flex-1 h-px bg-[var(--border-color)]" />
-          <span className="text-xs font-medium text-[var(--text-secondary)]">oder EAN eingeben</span>
+          <span className="text-xs font-medium text-[var(--text-secondary)]">{t("barcode.orManual")}</span>
           <div className="flex-1 h-px bg-[var(--border-color)]" />
         </div>
 
@@ -172,7 +174,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               value={ean}
               onChange={(e) => setEan(e.target.value.replace(/[^0-9]/g, ""))}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualEan(); } }}
-              placeholder="EAN / Barcode-Nummer"
+              placeholder={t("barcode.placeholder")}
               className="flex-1 bg-transparent text-sm text-[var(--text-color)] placeholder-[var(--text-secondary)] outline-none min-w-0 tabular-nums"
               inputMode="numeric"
               maxLength={13}
@@ -184,7 +186,7 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               className="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-40 flex items-center gap-1.5"
             >
               <Search size={14} />
-              Suchen
+              {t("barcode.search")}
             </button>
           </div>
         </div>

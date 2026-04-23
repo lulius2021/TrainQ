@@ -1,6 +1,10 @@
 // src/utils/adaptivePersonalization.ts
 // Builds a personalized context from the user's workout history for adaptive training.
 
+/** Weight modifier bounds — clamped to prevent extreme suggestions */
+const WEIGHT_MODIFIER_MIN = 0.7;
+const WEIGHT_MODIFIER_MAX = 1.15;
+
 import { loadWorkoutHistory } from "./workoutHistory";
 import type { AdaptiveAnswers, PostWorkoutFeedback, WeeklyVolumeContext, ExerciseRotationContext, WeekSplitEntry } from "../types/adaptive";
 import { computeWeeklyVolumeContext } from "./adaptiveVolumeTracker";
@@ -325,7 +329,7 @@ export function computeWeightModifier(
   if (answers?.dayForm === "low") modifier -= 0.10;
   if (answers?.dayForm === "high") modifier += 0.05;
   if (answers?.stress === "high") modifier -= 0.05;
-  return Math.max(0.7, Math.min(1.15, modifier));
+  return Math.max(WEIGHT_MODIFIER_MIN, Math.min(WEIGHT_MODIFIER_MAX, modifier));
 }
 
 /**
@@ -450,7 +454,7 @@ export function buildUserAdaptiveContext(
     sport !== "gym" ? getTypicalPace(sessions) : 0;
 
   // Combined weight modifier: base × feedback
-  const combinedWeightModifier = Math.max(0.7, Math.min(1.15, weightModifier * feedbackWeightModifier));
+  const combinedWeightModifier = Math.max(WEIGHT_MODIFIER_MIN, Math.min(WEIGHT_MODIFIER_MAX, weightModifier * feedbackWeightModifier));
 
   // Fallback: if no history, provide default exercises per split
   if (sport === "gym" && topExercises.length === 0) {

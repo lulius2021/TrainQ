@@ -79,6 +79,7 @@ import WheelPicker from "../../components/ui/WheelPicker";
 import { ProfileService } from "../../services/ProfileService";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useTheme } from "../../context/ThemeContext";
+import { useI18n } from "../../i18n/useI18n";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -267,6 +268,7 @@ export default function LiveTrainingPage({
   const [showConfetti, setShowConfetti] = useState(false);
 
   const { theme } = useTheme();
+  const { t } = useI18n();
 
 
 
@@ -1742,9 +1744,9 @@ export default function LiveTrainingPage({
 
               {/* Intensity Feedback */}
               <div className="mb-4">
-                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>Intensität</label>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>{t("training.feedback.intensity")}</label>
                 <div className="flex gap-2">
-                  {([["too_easy", "Zu leicht"], ["right", "Genau richtig"], ["too_hard", "Zu schwer"]] as const).map(([val, label]) => (
+                  {([["too_easy", t("training.feedback.tooEasy")], ["right", t("training.feedback.justRight")], ["too_hard", t("training.feedback.tooHard")]] as const).map(([val, label]) => (
                     <button
                       key={val}
                       type="button"
@@ -1763,9 +1765,9 @@ export default function LiveTrainingPage({
 
               {/* Feeling Feedback */}
               <div className="mb-6">
-                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>Wie fühlst du dich?</label>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>{t("training.feedback.feeling")}</label>
                 <div className="flex gap-2">
-                  {([["exhausted", "Erschöpft"], ["good", "Gut"], ["energized", "Voller Energie"]] as const).map(([val, label]) => (
+                  {([["exhausted", t("training.feedback.exhausted")], ["good", t("training.feedback.good")], ["energized", t("training.feedback.energized")]] as const).map(([val, label]) => (
                     <button
                       key={val}
                       type="button"
@@ -1787,14 +1789,14 @@ export default function LiveTrainingPage({
                   onClick={confirmFinish}
                   className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
                 >
-                  Final Speichern
+                  {t("training.feedback.save")}
                 </button>
                 <button
                   onClick={() => setShowFinishReview(false)}
                   className="w-full py-3 rounded-xl font-medium transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Zurück zum Training
+                  {t("training.feedback.backToTraining")}
                 </button>
               </div>
             </div>
