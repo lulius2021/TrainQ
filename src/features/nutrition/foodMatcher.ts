@@ -15,6 +15,72 @@ function normalize(s: string): string {
 }
 
 /**
+ * Levenshtein distance between two strings.
+ * Used for fuzzy matching with typos.
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  // Use single-row optimization
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array(n + 1);
+
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,      // deletion
+        curr[j - 1] + 1,  // insertion
+        prev[j - 1] + cost // substitution
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+/**
+ * Check if query fuzzy-matches a target string.
+ * Returns a score 0-1 or null if no match.
+ */
+function fuzzyMatch(target: string, query: string): number | null {
+  const t = normalize(target);
+  const q = normalize(query);
+  if (!q || !t) return null;
+
+  // For short queries, allow 1 typo; for longer, allow more
+  const maxDist = q.length <= 3 ? 1 : q.length <= 6 ? 2 : 3;
+
+  // Check whole-word fuzzy match
+  const dist = levenshtein(t, q);
+  if (dist <= maxDist) {
+    return Math.max(0.3, 0.7 - dist * 0.15);
+  }
+
+  // Check if query fuzzy-matches the start of the target
+  const sub = t.slice(0, q.length + 1);
+  const startDist = levenshtein(sub, q);
+  if (startDist <= maxDist) {
+    return Math.max(0.25, 0.6 - startDist * 0.15);
+  }
+
+  // Check individual words in target
+  const tWords = t.split(/[\s(),%/·\-]+/).filter(Boolean);
+  for (const tw of tWords) {
+    const wDist = levenshtein(tw, q);
+    if (wDist <= maxDist) {
+      return Math.max(0.2, 0.5 - wDist * 0.15);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Score a food item against a query string.
  * Returns 0 if no match, up to 1.0 for best match.
  */
@@ -69,6 +135,18 @@ function scoreFood(food: FoodItem, query: string): FoodMatchResult | null {
       food.aliases.some((a) => normalize(a).includes(w))
     );
     if (allInAliases) return { food, score: 0.5, matchedOn: "alias" };
+  }
+
+  // Fuzzy matching (typo tolerance)
+  const nameFuzzy = fuzzyMatch(food.name, query);
+  if (nameFuzzy) return { food, score: nameFuzzy, matchedOn: "name" };
+
+  const nameEnFuzzy = fuzzyMatch(food.nameEn, query);
+  if (nameEnFuzzy) return { food, score: nameEnFuzzy, matchedOn: "nameEn" };
+
+  for (const alias of food.aliases) {
+    const aliasFuzzy = fuzzyMatch(alias, query);
+    if (aliasFuzzy) return { food, score: aliasFuzzy * 0.9, matchedOn: "alias" };
   }
 
   return null;

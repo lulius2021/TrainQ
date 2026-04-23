@@ -42,8 +42,8 @@ export function getOnboardingStatus(
         };
     }
 
-    // Priority 2: localStorage cache
-    const cached = loadOnboardingCache();
+    // Priority 2: localStorage cache (scoped by userId)
+    const cached = loadOnboardingCache(userId);
     if (cached && cached.userId === userId) {
         return {
             completed: cached.completed,
@@ -72,7 +72,7 @@ export function cacheOnboardingCompleted(userId: string): void {
             completedAt: new Date().toISOString()
         };
 
-        setScopedItem(STORAGE_KEY, JSON.stringify(data));
+        setScopedItem(STORAGE_KEY, JSON.stringify(data), userId);
     } catch (error) {
         if (import.meta.env.DEV) console.error("[OnboardingPersistence] Failed to cache completion:", error);
     }
@@ -81,9 +81,9 @@ export function cacheOnboardingCompleted(userId: string): void {
 /**
  * Clear onboarding cache (e.g., on logout)
  */
-export function clearOnboardingCache(): void {
+export function clearOnboardingCache(userId?: string): void {
     try {
-        removeScopedItem(STORAGE_KEY);
+        removeScopedItem(STORAGE_KEY, userId);
     } catch (error) {
         if (import.meta.env.DEV) console.error("[OnboardingPersistence] Failed to clear cache:", error);
     }
@@ -92,13 +92,13 @@ export function clearOnboardingCache(): void {
 /**
  * Load cached onboarding status
  */
-function loadOnboardingCache(): {
+function loadOnboardingCache(userId?: string): {
     completed: boolean;
     userId: string;
     completedAt?: string;
 } | null {
     try {
-        const raw = getScopedItem(STORAGE_KEY);
+        const raw = getScopedItem(STORAGE_KEY, userId);
         if (!raw) return null;
 
         const data = JSON.parse(raw);

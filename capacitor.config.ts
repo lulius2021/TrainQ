@@ -26,8 +26,8 @@ const config: CapacitorConfig = {
       resize: 'none',
     },
     SplashScreen: {
-      launchShowDuration: 0,
-      launchAutoHide: true,
+      launchShowDuration: 3000,
+      launchAutoHide: false,
     },
   },
 };

@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { X, Share2, Download, Dumbbell, Flame, Check, MapPin, Bike, Footprints } from "lucide-react";
 import CardioMap from "../components/cardio/CardioMap";
 import type { GpsPoint } from "../types/cardio";
+import { hapticLight } from "../native/haptics";
 
 // --- MOCK DATA ---
 const MOCK_WORKOUT: any = {
@@ -173,9 +174,7 @@ const TemplateBeast = ({ volume, workout, isExportMode }: { volume: number, work
 
   // Trigger haptic once on mount if available
   useEffect(() => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(20);
-    }
+    hapticLight();
   }, []);
 
   if (isCardio) {

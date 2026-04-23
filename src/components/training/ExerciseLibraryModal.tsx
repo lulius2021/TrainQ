@@ -29,7 +29,7 @@ import { addCustomExercise } from "../../utils/customExercisesStore";
 import { addAliasOverride } from "../../utils/exerciseAliasesStore";
 import { saveExerciseImage } from "../../utils/exerciseImageStore";
 import { useExerciseImage } from "../../hooks/useExerciseImage";
-import ExerciseDetailsModal from "../exercises/ExerciseDetailsModal";
+import ExerciseDetailView from "../exercises/ExerciseDetailView";
 import { MapPin, Repeat, Activity, Bike } from "lucide-react";
 
 type Category = 'gym' | 'running' | 'cycling' | 'custom';
@@ -71,6 +71,8 @@ function inferMovement(primaryMuscle: Muscle): Movement {
   return "push";
 }
 
+import MuscleBodyMap from "../exercises/MuscleBodyMap";
+
 function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
   const src = useExerciseImage(exercise);
 
@@ -83,6 +85,15 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
         loading="eager"
         decoding="async"
       />
+    );
+  }
+
+  const hasMuscles = (exercise.primaryMuscles?.length || 0) > 0;
+  if (hasMuscles) {
+    return (
+      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--button-bg)', border: '1px solid var(--border-color)' }}>
+        <MuscleBodyMap primaryMuscles={exercise.primaryMuscles || []} secondaryMuscles={exercise.secondaryMuscles || []} size={22} />
+      </div>
     );
   }
 
@@ -527,12 +538,10 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
         </div>
       )}
 
-      <ExerciseDetailsModal
-        open={detailsOpen && !!selectedExercise}
+      <ExerciseDetailView
+        isOpen={detailsOpen && !!selectedExercise}
         exercise={selectedExercise}
-        isAdded={!!selectedExercise && (existingSet.has(selectedExercise.id) || localAddedIds.has(selectedExercise.id))}
         onClose={closeDetails}
-        onAdd={handleAddExercise}
       />
     </>
   );

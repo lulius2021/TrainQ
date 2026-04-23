@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="#007AFF" fill-opacity="0.08" stroke="#007AFF" stroke-opacity="0.15" stroke-width="1.5"/>
+
+  <!-- Body outline - upper torso -->
+  <!-- Neck -->
+  <path d="M90 52 L90 42 Q100 36 110 42 L110 52" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Shoulders -->
+  <path d="M90 52 Q72 50 58 60 Q48 68 46 82" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <path d="M110 52 Q128 50 142 60 Q152 68 154 82" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Arms -->
+  <path d="M46 82 Q42 100 44 118" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <path d="M154 82 Q158 100 156 118" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Torso sides -->
+  <path d="M56 78 Q60 110 68 140 Q75 158 85 168" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <path d="M144 78 Q140 110 132 140 Q125 158 115 168" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Waist -->
+  <path d="M85 168 Q100 172 115 168" stroke="#007AFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Center line -->
+  <line x1="100" y1="52" x2="100" y2="168" stroke="#007AFF" stroke-width="1" opacity="0.2"/>
+
+  <!-- CHEST MUSCLES - highlighted -->
+  <!-- Left pec -->
+  <path d="M94 56 Q78 58 64 70 Q56 78 60 92 Q66 108 80 112 Q90 114 96 108 Q98 100 98 80 Q97 64 94 56Z"
+        fill="#007AFF" fill-opacity="0.25" stroke="#007AFF" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Right pec -->
+  <path d="M106 56 Q122 58 136 70 Q144 78 140 92 Q134 108 120 112 Q110 114 104 108 Q102 100 102 80 Q103 64 106 56Z"
+        fill="#007AFF" fill-opacity="0.25" stroke="#007AFF" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Pec striations -->
+  <path d="M72 74 Q84 78 96 76" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+  <path d="M68 86 Q82 92 96 88" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+  <path d="M74 100 Q86 104 96 100" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+
+  <path d="M128 74 Q116 78 104 76" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+  <path d="M132 86 Q118 92 104 88" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+  <path d="M126 100 Q114 104 104 100" stroke="#007AFF" stroke-width="1" opacity="0.3" fill="none"/>
+</svg>

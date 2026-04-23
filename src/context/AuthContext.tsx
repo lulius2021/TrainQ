@@ -10,7 +10,6 @@ import { pullAndMerge } from "../services/nutritionSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import { hasActiveChallengeGrant } from "../utils/challengeStore";
-import { ensureCommunityProfile } from "../services/community/api";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple" | "local";
@@ -87,11 +86,11 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
           if (data.onboarding_completed) {
             onboardingCompleted = true;
             cacheOnboardingCompleted(u.id);
-          } else {
-            if (cachedStatus.completed) {
-
-              onboardingCompleted = true;
-            }
+          } else if (cachedStatus.completed) {
+            // Cache says completed but DB disagrees — trust cache, fix DB
+            onboardingCompleted = true;
+            client.from('profiles').update({ onboarding_completed: true }).eq('id', u.id)
+              .then(() => {}, () => {});
           }
         } else {
           onboardingCompleted = cachedStatus.completed;
@@ -128,11 +127,6 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
     pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge failed:", e); });
-
-    // Ensure community profile exists so user appears in "Entdecken"
-    const handle = u.email?.split("@")[0] || `user_${u.id.slice(0, 6)}`;
-    const displayName = u.user_metadata?.full_name || handle;
-    ensureCommunityProfile(u.id, handle, displayName).catch(() => {});
   }, []);
 
   const ensureLocalUser = useCallback(() => {
@@ -436,20 +430,32 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const completeOnboarding = useCallback(async (): Promise<void> => {
     if (!user) return;
 
-    // 1. Update State
+    // 1. Update State optimistically
     const updatedUser = { ...user, onboardingCompleted: true };
     setUser(updatedUser);
 
-    // 2. Persist Local
+    // 2. Persist
     if (user.provider === 'local') {
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(updatedUser));
     } else {
+      // Always update localStorage caches immediately
       cacheOnboardingCompleted(user.id);
+      try { localStorage.setItem(CACHED_AUTH_KEY, JSON.stringify(updatedUser)); } catch { /* ignore */ }
+
+      // Await Supabase update with retry (critical: prevents onboarding re-trigger)
       const client = getSafeClient();
       if (client) {
-        // Fire-and-forget — local state is already updated; don't block navigation on network
-        void Promise.resolve(client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id))
-          .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.error("[Auth] onboarding update failed:", e); });
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { error } = await client.from('profiles').update({ onboarding_completed: true }).eq('id', user.id);
+            if (!error) break;
+            if (import.meta.env.DEV) console.warn(`[Auth] onboarding update attempt ${attempt + 1} failed:`, error.message);
+          } catch (e: unknown) {
+            if (import.meta.env.DEV) console.warn(`[Auth] onboarding update attempt ${attempt + 1} error:`, e);
+          }
+          // Wait before retry (500ms, 1s)
+          if (attempt < 2) await new Promise(r => setTimeout(r, (attempt + 1) * 500));
+        }
       }
     }
   }, [user, getSafeClient]);

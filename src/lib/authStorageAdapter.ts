@@ -6,56 +6,53 @@ import type { SupportedStorage } from "@supabase/supabase-js";
 /**
  * Adapter that uses Keychain/Keystore on Native, and localStorage on Web.
  * Conforms to Supabase `SupportedStorage` interface.
+ *
+ * Uses a serial queue (mutex) to prevent concurrent Keychain access
+ * which causes "Lock was stolen by another request" errors.
  */
-function isLockStolen(e: unknown): boolean {
-    return String((e as any)?.message ?? "").includes("Lock was stolen");
+
+// ─── Serial Queue ────────────────────────────────────────────────────────────
+// Ensures only one SecureStorage operation runs at a time.
+
+let _queue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const next = _queue.then(fn, fn);
+    _queue = next.then(() => {}, () => {});
+    return next;
 }
 
+// ─── SecureStorage helpers ───────────────────────────────────────────────────
+
 async function secureGet(key: string): Promise<string | null> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    return enqueue(async () => {
         try {
             const { value } = await SecureStoragePlugin.get({ key });
             return value;
-        } catch (e) {
-            if (isLockStolen(e) && attempt < 2) {
-                await new Promise<void>((r) => setTimeout(r, 40 * (attempt + 1)));
-                continue;
-            }
+        } catch {
             return null;
         }
-    }
-    return null;
+    });
 }
 
 async function secureSet(key: string, value: string): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    return enqueue(async () => {
         try {
             await SecureStoragePlugin.set({ key, value });
-            return;
-        } catch (e) {
-            if (isLockStolen(e) && attempt < 2) {
-                await new Promise<void>((r) => setTimeout(r, 40 * (attempt + 1)));
-                continue;
-            }
-            if (import.meta.env.DEV) console.error("SecureStorage set error:", e);
-            return;
+        } catch {
+            // Silently fail — session will be restored from Supabase on next launch
         }
-    }
+    });
 }
 
 async function secureRemove(key: string): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    return enqueue(async () => {
         try {
             await SecureStoragePlugin.remove({ key });
-            return;
-        } catch (e) {
-            if (isLockStolen(e) && attempt < 2) {
-                await new Promise<void>((r) => setTimeout(r, 40 * (attempt + 1)));
-                continue;
-            }
-            return; // Key didn't exist or other error — ignore
+        } catch {
+            // Key didn't exist or other error — ignore
         }
-    }
+    });
 }
 
 export const authStorageAdapter: SupportedStorage = {

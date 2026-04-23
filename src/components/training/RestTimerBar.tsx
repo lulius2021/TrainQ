@@ -85,7 +85,16 @@ function playBellOnce(when: number, gain = 0.78) {
   });
 }
 
+function isSoundEnabled(): boolean {
+  try {
+    return localStorage.getItem("trainq_pref_sound") !== "false";
+  } catch {
+    return true;
+  }
+}
+
 function playBoxingBellDouble() {
+  if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
   const t = ctx.currentTime + 0.01;
@@ -263,14 +272,26 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
             }}
           />
         </div>
-        <button
-          type="button"
-          onClick={() => void skipRest()}
-          className="w-full rounded-3xl py-2 text-sm font-semibold text-gray-300 hover:bg-white/5"
-          title={t("training.rest.skipTitle")}
-        >
-          {t("training.rest.skip")}
-        </button>
+        {left === 0 && running ? (
+          <button
+            type="button"
+            onClick={() => { onDoneRef.current?.(); }}
+            className="w-full rounded-3xl py-3 text-base font-bold text-white flex items-center justify-center gap-2 active:scale-[0.97] transition-all"
+            style={{ backgroundColor: "#22c55e", boxShadow: "0 0 16px rgba(34,197,94,0.4)" }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Satz abhaken
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void skipRest()}
+            className="w-full rounded-3xl py-2 text-sm font-semibold text-gray-300 hover:bg-white/5"
+            title={t("training.rest.skipTitle")}
+          >
+            {t("training.rest.skip")}
+          </button>
+        )}
       </div>
     </div>
   );

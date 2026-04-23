@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, ArrowRight } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { hapticMedium } from '../../native/haptics';
 import { useI18n } from '../../i18n/useI18n';
 import { BottomSheet } from '../common/BottomSheet';
 
@@ -22,7 +22,7 @@ const ShiftPlanModal: React.FC<ShiftPlanModalProps> = ({ isOpen, onClose, onConf
     ];
 
     const handleConfirm = () => {
-        try { Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}); } catch { }
+        hapticMedium();
         onConfirm(selectedDays);
     };
 

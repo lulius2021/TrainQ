@@ -1,11 +1,45 @@
 import React, { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { hapticSuccess, hapticLight } from "../../native/haptics";
-import type { LiveSet } from "../../types/training"; // Adjust import path if needed, usually ../../types/training
+import { FEATURE_FLAGS } from "../../config/featureFlags";
+import type { LiveSet } from "../../types/training";
 import { useI18n } from "../../i18n/useI18n";
 import { AnimatePresence, useAnimation } from "framer-motion";
 import { MotionDiv } from "../ui/Motion";
 import { Info, MoreHorizontal, X, Plus, Trash2, ArrowLeftRight } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import MuscleBodyMap from "../exercises/MuscleBodyMap";
+import { EXERCISES } from "../../data/exerciseLibrary";
+import { resolveExerciseImageSrc } from "../../utils/exerciseImage";
+
+/** Small exercise thumbnail — shows image from library, falls back to first letter */
+const ExerciseThumb: React.FC<{ exercise: { id: string; exerciseId?: string; name: string; imageSrc?: string }; onClick?: () => void }> = ({ exercise, onClick }) => {
+  const imgSrc = useMemo(() => {
+    if (exercise.imageSrc) return exercise.imageSrc;
+    // Try exerciseId first (library reference), then id
+    const lookupId = exercise.exerciseId || exercise.id;
+    const lib = EXERCISES.find(e => e.id === lookupId);
+    if (lib) return resolveExerciseImageSrc(lib);
+    // Fallback: try matching by name
+    const byName = EXERCISES.find(e => e.name === exercise.name || e.nameDe === exercise.name || e.nameEn === exercise.name);
+    return byName ? resolveExerciseImageSrc(byName) : null;
+  }, [exercise.id, exercise.exerciseId, exercise.name, exercise.imageSrc]);
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden cursor-pointer"
+      style={{ backgroundColor: "var(--input-bg)" }}
+    >
+      {imgSrc ? (
+        <img src={imgSrc} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <span className="text-base font-bold" style={{ color: "var(--text-secondary)" }}>
+          {(exercise.name || "?")[0].toUpperCase()}
+        </span>
+      )}
+    </div>
+  );
+};
 import type { WeightSuggestion } from "../../utils/weightSuggestion";
 
 // -------------------- Helpers --------------------
@@ -751,19 +785,7 @@ function ExerciseEditorInner({
       {/* Exercise Header */}
       <div className="flex items-center gap-2 mb-2">
         {/* Exercise Image */}
-        <div
-          onClick={(e) => { e.stopPropagation(); if (onOpenExerciseDetails) onOpenExerciseDetails(exercise.id); }}
-          className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden cursor-pointer"
-          style={{ backgroundColor: "var(--input-bg)" }}
-        >
-          {exercise.imageSrc ? (
-            <img src={exercise.imageSrc} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-base font-bold" style={{ color: "var(--text-secondary)" }}>
-              {(exercise.name || "?")[0].toUpperCase()}
-            </span>
-          )}
-        </div>
+        <ExerciseThumb exercise={exercise} onClick={() => onOpenExerciseDetails?.(exercise.id)} />
 
         {/* Name + Info */}
         <div
@@ -824,6 +846,26 @@ function ExerciseEditorInner({
                     Übung tauschen
                   </button>
                 )}
+                {sets.length > 0 && (
+                  <>
+                    <div className="px-4 pt-2 pb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>Satz löschen</span>
+                    </div>
+                    {sets.map((s: any, i: number) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemoveSet(s.id); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors hover:opacity-75"
+                        style={{ color: "#ef4444" }}
+                      >
+                        <Trash2 size={14} />
+                        Satz {i + 1}{s.weight != null ? ` — ${s.weight}kg` : ""}{s.reps != null ? ` ×${s.reps}` : ""}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <div style={{ borderTop: `1px solid ${theme.colors.border}` }} />
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemove(); }}
@@ -853,8 +895,8 @@ function ExerciseEditorInner({
         </div>
       )}
 
-      {/* Warmup Button – only show when ≥2 sessions and no warmups exist yet */}
-      {onAddWarmupSets && !isCardio && (historySessionCount ?? 0) >= 2 && (() => {
+      {/* Warmup Button – gated behind feature flag */}
+      {FEATURE_FLAGS.warmupSets && onAddWarmupSets && !isCardio && (historySessionCount ?? 0) >= 2 && (() => {
         const hasWarmupSets = sets.some((s: LiveSet) => (s as any).type === "w");
         if (hasWarmupSets) return null;
         return (
@@ -911,9 +953,12 @@ function ExerciseEditorInner({
 
       {/* Inline History — last session sets */}
       {!isCardio && history && (history.sets as any[]).length > 0 && (() => {
-        const daysAgo = Math.round((Date.now() - new Date((history as any).lastPerformedAt).getTime()) / 86400000);
-        const daysLabel = daysAgo === 0 ? "heute" : daysAgo === 1 ? "gestern" : `vor ${daysAgo}T`;
-        const displaySets = (history.sets as any[]).slice(0, 3);
+        const lastDate = (history as any).lastPerformedAt;
+        if (!lastDate) return null;
+        const daysAgo = Math.round((Date.now() - new Date(lastDate).getTime()) / 86400000);
+        const daysLabel = daysAgo === 0 ? "heute" : daysAgo === 1 ? "gestern" : `vor ${daysAgo} Tagen`;
+        const displaySets = (history.sets as any[]).slice(0, 3).filter((s: any) => s.weight != null || s.reps != null);
+        if (displaySets.length === 0) return null;
         return (
           <div className="flex items-center gap-2 px-1 mt-0.5 mb-0.5">
             <span className="text-[11px] font-medium shrink-0" style={{ color: theme.colors.textSecondary }}>{daysLabel}:</span>

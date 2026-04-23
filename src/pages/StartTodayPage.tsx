@@ -12,8 +12,8 @@ import { startSession, startFreeTraining, startTrainingTemplate } from "../utils
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore";
 import { PageHeader } from "../components/ui/PageHeader";
 import { AppButton } from "../components/ui/AppButton";
-import { useEntitlements } from "../hooks/useEntitlements";
 import { track } from "../analytics/track";
+import { hapticButton, hapticSelect, hapticDestructive, hapticMedium } from "../native/haptics";
 import { getActiveUserId } from "../utils/session";
 import {
     getTemplates,
@@ -94,6 +94,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     }, [open]);
 
     const handleSportChange = (newSport: TrainingType) => {
+        hapticSelect();
         setSport(newSport);
         setExercises([]);
         setCardioDuration("");
@@ -107,6 +108,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
 
     const handleSave = () => {
         if (!title.trim()) return;
+        hapticMedium();
         let finalExercises: TemplateExercise[] | undefined;
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
@@ -121,6 +123,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     };
 
     const handlePickExercise = (exercise: Exercise) => {
+        hapticButton();
         setExercises((prev) => [...prev, { exerciseId: exercise.id, name: exercise.name, sets: makeDefaultSets() }]);
         setShowLibrary(false);
     };
@@ -134,16 +137,19 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     };
 
     const handleRemoveExercise = (idx: number) => {
+        hapticDestructive();
         setExercises((prev) => prev.filter((_, i) => i !== idx));
     };
 
     const handleAddSet = (exIdx: number) => {
+        hapticButton();
         setExercises((prev) =>
             prev.map((ex, i) => i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: 10, weight: 0 }] } : ex)
         );
     };
 
     const handleRemoveSet = (exIdx: number, setIdx: number) => {
+        hapticDestructive();
         setExercises((prev) =>
             prev.map((ex, i) => i === exIdx ? { ...ex, sets: (ex.sets ?? []).filter((_, si) => si !== setIdx) } : ex)
         );
@@ -361,42 +367,35 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
     onConfirm: () => void;
     onCancel: () => void;
 }) {
-    const push = useModalStore((s) => s.push);
-    const pop  = useModalStore((s) => s.pop);
-    useEffect(() => { push(); return () => pop(); }, [push, pop]);
-
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
-            onClick={onCancel}
-            data-overlay-open="true"
-        >
-            <div
-                className="w-full max-w-md rounded-t-[28px] p-6 space-y-4"
-                style={{ backgroundColor: "var(--card-bg)" }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="w-10 h-1 rounded-full mx-auto" style={{ backgroundColor: "var(--border-color)" }} />
-                <div className="text-center space-y-1">
+        <BottomSheet
+            open
+            onClose={onCancel}
+            height="auto"
+            showHandle
+            header={
+                <div className="text-center space-y-1 px-6">
                     <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Training starten?</p>
                     <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{pendingLabel}</p>
                 </div>
-                <button
-                    onPointerDown={onConfirm}
-                    className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
-                    style={{ backgroundColor: "#007AFF" }}
-                >
-                    Starten
-                </button>
-                <button
-                    onPointerDown={onCancel}
-                    className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
-                    style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
-                >
-                    Abbrechen
-                </button>
-            </div>
-        </div>
+            }
+            contentClassName="px-6 pb-6 pt-2 space-y-3"
+        >
+            <button
+                onPointerDown={() => { hapticMedium(); onConfirm(); }}
+                className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
+                style={{ backgroundColor: "#007AFF" }}
+            >
+                Starten
+            </button>
+            <button
+                onPointerDown={() => { hapticButton(); onCancel(); }}
+                className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
+                style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
+            >
+                Abbrechen
+            </button>
+        </BottomSheet>
     );
 }
 
@@ -408,7 +407,6 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const hasActiveWorkout = !!activeWorkout?.isActive;
     const [templates, setTemplates] = useState<TrainingTemplateLite[]>(() => getTemplates());
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const { isPro, canCreateTemplate } = useEntitlements(getActiveUserId() ?? undefined);
     const [confirmPending, setConfirmPending] = useState<{ label: string; onConfirm: () => void } | null>(null);
 
     const refreshTemplates = useCallback(() => {
@@ -428,16 +426,19 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
 
     const handleFreeTraining = (sport: TrainingType = "gym") => {
         if (hasActiveWorkout) return;
+        hapticButton();
         const label = sport === "laufen" ? "Laufen · Cardio" : sport === "radfahren" ? "Radfahren · Cardio" : "Gym · Krafttraining";
         askConfirm(label, () => startFreeTraining(sport));
     };
 
     const handleStartTemplate = (tpl: TrainingTemplateLite) => {
         if (hasActiveWorkout) return;
+        hapticButton();
         askConfirm(tpl.title, () => startTrainingTemplate(tpl));
     };
 
     const handleDeleteTemplate = (id: string) => {
+        hapticDestructive();
         deleteTemplate(id);
         refreshTemplates();
     };
@@ -615,17 +616,6 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                     </h2>
 
                     {/* Empty state */}
-                    {templates.length === 0 && (
-                        <div
-                            className="rounded-2xl border border-dashed p-6 flex flex-col items-center gap-1.5"
-                            style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)" }}
-                        >
-                            <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Noch keine Vorlagen</p>
-                            <p className="text-[11px] text-center" style={{ color: "var(--text-muted, var(--text-secondary))" }}>
-                                Erstelle eine Vorlage und starte sie mit einem Tap
-                            </p>
-                        </div>
-                    )}
 
                     {/* User-created templates */}
                     {templates.map((tpl) => {
@@ -675,11 +665,6 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         {/* Create template button */}
                         <button
                             onClick={() => {
-                                if (!canCreateTemplate(templates.length)) {
-                                    window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "template_limit" } }));
-                                    track("feature_blocked", { featureKey: "CREATE_TEMPLATE", contextScreen: "today" });
-                                    return;
-                                }
                                 setShowCreateModal(true);
                             }}
                             className="w-full rounded-2xl border-2 border-dashed py-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"

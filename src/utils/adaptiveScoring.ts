@@ -9,6 +9,8 @@ import type {
   AdaptiveAnswers,
   AdaptiveReason,
   AdaptiveSuggestion,
+  PostWorkoutFeedback,
+  WeeklyVolumeContext,
 } from "../types/adaptive";
 import i18n from "../i18n/config";
 
@@ -85,7 +87,12 @@ function reasonsFromAnswers(a: AdaptiveAnswers): AdaptiveReason[] {
 // Hauptfunktion (NAMED EXPORT)
 // ------------------------------
 
-export function buildAdaptiveSuggestions(answers: AdaptiveAnswers, avgDurationMin = 0): AdaptiveSuggestion[] {
+export function buildAdaptiveSuggestions(
+  answers: AdaptiveAnswers,
+  avgDurationMin = 0,
+  lastFeedback?: PostWorkoutFeedback | null,
+  volumeContext?: WeeklyVolumeContext | null,
+): AdaptiveSuggestion[] {
   const lowRecovery = hasLowRecovery(answers);
   const timeLimited = hasTimeConstraint(answers);
   const sport = answers.sport ?? "gym";
@@ -97,6 +104,21 @@ export function buildAdaptiveSuggestions(answers: AdaptiveAnswers, avgDurationMi
   }
 
   const baseReasons = reasonsFromAnswers(answers);
+
+  // Feedback-based adjustments
+  const lastWasTooHard = lastFeedback?.perceivedIntensity === "too_hard";
+  const lastWasTooEasy = lastFeedback?.perceivedIntensity === "too_easy";
+  const wasExhausted = lastFeedback?.postFeeling === "exhausted";
+
+  if (lastWasTooHard || wasExhausted) baseReasons.push("last_too_hard");
+  if (lastWasTooEasy) baseReasons.push("last_too_easy");
+
+  // Volume-based adjustments
+  const needsVolumeReduction = volumeContext?.needsVolumeReduction ?? false;
+  const needsExtendedWarmup = volumeContext?.needsExtendedWarmup ?? false;
+
+  if (needsVolumeReduction) baseReasons.push("volume_high");
+  if (needsExtendedWarmup) baseReasons.push("rest_gap");
 
   // Sport-specific titles/subtitles/intensities
   const isCardio = sport === "laufen" || sport === "radfahren";
@@ -166,6 +188,33 @@ export function buildAdaptiveSuggestions(answers: AdaptiveAnswers, avgDurationMi
   if (lowRecovery || timeLimited) {
     fokus.intensityHint = i18n.t("adaptive.card.fokus.intensityBlocked");
     fokus.estimatedMinutes = 0;
+  }
+
+  // Feedback adjustments: last session was too hard → reduce stabil sets
+  if (lastWasTooHard || wasExhausted) {
+    stabil.setsPerExercise = Math.max(2, stabil.setsPerExercise - 1);
+    stabil.intensityHint = i18n.t("adaptive.card.stabil.intensityLow");
+  }
+
+  // Feedback: last session was too easy → boost fokus
+  if (lastWasTooEasy && !lowRecovery && !timeLimited) {
+    if (!isCardio) {
+      fokus.exercisesCount = Math.min(7, fokus.exercisesCount + 1);
+      fokus.setsPerExercise = Math.min(4, fokus.setsPerExercise + 1);
+    }
+  }
+
+  // Volume reduction: if weekly volume climbing >10%, reduce sets across all
+  if (needsVolumeReduction) {
+    stabil.setsPerExercise = Math.max(2, stabil.setsPerExercise - 1);
+    kompakt.setsPerExercise = Math.max(1, kompakt.setsPerExercise - 1);
+  }
+
+  // Extended warmup hint
+  if (needsExtendedWarmup) {
+    const warmupNote = " Empfehlung: Verlängertes Aufwärmen (5-10 min).";
+    stabil.intensityHint += warmupNote;
+    kompakt.intensityHint += warmupNote;
   }
 
   return timeLimited ? [kompakt, stabil, fokus] : [stabil, kompakt, fokus];

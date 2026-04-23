@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useModalStore } from '../store/useModalStore';
 import {
   Plus,
   Calendar,
@@ -20,7 +21,7 @@ import {
   Flame,
   // Users — removed (community widget handles it)
 } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { hapticMedium } from '../native/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { parseISODateLocal } from '../utils/calendarGeneration';
 import { de } from 'date-fns/locale';
@@ -34,9 +35,9 @@ import type { DeloadPlan } from '../types/deload';
 import type { AdaptiveSuggestion, AdaptiveAnswers } from '../types/adaptive';
 import { useTheme } from '../context/ThemeContext';
 import { getActiveUserId } from '../utils/session';
-import { useEntitlements } from '../hooks/useEntitlements';
 import { track } from '../analytics/track';
 import WorkoutPlannerModal from '../components/training/WorkoutPlannerModal';
+import { BottomSheet } from '../components/common/BottomSheet';
 import ShiftPlanModal from '../components/training/ShiftPlanModal';
 import AdaptiveTrainingModal from '../components/adaptive/AdaptiveTrainingModal';
 import { ProfileService } from '../services/ProfileService';
@@ -57,8 +58,6 @@ import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHi
 import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
-import DashboardCommunityWidget from '../components/community/DashboardCommunityWidget';
-import AICoachCard from '../components/ai/AICoachCard';
 import { useI18n } from '../i18n/useI18n';
 
 // --- HELPER ---
@@ -164,16 +163,20 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
   );
 };
 
+
 const DashboardPage = () => {
   const { t } = useI18n();
+  const [confirmPending, setConfirmPending] = useState<{ label: string; onConfirm: () => void } | null>(null);
+  const activateShield = useModalStore((s) => s.activateShield);
+  const askConfirm = useCallback((label: string, action: () => void) => {
+    setConfirmPending({ label, onConfirm: action });
+  }, []);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showTerminModal, setShowTerminModal] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showToast, setShowToast] = useState(false); // For visual feedback
   const { mode } = useTheme();
   const userId = getActiveUserId();
-  const { isPro, adaptiveBCRemaining, canUseSuggestion, consumeSuggestion } = useEntitlements(userId ?? undefined);
-
   // Weekly Goal State
   const [weeklyMinutes, setWeeklyMinutes] = useState(0);
   const [weeklyCalories, setWeeklyCalories] = useState(0);
@@ -181,25 +184,6 @@ const DashboardPage = () => {
   const [weeklyDistanceKm, setWeeklyDistanceKm] = useState(0);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
   const [lastActivity, setLastActivity] = useState<WorkoutHistoryEntry | null>(null);
-
-  // AI Coach Context – gebaut aus vorhandenen Dashboard-Daten
-  const aiCoachContext = useMemo(() => {
-    const onboarding = readOnboardingDataFromStorage();
-    const persona = onboarding.personal.persona || "beginner";
-    const goals = onboarding.personal.goals ?? [];
-    const recentWorkouts = (lastActivity ? [lastActivity] : [])
-      .map((w) => ({
-        sport: w.sport ?? "Gym",
-        durationMin: Math.round((w.durationSec ?? 0) / 60),
-        date: (w.endedAt || w.startedAt).slice(0, 10),
-      }));
-    const recoveryScore = (() => {
-      // Map deload score (0=fresh, 100=exhausted) to recovery score (0–10)
-      // deloadScore.score is not directly exposed, use level as proxy
-      return undefined; // will be populated once deloadScore is available below
-    })();
-    return { fitnessLevel: persona, goals, recentWorkouts, recoveryScore };
-  }, [lastActivity]);
 
   // Live Training Check
   const activeWorkout = useLiveTrainingStore((state) => state.activeWorkout);
@@ -438,13 +422,8 @@ const DashboardPage = () => {
   }, []);
 
   const handleOpenAdaptive = () => {
-    if (!canUseSuggestion()) {
-      window.dispatchEvent(new CustomEvent("trainq:open_paywall", { detail: { reason: "suggestion_weekly_limit" } }));
-      track("feature_blocked", { featureKey: "ADAPTIVE_SUGGESTION", contextScreen: "dashboard" });
-      return;
-    }
     // Fire-and-forget haptics — don't await (can hang on simulator)
-    try { Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}); } catch { /* ignore */ }
+    hapticMedium();
     setShowAdaptiveModal(true);
   };
 
@@ -493,7 +472,6 @@ const DashboardPage = () => {
   /** Save to calendar only (no live start) */
   const handleAdaptiveSaveToCalendar = (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => {
     saveAdaptiveToCalendar(suggestion, answers);
-    consumeSuggestion();
     track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile, action: "calendar_save" });
     setShowAdaptiveModal(false);
   };
@@ -508,7 +486,6 @@ const DashboardPage = () => {
     const context = buildUserAdaptiveContext(sport, answers);
     const adaptedSeed = applyAdaptiveToSeed(baseSeed, suggestion, answers, context);
     writeGlobalLiveSeed({ ...adaptedSeed, calendarEventId: eventId });
-    consumeSuggestion();
     track("feature_used", { featureKey: "ADAPTIVE_SUGGESTION", profile: suggestion.profile, action: "calendar_save_and_start" });
     setShowAdaptiveModal(false);
     window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training" } }));
@@ -545,10 +522,6 @@ const DashboardPage = () => {
         style={{ paddingBottom: isWorkoutActive ? "160px" : "120px" }}
       >
 
-        {/* RECOVERY SCORE WIDGET */}
-        {deloadScore && deloadScore.hasEnoughHistory && (
-          <RecoveryScoreWidget result={deloadScore} />
-        )}
 
         {/* DELOAD BANNER */}
         {deloadBannerState && (
@@ -590,7 +563,7 @@ const DashboardPage = () => {
           <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.startTraining")}</h3>
           <div className="grid grid-cols-3 gap-2.5">
               <button
-                onClick={() => startFreeTraining("gym")}
+                onClick={() => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym"))}
                 disabled={isWorkoutActive}
                 className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
               >
@@ -601,7 +574,7 @@ const DashboardPage = () => {
               </button>
 
               <button
-                onClick={() => startFreeTraining("laufen")}
+                onClick={() => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen"))}
                 disabled={isWorkoutActive}
                 className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
               >
@@ -612,7 +585,7 @@ const DashboardPage = () => {
               </button>
 
               <button
-                onClick={() => startFreeTraining("radfahren")}
+                onClick={() => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren"))}
                 disabled={isWorkoutActive}
                 className="bg-[var(--card-bg)] rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform border border-[var(--border-color)] h-24 btn-haptic disabled:opacity-50"
               >
@@ -649,11 +622,6 @@ const DashboardPage = () => {
         {/* NUTRITION TRACKER */}
         <NutritionDashboardWidget />
 
-        {/* COMMUNITY */}
-        <DashboardCommunityWidget />
-
-        {/* AI COACH */}
-        <AICoachCard userContext={aiCoachContext} />
 
       </div>
 
@@ -678,8 +646,6 @@ const DashboardPage = () => {
         splitType="push_pull"
         onSelect={handleAdaptiveSelect}
         onSaveToCalendar={handleAdaptiveSaveToCalendar}
-        isPro={isPro}
-        adaptiveLeftBC={adaptiveBCRemaining}
         previewExercises={adaptivePreviewExercises}
       />
 
@@ -688,6 +654,35 @@ const DashboardPage = () => {
         onClose={() => setShowPlanModal(false)}
         onSave={() => {}}
       />
+
+      <BottomSheet
+        open={!!confirmPending}
+        onClose={() => { setConfirmPending(null); activateShield(); }}
+        height="auto"
+        showHandle={true}
+        header={
+          <div className="text-center space-y-1 px-6">
+            <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Training starten?</p>
+            <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{confirmPending?.label}</p>
+          </div>
+        }
+        contentClassName="px-6 pb-6 pt-2 space-y-3"
+      >
+        <button
+          onPointerDown={() => { confirmPending?.onConfirm(); setConfirmPending(null); activateShield(); }}
+          className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
+          style={{ backgroundColor: "#007AFF" }}
+        >
+          Starten
+        </button>
+        <button
+          onPointerDown={() => { setConfirmPending(null); activateShield(); }}
+          className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
+          style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
+        >
+          Abbrechen
+        </button>
+      </BottomSheet>
 
     </div>
   );

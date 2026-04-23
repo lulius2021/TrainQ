@@ -158,9 +158,9 @@ const DailyMacroSummary: React.FC<DailyMacroSummaryProps> = ({
         {(goals.sugar ?? 0) > 0 && (
           <MacroBar
             label="Zucker"
-            current={0}
+            current={Math.round((totals.sugar ?? 0) * 10) / 10}
             goal={goals.sugar ?? 50}
-            progress={0}
+            progress={goals.sugar ? (totals.sugar ?? 0) / goals.sugar : 0}
             color="#f43f5e"
             bgColor="rgba(244,63,94,0.15)"
             unit="g"
@@ -169,9 +169,9 @@ const DailyMacroSummary: React.FC<DailyMacroSummaryProps> = ({
         {(goals.fiber ?? 0) > 0 && (
           <MacroBar
             label="Ballast."
-            current={0}
+            current={Math.round((totals.fiber ?? 0) * 10) / 10}
             goal={goals.fiber ?? 30}
-            progress={0}
+            progress={goals.fiber ? (totals.fiber ?? 0) / goals.fiber : 0}
             color="#10b981"
             bgColor="rgba(16,185,129,0.15)"
             unit="g"

@@ -8,16 +8,18 @@ import {
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
 import { WorkoutHistoryOverlay } from "../components/profile/WorkoutHistoryOverlay";
-import { History, Settings } from "lucide-react";
+import { History, Settings, BarChart3, Medal, Dumbbell, CalendarDays, Clock, TrendingUp } from "lucide-react";
 
 import {
   readOnboardingDataFromStorage,
   writeOnboardingDataToStorage,
   resetOnboardingInStorage,
 } from "../context/OnboardingContext";
+import NutritionStatsBlock from "../components/nutrition/NutritionStatsBlock";
+import { loadDiaryEntries } from "../utils/nutritionStore";
+import { Apple } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
-import { useEntitlements } from "../hooks/useEntitlements";
 import { track } from "../analytics/track";
 import ProfileStatsDashboard from "../components/profile/ProfileStatsDashboard";
 import { buildProfileLinks, copyText, shareProfile, shortenId } from "../utils/shareProfile";
@@ -33,6 +35,7 @@ import { ConsistencyHeatmap } from "../components/stats/ConsistencyHeatmap";
 import { GarminService } from "../services/garmin/api";
 import { useGarminConnection } from "../hooks/useGarminConnection";
 import type { GarminActivity } from "../services/garmin/types";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
 import { BottomSheet } from "../components/common/BottomSheet";
@@ -41,6 +44,7 @@ import { useI18n } from "../i18n/useI18n";
 import { useChallengeRewards } from "../hooks/useChallengeRewards";
 import { Gift, Trophy, Flame } from "lucide-react";
 import { computeStreaks } from "../utils/stats";
+import { hapticButton, hapticSelect } from "../native/haptics";
 
 interface ProfilePageProps {
   onClearCalendar?: () => void;
@@ -201,16 +205,409 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 }
 
+/* ─── All Stats BottomSheet ─── */
+
+function computeAllStats(workouts: WorkoutHistoryEntry[]) {
+  // Personal Records (best weight per exercise)
+  const prMap = new Map<string, { weight: number; reps: number; date: string }>();
+  workouts.forEach((w) => {
+    (w.exercises ?? []).forEach((ex) => {
+      (ex.sets ?? []).forEach((s) => {
+        if (s.weight > 0 && s.reps > 0) {
+          const key = ex.name;
+          const current = prMap.get(key);
+          if (!current || s.weight > current.weight) {
+            prMap.set(key, { weight: s.weight, reps: s.reps, date: w.endedAt || w.startedAt });
+          }
+        }
+      });
+    });
+  });
+  const prs = Array.from(prMap.entries())
+    .map(([name, pr]) => ({ name, ...pr }))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 10);
+
+  // Top Exercises (most frequent)
+  const exCountMap = new Map<string, number>();
+  workouts.forEach((w) => {
+    (w.exercises ?? []).forEach((ex) => {
+      exCountMap.set(ex.name, (exCountMap.get(ex.name) || 0) + 1);
+    });
+  });
+  const topExercises = Array.from(exCountMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  // Training frequency (sessions per week, last 8 weeks)
+  const now = Date.now();
+  const weekBuckets: number[] = Array(8).fill(0);
+  workouts.forEach((w) => {
+    const t = new Date(w.startedAt).getTime();
+    const weeksAgo = Math.floor((now - t) / (7 * 86400000));
+    if (weeksAgo >= 0 && weeksAgo < 8) weekBuckets[7 - weeksAgo]++;
+  });
+  const avgFrequency = weekBuckets.reduce((s, v) => s + v, 0) / 8;
+
+  // Average session duration
+  const durations = workouts.map((w) => (w.durationSec ?? 0) / 60).filter((m) => m > 0);
+  const avgDuration = durations.length > 0 ? durations.reduce((s, v) => s + v, 0) / durations.length : 0;
+
+  // Favorite training days
+  const dayCount = Array(7).fill(0);
+  const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  workouts.forEach((w) => {
+    const day = new Date(w.startedAt).getDay();
+    const idx = (day + 6) % 7; // Monday = 0
+    dayCount[idx]++;
+  });
+  const maxDay = Math.max(...dayCount, 1);
+  const trainingDays = dayLabels.map((label, i) => ({ label, count: dayCount[i], pct: (dayCount[i] / maxDay) * 100 }));
+
+  // Best cardio
+  const runs = workouts.filter((w) => (w.sport || "").toLowerCase() === "laufen" && w.paceSecPerKm && w.paceSecPerKm > 0);
+  const bestPace = runs.length > 0 ? Math.min(...runs.map((r) => r.paceSecPerKm!)) : null;
+  const longestRun = runs.length > 0 ? Math.max(...runs.map((r) => r.distanceKm ?? 0)) : null;
+
+  const rides = workouts.filter((w) => (w.sport || "").toLowerCase() === "radfahren");
+  const longestRide = rides.length > 0 ? Math.max(...rides.map((r) => r.distanceKm ?? 0)) : null;
+
+  return { prs, topExercises, weekBuckets, avgFrequency, avgDuration, trainingDays, bestPace, longestRun, longestRide };
+}
+
+function formatPaceMinSec(secPerKm: number): string {
+  const min = Math.floor(secPerKm / 60);
+  const sec = Math.round(secPerKm % 60);
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
+
+const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: WorkoutHistoryEntry[] }> = ({ open, onClose, workouts }) => {
+  const { t } = useI18n();
+  const allStats = useMemo(() => computeAllStats(workouts), [workouts]);
+
+  return (
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      height="92dvh"
+      showHandle
+      header={
+        <div className="px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t("profile.allStats")}</h2>
+        </div>
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-10"
+    >
+      <div className="space-y-8">
+        {/* Overview */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Übersicht</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <CalendarDays size={14} style={{ color: "var(--accent-color)" }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Ø Frequenz</span>
+              </div>
+              <span className="text-2xl font-black" style={{ color: "var(--text-color)" }}>
+                {allStats.avgFrequency.toFixed(1)}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-secondary)" }}>/ Woche</span>
+              </span>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock size={14} style={{ color: "#F59E0B" }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Ø Dauer</span>
+              </div>
+              <span className="text-2xl font-black" style={{ color: "var(--text-color)" }}>
+                {Math.round(allStats.avgDuration)}<span className="text-sm font-normal ml-1" style={{ color: "var(--text-secondary)" }}>min</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Training Days */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Beliebteste Trainingstage</h3>
+          <div className="flex items-end gap-2 h-24">
+            {allStats.trainingDays.map((d) => (
+              <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full rounded-t-lg flex flex-col justify-end" style={{ height: 64, backgroundColor: "var(--card-bg)" }}>
+                  <div className="w-full rounded-t-lg" style={{ height: `${Math.max(d.pct, 4)}%`, backgroundColor: d.count > 0 ? "#007AFF" : "transparent" }} />
+                </div>
+                <span className="text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>{d.label}</span>
+                <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--text-color)" }}>{d.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Frequency Chart (last 8 weeks) */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Sessions / Woche (letzte 8)</h3>
+          <div className="flex items-end gap-2 h-20">
+            {allStats.weekBuckets.map((count, i) => {
+              const max = Math.max(...allStats.weekBuckets, 1);
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full rounded-t-lg flex flex-col justify-end" style={{ height: 52, backgroundColor: "var(--card-bg)" }}>
+                    <div className="w-full rounded-t-lg" style={{ height: `${Math.max((count / max) * 100, 4)}%`, backgroundColor: count > 0 ? "#10B981" : "transparent" }} />
+                  </div>
+                  <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--text-color)" }}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Personal Records */}
+        {allStats.prs.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Medal size={14} style={{ color: "#F59E0B" }} />
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Persönliche Rekorde</h3>
+            </div>
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+              {allStats.prs.map((pr, i) => (
+                <div
+                  key={pr.name}
+                  className="flex items-center justify-between px-4 py-3"
+                  style={i < allStats.prs.length - 1 ? { borderBottom: "1px solid var(--border-color)" } : undefined}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-bold tabular-nums w-5 text-center" style={{ color: i < 3 ? "#F59E0B" : "var(--text-secondary)" }}>{i + 1}</span>
+                    <span className="text-sm font-medium truncate" style={{ color: "var(--text-color)" }}>{pr.name}</span>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums shrink-0" style={{ color: "var(--text-color)" }}>
+                    {pr.weight} kg <span className="font-normal" style={{ color: "var(--text-secondary)" }}>× {pr.reps}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top Exercises */}
+        {allStats.topExercises.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Dumbbell size={14} style={{ color: "#007AFF" }} />
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Top Übungen</h3>
+            </div>
+            <div className="space-y-2.5">
+              {allStats.topExercises.map((ex) => {
+                const maxCount = allStats.topExercises[0]?.count ?? 1;
+                const pct = (ex.count / maxCount) * 100;
+                return (
+                  <div key={ex.name}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[13px] font-medium truncate" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                      <span className="text-[13px] font-bold tabular-nums shrink-0 ml-3" style={{ color: "var(--text-secondary)" }}>{ex.count}×</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: "#007AFF" }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Cardio Records */}
+        {(allStats.bestPace || allStats.longestRun || allStats.longestRide) && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} style={{ color: "#10B981" }} />
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Cardio Bestleistungen</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {allStats.bestPace && (
+                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Beste Pace</span>
+                  <span className="text-2xl font-black" style={{ color: "#34C759" }}>
+                    {formatPaceMinSec(allStats.bestPace)}<span className="text-xs font-normal ml-1">/km</span>
+                  </span>
+                </div>
+              )}
+              {allStats.longestRun != null && allStats.longestRun > 0 && (
+                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Längster Lauf</span>
+                  <span className="text-2xl font-black" style={{ color: "#34C759" }}>
+                    {allStats.longestRun.toFixed(1)}<span className="text-xs font-normal ml-1">km</span>
+                  </span>
+                </div>
+              )}
+              {allStats.longestRide != null && allStats.longestRide > 0 && (
+                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Längste Fahrt</span>
+                  <span className="text-2xl font-black" style={{ color: "#FF9500" }}>
+                    {allStats.longestRide.toFixed(1)}<span className="text-xs font-normal ml-1">km</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </BottomSheet>
+  );
+};
+
+/* ─── Nutrition Stats BottomSheet ─── */
+
+const NutritionStatsSheet: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+  const hasData = useMemo(() => open ? loadDiaryEntries().length > 0 : false, [open]);
+
+  return (
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      height={hasData ? "88dvh" : "auto"}
+      showHandle
+      header={
+        <div className="px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Ernährung</h2>
+        </div>
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-10"
+    >
+      {hasData ? (
+        <NutritionStatsBlock />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+          <Apple size={32} style={{ color: "var(--text-muted)" }} />
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Noch keine Ernährungsdaten erfasst.</p>
+        </div>
+      )}
+    </BottomSheet>
+  );
+};
+
+/* ─── Stat Detail Sheet with own TimeRange ─── */
+const TimeRangePicker: React.FC<{ value: TimeRange; onChange: (v: TimeRange) => void }> = ({ value, onChange }) => (
+  <div className="flex items-center p-1 rounded-lg border" style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)" }}>
+    {(["1W", "1M", "6M", "1Y"] as TimeRange[]).map((tr) => (
+      <button
+        key={tr}
+        onClick={() => { hapticSelect(); onChange(tr); }}
+        className="px-3 py-1 text-xs font-medium rounded-md transition-all"
+        style={{
+          backgroundColor: value === tr ? "var(--card-bg)" : "transparent",
+          color: value === tr ? "var(--text-color)" : "var(--text-muted)",
+          boxShadow: value === tr ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+        }}
+      >
+        {tr}
+      </button>
+    ))}
+  </div>
+);
+
+type StatType = "volume" | "duration" | "distance" | "sports";
+
+const StatDetailSheet: React.FC<{
+  type: StatType | null;
+  onClose: () => void;
+  workouts: WorkoutHistoryEntry[];
+}> = ({ type, onClose, workouts }) => {
+  const { t } = useI18n();
+  const [sheetTimeRange, setSheetTimeRange] = useState<TimeRange>("1W");
+  const sheetStats = useStatistics(workouts, sheetTimeRange);
+
+  if (!type) return null;
+
+  const configs: Record<Exclude<StatType, "sports">, { title: string; valueDisplay: string; unit: string; data: any[]; chartType: "area" | "bar"; color: string }> = {
+    volume: {
+      title: t("profile.stats.trainingLoad"),
+      valueDisplay: (sheetStats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t",
+      unit: "kg",
+      data: sheetStats.volumeData,
+      chartType: "area",
+      color: "#007AFF",
+    },
+    duration: {
+      title: t("profile.stats.trainingTime"),
+      valueDisplay: Math.round(sheetStats.totals.duration / 60) + " h",
+      unit: "min",
+      data: sheetStats.durationData,
+      chartType: "bar",
+      color: "#F59E0B",
+    },
+    distance: {
+      title: t("profile.stats.distance"),
+      valueDisplay: sheetStats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km",
+      unit: "km",
+      data: sheetStats.distanceData,
+      chartType: "area",
+      color: "#10B981",
+    },
+  };
+
+  if (type === "sports") {
+    return (
+      <BottomSheet
+        open
+        onClose={onClose}
+        height="auto"
+        showHandle
+        header={
+          <div className="flex items-center justify-between px-5 pb-1">
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t("profile.stats.sportsFocus")}</h2>
+            <TimeRangePicker value={sheetTimeRange} onChange={setSheetTimeRange} />
+          </div>
+        }
+      >
+        <div className="px-4 pb-8">
+          <StatsChart
+            title={t("profile.stats.sportsFocus")}
+            type="pie"
+            data={sheetStats.sportSplitData}
+            unit="x"
+            height={300}
+          />
+        </div>
+      </BottomSheet>
+    );
+  }
+
+  const cfg = configs[type];
+
+  return (
+    <BottomSheet
+      open
+      onClose={onClose}
+      height="auto"
+      showHandle
+      header={
+        <div className="flex items-center justify-between px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{cfg.title}</h2>
+          <TimeRangePicker value={sheetTimeRange} onChange={setSheetTimeRange} />
+        </div>
+      }
+    >
+      <div className="px-4 pb-8">
+        <StatsChart
+          title={cfg.title}
+          valueDisplay={cfg.valueDisplay}
+          unit={cfg.unit}
+          data={cfg.data}
+          type={cfg.chartType}
+          color={cfg.color}
+          height={300}
+        />
+      </div>
+    </BottomSheet>
+  );
+};
+
 const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenWorkoutShare }) => {
   const { t } = useI18n();
   const { user, logout } = useAuth();
-  const { isPro, canViewStatsRange } = useEntitlements(user?.id);
+  const canViewStatsRange = (_range: string) => true;
   const { unclaimedRewards, unclaimedCount, activeGrants, hasActiveGrant, claimReward: claimChallengeReward, isLoading: rewardsLoading } = useChallengeRewards();
-
-  const openPaywall = useCallback(() => {
-    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trainq:open_paywall"));
-  }, []);
-
 
   const [onboarding, setOnboarding] = useState(() => readOnboardingDataFromStorage());
   const [workouts, setWorkouts] = useState<WorkoutHistoryEntry[]>(() => loadWorkoutHistory());
@@ -221,7 +618,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
   const [garminActivities, setGarminActivities] = useState<GarminActivity[]>([]);
 
   useEffect(() => {
-    if (!garminConnected) return;
+    if (!FEATURE_FLAGS.garmin || !garminConnected) return;
     const now = new Date();
     const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     const from = yearAgo.toISOString().slice(0, 10);
@@ -426,6 +823,9 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [statsOpen, setStatsOpen] = useState(false);
+  const [statSheetOpen, setStatSheetOpen] = useState<string | null>(null);
+  const [allStatsOpen, setAllStatsOpen] = useState(false);
+  const [nutritionStatsOpen, setNutritionStatsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Lock background scroll whenever any overlay is open
@@ -550,22 +950,30 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
   const [recapOpen, setRecapOpen] = useState(false);
 
   const { lastMonthYear, lastMonthIndex, lastMonthName, hasLastMonthWorkouts } = useMemo(() => {
-    // Only show recap for completed (past) months — check up to 6 months back
+    // Show recap only in the first 10 days after a month ends
     const now = new Date();
-    for (let i = 1; i <= 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const has = workouts.some(w => {
-        const wd = new Date(w.startedAt);
-        return wd.getFullYear() === y && wd.getMonth() === m;
-      });
-      if (has) {
-        const name = d.toLocaleString("de-DE", { month: "long" });
-        return { lastMonthYear: y, lastMonthIndex: m, lastMonthName: name, hasLastMonthWorkouts: true };
-      }
+    const dayOfMonth = now.getDate();
+
+    // Only show if we're in the first 10 days of the current month
+    if (dayOfMonth > 10) {
+      return { lastMonthYear: now.getFullYear(), lastMonthIndex: now.getMonth() - 1, lastMonthName: "", hasLastMonthWorkouts: false };
     }
-    return { lastMonthYear: now.getFullYear(), lastMonthIndex: now.getMonth() - 1, lastMonthName: "", hasLastMonthWorkouts: false };
+
+    // Check the previous month
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+    const y = prevMonth.getFullYear();
+    const m = prevMonth.getMonth();
+    const has = workouts.some(w => {
+      const wd = new Date(w.startedAt);
+      return wd.getFullYear() === y && wd.getMonth() === m;
+    });
+
+    if (has) {
+      const name = prevMonth.toLocaleString("de-DE", { month: "long" });
+      return { lastMonthYear: y, lastMonthIndex: m, lastMonthName: name, hasLastMonthWorkouts: true };
+    }
+
+    return { lastMonthYear: y, lastMonthIndex: m, lastMonthName: "", hasLastMonthWorkouts: false };
   }, [workouts]);
 
   return (
@@ -573,32 +981,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
       <div className="w-full min-h-full" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
         <div className="mx-auto w-full max-w-5xl px-4 pb-40 space-y-6" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <section className="mt-2 space-y-4">
-            <div className="flex items-center justify-end px-1">
-              <div className="flex items-center gap-2">
-                <AppButton
-                  onClick={handleShareProfile}
-                  variant="ghost"
-                  className="rounded-full !p-0 w-10 h-10"
-                  title={t("profile.shareProfile")}
-                  aria-label={t("profile.shareProfile")}
-                >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" style={{ color: "var(--text-main)" }}>
-                    <path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </AppButton>
-                <AppButton
-                  onClick={() => setSettingsOpen(true)}
-                  variant="ghost"
-                  className="rounded-full !p-0 w-11 h-11 flex items-center justify-center"
-                  title={t("profile.settings")}
-                  aria-label={t("profile.settings")}
-                >
-                  <Settings className="w-7 h-7" style={{ color: "var(--text-main)" }} />
-                </AppButton>
-              </div>
-            </div>
-
             {/* ✅ Monthly Recap Trigger */}
             {hasLastMonthWorkouts && (
               <div
@@ -620,40 +1002,11 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
             )}
 
             {/* Profile card */}
-            <AppCard variant="glass" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* ... (rest of profile card content) ... */}
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600">
-                  {avatarDataUrl ? (
-                    <img src={avatarDataUrl} alt={t("profile.profilePicture")} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-3xl font-semibold text-white">{safeInitials(profileName)}</span>
-                  )}
-                </div>
+            <AppCard variant="glass" className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
                 <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-semibold truncate text-[var(--text-color)]">{profileName}</h2>
-                    {isPro ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold bg-[#007AFF]/15 border border-[#007AFF]/40 text-[#007AFF]"
-                        style={{ boxShadow: "0 0 10px rgba(0,122,255,0.25)" }}
-                      >
-                        ✦ Pro
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={openPaywall}
-                        className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium bg-[var(--button-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:opacity-80"
-                        title={t("profile.upgradeToPro")}
-                      >
-                        Free
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-base max-w-xs text-[var(--text-secondary)]">{profileBio}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm pt-1" style={{ color: "var(--text-main)" }}>
-                    {user?.email && <span className="truncate">Account: <span className="font-medium">{user.email}</span></span>}
+                  <h2 className="text-xl font-semibold truncate text-[var(--text-color)]">{profileName}</h2>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm" style={{ color: "var(--text-main)" }}>
                     <span>{t("profile.workouts")}: <span className="font-medium">{weekTotalSessions}</span></span>
                     <span>{t("profile.time")}: <span className="font-medium">{Math.floor(weekTotalMinutes / 60)}h {weekTotalMinutes % 60}m</span></span>
                     {streaks.current > 0 && (
@@ -664,11 +1017,29 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
                     )}
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center self-end sm:self-center">
-                <AppButton onClick={openEdit} variant="secondary" size="sm" style={{ color: "var(--text-main)" }}>
-                  {t("profile.editProfile")}
-                </AppButton>
+                <div className="flex items-center gap-1 shrink-0">
+                  <AppButton
+                    onClick={handleShareProfile}
+                    variant="ghost"
+                    className="rounded-full !p-0 w-10 h-10"
+                    title={t("profile.shareProfile")}
+                    aria-label={t("profile.shareProfile")}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true" style={{ color: "var(--text-main)" }}>
+                      <path d="M12 3v12m0-12-4 4m4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </AppButton>
+                  <AppButton
+                    onClick={() => setSettingsOpen(true)}
+                    variant="ghost"
+                    className="rounded-full !p-0 w-10 h-10 flex items-center justify-center"
+                    title={t("profile.settings")}
+                    aria-label={t("profile.settings")}
+                  >
+                    <Settings className="w-5 h-5" style={{ color: "var(--text-main)" }} />
+                  </AppButton>
+                </div>
               </div>
             </AppCard>
 
@@ -679,20 +1050,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
               </AppCard>
             )}
 
-            {/* Upgrade card */}
-            {!isPro && (
-              <AppCard variant="glass">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-[var(--text-color)]">{t("profile.upgradeTitle")}</h3>
-                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("profile.upgradeSubtitle")}</p>
-                  </div>
-                  <AppButton onClick={openPaywall} variant="primary" size="sm">
-                    {t("profile.upgrade")}
-                  </AppButton>
-                </div>
-              </AppCard>
-            )}
 
             {/* Rewards Section */}
             {(unclaimedCount > 0 || hasActiveGrant) && (
@@ -810,52 +1167,108 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SectionErrorBoundary name="AreaChart-Volume">
-                    <StatsChart
-                      title={t("profile.stats.trainingLoad")}
-                      valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
-                      unit="kg"
-                      data={stats.volumeData}
-                      type="area"
-                      color="#007AFF"
-                    />
+                    <div className="cursor-pointer active:scale-[0.98] transition-transform" style={{ outline: "none", border: "none", WebkitTapHighlightColor: "transparent" }} onClick={() => setStatSheetOpen("volume")}>
+                      <StatsChart
+                        title={t("profile.stats.trainingLoad")}
+                        valueDisplay={(stats.totals.volume / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " t"}
+                        unit="kg"
+                        data={stats.volumeData}
+                        type="area"
+                        color="#007AFF"
+                        height={140}
+                        compact
+                      />
+                    </div>
                   </SectionErrorBoundary>
 
                   <SectionErrorBoundary name="BarChart-Duration">
-                    <StatsChart
-                      title={t("profile.stats.trainingTime")}
-                      valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
-                      unit="min"
-                      data={stats.durationData}
-                      type="bar"
-                      color="#F59E0B"
-                    />
+                    <div className="cursor-pointer active:scale-[0.98] transition-transform" style={{ outline: "none", border: "none", WebkitTapHighlightColor: "transparent" }} onClick={() => setStatSheetOpen("duration")}>
+                      <StatsChart
+                        title={t("profile.stats.trainingTime")}
+                        valueDisplay={Math.round(stats.totals.duration / 60) + " h"}
+                        unit="min"
+                        data={stats.durationData}
+                        type="bar"
+                        color="#F59E0B"
+                        height={140}
+                        compact
+                      />
+                    </div>
                   </SectionErrorBoundary>
 
                   {stats.totals.distance > 0 && (
                     <SectionErrorBoundary name="AreaChart-Distance">
-                      <StatsChart
-                        title={t("profile.stats.distance")}
-                        valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
-                        unit="km"
-                        data={stats.distanceData}
-                        type="area"
-                        color="#10B981"
-                      />
+                      <div className="cursor-pointer active:scale-[0.98] transition-transform" style={{ outline: "none", border: "none", WebkitTapHighlightColor: "transparent" }} onClick={() => setStatSheetOpen("distance")}>
+                        <StatsChart
+                          title={t("profile.stats.distance")}
+                          valueDisplay={stats.totals.distance.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " km"}
+                          unit="km"
+                          data={stats.distanceData}
+                          type="area"
+                          color="#10B981"
+                          height={140}
+                          compact
+                        />
+                      </div>
                     </SectionErrorBoundary>
                   )}
 
                   <SectionErrorBoundary name="PieChart-Sports">
-                    <StatsChart
-                      title={t("profile.stats.sportsFocus")}
-                      type="pie"
-                      data={stats.sportSplitData}
-                      unit="x"
-                    />
+                    <div className="cursor-pointer active:scale-[0.98] transition-transform" style={{ outline: "none", border: "none", WebkitTapHighlightColor: "transparent" }} onClick={() => setStatSheetOpen("sports")}>
+                      <StatsChart
+                        title={t("profile.stats.sportsFocus")}
+                        type="pie"
+                        data={stats.sportSplitData}
+                        unit="x"
+                        height={140}
+                        compact
+                      />
+                    </div>
                   </SectionErrorBoundary>
 
                 </div>
               </div>
 
+
+            {/* All Stats TRIGGER */}
+            <button
+              onClick={() => setAllStatsOpen(true)}
+              className="w-full rounded-3xl p-4 flex items-center justify-between transition-all active:scale-[0.98]"
+              style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)", outline: "none", WebkitTapHighlightColor: "transparent" }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-2xl" style={{ backgroundColor: "var(--input-bg)", color: "#007AFF" }}>
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("profile.allStats")}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>PRs, Top-Übungen, Frequenz & mehr</div>
+                </div>
+              </div>
+              <div style={{ color: "var(--text-muted)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+              </div>
+            </button>
+
+            {/* Nutrition Stats TRIGGER */}
+            <button
+              onClick={() => setNutritionStatsOpen(true)}
+              className="w-full rounded-3xl p-4 flex items-center justify-between transition-all active:scale-[0.98]"
+              style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)", outline: "none", WebkitTapHighlightColor: "transparent" }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-2xl" style={{ backgroundColor: "rgba(52,199,89,0.1)", color: "#34C759" }}>
+                  <Apple className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium" style={{ color: "var(--text-color)" }}>Ernährungsstatistiken</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>Kalorien, Makros, Ziel-Treue</div>
+                </div>
+              </div>
+              <div style={{ color: "var(--text-muted)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+              </div>
+            </button>
 
             {/* Workout history list TRIGGER */}
             <button
@@ -893,216 +1306,13 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
 
       {isHistoryOpen && (
         <WorkoutHistoryOverlay
+          open={isHistoryOpen}
           workouts={workouts}
           onClose={() => setIsHistoryOpen(false)}
           onShare={handleShareImage}
         />
       )}
 
-      {/* MODAL: Profil bearbeiten */}
-      <BottomSheet
-        open={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        maxHeight="92dvh"
-        zIndex={100}
-        header={
-          <div className="px-5 pb-1">
-            <h2 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-color)" }}>
-              {t("profile.editProfileTitle")}
-            </h2>
-          </div>
-        }
-      >
-            <div className="px-5 pb-6 space-y-6">
-              {/* --- Avatar section --- */}
-              <div className="flex flex-col items-center pt-2 pb-2">
-                <div className="relative group cursor-pointer" onClick={onPickAvatar}>
-                  <div
-                    className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 ring-4 shadow-lg shadow-blue-500/20"
-                    style={{ ringColor: "var(--accent-color)" } as React.CSSProperties}
-                  >
-                    {avatarDataUrl
-                      ? <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" />
-                      : <span className="text-3xl font-bold text-white select-none">{safeInitials(profileName)}</span>
-                    }
-                  </div>
-                  {/* Camera overlay */}
-                  <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                      <circle cx="12" cy="13" r="4" />
-                    </svg>
-                  </div>
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
-                <div className="flex items-center gap-3 mt-3">
-                  <button
-                    onClick={onPickAvatar}
-                    className="text-sm font-semibold transition-opacity hover:opacity-80"
-                    style={{ color: "var(--accent-color)" }}
-                  >
-                    {t("profile.chooseImage")}
-                  </button>
-                  {avatarDataUrl && (
-                    <>
-                      <span className="text-xs" style={{ color: "var(--border-color)" }}>|</span>
-                      <button
-                        onClick={() => setAvatarDataUrl("")}
-                        className="text-sm font-semibold text-red-500 transition-opacity hover:opacity-80"
-                      >
-                        {t("profile.removeImage")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* --- Name & Bio section --- */}
-              <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
-                <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid var(--border-color)" }}>
-                  <label className="text-sm font-medium shrink-0 w-16" style={{ color: "var(--text-secondary)" }}>{t("profile.nameLabel")}</label>
-                  <input
-                    type="text"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="flex-1 bg-transparent outline-none text-sm"
-                    style={{ color: "var(--text-color)" }}
-                    placeholder={t("profile.defaultName")}
-                  />
-                </div>
-                <div className="px-4 py-3">
-                  <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.descriptionLabel")}</label>
-                  <textarea
-                    value={profileBio}
-                    onChange={(e) => setProfileBio(e.target.value)}
-                    className="w-full bg-transparent outline-none text-sm resize-none min-h-[72px]"
-                    style={{ color: "var(--text-color)" }}
-                    placeholder={t("profile.descriptionPlaceholder")}
-                  />
-                </div>
-              </div>
-
-              {/* --- Korperdaten section --- */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>{t("profile.yourData")}</p>
-                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <div className="grid grid-cols-3 divide-x" style={{ borderColor: "var(--border-color)" }}>
-                    {/* Age */}
-                    <div className="px-3 py-3 flex flex-col items-center gap-1">
-                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.age")}</label>
-                      <input
-                        type="number"
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
-                        style={{ color: "var(--text-color)" }}
-                        placeholder="--"
-                      />
-                    </div>
-                    {/* Height */}
-                    <div className="px-3 py-3 flex flex-col items-center gap-1" style={{ borderColor: "var(--border-color)" }}>
-                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.heightCm")}</label>
-                      <input
-                        type="number"
-                        value={height}
-                        onChange={(e) => setHeight(e.target.value)}
-                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
-                        style={{ color: "var(--text-color)" }}
-                        placeholder="--"
-                      />
-                    </div>
-                    {/* Weight */}
-                    <div className="px-3 py-3 flex flex-col items-center gap-1" style={{ borderColor: "var(--border-color)" }}>
-                      <label className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.weightKg")}</label>
-                      <input
-                        type="number"
-                        value={weight}
-                        onChange={(e) => setWeight(e.target.value)}
-                        className="w-full bg-transparent outline-none text-center text-lg font-semibold tabular-nums"
-                        style={{ color: "var(--text-color)" }}
-                        placeholder="--"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* --- Trainingsdaten section --- */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>Training</p>
-                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.hoursPerWeek")}</label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        value={hoursPerWeek}
-                        onChange={(e) => setHoursPerWeek(e.target.value)}
-                        className="w-16 bg-transparent outline-none text-right text-sm font-semibold tabular-nums"
-                        style={{ color: "var(--text-color)" }}
-                        placeholder="--"
-                      />
-                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>h</span>
-                    </div>
-                  </div>
-                  <div className="px-4 py-3 flex items-center justify-between">
-                    <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{t("profile.sessionsPerWeek")}</label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        value={sessionsPerWeek}
-                        onChange={(e) => setSessionsPerWeek(e.target.value)}
-                        className="w-16 bg-transparent outline-none text-right text-sm font-semibold tabular-nums"
-                        style={{ color: "var(--text-color)" }}
-                        placeholder="--"
-                      />
-                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>x</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* --- Sports & Goals section --- */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider px-1 mb-2" style={{ color: "var(--text-secondary)" }}>Interessen</p>
-                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.sportsCsv")}</label>
-                    <input
-                      type="text"
-                      value={sportsCsv}
-                      onChange={(e) => setSportsCsv(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm"
-                      style={{ color: "var(--text-color)" }}
-                      placeholder="Laufen, Gym, Radfahren..."
-                    />
-                  </div>
-                  <div className="px-4 py-3">
-                    <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: "var(--text-secondary)" }}>{t("profile.goalsCsv")}</label>
-                    <input
-                      type="text"
-                      value={goalsCsv}
-                      onChange={(e) => setGoalsCsv(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm"
-                      style={{ color: "var(--text-color)" }}
-                      placeholder="Marathon, Kraft, Ausdauer..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* --- Save button --- */}
-              <div className="pt-2 pb-4">
-                <button
-                  onClick={saveProfileEdits}
-                  className="w-full font-bold py-3.5 rounded-2xl shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all text-[15px]"
-                  style={{ backgroundColor: "var(--accent-color)", color: "#fff" }}
-                >
-                  {t("common.save")}
-                </button>
-              </div>
-            </div>
-      </BottomSheet>
 
       {/* MODAL: Statistiken */}
       {statsOpen && (
@@ -1116,6 +1326,19 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
           </AppCard>
         </div>
       )}
+
+      {/* ALL STATS BOTTOM SHEET */}
+      <AllStatsSheet open={allStatsOpen} onClose={() => setAllStatsOpen(false)} workouts={workouts} />
+
+      {/* NUTRITION STATS BOTTOM SHEET */}
+      <NutritionStatsSheet open={nutritionStatsOpen} onClose={() => setNutritionStatsOpen(false)} />
+
+      {/* STAT DETAIL BOTTOM SHEET */}
+      <StatDetailSheet
+        type={statSheetOpen as StatType | null}
+        onClose={() => setStatSheetOpen(null)}
+        workouts={workouts}
+      />
 
       {/* SETTINGS BOTTOM SHEET */}
       <BottomSheet

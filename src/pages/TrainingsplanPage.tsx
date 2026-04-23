@@ -28,9 +28,6 @@ import {
 // ✅ Free-Limit: 7 Tage im Voraus (Date helper)
 import { isWithinDaysAhead } from "../utils/dateLimits";
 
-// ✅ Entitlements (Single Source of Truth)
-import { useEntitlements } from "../hooks/useEntitlements";
-import { useProGuard } from "../hooks/useProGuard";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../theme/ThemeContext";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
@@ -118,8 +115,6 @@ interface TrainingsplanPageProps {
   // optional: falls du Plan-Shift/Update später nutzt
   events?: CalendarEvent[];
   onUpdateEvents?: (next: CalendarEvent[]) => void;
-
-  isPro?: boolean;
 }
 
 // Vorlagen (Trainingspläne)
@@ -1192,7 +1187,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
 // -------------------- Haupt-Komponente --------------------
 
-const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro: isProProp = false }) => {
+const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => {
   // Fallback Theme Guard
   const { theme } = useTheme() || { theme: { colors: { text: '#fff', background: '#000', card: '#1c1c1e', border: '#27272a' } } };
   const { lang } = useI18n();
@@ -1201,11 +1196,6 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [previewTemplate, setPreviewTemplate] = useState<WeeklyPlanTemplate | RoutinePlanTemplate | null>(null);
-
-  // ✅ Entitlements
-  const { isPro: isProEnt, canUseCalendar7, consumeCalendar7, calendar7DaysRemaining } = useEntitlements();
-  const effectiveIsPro = isProEnt || isProProp;
-  const requirePro = useProGuard();
 
   // ✅ Startdatum
   const [planStartISO, setPlanStartISO] = useState<string>(() => {
@@ -1334,21 +1324,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
   // -------------------- Kalender-Import --------------------
 
-  const handleCalendar7DaysGate = (dateISO: string): boolean => {
-    // innerhalb 7 Tage: immer ok
-    if (isWithinDaysAhead(dateISO, 7)) return true;
-
-    // > 7 Tage: Pro immer ok
-    if (effectiveIsPro) return true;
-
-    // Free: 3/Monat
-    if (!canUseCalendar7()) {
-      requirePro("calendar_7days");
-      return false;
-    }
-
-    // ✅ pro Event, das >7 Tage liegt, wird 1 Credit konsumiert
-    consumeCalendar7();
+  const handleCalendar7DaysGate = (_dateISO: string): boolean => {
+    // All dates are allowed — no Pro gate
     return true;
   };
 
@@ -1898,8 +1875,6 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
             else setRoutineTemplatesOpen(true);
           }}
           onShowPreview={() => { }}
-          isPro={effectiveIsPro}
-          freeLimitRemaining={Number.MAX_SAFE_INTEGER}
         />
 
         {/* Weekly */}

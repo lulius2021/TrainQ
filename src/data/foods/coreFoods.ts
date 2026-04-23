@@ -1,6 +1,7 @@
 import type { FoodItem } from "../../types/nutrition";
+import { SUGAR_FIBER } from "./sugarFiberData";
 
-export const CORE_FOODS: FoodItem[] = [
+const RAW_FOODS: FoodItem[] = [
   // =====================================================================
   // DAIRY (28 items)
   // =====================================================================
@@ -3798,3 +3799,10 @@ export const CORE_FOODS: FoodItem[] = [
     servings: [{ unit: "portion", label: "1 Portion (10 g)", grams: 10 }],
   },
 ];
+
+// Merge sugar/fiber data into core foods
+export const CORE_FOODS: FoodItem[] = RAW_FOODS.map((food) => {
+  const sf = SUGAR_FIBER[food.id];
+  if (!sf) return food;
+  return { ...food, per100g: { ...food.per100g, sugar: sf.sugar, fiber: sf.fiber } };
+});

@@ -283,16 +283,9 @@ export const CYCLING_EXERCISES: Exercise[] = [
   },
 ];
 
-const DEFAULT_LANG = "de";
-const LANG_STORAGE_KEY = "trainq_lang_v1";
-
+// Hardcoded to "de" — when adding i18n back, read from localStorage/i18next here
 function getPreferredLang(): "de" | "en" {
-  if (typeof window === "undefined") return DEFAULT_LANG;
-  const stored = window.localStorage.getItem(LANG_STORAGE_KEY);
-  if (stored === "de" || stored === "en") return stored;
-  const legacy = window.localStorage.getItem("trainq_language");
-  if (legacy === "de" || legacy === "en") return legacy;
-  return DEFAULT_LANG;
+  return "de";
 }
 
 function normalizeSearchValue(value: string): string {

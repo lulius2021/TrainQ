@@ -6,6 +6,7 @@ import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 import { KeyboardDismissBar } from "./components/common/KeyboardDismissBar";
 import { useModalStore } from "./store/useModalStore";
+import { SplashScreen } from "@capacitor/splash-screen";
 
 // Types explicitly exported to maintain compatibility
 export type { TabKey } from "./types";
@@ -117,6 +118,8 @@ export const App: React.FC = () => {
     if (import.meta.env.DEV) {
       ensureTestAccountsSeeded();
     }
+    // Hide splash screen now that React has mounted and UI is ready
+    SplashScreen.hide({ fadeOutDuration: 300 }).catch(() => {});
   }, []);
 
   return (

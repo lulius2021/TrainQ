@@ -1,9 +1,8 @@
-import React, { useEffect } from "react";
-import { AnimatePresence, motion, useDragControls } from "framer-motion";
+import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { useModalStore } from "../../store/useModalStore";
 import { hapticSheetClose } from "../../native/haptics";
-
-type DragInfo = { offset: { y: number }; velocity: { y: number } };
 
 type BottomSheetProps = {
   open: boolean;
@@ -27,6 +26,8 @@ type BottomSheetProps = {
 const CLOSE_OFFSET_PX = 80;
 const CLOSE_VELOCITY_PX = 500;
 
+const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+
 export function BottomSheet({
   open,
   onClose,
@@ -44,10 +45,15 @@ export function BottomSheet({
   showHandle = true,
   contentClassName,
 }: BottomSheetProps) {
-  const dragControls = useDragControls();
   const push = useModalStore((s) => s.push);
   const pop  = useModalStore((s) => s.pop);
   const activateShield = useModalStore((s) => s.activateShield);
+
+  // Drag state managed manually for iOS reliability
+  const dragStartY = useRef<number | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const currentTranslateY = useRef(0);
+  const isDragging = useRef(false);
 
   const handleClose = React.useCallback(() => {
     hapticSheetClose();
@@ -55,21 +61,19 @@ export function BottomSheet({
     onClose();
   }, [onClose, activateShield]);
 
-  // Register with modal store so BottomNav hides
   useEffect(() => {
     if (open) { push(); return () => pop(); }
   }, [open, push, pop]);
 
-  // Lock ALL scroll containers while sheet is open — adds/removes .modal-open on #root
   useEffect(() => {
     if (!open) return;
     const root = document.getElementById("root");
     root?.classList.add("modal-open");
 
-    // Prevent touchmove outside sheet content for extra iOS reliability
     const preventScroll = (e: TouchEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("[data-sheet-content]")) return;
+      if (target.closest("[data-sheet-handle]")) return;
       e.preventDefault();
     };
     document.addEventListener("touchmove", preventScroll, { passive: false });
@@ -80,11 +84,47 @@ export function BottomSheet({
     };
   }, [open]);
 
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: DragInfo) => {
-    if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) handleClose();
+  // Manual drag handlers for the handle area
+  const onHandleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
+    dragStartY.current = e.touches[0].clientY;
+    currentTranslateY.current = 0;
+    isDragging.current = true;
   };
 
-  const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+  const onHandleTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null || !isDragging.current) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    // Only allow dragging down, slight resistance up
+    const translate = dy > 0 ? dy : dy * 0.1;
+    currentTranslateY.current = translate;
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = `translateY(${Math.max(0, translate)}px)`;
+      sheetRef.current.style.transition = "none";
+    }
+  };
+
+  const onHandleTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    dragStartY.current = null;
+
+    const dy = currentTranslateY.current;
+
+    if (sheetRef.current) {
+      if (dy > CLOSE_OFFSET_PX) {
+        // Close: animate out
+        sheetRef.current.style.transition = "transform 0.3s ease-out";
+        sheetRef.current.style.transform = "translateY(110%)";
+        setTimeout(handleClose, 300);
+      } else {
+        // Snap back
+        sheetRef.current.style.transition = "transform 0.25s ease-out";
+        sheetRef.current.style.transform = "translateY(0px)";
+      }
+    }
+    currentTranslateY.current = 0;
+  };
 
   const footerBaseStyle: React.CSSProperties = {
     background: "var(--card-bg)",
@@ -92,8 +132,7 @@ export function BottomSheet({
     paddingBottom: "env(safe-area-inset-bottom)",
   };
 
-  return (
-    <>
+  return createPortal(
     <AnimatePresence>
       {open && (
         <MotionDiv
@@ -114,6 +153,7 @@ export function BottomSheet({
 
           {/* Sheet */}
           <div
+            ref={sheetRef}
             className="fixed left-0 right-0 flex justify-center px-0"
             style={{ bottom: bottomOffset }}
           >
@@ -124,50 +164,46 @@ export function BottomSheet({
               animate={{ y: 0 }}
               exit={{ y: "105%" }}
               transition={{ type: "spring", stiffness: 420, damping: 38, mass: 0.9 }}
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0 }}
-              dragElastic={{ top: 0.15, bottom: 0 }}
-              onDragEnd={handleDragEnd}
             >
-              {/* Handle / header drag zone */}
-              <div
-                className="relative shrink-0"
-                onPointerDown={(e: React.PointerEvent) => {
-                  // Don't start drag when tapping interactive elements (buttons, links, etc.)
-                  if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
-                  dragControls.start(e);
-                }}
-                style={{ cursor: "grab", touchAction: "none", minHeight: 64 }}
-              >
-                {showHandle && (
-                  <div className="flex justify-center pt-3 pb-1">
-                    <div className="h-1.5 w-14 rounded-full" style={{ background: "var(--border-color)" }} />
+              {/* Inner content */}
+              <div className="flex flex-col h-full rounded-t-[28px] overflow-hidden" style={{ background: sheetStyle?.background ?? "var(--card-bg)" }}>
+                {/* Handle / header drag zone */}
+                <div
+                  data-sheet-handle
+                  className="relative shrink-0"
+                  onTouchStart={onHandleTouchStart}
+                  onTouchMove={onHandleTouchMove}
+                  onTouchEnd={onHandleTouchEnd}
+                  style={{ cursor: "grab", touchAction: "none", minHeight: 48 }}
+                >
+                  {showHandle && (
+                    <div className="flex justify-center pt-3 pb-1">
+                      <div className="h-1.5 w-14 rounded-full" style={{ background: "var(--border-color)" }} />
+                    </div>
+                  )}
+                  {header
+                    ? <div className="pt-2 pb-3">{header}</div>
+                    : showHandle && <div style={{ height: 24 }} />
+                  }
+                </div>
+
+                <div
+                  data-sheet-content
+                  className={contentClassName ?? "flex-1 min-h-0 overflow-y-auto"}
+                  style={{ overscrollBehavior: "contain" }}
+                >{children}</div>
+
+                {footer && (
+                  <div className="shrink-0" style={{ ...footerBaseStyle, ...footerStyle }}>
+                    {footer}
                   </div>
                 )}
-                {header
-                  ? <div className="pt-2 pb-3">{header}</div>
-                  : showHandle && <div style={{ height: 36 }} />
-                }
               </div>
-
-              <div
-                data-sheet-content
-                className={contentClassName ?? "flex-1 min-h-0 overflow-y-auto"}
-                style={{ overscrollBehavior: "contain" }}
-              >{children}</div>
-
-              {footer && (
-                <div className="shrink-0" style={{ ...footerBaseStyle, ...footerStyle }}>
-                  {footer}
-                </div>
-              )}
             </MotionDiv>
           </div>
         </MotionDiv>
       )}
-    </AnimatePresence>
-    </>
+    </AnimatePresence>,
+    document.body
   );
 }

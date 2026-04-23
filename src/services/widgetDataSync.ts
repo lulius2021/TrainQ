@@ -10,6 +10,7 @@
 // which the TrainQWidget extension reads directly.
 
 import { registerPlugin } from "@capacitor/core";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 import { loadCalendarWorkouts, loadWorkoutHistory } from "../utils/trainqStorage";
 import type { CalendarWorkout, WorkoutHistoryEntry } from "../types";
 
@@ -141,6 +142,7 @@ function calculateStreak(
 // ── Main sync function ───────────────────────────────────────────────────────
 
 export async function syncWidgetData(): Promise<void> {
+  if (!FEATURE_FLAGS.widgets) return;
   try {
     const today = todayISO();
     const calendarWorkouts = loadCalendarWorkouts();

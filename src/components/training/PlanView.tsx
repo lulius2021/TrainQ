@@ -14,8 +14,6 @@ interface PlanViewProps {
     onOpenWorkoutTemplates: () => void;
     onOpenPlanTemplates: () => void;
     onShowPreview: () => void;
-    isPro: boolean;
-    freeLimitRemaining?: number;
 }
 
 export default function PlanView({

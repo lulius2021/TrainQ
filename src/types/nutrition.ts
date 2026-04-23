@@ -30,6 +30,8 @@ export interface Macros {
   protein: number;
   carbs: number;
   fat: number;
+  sugar?: number;
+  fiber?: number;
 }
 
 export interface FoodServing {

@@ -10,7 +10,6 @@ import { MotionDiv } from "../components/ui/Motion";
 import {
     User as UserIcon,
     Star,
-    Globe,
     Scale,
 
     LifeBuoy,
@@ -38,16 +37,16 @@ import {
 import NotificationSettings from "../components/settings/NotificationSettings";
 import { getMuscleDetailMode, setMuscleDetailMode, type MuscleDetailMode } from "../utils/muscleGrouping";
 import { loadWarmupConfig, saveWarmupConfig, getDefaultConfig, type WarmupConfig } from "../utils/warmupCalculator";
-import { useEntitlements } from "../hooks/useEntitlements";
 import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from "../context/OnboardingContext";
 
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { hapticHeavy, setHapticEnabled as setHapticEnabledGlobal } from "../native/haptics";
 import { DataService } from "../services/DataService";
 import { deleteSupabaseAccount } from "../services/supabaseAuth";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { ProfileService } from "../services/ProfileService"; // Import ProfileService
 import GarminIntegrationModal from "../components/settings/GarminIntegrationModal";
 import { useGarminConnection } from "../hooks/useGarminConnection";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 
 // --- TYPES ---
 type SettingsRowProps = {
@@ -59,11 +58,12 @@ type SettingsRowProps = {
     isDestructive?: boolean;
 };
 
-type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 'legal' | 'integrations' | null;
+type ModalType = 'profile' | 'subscription' | 'preferences' | 'notifications' | 'legal' | 'integrations' | 'impressum' | 'privacy' | 'terms' | null;
 
 // --- COMPONENTS ---
 
 // 1. Reusable Settings Row
+// Uses touch tracking to prevent accidental taps while scrolling on iOS.
 const SettingsRow: React.FC<SettingsRowProps> = ({
     icon: Icon,
     iconColor,
@@ -72,9 +72,14 @@ const SettingsRow: React.FC<SettingsRowProps> = ({
     onClick,
     isDestructive
 }) => {
+    const touchStartY = React.useRef(0);
+    const didMove = React.useRef(false);
+
     return (
         <button
-            onClick={onClick}
+            onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; didMove.current = false; }}
+            onTouchMove={(e) => { if (Math.abs(e.touches[0].clientY - touchStartY.current) > 8) didMove.current = true; }}
+            onClick={(e) => { if (didMove.current) { e.preventDefault(); return; } onClick?.(); }}
             className="w-full flex items-center justify-between p-4 bg-[var(--card-bg)] active:bg-[var(--button-bg)] transition-colors border-b border-[var(--border-color)] last:border-0 h-14 group"
         >
             <div className="flex items-center">
@@ -242,16 +247,15 @@ type Props = {
     isSheet?: boolean;
 };
 
-// Demo Generator (kept but minimized)
-
-
 const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, isSheet }) => {
     const { t, lang } = useI18n();
     const { user, logout, resetOnboarding } = useAuth();
 
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [showLangModal, setShowLangModal] = useState(false);
+    const [showResetOnboardingConfirm, setShowResetOnboardingConfirm] = useState(false);
+    const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+    // Language modal removed — app is German-only for now
     const { connected: garminConnected } = useGarminConnection();
 
     // -- Profile State --
@@ -303,7 +307,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
     }, []);
 
     // Persist Preferences
-    useEffect(() => { localStorage.setItem("trainq_pref_haptic", String(hapticEnabled)); }, [hapticEnabled]);
+    useEffect(() => { setHapticEnabledGlobal(hapticEnabled); }, [hapticEnabled]);
     // useEffect(() => { localStorage.setItem("trainq_pref_dark", String(darkModeForce)); }, [darkModeForce]); // Managed by ThemeContext
     useEffect(() => { localStorage.setItem("trainq_pref_sound", String(soundEnabled)); }, [soundEnabled]);
     useEffect(() => { localStorage.setItem("trainq_pref_auto_share_workout", String(autoShareWorkout)); }, [autoShareWorkout]);
@@ -341,14 +345,16 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
         await logout();
     };
 
-    const handleResetOnboarding = async () => {
+    const handleResetOnboarding = () => setShowResetOnboardingConfirm(true);
+    const confirmResetOnboarding = async () => {
+        setShowResetOnboardingConfirm(false);
         await resetOnboarding();
     };
 
     const handleClearCalendarAction = async () => {
         if (!confirm(t("settings.confirm.clearCalendarAll"))) return;
 
-        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+        hapticHeavy();
         DataService.clearCalendar();
         // Since onClearCalendar prop might just be a notify, we also call the service directly or rely on prop if it does specific UI updates
         // The service dispatches event, so UI should update.
@@ -359,15 +365,15 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
     const handleClearHistoryAction = async () => {
         if (!confirm(t("settings.confirm.clearHistoryAll"))) return;
 
-        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+        hapticHeavy();
         DataService.clearWorkoutHistory();
         alert(t("settings.alert.historyCleared"));
     };
 
-    const handleDeleteAccount = async () => {
-        if (!confirm(t("settings.confirm.deleteProfile"))) return;
-
-        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+    const handleDeleteAccount = () => setShowDeleteAccountConfirm(true);
+    const confirmDeleteAccount = async () => {
+        setShowDeleteAccountConfirm(false);
+        hapticHeavy();
 
         // Clear all local data first
         DataService.clearCalendar();
@@ -491,7 +497,8 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                     />
                 </Section>
 
-                {/* SECTION: INTEGRATIONS */}
+                {/* SECTION: INTEGRATIONS (hidden while Garmin is behind feature flag) */}
+                {FEATURE_FLAGS.garmin && (
                 <Section title={t("settings.section.integrations", "Integrationen")}>
                     <SettingsRow
                         icon={Activity}
@@ -501,6 +508,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                         onClick={() => setActiveModal('integrations')}
                     />
                 </Section>
+                )}
 
                 {/* SECTION 5: DANGER ZONE — placed above Legal to avoid iOS scroll-tap misfire */}
                 <div className="space-y-3 mb-8">
@@ -531,8 +539,9 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
 
                 {/* SECTION 6: LEGAL */}
                 <Section title={t("settings.section.legal")}>
-                    <SettingsRow icon={Building2} iconColor="bg-zinc-500" label={t("settings.legal.imprint")} onClick={() => setActiveModal('legal')} />
-                    <SettingsRow icon={FileText} iconColor="bg-zinc-500" label={t("settings.legal.privacy")} onClick={() => setActiveModal('legal')} />
+                    <SettingsRow icon={Building2} iconColor="bg-zinc-500" label={t("settings.legal.imprint")} onClick={() => setActiveModal('impressum')} />
+                    <SettingsRow icon={FileText} iconColor="bg-zinc-500" label={t("settings.legal.privacy")} onClick={() => setActiveModal('privacy')} />
+                    <SettingsRow icon={Shield} iconColor="bg-zinc-500" label="Nutzungsbedingungen" onClick={() => setActiveModal('terms')} />
                     <SettingsRow icon={Info} iconColor="bg-blue-500" label={t("settings.legal.aboutUs")} onClick={() => setActiveModal('legal')} />
                     <SettingsRow icon={Mail} iconColor="bg-blue-500" label={t("settings.legal.contactSupport")} onClick={() => setActiveModal('legal')} />
                 </Section>
@@ -557,6 +566,46 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                                 {t("settings.logout.confirmButton")}
                             </button>
                             <button onClick={() => setShowLogoutConfirm(false)} className="w-full py-3.5 rounded-2xl font-semibold text-[16px] active:scale-95 transition-transform" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}>
+                                {t("common.cancel")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* RESET ONBOARDING CONFIRM DIALOG */}
+            {showResetOnboardingConfirm && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+                    <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
+                        <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>Onboarding wiederholen?</h3>
+                        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+                            Du durchläufst die Einrichtung erneut. Deine Daten bleiben erhalten.
+                        </p>
+                        <div className="flex flex-col gap-3 w-full">
+                            <button onClick={confirmResetOnboarding} className="w-full py-3.5 rounded-2xl bg-blue-500 text-white font-bold text-[16px] active:scale-95 transition-transform">
+                                Ja, wiederholen
+                            </button>
+                            <button onClick={() => setShowResetOnboardingConfirm(false)} className="w-full py-3.5 rounded-2xl font-semibold text-[16px] active:scale-95 transition-transform" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}>
+                                {t("common.cancel")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE ACCOUNT CONFIRM DIALOG */}
+            {showDeleteAccountConfirm && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+                    <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
+                        <h3 className="text-xl font-bold mb-2 text-red-500">Profil endgültig löschen?</h3>
+                        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+                            Alle deine Daten werden unwiderruflich gelöscht — Trainings, Ernährung, Einstellungen. Das kann nicht rückgängig gemacht werden.
+                        </p>
+                        <div className="flex flex-col gap-3 w-full">
+                            <button onClick={confirmDeleteAccount} className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-bold text-[16px] active:scale-95 transition-transform">
+                                Ja, endgültig löschen
+                            </button>
+                            <button onClick={() => setShowDeleteAccountConfirm(false)} className="w-full py-3.5 rounded-2xl font-semibold text-[16px] active:scale-95 transition-transform" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}>
                                 {t("common.cancel")}
                             </button>
                         </div>
@@ -622,12 +671,14 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
                         <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.interaction")}</h3>
                         <div className="space-y-3">
+                            {FEATURE_FLAGS.haptics && (
                             <ToggleSwitch
                                 label={t("settings.preferences.hapticFeedback")}
                                 checked={hapticEnabled}
                                 onChange={setHapticEnabled}
                                 icon={Vibrate}
                             />
+                            )}
                             <ToggleSwitch
                                 label={t("settings.preferences.sounds")}
                                 checked={soundEnabled}
@@ -677,6 +728,7 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                         </div>
                     </div>
 
+                    {FEATURE_FLAGS.warmupSets && (
                     <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
                         <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.warmupSets")}</h3>
                         <div className="space-y-3">
@@ -724,18 +776,9 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                             </p>
                         </div>
                     </div>
+                    )}
 
-                    <div className="px-1 py-2 border-t border-[var(--border-color)] pt-6">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t("settings.preferences.community")}</h3>
-                        <div className="space-y-3">
-                            <ToggleSwitch
-                                label={t("settings.preferences.autoShareWorkout")}
-                                checked={autoShareWorkout}
-                                onChange={setAutoShareWorkout}
-                                icon={Users}
-                            />
-                        </div>
-                    </div>
+                    {/* Auto-Share: removed — feature not implemented yet */}
                 </div>
             </SettingsModal>
 
@@ -751,9 +794,11 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                     {/* ABOUT US */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg">
-                                Q
-                            </div>
+                            <img
+                                src={theme.mode === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
+                                alt="TrainQ"
+                                className="w-10 h-10 rounded-xl shadow-lg"
+                            />
                             <div>
                                 <h3 className="font-bold text-[var(--text-color)] text-lg">{t("settings.legal.aboutTrainQ")}</h3>
                                 <p className="text-blue-400 text-xs font-medium">{t("settings.legal.visionMission")}</p>
@@ -781,49 +826,90 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                         </div>
                     </div>
 
-                    {/* LEGAL LINKS */}
-                    <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
-                        <h3 className="font-bold text-[var(--text-color)]">{t("settings.legal.legalSection")}</h3>
-
-                        {/* Impressum */}
-                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
-                            <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
-                                <Building2 size={16} className="text-[var(--text-secondary)]" /> {t("settings.legal.imprint")}
-                            </h4>
-                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-mono">
-                                TrainQ Inc.<br />
-                                Musterstraße 1<br />
-                                10115 Berlin<br />
-                                Deutschland<br /><br />
-                                Vertreten durch: Julius<br />
-                                Kontakt: admin@trainq.app
-                            </p>
-                        </div>
-
-                        {/* Privacy */}
-                        <div className="p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl">
-                            <h4 className="font-bold text-[var(--text-color)] mb-2 flex items-center gap-2">
-                                <FileText size={16} className="text-[var(--text-secondary)]" /> {t("settings.legal.privacyTitle")}
-                            </h4>
-                            <p className="text-xs text-[var(--text-secondary)] mb-4">
-                                {t("settings.legal.privacyText")}
-                            </p>
-                            <button onClick={() => window.open("/privacy", "_system")} className="w-full py-2 bg-[var(--button-bg)] text-[var(--text-color)] text-xs font-bold rounded-lg hover:bg-[var(--button-bg)]/80 transition-colors">
-                                {t("settings.legal.openPrivacyPolicy")}
-                            </button>
-                        </div>
-                    </div>
-
                     <div className="pt-6 pb-8 text-center">
                         <p className="text-[10px] text-[var(--text-secondary)] opacity-50 font-mono uppercase tracking-widest">
-                            © 2026 TrainQ Inc.
+                            © 2026 Julius Deusch — TrainQ
                         </p>
                     </div>
                 </div>
             </SettingsModal>
 
+            {/* IMPRESSUM MODAL */}
+            <SettingsModal isOpen={activeModal === 'impressum'} onClose={() => setActiveModal(null)} title={t("settings.legal.imprint")}>
+                <div className="space-y-5 leading-relaxed">
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz)</p>
+                    <div>
+                        <h3 className="font-bold text-base mb-1">Verantwortlich für den Inhalt</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">Julius Deusch<br/>In den Grüben 140<br/>84489 Burghausen<br/>Deutschland</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base mb-1">Kontakt</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">Telefon: +49 162 3172876<br/>E-Mail: julius.deusch@trainq.app</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base mb-1">Umsatzsteuer-ID</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: Noch nicht vergeben (Kleinunternehmerregelung gemäß § 19 UStG).</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base mb-1">EU-Streitschlichtung</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">
+                            Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit:{" "}
+                            <span className="underline" style={{ color: 'var(--accent-color)' }} onClick={() => window.open("https://ec.europa.eu/consumers/odr/", "_system")}>
+                                https://ec.europa.eu/consumers/odr/
+                            </span>
+                        </p>
+                        <p className="text-sm text-[var(--text-secondary)] mt-1">Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base mb-1">Haftung für Inhalte</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">Als Diensteanbieter sind wir gemäß § 7 Abs.1 DDG für eigene Inhalte in dieser App nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+                    </div>
+                    <p className="text-xs text-center pt-4" style={{ color: 'var(--text-secondary)' }}>Stand: April 2026</p>
+                </div>
+            </SettingsModal>
+
+            {/* PRIVACY MODAL */}
+            <SettingsModal isOpen={activeModal === 'privacy'} onClose={() => setActiveModal(null)} title="Datenschutzerklärung">
+                <div className="space-y-5 leading-relaxed text-sm">
+                    <div><h3 className="font-bold text-base mb-2">1. Verantwortlicher</h3><p className="text-[var(--text-secondary)]">Julius Deusch<br/>In den Grüben 140, 84489 Burghausen, Deutschland<br/>E-Mail: julius.deusch@trainq.app</p></div>
+                    <div><h3 className="font-bold text-base mb-2">2. Überblick der Verarbeitungen</h3><p className="text-[var(--text-secondary)]">TrainQ ist eine Fitness-App für iOS. Wir verarbeiten personenbezogene Daten nur, soweit dies zur Bereitstellung einer funktionsfähigen App sowie unserer Inhalte und Leistungen erforderlich ist.</p><p className="text-[var(--text-secondary)] mt-2 font-medium">Arten der verarbeiteten Daten:</p><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li>Bestandsdaten (Name, E-Mail-Adresse)</li><li>Nutzungsdaten (Trainingseinträge, Übungen, Gewichte, Sätze, Wiederholungen)</li><li>Gesundheitsbezogene Daten (Fitness-Level, Körpergewicht, Körpergröße)</li><li>Ernährungsdaten (Mahlzeiten, Makronährstoffe)</li><li>Standortdaten (GPS bei Cardio-Tracking)</li><li>Geräteinformationen (Gerätetyp, Betriebssystem)</li></ul></div>
+                    <div><h3 className="font-bold text-base mb-2">3. Rechtsgrundlagen</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li><strong>Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO):</strong> Bereitstellung der App-Funktionen.</li><li><strong>Einwilligung (Art. 6 Abs. 1 lit. a DSGVO):</strong> Standort (GPS), Kamera (Barcode), Push-Benachrichtigungen.</li><li><strong>Berechtigte Interessen (Art. 6 Abs. 1 lit. f DSGVO):</strong> Fehleranalyse und Verbesserung.</li><li><strong>Ausdrückliche Einwilligung (Art. 9 Abs. 2 lit. a DSGVO):</strong> Gesundheitsbezogene Daten.</li></ul></div>
+                    <div><h3 className="font-bold text-base mb-2">4. Datenspeicherung und Hosting</h3><p className="text-[var(--text-secondary)]">Deine Daten werden über Supabase (EU-Region Frankfurt) verarbeitet und gespeichert. Mit Supabase besteht ein Auftragsverarbeitungsvertrag (AVV/DPA) gemäß Art. 28 DSGVO. Für Datentransfers in Drittländer gelten die EU-Standardvertragsklauseln (SCCs).</p></div>
+                    <div><h3 className="font-bold text-base mb-2">5. Lokale Datenspeicherung</h3><p className="text-[var(--text-secondary)]">Viele Daten werden direkt auf deinem Gerät gespeichert (Trainingseinstellungen, Ernährungstagebuch, GPS-Sessions, App-Einstellungen). Diese Daten verlassen dein Gerät nicht ohne Cloud-Synchronisierung.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">6. Authentifizierung</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li><strong>E-Mail & Passwort:</strong> Passwort wird gehasht gespeichert.</li><li><strong>Apple Sign-In:</strong> Nur von Apple freigegebene Daten.</li><li><strong>Google Sign-In:</strong> Nur Basis-Profildaten.</li></ul></div>
+                    <div><h3 className="font-bold text-base mb-2">7. Gerätezugriffe</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li><strong>Standort (GPS):</strong> Nur während aktiver Cardio-Aufzeichnung.</li><li><strong>Kamera:</strong> Nur für den Barcode-Scanner.</li><li><strong>Push-Benachrichtigungen:</strong> Für Trainingserinnerungen.</li></ul><p className="text-[var(--text-secondary)] mt-1">Jede Berechtigung kann jederzeit in den iOS-Einstellungen widerrufen werden.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">8. Garmin Connect Integration</h3><p className="text-[var(--text-secondary)]">Optional: Aktivitäten, tägliche Metriken und Schlafdaten von Garmin. Die Verbindung kann jederzeit getrennt werden.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">9. In-App-Käufe</h3><p className="text-[var(--text-secondary)]">Zahlungsabwicklung ausschließlich über Apple. Wir erhalten keine Zahlungsdaten.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">10. Datenübermittlung an Dritte</h3><p className="text-[var(--text-secondary)]">Wir verkaufen deine Daten niemals. Übermittlung nur an: Supabase (Hosting), Apple (In-App-Käufe), Garmin (bei aktiver Verbindung). Keine Tracking-SDKs, Analyse-Tools oder Werbenetzwerke.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">11. Speicherdauer</h3><p className="text-[var(--text-secondary)]">Daten werden gespeichert, solange dein Konto besteht. Bei Löschung werden alle Daten innerhalb von 30 Tagen unwiderruflich entfernt.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">12. Deine Rechte (Art. 15–21 DSGVO)</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li><strong>Auskunft</strong> (Art. 15)</li><li><strong>Berichtigung</strong> (Art. 16)</li><li><strong>Löschung</strong> (Art. 17)</li><li><strong>Einschränkung</strong> (Art. 18)</li><li><strong>Datenübertragbarkeit</strong> (Art. 20)</li><li><strong>Widerspruch</strong> (Art. 21)</li><li><strong>Widerruf der Einwilligung</strong></li></ul><p className="text-[var(--text-secondary)] mt-1">Kontakt: julius.deusch@trainq.app</p></div>
+                    <div><h3 className="font-bold text-base mb-2">13. Beschwerderecht</h3><p className="text-[var(--text-secondary)]">Bayerisches Landesamt für Datenschutzaufsicht (BayLDA)<br/>Promenade 18, 91522 Ansbach</p></div>
+                    <div><h3 className="font-bold text-base mb-2">14. Datensicherheit</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li>Verschlüsselte Datenübertragung (TLS/HTTPS)</li><li>Gehashte Passwörter (bcrypt)</li><li>Row-Level-Security (Supabase RLS)</li><li>Datenhosting in der EU (Frankfurt)</li></ul></div>
+                    <p className="text-xs text-center pt-4" style={{ color: 'var(--text-secondary)' }}>Stand: April 2026</p>
+                </div>
+            </SettingsModal>
+
+            {/* TERMS MODAL */}
+            <SettingsModal isOpen={activeModal === 'terms'} onClose={() => setActiveModal(null)} title="Nutzungsbedingungen">
+                <div className="space-y-5 leading-relaxed text-sm">
+                    <div><h3 className="font-bold text-base mb-2">1. Geltungsbereich</h3><p className="text-[var(--text-secondary)]">Diese Nutzungsbedingungen gelten für die Nutzung der App "TrainQ", betrieben von Julius Deusch, In den Grüben 140, 84489 Burghausen. Mit der Registrierung stimmst du diesen Bedingungen zu.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">2. Leistungsbeschreibung</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li>Erstellung und Verwaltung von Trainingsplänen</li><li>Adaptive Trainingsvorschläge</li><li>Live-Training mit Satz-Tracking und Pausentimer</li><li>Ernährungstagebuch mit Makronährstoff-Tracking</li><li>Kalender mit Trainingsplanung</li><li>Cardio-Tracking mit GPS</li><li>Gamification (XP, Level-System)</li><li>Statistiken und Fortschrittsanalyse</li></ul></div>
+                    <div><h3 className="font-bold text-base mb-2">3. Registrierung und Konto</h3><p className="text-[var(--text-secondary)]">Registrierung per E-Mail/Passwort, Apple Sign-In oder Google Sign-In. Du bist für die Sicherheit deiner Zugangsdaten selbst verantwortlich.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">4. Free & Pro</h3><p className="text-[var(--text-secondary)]">TrainQ bietet eine kostenlose Basisversion und ein Pro-Abonnement. Abrechnung über Apple In-App Purchase. Kündigung jederzeit über die iOS-Einstellungen. Nach Kündigung bleibt Pro-Zugang bis zum Ende des bezahlten Zeitraums bestehen.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">5. Nutzungspflichten</h3><ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]"><li>Keine rechtswidrige Nutzung</li><li>Keine Umgehung von Sicherheitsmechanismen</li><li>Keine automatisierten Zugriffe</li><li>Keine falschen Angaben bei der Registrierung</li><li>Kein Kopieren oder Dekompilieren der App</li></ul></div>
+                    <div><h3 className="font-bold text-base mb-2">6. Gesundheitshinweis</h3><p className="text-[var(--text-secondary)] font-medium">TrainQ ist kein medizinisches Produkt.</p><p className="text-[var(--text-secondary)] mt-1">Die App ersetzt keine ärztliche Beratung. Konsultiere vor Beginn eines neuen Trainingsprogramms einen Arzt. Die Nutzung erfolgt auf eigene Verantwortung. Keine Haftung für Verletzungen oder gesundheitliche Schäden.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">7. Geistiges Eigentum</h3><p className="text-[var(--text-secondary)]">Alle Inhalte der App sind urheberrechtlich geschützt. Nutzergenerierte Inhalte verbleiben im Eigentum des Nutzers.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">8. Verfügbarkeit</h3><p className="text-[var(--text-secondary)]">Kein Anspruch auf ständige Verfügbarkeit. Wartungsarbeiten oder technische Störungen können zu Einschränkungen führen.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">9. Haftungsbeschränkung</h3><p className="text-[var(--text-secondary)]">Unbeschränkte Haftung bei Vorsatz und grober Fahrlässigkeit. Bei leichter Fahrlässigkeit nur bei Verletzung wesentlicher Vertragspflichten, beschränkt auf vorhersehbare Schäden.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">10. Kontolöschung</h3><p className="text-[var(--text-secondary)]">Jederzeit in den App-Einstellungen möglich. Alle Daten werden innerhalb von 30 Tagen unwiderruflich gelöscht.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">11. Anwendbares Recht</h3><p className="text-[var(--text-secondary)]">Es gilt das Recht der Bundesrepublik Deutschland. Für Verbraucher gelten zusätzlich die zwingenden Verbraucherschutzbestimmungen ihres Aufenthaltslandes.</p></div>
+                    <div><h3 className="font-bold text-base mb-2">12. Kontakt</h3><p className="text-[var(--text-secondary)]">E-Mail: julius.deusch@trainq.app</p></div>
+                    <p className="text-xs text-center pt-4" style={{ color: 'var(--text-secondary)' }}>Stand: April 2026</p>
+                </div>
+            </SettingsModal>
+
             {/* GARMIN INTEGRATION MODAL */}
-            <GarminIntegrationModal isOpen={activeModal === 'integrations'} onClose={() => setActiveModal(null)} />
+            {FEATURE_FLAGS.garmin && <GarminIntegrationModal isOpen={activeModal === 'integrations'} onClose={() => setActiveModal(null)} />}
 
         </div>
     );

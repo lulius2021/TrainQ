@@ -7,11 +7,18 @@ interface FoodInputProps {
   onSearchTap: () => void;
   onBarcodeTap: () => void;
   onCreateFood?: () => void;
+  onLiveSearch?: (raw: string) => void;
 }
 
-const FoodInput: React.FC<FoodInputProps> = ({ onSubmit, onSearchTap, onBarcodeTap, onCreateFood }) => {
+const FoodInput: React.FC<FoodInputProps> = ({ onSubmit, onSearchTap, onBarcodeTap, onCreateFood, onLiveSearch }) => {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setValue(v);
+    if (onLiveSearch) onLiveSearch(v);
+  };
 
   const handleSubmit = () => {
     const trimmed = value.trim();
@@ -35,7 +42,7 @@ const FoodInput: React.FC<FoodInputProps> = ({ onSubmit, onSearchTap, onBarcodeT
           ref={inputRef}
           type="text"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="z.B. 200g Skyr, 2 Eier..."
           className="flex-1 bg-transparent text-sm text-[var(--text-color)] placeholder-[var(--text-secondary)] outline-none min-w-0"

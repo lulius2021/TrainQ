@@ -1,8 +1,8 @@
 // src/components/adaptive/AdaptiveTrainingModal.tsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useI18n } from "../../i18n/useI18n";
-import AdaptivePlanCard from "./AdaptivePlanCard";
+import AdaptivePlanCard, { GRADIENTS } from "./AdaptivePlanCard";
 import type { TranslationKey } from "../../i18n/index";
 import type { SplitType, WorkoutType } from "../../types";
 import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../types/adaptive";
@@ -11,10 +11,12 @@ import { buildUserAdaptiveContext } from "../../utils/adaptivePersonalization";
 import { BottomSheet } from "../common/BottomSheet";
 import { Clock, Zap, Brain, Dumbbell, CalendarPlus, Footprints, Bike } from "lucide-react";
 
-const carouselVariants = {
-  enter: (dir: number) => ({ x: dir >= 0 ? "100%" : "-100%", opacity: 0, scale: 0.92 }),
-  center: { x: 0, opacity: 1, scale: 1 },
-  exit: (dir: number) => ({ x: dir >= 0 ? "-100%" : "100%", opacity: 0, scale: 0.92 }),
+const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+
+const pageSlideVariants = {
+  enter: (dir: number) => ({ x: dir >= 0 ? "100%" : "-100%", opacity: 0.3 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir >= 0 ? "-100%" : "100%", opacity: 0.3 }),
 };
 
 function reasonKey(r: AdaptiveReason): TranslationKey {
@@ -29,9 +31,93 @@ function reasonKey(r: AdaptiveReason): TranslationKey {
     effort_high:   "adaptive.reason.effortHigh",
     recovery_low:  "adaptive.reason.recoveryLow",
     recovery_good: "adaptive.reason.recoveryGood",
+    volume_high:   "adaptive.reason.volumeHigh",
+    rest_gap:      "adaptive.reason.restGap",
+    last_too_hard: "adaptive.reason.lastTooHard",
+    last_too_easy: "adaptive.reason.lastTooEasy",
+    split_covered: "adaptive.reason.splitCovered",
   };
   return map[r] ?? ("adaptive.reason.default" as TranslationKey);
 }
+
+// Standalone exercise preview component — avoids IIFE re-render issues
+const ExercisePreviewAccordion: React.FC<{
+  exercises: { name: string; avgWeight: number; avgReps: number; progressionReady: boolean; suggestedWeight: number; splitType: string }[];
+  count: number;
+  nextSplit: string;
+  t: (key: string) => string;
+  darkMode?: boolean;
+}> = ({ exercises, count, nextSplit, t, darkMode }) => {
+  const [open, setOpen] = useState(false);
+
+  const splitFiltered = nextSplit !== "full"
+    ? exercises.filter(ex => ex.splitType === nextSplit || ex.splitType === "full")
+    : exercises;
+  const actualSplit = splitFiltered.length >= 2 ? nextSplit : "full";
+  const pool = splitFiltered.length >= 2 ? splitFiltered : exercises;
+  const display = pool.slice(0, count);
+  const remaining = Math.max(0, count - display.length);
+
+  if (display.length === 0) return null;
+
+  const bg = darkMode ? "rgba(255,255,255,0.08)" : "var(--card-bg)";
+  const border = darkMode ? "1px solid rgba(255,255,255,0.1)" : "1px solid var(--border-color)";
+  const textColor = darkMode ? "#fff" : "var(--text-color)";
+  const mutedColor = darkMode ? "rgba(255,255,255,0.5)" : "var(--text-muted)";
+  const rowBg = darkMode ? "rgba(255,255,255,0.06)" : "var(--input-bg)";
+  const badgeBg = darkMode ? "rgba(255,255,255,0.15)" : "var(--input-bg)";
+  const badgeColor = darkMode ? "#fff" : "var(--text-secondary)";
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: bg, border }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onPointerUp={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between py-3.5 px-4 cursor-pointer select-none"
+        style={{ WebkitTapHighlightColor: "transparent" }}
+      >
+        <span className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: textColor }}>
+          {t("adaptive.exercisePreview")} ({count})
+          {actualSplit !== "full" && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: badgeBg, color: badgeColor }}>
+              {t(`adaptive.split.${actualSplit}`)}
+            </span>
+          )}
+        </span>
+        <span className="text-sm" style={{ color: mutedColor, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+      </div>
+      {open && (
+        <div className="px-3 pb-3 flex flex-col gap-1.5">
+          {display.map((ex, i) => (
+            <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ backgroundColor: rowBg }}>
+              <span className="text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 tabular-nums" style={{ background: "rgba(0,122,255,0.15)", color: "#3B9EFF" }}>
+                {i + 1}
+              </span>
+              <span className="text-[13px] font-medium flex-1" style={{ color: textColor }}>{ex.name}</span>
+              {ex.avgWeight > 0 && (
+                <span className="text-[12px] font-bold shrink-0 tabular-nums" style={{ color: ex.progressionReady ? "#FF9500" : mutedColor }}>
+                  {ex.progressionReady ? ex.suggestedWeight : ex.avgWeight} kg × {ex.avgReps}
+                  {ex.progressionReady && " ↑"}
+                </span>
+              )}
+            </div>
+          ))}
+          {remaining > 0 && (
+            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ backgroundColor: rowBg }}>
+              <span className="text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 tabular-nums" style={{ background: "rgba(255,255,255,0.08)", color: mutedColor }}>
+                +
+              </span>
+              <span className="text-[13px] font-medium flex-1" style={{ color: mutedColor }}>
+                {remaining} {remaining === 1 ? t("adaptive.moreExercise") : t("adaptive.moreExercises")}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export interface AdaptiveTrainingModalProps {
   open: boolean;
@@ -40,15 +126,12 @@ export interface AdaptiveTrainingModalProps {
   splitType: SplitType;
   onSelect: (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => void;
   onSaveToCalendar?: (suggestion: AdaptiveSuggestion, answers: AdaptiveAnswers) => void;
-  isPro?: boolean;
-  adaptiveLeftBC?: number;
-  bcFreeLimit?: number;
   previewExercises?: { name: string; muscleGroup?: string }[];
 }
 
 export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps) {
   const { t } = useI18n();
-  const { open, onClose, plannedWorkoutType, splitType, onSelect, onSaveToCalendar, isPro, adaptiveLeftBC, bcFreeLimit = 5, previewExercises } = props;
+  const { open, onClose, plannedWorkoutType, splitType, onSelect, onSaveToCalendar, previewExercises } = props;
 
   const [step, setStep] = useState<"questions" | "suggestions">("questions");
   const [answers, setAnswers] = useState<AdaptiveAnswers>({ sport: "gym", timeToday: "20to40", dayForm: "mid", stress: "mid", yesterdayEffort: "mid" });
@@ -56,6 +139,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   const [activeIdx, setActiveIdx] = useState(0);
   const [dragDirection, setDragDirection] = useState(1);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const swipeTouchRef = useRef<{ x: number; y: number } | null>(null);
 
   const allowed = useMemo(() => splitType === "push_pull" ? ["Push", "Pull"] : ["Upper", "Lower"], [splitType]);
   // For gym, check if planned workout type matches; for cardio sports, always OK
@@ -70,8 +154,8 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
   );
 
   const suggestions = useMemo(
-    () => buildAdaptiveSuggestions(answers, userContext.avgDurationMin),
-    [answers, userContext.avgDurationMin]
+    () => buildAdaptiveSuggestions(answers, userContext.avgDurationMin, userContext.lastFeedback, userContext.volumeContext),
+    [answers, userContext.avgDurationMin, userContext.lastFeedback, userContext.volumeContext]
   );
 
   useEffect(() => {
@@ -100,7 +184,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
     <BottomSheet
       open={open}
       onClose={onClose}
-      height="88dvh"
+      height="92dvh"
       sheetStyle={{ backgroundColor: "var(--modal-bg)" }}
       footer={
         <div className="px-4 pt-3 pb-2">
@@ -143,18 +227,6 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
         </div>
       }
     >
-      {/* Header */}
-      <div className="px-5 pb-2 pt-1">
-        <h2
-          className="text-[22px] font-bold"
-          style={{ color: "var(--text-color)" }}
-        >
-          {t("adaptive.title")}
-        </h2>
-        <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-          Passe dein Training an deine Tagesform an
-        </p>
-      </div>
 
       <div className="px-4 space-y-2 pb-4">
         {!plannedOk && (
@@ -235,9 +307,6 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                         <p className="text-[15px] font-semibold leading-tight" style={{ color: "var(--text-color)" }}>
                           {q.title}
                         </p>
-                        <p className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                          {q.sub}
-                        </p>
                       </div>
                     </div>
                     {/* Options */}
@@ -284,46 +353,8 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
               return (
                 <div>
-                  {/* Subtitle */}
-                  <p className="text-[13px] mb-3 px-1" style={{ color: "var(--text-secondary)" }}>
-                    {t("adaptive.suggestionsFor")}{" "}
-                    <strong style={{ color: "var(--text-color)" }}>
-                      {answers.sport === "gym"
-                        ? typeName(plannedWorkoutType)
-                        : answers.sport === "laufen"
-                        ? t("adaptive.sport.laufen")
-                        : t("adaptive.sport.radfahren")}
-                    </strong>
-                    {" "}– {t("adaptive.swipeHint")}
-                  </p>
-
-                  {/* Carousel */}
-                  <div className="relative overflow-hidden" style={{ height: 220, borderRadius: 28 }}>
-                    <AnimatePresence custom={dragDirection} mode="wait">
-                      <motion.div
-                        key={activeIdx}
-                        custom={dragDirection}
-                        variants={carouselVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
-                        drag="x"
-                        dragConstraints={{ left: 0, right: 0 }}
-                        dragElastic={0.15}
-                        onDragEnd={(_, info) => {
-                          if (info.offset.x < -60) navigate(1);
-                          else if (info.offset.x > 60) navigate(-1);
-                        }}
-                        className="absolute inset-0 cursor-grab active:cursor-grabbing"
-                      >
-                        <AdaptivePlanCard suggestion={s} isPro={isPro} />
-                      </motion.div>
-                    </AnimatePresence>
-                  </div>
-
                   {/* Dot indicators */}
-                  <div className="flex justify-center items-center gap-2 mt-3">
+                  <div className="flex justify-center items-center gap-2 mb-3">
                     {suggestions.map((_, i) => (
                       <button
                         key={i}
@@ -341,13 +372,54 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                     ))}
                   </div>
 
+                  {/* Full-page swipeable content */}
+                  <div
+                    className="overflow-hidden"
+                    onTouchStart={(e) => {
+                      // Don't start swipe on interactive elements
+                      const target = e.target as HTMLElement;
+                      if (target.closest("button, a, input, select, [role='button']")) {
+                        swipeTouchRef.current = null;
+                        return;
+                      }
+                      swipeTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    }}
+                    onTouchEnd={(e) => {
+                      const start = swipeTouchRef.current;
+                      if (!start) return;
+                      const dx = e.changedTouches[0].clientX - start.x;
+                      const dy = e.changedTouches[0].clientY - start.y;
+                      swipeTouchRef.current = null;
+                      if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+                      if (dx < 0) navigate(1);
+                      else navigate(-1);
+                    }}
+                  >
+                    <AnimatePresence mode="popLayout" custom={dragDirection} initial={false}>
+                      <MotionDiv
+                        key={activeIdx}
+                        custom={dragDirection}
+                        variants={pageSlideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+                        className="rounded-[28px] overflow-hidden relative"
+                        style={{ background: (GRADIENTS[s.profile] ?? GRADIENTS.stabil).base }}
+                      >
+                        {/* Aurora blobs */}
+                        <div className="absolute inset-0 pointer-events-none" style={{ background: (GRADIENTS[s.profile] ?? GRADIENTS.stabil).blob1 }} />
+                        <div className="absolute inset-0 pointer-events-none" style={{ background: (GRADIENTS[s.profile] ?? GRADIENTS.stabil).blob2 }} />
+                        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%)" }} />
+
+                        {/* Plan Card (inline, no separate border) */}
+                        <div className="relative z-10">
+                          <AdaptivePlanCard suggestion={s} />
+                        </div>
+
                   {/* Active card details */}
                   <div
-                    className="mt-4 rounded-[22px] p-4"
-                    style={{
-                      backgroundColor: "var(--card-bg)",
-                      border: "1px solid var(--border-color)",
-                    }}
+                    className="relative z-10 p-4"
                   >
                     {/* Stats row — sport-aware */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
@@ -376,18 +448,18 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                           key={label}
                           className="rounded-[14px] py-3 px-2 flex flex-col items-center gap-1"
                           style={{
-                            background: "var(--card-bg)",
-                            border: "1px solid var(--border-color)",
+                            background: "rgba(255,255,255,0.08)",
+                            border: "1px solid rgba(255,255,255,0.1)",
                           }}
                         >
-                          <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: "var(--text-color)" }}>{value}</span>
-                          <span className="text-[10px] font-medium text-center" style={{ color: "var(--text-secondary)" }}>{label}</span>
+                          <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: "#fff" }}>{value}</span>
+                          <span className="text-[10px] font-medium text-center" style={{ color: "rgba(255,255,255,0.6)" }}>{label}</span>
                         </div>
                       ))}
                     </div>
 
                     {/* Intensity hint */}
-                    <p className="text-[13px] leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>
+                    <p className="text-[13px] leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.65)" }}>
                       {s.intensityHint}
                     </p>
 
@@ -410,108 +482,18 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       </div>
                     )}
 
-                    {/* Exercise preview accordion — gym only, uses personal history when available */}
-                    {answers.sport === "gym" && (() => {
-                      const hasHistory = userContext.topExercises.length >= 2;
-                      const personalExercises = hasHistory
-                        ? (() => {
-                            const splitFiltered = userContext.nextSplit !== "full"
-                              ? userContext.topExercises.filter(
-                                  ex => ex.splitType === userContext.nextSplit || ex.splitType === "full"
-                                )
-                              : userContext.topExercises;
-                            const pool = splitFiltered.length >= 2 ? splitFiltered : userContext.topExercises;
-                            return pool.map(ex => ({
-                              name: ex.name,
-                              weight: ex.progressionReady ? ex.suggestedWeight : ex.avgWeight,
-                              reps: ex.avgReps,
-                              progressionReady: ex.progressionReady,
-                            }));
-                          })()
-                        : null;
-                      const displayExercises = personalExercises ?? (previewExercises ?? []);
-                      if (displayExercises.length === 0) return null;
-
-                      return (
-                        <div className="mb-4">
-                          <button
-                            onClick={() => setPreviewOpen(p => !p)}
-                            className="w-full flex items-center justify-between py-2.5 px-3 rounded-[12px] transition-all active:scale-[0.98]"
-                            style={{
-                              backgroundColor: "var(--button-bg)",
-                              border: "1px solid var(--border-color)",
-                            }}
-                          >
-                            <span className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: "var(--text-color)" }}>
-                              {t("adaptive.exercisePreview")} ({Math.min(s.exercisesCount, displayExercises.length)})
-                              {hasHistory && userContext.nextSplit !== "full" && (
-                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(0,122,255,0.18)", color: "#3B9EFF" }}>
-                                  {t(`adaptive.split.${userContext.nextSplit}` as TranslationKey)}
-                                </span>
-                              )}
-                              {hasHistory && (
-                                <span className="text-[11px] font-medium" style={{ color: accent.solid }}>
-                                  {t("adaptive.exercisePreview.personal")}
-                                </span>
-                              )}
-                            </span>
-                            <motion.span
-                              animate={{ rotate: previewOpen ? 180 : 0 }}
-                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                              style={{ display: "flex", color: "var(--text-secondary)" }}
-                            >
-                              ▾
-                            </motion.span>
-                          </button>
-                          <AnimatePresence>
-                            {previewOpen && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                style={{ overflow: "hidden" }}
-                              >
-                                <div className="pt-2 flex flex-col gap-1.5">
-                                  {displayExercises.slice(0, s.exercisesCount).map((ex, i) => {
-                                    const isReady = "progressionReady" in ex && (ex as any).progressionReady;
-                                    return (
-                                      <div
-                                        key={i}
-                                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-[10px]"
-                                        style={{
-                                          backgroundColor: "var(--card-bg)",
-                                          border: "1px solid var(--border-color)",
-                                        }}
-                                      >
-                                        <span
-                                          className="text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 tabular-nums"
-                                          style={{ background: `${accent.solid}25`, color: accent.solid }}
-                                        >
-                                          {i + 1}
-                                        </span>
-                                        <span className="text-[13px] font-medium flex-1" style={{ color: "var(--text-color)" }}>
-                                          {ex.name}
-                                        </span>
-                                        {"weight" in ex && (ex as any).weight > 0 && (
-                                          <span
-                                            className="text-[12px] font-bold shrink-0 tabular-nums"
-                                            style={{ color: isReady ? "#FF9500" : accent.solid }}
-                                          >
-                                            {(ex as any).weight} kg × {(ex as any).reps}
-                                            {isReady && " ↑"}
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })()}
+                    {/* Exercise preview */}
+                    {answers.sport === "gym" && userContext.topExercises.length > 0 && (
+                      <div className="mb-4">
+                        <ExercisePreviewAccordion
+                          exercises={userContext.topExercises}
+                          count={s.exercisesCount}
+                          nextSplit={userContext.nextSplit}
+                          t={t}
+                          darkMode
+                        />
+                      </div>
+                    )}
 
                     {/* Action buttons */}
                     <div className="flex gap-2">
@@ -521,9 +503,9 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                           disabled={!plannedOk}
                           className="flex items-center gap-1.5 px-4 py-3.5 rounded-[16px] text-[13px] font-semibold transition-all active:scale-[0.96] disabled:opacity-40"
                           style={{
-                            backgroundColor: "var(--button-bg)",
-                            border: "1px solid var(--border-color)",
-                            color: "var(--text-color)",
+                            backgroundColor: "rgba(255,255,255,0.12)",
+                            border: "1px solid rgba(255,255,255,0.15)",
+                            color: "#fff",
                           }}
                         >
                           <CalendarPlus size={15} />
@@ -542,6 +524,10 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
                       </button>
                     </div>
                   </div>
+                      </MotionDiv>
+                    </AnimatePresence>
+                  </div>
+
                 </div>
               );
             })()}

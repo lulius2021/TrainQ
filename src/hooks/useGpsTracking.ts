@@ -11,10 +11,11 @@ import {
   type WatchCallbackId,
 } from "../native/geolocation";
 import { haversineDistance, computePace } from "../utils/gpsUtils";
+import { saveGpsSession, loadGpsSession, clearGpsSession } from "../utils/gpsSessionPersistence";
 
 const MAX_ACCURACY_M = 100;
-/** Minimum altitude change to count as elevation gain — filters GPS noise. */
 const MIN_ELEVATION_GAIN_M = 2;
+const PERSIST_INTERVAL_MS = 5000; // Save every 5 seconds
 
 export function useGpsTracking() {
   const [state, setState] = useState<CardioSessionState>({
@@ -38,16 +39,46 @@ export function useGpsTracking() {
   const stoppedAtRef          = useRef<number | undefined>(undefined);
   const lapsRef               = useRef<LapEntry[]>([]);
   const permissionCacheRef    = useRef<boolean | null>(null);
-  // Tracks current status without triggering re-renders — used by the appStateChange listener.
   const stateStatusRef        = useRef<CardioSessionState["status"]>("idle");
+  const persistTimerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restoredRef           = useRef(false);
 
-  // Wrapper so every setState call also keeps stateStatusRef in sync.
   const setStateWithRef = useCallback((next: CardioSessionState | ((prev: CardioSessionState) => CardioSessionState)) => {
     setState((prev) => {
       const resolved = typeof next === "function" ? next(prev) : next;
       stateStatusRef.current = resolved.status;
       return resolved;
     });
+  }, []);
+
+  // Persist current GPS state to localStorage
+  const persistState = useCallback(() => {
+    const status = stateStatusRef.current;
+    if (status !== "tracking" && status !== "paused") return;
+    saveGpsSession({
+      status: status as "tracking" | "paused",
+      startedAt: startedAtRef.current,
+      totalPausedMs: totalPausedRef.current,
+      pausedAt: pausedAtRef.current,
+      distanceM: distanceRef.current,
+      elevationGainM: elevationRef.current,
+      points: pointsRef.current,
+      laps: lapsRef.current,
+      lastSavedAt: Date.now(),
+    });
+  }, []);
+
+  // Start periodic persistence
+  const startPersistTimer = useCallback(() => {
+    if (persistTimerRef.current) return;
+    persistTimerRef.current = setInterval(persistState, PERSIST_INTERVAL_MS);
+  }, [persistState]);
+
+  const stopPersistTimer = useCallback(() => {
+    if (persistTimerRef.current) {
+      clearInterval(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
   }, []);
 
   const addPoint = useCallback((point: GpsPoint) => {
@@ -77,7 +108,6 @@ export function useGpsTracking() {
     distanceRef.current  += addedDistance;
     elevationRef.current += addedElevation;
 
-    // Current pace from last ~60 seconds of points
     const now = point.timestamp;
     const recentPoints = newPoints.filter((p) => p.timestamp >= now - 60000);
     let recentDistance = 0;
@@ -103,8 +133,6 @@ export function useGpsTracking() {
   }, []);
 
   const startTracking = useCallback(async () => {
-    // Use cached result from mount pre-warm — avoids bridge round-trip on tap.
-    // If not cached yet, fall back to live check.
     const granted = permissionCacheRef.current ?? await requestLocationPermission();
     if (!granted) return false;
 
@@ -129,14 +157,13 @@ export function useGpsTracking() {
       laps: [],
     });
 
-    // Don't await — GPS hardware init can take seconds on iOS.
-    // UI transitions immediately; watch ID is stored when ready.
     watchPosition(addPoint).then((id) => {
       watchIdRef.current = id;
     });
 
+    startPersistTimer();
     return true;
-  }, [addPoint]);
+  }, [addPoint, startPersistTimer]);
 
   const pauseTracking = useCallback(() => {
     if (watchIdRef.current) {
@@ -145,7 +172,8 @@ export function useGpsTracking() {
     }
     pausedAtRef.current = Date.now();
     setStateWithRef((prev) => ({ ...prev, status: "paused", pausedAt: Date.now() }));
-  }, []);
+    persistState(); // Save immediately on pause
+  }, [persistState]);
 
   const resumeTracking = useCallback(async () => {
     if (pausedAtRef.current) {
@@ -161,7 +189,8 @@ export function useGpsTracking() {
       pausedAt: undefined,
       totalPausedMs: totalPausedRef.current,
     }));
-  }, [addPoint]);
+    startPersistTimer();
+  }, [addPoint, startPersistTimer]);
 
   const stopTracking = useCallback(() => {
     if (watchIdRef.current) {
@@ -173,14 +202,15 @@ export function useGpsTracking() {
       pausedAtRef.current = undefined;
     }
     stoppedAtRef.current = Date.now();
+    stopPersistTimer();
+    clearGpsSession(); // Clean up persisted state
     setStateWithRef((prev) => ({
       ...prev,
       status: "stopped",
       totalPausedMs: totalPausedRef.current,
     }));
-  }, []);
+  }, [stopPersistTimer]);
 
-  /** Record a manual lap at the current position/time. */
   const addLap = useCallback(() => {
     const elapsedMs = getElapsedMsNow();
     const newLap: LapEntry = {
@@ -192,26 +222,80 @@ export function useGpsTracking() {
     setStateWithRef((prev) => ({ ...prev, laps: lapsRef.current }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-warm permission status on mount — check-only, never shows a dialog.
-  // By the time the user taps Start the result is already cached.
+  // Restore session from localStorage on mount (app was killed and restarted)
   useEffect(() => {
     checkLocationPermission().then((granted) => {
       permissionCacheRef.current = granted;
     });
+
+    // Try to restore a persisted GPS session
+    if (!restoredRef.current) {
+      restoredRef.current = true;
+      const saved = loadGpsSession();
+      if (saved) {
+        // Restore all refs
+        startedAtRef.current = saved.startedAt;
+        pointsRef.current = saved.points;
+        distanceRef.current = saved.distanceM;
+        elevationRef.current = saved.elevationGainM;
+        lapsRef.current = saved.laps;
+        totalPausedRef.current = saved.totalPausedMs;
+
+        if (saved.status === "paused") {
+          pausedAtRef.current = saved.pausedAt ?? Date.now();
+          setStateWithRef({
+            status: "paused",
+            points: saved.points,
+            startedAt: saved.startedAt,
+            totalPausedMs: saved.totalPausedMs,
+            distanceM: saved.distanceM,
+            elevationGainM: saved.elevationGainM,
+            currentPaceSecPerKm: undefined,
+            laps: saved.laps,
+          });
+        } else {
+          // Was tracking — add paused time since last save and resume GPS
+          const pausedSinceKill = Date.now() - saved.lastSavedAt;
+          totalPausedRef.current += pausedSinceKill;
+
+          setStateWithRef({
+            status: "tracking",
+            points: saved.points,
+            startedAt: saved.startedAt,
+            totalPausedMs: totalPausedRef.current,
+            distanceM: saved.distanceM,
+            elevationGainM: saved.elevationGainM,
+            currentPaceSecPerKm: undefined,
+            laps: saved.laps,
+          });
+
+          // Restart GPS watch
+          watchPosition(addPoint).then((id) => {
+            watchIdRef.current = id;
+          });
+          startPersistTimer();
+        }
+      }
+    }
+
     return () => {
       if (watchIdRef.current) clearWatch(watchIdRef.current);
+      stopPersistTimer();
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Safety-net: if iOS killed the GPS watch while the app was backgrounded,
-  // restart it automatically when the app comes back to the foreground.
+  // App state change listener — restart GPS if killed in background
   useEffect(() => {
     let listener: Awaited<ReturnType<typeof App.addListener>> | null = null;
 
     App.addListener("appStateChange", ({ isActive }) => {
-      if (!isActive) return; // going to background — nothing to do (backgroundMessage keeps GPS alive)
+      if (!isActive) {
+        // Going to background — persist immediately
+        persistState();
+        return;
+      }
 
-      // App just became active again — check if we were tracking but the watch is gone
+      // App just became active — check if we were tracking but watch is gone
       const statusRef = stateStatusRef.current;
       if (statusRef === "tracking" && !watchIdRef.current) {
         watchPosition(addPoint).then((id) => {
@@ -221,7 +305,7 @@ export function useGpsTracking() {
     }).then((h) => { listener = h; });
 
     return () => { listener?.remove(); };
-  }, [addPoint]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addPoint, persistState]);
 
   function getElapsedMsNow(): number {
     if (startedAtRef.current === 0) return 0;

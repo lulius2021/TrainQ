@@ -20,10 +20,12 @@ interface StatsChartProps {
     type: ChartType;
     color?: string;
     height?: number;
+    compact?: boolean;
 }
 
 const COLORS = ["#007AFF", "#F59E0B", "#10B981", "#8B5CF6", "#F43F5E", "#6366F1"];
-const AREA_CHART_MARGIN = { top: 10, right: 0, left: -20, bottom: 0 };
+const AREA_CHART_MARGIN_COMPACT = { top: 10, right: 8, left: -10, bottom: 10 };
+const AREA_CHART_MARGIN_FULL = { top: 10, right: 8, left: -10, bottom: 10 };
 const yAxisTickFormatter = (val: number): string => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : String(val);
 
 // ── Custom SVG Donut (replaces Recharts PieChart which crashes with React 19) ──
@@ -96,6 +98,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
     type,
     color = "#007AFF",
     height = 220,
+    compact = false,
 }) => {
     const { theme } = useTheme();
     const isPie = type === "pie";
@@ -120,24 +123,27 @@ export const StatsChart: React.FC<StatsChartProps> = ({
 
     return (
         <div
-            className="w-full rounded-3xl p-6 flex flex-col items-start gap-4 shadow-xl border backdrop-blur-md transition-colors"
+            className={`w-full rounded-3xl flex flex-col items-start backdrop-blur-md transition-colors ${compact ? "p-4 gap-2" : "p-6 gap-4"}`}
             style={{
                 backgroundColor: theme.colors.card,
-                borderColor: theme.colors.border
+                outline: "none",
+                border: "none",
+                boxShadow: "none",
+                WebkitTapHighlightColor: "transparent",
             }}
         >
             <div className="w-full flex items-end justify-between px-1">
                 <div className="flex flex-col">
-                    <h3 className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: theme.colors.textSecondary }}>{title}</h3>
+                    <h3 className={`font-bold uppercase tracking-wider ${compact ? "text-[10px] mb-0.5" : "text-xs mb-1"}`} style={{ color: theme.colors.textSecondary }}>{title}</h3>
                     {valueDisplay && (
-                        <span className="text-3xl font-black tracking-tight" style={{ color: theme.colors.text }}>
+                        <span className={`font-black tracking-tight ${compact ? "text-xl" : "text-3xl"}`} style={{ color: theme.colors.text }}>
                             {valueDisplay}
                         </span>
                     )}
                 </div>
             </div>
 
-            <div ref={containerRef} style={{ width: "100%", height }} className="relative mt-2">
+            <div ref={containerRef} style={{ width: "100%", height }} className={`relative ${compact ? "mt-0" : "mt-2"}`}>
                 {data.length === 0 || (isPie && validPieData.length === 0) ? (
                     <div className="absolute inset-0 flex items-center justify-center text-sm font-medium" style={{ color: theme.colors.textSecondary }}>
                         Keine Daten
@@ -149,7 +155,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
                                 <SvgDonut data={validPieData} dataKey={dataKey} size={Math.min(chartWidth, height)} />
                             </div>
                         ) : (
-                            <AreaChart width={chartWidth} height={height} data={data} margin={AREA_CHART_MARGIN}>
+                            <AreaChart width={chartWidth} height={height} data={data} margin={compact ? AREA_CHART_MARGIN_COMPACT : AREA_CHART_MARGIN_FULL}>
                                 <defs>
                                     <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor={color} stopOpacity={0.5} />
@@ -157,21 +163,12 @@ export const StatsChart: React.FC<StatsChartProps> = ({
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke="var(--chart-grid)"
+                                    horizontal={!compact}
                                     vertical={false}
+                                    strokeDasharray="3 3"
+                                    stroke="var(--chart-grid, rgba(128,128,128,0.15))"
                                 />
-                                <XAxis
-                                    dataKey={labelKey}
-                                    stroke="var(--text-secondary)"
-                                    fontSize={10}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickMargin={12}
-                                    interval="preserveStartEnd"
-                                    minTickGap={15}
-                                    fontWeight={500}
-                                />
+                                <XAxis dataKey={labelKey} hide />
                                 <YAxis
                                     hide={false}
                                     stroke="var(--text-secondary)"
@@ -179,6 +176,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
                                     tickLine={false}
                                     axisLine={false}
                                     tickFormatter={yAxisTickFormatter}
+                                    width={35}
                                 />
                                 <Area
                                     type="monotone"
@@ -189,6 +187,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({
                                     fill={`url(#${gradientId})`}
                                     isAnimationActive={false}
                                     activeDot={false}
+                                    dot={{ r: 5, fill: color, stroke: "var(--card-bg)", strokeWidth: 2 }}
                                 />
                             </AreaChart>
                         )}

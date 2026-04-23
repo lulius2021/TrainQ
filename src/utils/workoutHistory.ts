@@ -85,6 +85,12 @@ export type WorkoutHistoryEntry = {
 
   /** Verbrannte Kalorien (grobe Schätzung). */
   calories?: number;
+
+  /** Post-workout feedback for adaptive training loop. */
+  postFeedback?: {
+    perceivedIntensity: "too_easy" | "right" | "too_hard";
+    postFeeling: "exhausted" | "good" | "energized";
+  };
 };
 
 const STORAGE_KEY = "trainq_workout_history_v1";

@@ -1,10 +1,7 @@
 // src/components/nutrition/CreateFoodSheet.tsx
-import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import React, { useState } from "react";
 import type { CustomFoodItem, FoodCategory } from "../../types/nutrition";
-
-const MotionDiv = motion.div as any;
+import { BottomSheet } from "../common/BottomSheet";
 
 interface CreateFoodSheetProps {
   onSave: (food: CustomFoodItem) => void;
@@ -58,19 +55,6 @@ const CreateFoodSheet: React.FC<CreateFoodSheetProps> = ({
   const [category, setCategory] = useState<FoodCategory>(editFood?.category || "other");
   const [servingName, setServingName] = useState(editFood?.servings[0]?.label || "");
   const [servingGrams, setServingGrams] = useState(editFood?.servings[0]?.grams ?? 0);
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose();
-  };
 
   const canSave = name.trim().length > 0;
 
@@ -97,89 +81,21 @@ const CreateFoodSheet: React.FC<CreateFoodSheetProps> = ({
   };
 
   return (
-    <MotionDiv
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-    >
-      <MotionDiv
-        className="absolute left-0 right-0 bottom-0 bg-[var(--card-bg)] rounded-t-3xl border-t border-[var(--border-color)] pb-[env(safe-area-inset-bottom)] max-h-[85vh] overflow-y-auto"
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      >
-        {/* Handle */}
-        <div className="flex justify-center pt-3">
-          <div className="h-1.5 w-10 rounded-full bg-[var(--border-color)]" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-3 pb-2">
-          <h3 className="text-lg font-bold text-[var(--text-color)]">
+    <BottomSheet
+      open
+      onClose={onClose}
+      height="88dvh"
+      showHandle
+      header={
+        <div className="px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>
             {editFood ? "Lebensmittel bearbeiten" : "Lebensmittel erstellen"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center shrink-0 active:scale-90 transition-transform"
-          >
-            <X size={16} className="text-[var(--text-secondary)]" />
-          </button>
+          </h2>
         </div>
-
-        {/* Form */}
-        <div className="px-5 py-2 space-y-3">
-          <FieldInput label="Name" value={name} onChange={setName} type="text" />
-          <FieldInput label="Kalorien pro 100g (kcal)" value={kcal} onChange={setKcal} />
-          <FieldInput label="Protein pro 100g (g)" value={protein} onChange={setProtein} />
-          <FieldInput label="Kohlenhydrate pro 100g (g)" value={carbs} onChange={setCarbs} />
-          <FieldInput label="Fett pro 100g (g)" value={fat} onChange={setFat} />
-
-          {/* Category */}
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">
-              Kategorie
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as FoodCategory)}
-              className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-color)] outline-none focus:border-[var(--accent-color)]"
-            >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Optional serving */}
-          <div className="pt-2">
-            <label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-              Portionsgr&ouml;&szlig;e (optional)
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <FieldInput
-                label="Name (z.B. 1 Riegel)"
-                value={servingName}
-                onChange={setServingName}
-                type="text"
-              />
-              <FieldInput
-                label="Gramm"
-                value={servingGrams}
-                onChange={setServingGrams}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Save button */}
-        <div className="px-5 pt-4 pb-6">
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-8"
+      footer={
+        <div className="px-5 pt-3 pb-2">
           <button
             onClick={handleSave}
             disabled={!canSave}
@@ -192,48 +108,101 @@ const CreateFoodSheet: React.FC<CreateFoodSheetProps> = ({
             Speichern
           </button>
         </div>
-      </MotionDiv>
-    </MotionDiv>
+      }
+    >
+      <div className="space-y-5">
+        {/* Name */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: "var(--text-secondary)" }}>Name</label>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="z.B. Protein-Riegel"
+              className="w-full px-4 py-3 bg-transparent text-sm font-medium outline-none"
+              style={{ color: "var(--text-color)" }}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        {/* Nährwerte pro 100g */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: "var(--text-secondary)" }}>Nährwerte pro 100g</label>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+            <RowInput label="Kalorien" unit="kcal" value={kcal} onChange={setKcal} />
+            <div className="h-px mx-4" style={{ backgroundColor: "var(--border-color)" }} />
+            <RowInput label="Protein" unit="g" value={protein} onChange={setProtein} />
+            <div className="h-px mx-4" style={{ backgroundColor: "var(--border-color)" }} />
+            <RowInput label="Kohlenhydrate" unit="g" value={carbs} onChange={setCarbs} />
+            <div className="h-px mx-4" style={{ backgroundColor: "var(--border-color)" }} />
+            <RowInput label="Fett" unit="g" value={fat} onChange={setFat} />
+          </div>
+        </div>
+
+        {/* Kategorie */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: "var(--text-secondary)" }}>Kategorie</label>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as FoodCategory)}
+              className="w-full px-4 py-3 bg-transparent text-sm font-medium outline-none appearance-none"
+              style={{ color: "var(--text-color)" }}
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Portionsgröße */}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: "var(--text-secondary)" }}>Portionsgröße (optional)</label>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card-bg)" }}>
+            <div className="px-4 py-3 flex items-center justify-between">
+              <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Name</span>
+              <input
+                type="text"
+                value={servingName}
+                onChange={(e) => setServingName(e.target.value)}
+                placeholder="z.B. 1 Riegel"
+                className="bg-transparent text-sm font-medium outline-none text-right w-40"
+                style={{ color: "var(--text-color)" }}
+                autoComplete="off"
+              />
+            </div>
+            <div className="h-px mx-4" style={{ backgroundColor: "var(--border-color)" }} />
+            <RowInput label="Gramm" unit="g" value={servingGrams} onChange={setServingGrams} />
+          </div>
+        </div>
+      </div>
+    </BottomSheet>
   );
 };
 
-function FieldInput({
-  label,
-  value,
-  onChange,
-  type = "number",
-}: {
-  label: string;
-  value: string | number;
-  onChange: (v: any) => void;
-  type?: "text" | "number";
-}) {
+function RowInput({ label, unit, value, onChange }: { label: string; unit: string; value: number; onChange: (v: number) => void }) {
   return (
-    <div>
-      <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">
-        {label}
-      </label>
-      {type === "text" ? (
-        <input
-          type="text"
-          value={value as string}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-color)] outline-none focus:border-[var(--accent-color)]"
-          autoComplete="off"
-        />
-      ) : (
+    <div className="px-4 py-3 flex items-center justify-between">
+      <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <div className="flex items-center gap-1.5">
         <input
           type="number"
-          value={value as number}
+          value={value || ""}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
             onChange(isNaN(v) ? 0 : Math.max(0, v));
           }}
-          className="w-full bg-[var(--bg-color)] border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-color)] outline-none focus:border-[var(--accent-color)] tabular-nums"
+          className="w-16 bg-transparent text-sm font-bold outline-none text-right tabular-nums"
+          style={{ color: "var(--text-color)" }}
           inputMode="decimal"
           min="0"
+          placeholder="0"
         />
-      )}
+        <span className="text-xs font-medium w-7" style={{ color: "var(--text-muted)" }}>{unit}</span>
+      </div>
     </div>
   );
 }

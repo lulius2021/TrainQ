@@ -16,6 +16,7 @@ import { EXERCISES } from "../../data/exerciseLibrary";
 import { getLastSetsForExercise } from "../../utils/trainingHistory";
 import { loadWorkoutHistory } from "../../utils/workoutHistory";
 import { GarminService, type GarminRecoveryData } from "../../services/garmin/api";
+import { FEATURE_FLAGS } from "../../config/featureFlags";
 import type { LiveExercise, LiveSet } from "../../types/training";
 import { getScopedItem, setScopedItem } from "../../utils/scopedStorage";
 
@@ -158,6 +159,9 @@ async function getRecoveryData(): Promise<{
     source: "garmin" | "fallback" | "default";
 }> {
     try {
+        // Skip Garmin when feature is disabled
+        if (!FEATURE_FLAGS.garmin) throw new Error("Garmin disabled");
+
         // Try to get fresh Garmin data
         const garminData = await Promise.race([
             GarminService.getRecoveryStatus(),

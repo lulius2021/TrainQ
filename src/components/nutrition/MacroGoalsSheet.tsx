@@ -1,10 +1,7 @@
 // src/components/nutrition/MacroGoalsSheet.tsx
-import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import type { NutritionGoals } from "../../types/nutrition";
-
-const MotionDiv = motion.div as any;
+import { BottomSheet } from "../common/BottomSheet";
 
 interface MacroGoalsSheetProps {
   goals: NutritionGoals;
@@ -39,7 +36,6 @@ const MacroGoalsSheet: React.FC<MacroGoalsSheetProps> = ({
   const [fiber, setFiber] = useState(goals.fiber ?? 30);
   const [water, setWater] = useState(goals.water ?? 3);
   const [mode, setMode] = useState<GoalMode>(goals.mode);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setKcal(goals.kcal);
@@ -51,12 +47,6 @@ const MacroGoalsSheet: React.FC<MacroGoalsSheetProps> = ({
     setWater(goals.water ?? 3);
     setMode(goals.mode);
   }, [goals]);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
 
   const handleModeChange = (newMode: GoalMode) => {
     setMode(newMode);
@@ -74,86 +64,20 @@ const MacroGoalsSheet: React.FC<MacroGoalsSheetProps> = ({
     onSave({ kcal, protein, carbs, fat, sugar, fiber, water, mode });
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose();
-  };
-
   return (
-    <MotionDiv
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-    >
-      <MotionDiv
-        className="absolute left-0 right-0 bottom-0 bg-[var(--card-bg)] rounded-t-3xl border-t border-[var(--border-color)] pb-[env(safe-area-inset-bottom)] max-h-[85vh] flex flex-col"
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 shrink-0">
-          <div className="h-1.5 w-10 rounded-full bg-[var(--border-color)]" />
+    <BottomSheet
+      open
+      onClose={onClose}
+      height="88dvh"
+      showHandle
+      header={
+        <div className="px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Tagesziele</h2>
         </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-3 pb-2 shrink-0">
-          <h3 className="text-lg font-bold text-[var(--text-color)]">Tagesziele</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center shrink-0 active:scale-90 transition-transform"
-          >
-            <X size={16} className="text-[var(--text-secondary)]" />
-          </button>
-        </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-5">
-          {/* Mode selector */}
-          <div className="py-3">
-            <label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">Modus</label>
-            <div className="grid grid-cols-3 gap-2">
-              {MODE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handleModeChange(opt.value)}
-                  className={`py-2.5 rounded-xl text-center transition-all text-sm font-semibold ${
-                    mode === opt.value
-                      ? "bg-[var(--accent-color)] text-white"
-                      : "bg-[var(--bg-color)] text-[var(--text-secondary)] border border-[var(--border-color)]"
-                  }`}
-                >
-                  <span className="mr-1">{opt.emoji}</span>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Main macros */}
-          <div className="py-2 space-y-3">
-            <SectionLabel text="Hauptnährstoffe" />
-            <GoalInput label="Kalorien" unit="kcal" value={kcal} onChange={setKcal} />
-            <GoalInput label="Protein" unit="g" value={protein} onChange={setProtein} />
-            <GoalInput label="Kohlenhydrate" unit="g" value={carbs} onChange={setCarbs} />
-            <GoalInput label="Fett" unit="g" value={fat} onChange={setFat} />
-          </div>
-
-          {/* Extended macros */}
-          <div className="py-2 space-y-3 mt-1">
-            <SectionLabel text="Weitere Ziele" />
-            <GoalInput label="Zucker (max.)" unit="g" value={sugar} onChange={setSugar} />
-            <GoalInput label="Ballaststoffe" unit="g" value={fiber} onChange={setFiber} />
-            <GoalInputDecimal label="Wasser" unit="L" value={water} onChange={setWater} />
-          </div>
-        </div>
-
-        {/* Save button */}
-        <div className="px-5 pt-4 pb-6 shrink-0">
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-8"
+      footer={
+        <div className="px-5 pt-3 pb-2">
           <button
             onClick={handleSave}
             className="w-full py-3.5 rounded-2xl bg-[var(--accent-color)] text-white font-bold text-[15px] active:scale-[0.98] transition-transform"
@@ -161,8 +85,46 @@ const MacroGoalsSheet: React.FC<MacroGoalsSheetProps> = ({
             Speichern
           </button>
         </div>
-      </MotionDiv>
-    </MotionDiv>
+      }
+    >
+      {/* Mode selector */}
+      <div className="py-3">
+        <label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">Modus</label>
+        <div className="grid grid-cols-3 gap-2">
+          {MODE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleModeChange(opt.value)}
+              className={`py-2.5 rounded-xl text-center transition-all text-sm font-semibold ${
+                mode === opt.value
+                  ? "bg-[var(--accent-color)] text-white"
+                  : "bg-[var(--bg-color)] text-[var(--text-secondary)] border border-[var(--border-color)]"
+              }`}
+            >
+              <span className="mr-1">{opt.emoji}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main macros */}
+      <div className="py-2 space-y-3">
+        <SectionLabel text="Hauptnährstoffe" />
+        <GoalInput label="Kalorien" unit="kcal" value={kcal} onChange={setKcal} />
+        <GoalInput label="Protein" unit="g" value={protein} onChange={setProtein} />
+        <GoalInput label="Kohlenhydrate" unit="g" value={carbs} onChange={setCarbs} />
+        <GoalInput label="Fett" unit="g" value={fat} onChange={setFat} />
+      </div>
+
+      {/* Extended macros */}
+      <div className="py-2 space-y-3 mt-1">
+        <SectionLabel text="Weitere Ziele" />
+        <GoalInput label="Zucker (max.)" unit="g" value={sugar} onChange={setSugar} />
+        <GoalInput label="Ballaststoffe" unit="g" value={fiber} onChange={setFiber} />
+        <GoalInputDecimal label="Wasser" unit="L" value={water} onChange={setWater} />
+      </div>
+    </BottomSheet>
   );
 };
 

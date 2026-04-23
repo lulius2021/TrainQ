@@ -17,6 +17,7 @@ import type { DeloadScoreResult, DeloadScoreFactor, WellnessEntry } from "../typ
 import i18n from "../i18n/config";
 import { computeTrainingLoadSnapshot, getRecentPerformanceTrend } from "./TrainingLoadService";
 import { getScopedItem } from "../utils/scopedStorage";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 import {
   readLastDeloadStartISO,
   readLastDeloadIntervalWeeks,
@@ -111,7 +112,7 @@ export function computeDeloadScore(userId?: string | null): DeloadScoreResult {
   const snapshot  = computeTrainingLoadSnapshot(todayISO);
   const wellness  = getTodayWellness(userId);
   const trend     = getRecentPerformanceTrend();
-  const garmin    = getGarminFactors(userId);
+  const garmin    = FEATURE_FLAGS.garmin ? getGarminFactors(userId) : { hrv7DayNegative: null, rhrAboveBaseline: null };
 
   // --- Factor 1: Weeks since last deload vs cycle length ---
   const lastDeloadISO = readLastDeloadStartISO(userId);

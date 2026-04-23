@@ -64,6 +64,8 @@
     window.addEventListener('unhandledrejection', function(e) {
       var reason = e.reason;
       var msg = reason ? (reason.message || String(reason)) : 'Unknown rejection';
+      // Suppress transient Supabase/Keychain lock errors — not real crashes
+      if (msg.indexOf('Lock was stolen') !== -1 || msg.indexOf('navigator.locks') !== -1 || msg.indexOf('this.lock is not a function') !== -1) return;
       var stack = reason && reason.stack ? reason.stack.substring(0, 500) : '';
       _showError('Unhandled Promise', msg, stack);
     });

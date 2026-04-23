@@ -2,13 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { getSupabaseClient } from '../lib/supabaseClient';
+import { readOnboardingDataFromStorage, writeOnboardingDataToStorage } from '../context/OnboardingContext';
 import { useCsvImport } from '../hooks/useCsvImport';
+import { useTheme } from '../context/ThemeContext';
 import { AppButton } from './ui/AppButton';
 import CsvPreviewTable from './import/CsvPreviewTable';
 import CsvImportSummary from './import/CsvImportSummary';
 import PermissionsStep from './onboarding/PermissionsStep';
-import { CheckCircle, Upload, FileSpreadsheet, ArrowLeft, Watch, Loader2, Link, AlertCircle, Activity, Heart, Moon, Trophy, Briefcase, Sprout } from 'lucide-react';
-const logo = '/logo.png';
+import { CheckCircle, Upload, FileSpreadsheet, ArrowLeft, Watch, Loader2, Link, AlertCircle, Activity, Heart, Moon, Trophy, Briefcase, Sprout, User } from 'lucide-react';
 
 /* ─── Animation variants ─── */
 
@@ -40,48 +41,101 @@ const ProgressDots: React.FC<{ current: number; total: number }> = ({ current, t
 
 /* ─── Step 1: Welcome ─── */
 
-const WelcomeStep: React.FC<{ onNext: () => void }> = ({ onNext }) => (
-  <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
-    <motion.img
-      src={logo}
-      alt="TrainQ"
-      className="w-24 h-24 rounded-3xl shadow-lg mb-8"
-      initial={{ scale: 0.5, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-    />
-    <motion.h1
-      className="text-3xl font-black tracking-tight mb-3"
-      style={{ color: 'var(--text-color)' }}
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.2, duration: 0.4 }}
-    >
-      Willkommen bei TrainQ
-    </motion.h1>
-    <motion.p
-      className="text-base mb-12"
-      style={{ color: 'var(--text-secondary)' }}
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.35, duration: 0.4 }}
-    >
-      Dein intelligenter Trainingspartner
-    </motion.p>
-    <motion.div
-      className="w-full max-w-xs"
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.4 }}
-    >
-      <AppButton onClick={onNext} fullWidth size="lg" className="!rounded-2xl !text-lg !font-black shadow-lg">
-        Loslegen
-      </AppButton>
-    </motion.div>
-  </div>
-);
+const WelcomeStep: React.FC<{ onNext: () => void; isDark: boolean }> = ({ onNext, isDark }) => {
+  const bgColor = isDark ? '#000000' : '#ffffff';
+  const textColor = isDark ? '#ffffff' : '#000000';
+  const subtitleColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)';
+  const logoSrc = isDark ? '/logo-dark.png' : '/logo-light.png';
 
-/* ─── Step 2: Fokus ─── */
+  return (
+    <div
+      className="flex-1 flex flex-col items-center justify-center px-8 text-center"
+      style={{ backgroundColor: bgColor }}
+    >
+      <img
+        src={logoSrc}
+        alt="TrainQ"
+        className="w-28 h-28 mb-10"
+      />
+      <h1
+        className="text-3xl font-black tracking-tight mb-3"
+        style={{ color: textColor }}
+      >
+        Willkommen bei TrainQ
+      </h1>
+      <p
+        className="text-base mb-12"
+        style={{ color: subtitleColor }}
+      >
+        Dein intelligenter Trainingspartner
+      </p>
+      <div className="w-full max-w-xs">
+        <AppButton onClick={onNext} fullWidth size="lg" className="!rounded-2xl !text-lg !font-black shadow-lg">
+          Loslegen
+        </AppButton>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Step 2: Name ─── */
+
+const NameStep: React.FC<{ value: string; onChange: (v: string) => void; onNext: () => void }> = ({
+  value, onChange, onNext,
+}) => {
+  const canContinue = value.trim().length >= 2;
+
+  return (
+    <div className="flex-1 flex flex-col px-6">
+      <div className="flex flex-col items-center pt-8 pb-6">
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+          style={{ backgroundColor: 'var(--accent-color-bg, rgba(0,122,255,0.1))' }}
+        >
+          <User size={28} style={{ color: 'var(--accent-color)' }} />
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight mb-2" style={{ color: 'var(--text-color)' }}>
+          Wie heißt du?
+        </h2>
+        <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
+          Dein Name wird in deinem Profil angezeigt.
+        </p>
+      </div>
+
+      <div className="mb-auto">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Dein Name"
+          autoFocus
+          className="w-full text-center text-xl font-bold bg-transparent outline-none py-4 px-4 rounded-2xl border transition-colors"
+          style={{
+            color: 'var(--text-color)',
+            borderColor: canContinue ? 'var(--accent-color)' : 'var(--border-color)',
+            backgroundColor: 'var(--card-bg)',
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) onNext(); }}
+        />
+      </div>
+
+      <div className="mt-8">
+        <AppButton
+          onClick={onNext}
+          fullWidth
+          size="lg"
+          className="!rounded-2xl !text-lg !font-black shadow-lg"
+          disabled={!canContinue}
+          style={{ opacity: canContinue ? 1 : 0.4 }}
+        >
+          Weiter
+        </AppButton>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Step 3: Fokus ─── */
 
 const personas = [
   { id: 'pro', label: 'Athlet', icon: <Trophy size={28} />, desc: 'Maximale Leistung' },
@@ -514,7 +568,7 @@ const GarminStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
           >
             Weiter
           </AppButton>
-        ) : step !== 'fetching' && step !== 'connecting' ? (
+        ) : step !== 'fetching' ? (
           <button
             onClick={onNext}
             className="w-full py-3 text-center text-sm font-semibold transition-opacity active:opacity-60"
@@ -677,18 +731,31 @@ export const Onboarding: React.FC = () => {
   const [dir, setDir] = useState(1); // 1 = forward, -1 = backward
   const [saving, setSaving] = useState(false);
 
+  const [userName, setUserName] = useState('');
   const [goal, setGoal] = useState('beginner');
   const [timePerWorkout, setTimePerWorkout] = useState(45);
   const [fitnessLevel, setFitnessLevel] = useState(3);
 
   const goForward = useCallback(() => {
     setDir(1);
-    setStep((s) => Math.min(s + 1, 6));
+    setStep((s) => {
+      let next = Math.min(s + 1, 7);
+      // Skip Garmin step (6) when feature is disabled
+      const { FEATURE_FLAGS } = require("../config/featureFlags");
+      if (next === 6 && !FEATURE_FLAGS.garmin) next = 7;
+      return next;
+    });
   }, []);
 
   const goBack = useCallback(() => {
     setDir(-1);
-    setStep((s) => Math.max(s - 1, 0));
+    setStep((s) => {
+      let prev = Math.max(s - 1, 0);
+      // Skip Garmin step (6) when feature is disabled
+      const { FEATURE_FLAGS } = require("../config/featureFlags");
+      if (prev === 6 && !FEATURE_FLAGS.garmin) prev = 5;
+      return prev;
+    });
   }, []);
 
   const handleFinish = useCallback(async () => {
@@ -700,12 +767,22 @@ export const Onboarding: React.FC = () => {
         time_budget: String(timePerWorkout * 3),
       };
 
+      // Save name to onboarding storage so ProfilePage picks it up
+      const current = readOnboardingDataFromStorage();
+      writeOnboardingDataToStorage({
+        ...current,
+        profile: {
+          ...(current.profile ?? { username: '', bio: '', isPublic: true }),
+          username: userName.trim(),
+        },
+      });
+
       if (user?.provider === 'local') {
         localStorage.setItem('user_preferences', JSON.stringify(preferences));
       } else {
         const client = getSupabaseClient();
         if (client && user?.id) {
-          try { await client.from('profiles').update(preferences).eq('id', user.id); } catch { /* ignore */ }
+          try { await client.from('profiles').update({ ...preferences, username: userName.trim() }).eq('id', user.id); } catch { /* ignore */ }
         }
       }
 
@@ -716,19 +793,23 @@ export const Onboarding: React.FC = () => {
       if (import.meta.env.DEV) console.error('Onboarding error:', e);
       setSaving(false);
     }
-  }, [goal, fitnessLevel, timePerWorkout, user, completeOnboarding]);
+  }, [goal, fitnessLevel, timePerWorkout, userName, user, completeOnboarding]);
+
+  const { theme } = useTheme();
+  const isDark = theme.mode === 'dark';
+  const welcomeBg = step === 0 ? (isDark ? '#000000' : '#ffffff') : 'var(--bg-color)';
 
   if (!user || user.onboardingCompleted) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }}
+      className="fixed inset-0 z-[100] flex flex-col overflow-hidden transition-colors duration-300"
+      style={{ backgroundColor: welcomeBg, color: 'var(--text-color)' }}
     >
       {/* Safe area top fill */}
       <div
-        className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] z-50"
-        style={{ backgroundColor: 'var(--bg-color)' }}
+        className="absolute top-0 left-0 right-0 h-[env(safe-area-inset-top)] z-50 transition-colors duration-300"
+        style={{ backgroundColor: welcomeBg }}
       />
 
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+12px)] overflow-hidden">
@@ -746,7 +827,7 @@ export const Onboarding: React.FC = () => {
             <div className="w-[38px]" />
           )}
           <div className="flex-1">
-            <ProgressDots current={step} total={7} />
+            <ProgressDots current={step} total={8} />
           </div>
           <div className="w-[38px]" />
         </div>
@@ -764,13 +845,14 @@ export const Onboarding: React.FC = () => {
               transition={slideTransition}
               className="flex-1 flex flex-col"
             >
-              {step === 0 && <WelcomeStep onNext={goForward} />}
-              {step === 1 && <PermissionsStep onNext={goForward} />}
-              {step === 2 && <FokusStep value={goal} onChange={setGoal} onNext={goForward} />}
-              {step === 3 && <TimeStep value={timePerWorkout} onChange={setTimePerWorkout} onNext={goForward} />}
-              {step === 4 && <FitnessStep value={fitnessLevel} onChange={setFitnessLevel} onNext={goForward} />}
-              {step === 5 && <GarminStep onNext={goForward} />}
-              {step === 6 && <CsvStep onFinish={handleFinish} loading={saving} />}
+              {step === 0 && <WelcomeStep onNext={goForward} isDark={isDark} />}
+              {step === 1 && <NameStep value={userName} onChange={setUserName} onNext={goForward} />}
+              {step === 2 && <PermissionsStep onNext={goForward} />}
+              {step === 3 && <FokusStep value={goal} onChange={setGoal} onNext={goForward} />}
+              {step === 4 && <TimeStep value={timePerWorkout} onChange={setTimePerWorkout} onNext={goForward} />}
+              {step === 5 && <FitnessStep value={fitnessLevel} onChange={setFitnessLevel} onNext={goForward} />}
+              {step === 6 && <GarminStep onNext={goForward} />}
+              {step === 7 && <CsvStep onFinish={handleFinish} loading={saving} />}
             </motion.div>
           </AnimatePresence>
         </div>

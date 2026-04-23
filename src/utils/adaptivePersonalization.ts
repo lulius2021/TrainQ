@@ -2,7 +2,9 @@
 // Builds a personalized context from the user's workout history for adaptive training.
 
 import { loadWorkoutHistory } from "./workoutHistory";
-import type { AdaptiveAnswers } from "../types/adaptive";
+import type { AdaptiveAnswers, PostWorkoutFeedback, WeeklyVolumeContext, ExerciseRotationContext, WeekSplitEntry } from "../types/adaptive";
+import { computeWeeklyVolumeContext } from "./adaptiveVolumeTracker";
+import { getExerciseRotationContext } from "./adaptiveExerciseRotation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,10 +27,19 @@ export interface UserAdaptiveContext {
   sport: "gym" | "laufen" | "radfahren";
   topExercises: PersonalizedExercise[];  // top 12, all splits (filtering done in seed)
   avgDurationMin: number;                // 0 = no history
-  weightModifier: number;                // 0.7–1.15 based on dayForm + stress
-  nextSplit: SplitType;                  // next split in push→pull→legs rotation
+  weightModifier: number;                // 0.7–1.15 based on dayForm + stress + feedback
+  nextSplit: SplitType;                  // next split in push→pull→legs rotation (week-aware)
   suggestedCardioType: CardioSessionType;
   typicalPaceSecPerKm: number;           // 0 = no history
+  // New: Feedback loop
+  lastFeedback: PostWorkoutFeedback | null;
+  feedbackWeightModifier: number;        // 0.95–1.025 from last session feedback
+  // New: Volume tracking
+  volumeContext: WeeklyVolumeContext;
+  // New: Exercise rotation
+  rotationContext: ExerciseRotationContext;
+  // New: Week split history
+  weekSplitHistory: WeekSplitEntry[];
 }
 
 // ─── Exercise Split Lookup Table ──────────────────────────────────────────────
@@ -140,14 +151,49 @@ function detectSessionSplit(exercises: { name: string }[]): SplitType | null {
   return top && top[1] > 0 ? top[0] : null;
 }
 
-function getNextSplit(sessions: { exercises?: { name: string }[] }[]): SplitType {
-  for (const session of sessions.slice(0, 5)) {
+/** Week-aware split rotation: picks the first uncovered split this week. */
+function getNextSplitWeekAware(
+  sessions: { startedAt: string; exercises?: { name: string }[] }[]
+): { nextSplit: SplitType; weekHistory: WeekSplitEntry[] } {
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7; // Monday=0
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekHistory: WeekSplitEntry[] = [];
+  const coveredSplits = new Set<SplitType>();
+
+  for (const session of sessions) {
+    const d = new Date(session.startedAt);
+    if (d < weekStart) continue;
     const split = detectSessionSplit(session.exercises ?? []);
     if (split && SPLIT_CYCLE.includes(split)) {
-      return SPLIT_CYCLE[(SPLIT_CYCLE.indexOf(split) + 1) % 3];
+      coveredSplits.add(split);
+      const dayLabel = d.toLocaleDateString("de-DE", { weekday: "short" });
+      weekHistory.push({ day: dayLabel, split });
     }
   }
-  return "push"; // default start
+
+  // Find first uncovered split in cycle
+  for (const split of SPLIT_CYCLE) {
+    if (!coveredSplits.has(split)) {
+      return { nextSplit: split, weekHistory };
+    }
+  }
+
+  // All covered this week — use last session rotation
+  for (const session of sessions.slice(0, 3)) {
+    const split = detectSessionSplit(session.exercises ?? []);
+    if (split && SPLIT_CYCLE.includes(split)) {
+      return {
+        nextSplit: SPLIT_CYCLE[(SPLIT_CYCLE.indexOf(split) + 1) % 3],
+        weekHistory,
+      };
+    }
+  }
+
+  return { nextSplit: "push", weekHistory };
 }
 
 // ─── Progressive Overload Detection ──────────────────────────────────────────
@@ -294,6 +340,24 @@ export function buildUserAdaptiveContext(
   const history = loadWorkoutHistory();
   const weightModifier = computeWeightModifier(answers as Pick<AdaptiveAnswers, "dayForm" | "stress">);
 
+  // ── Feedback from last session ──────────────────────────────────────────
+  const lastSession = history[0] ?? null;
+  const lastFeedback: PostWorkoutFeedback | null = lastSession?.postFeedback ?? null;
+
+  // RPE-based weight modifier from feedback
+  let feedbackWeightModifier = 1.0;
+  if (lastFeedback) {
+    if (lastFeedback.perceivedIntensity === "too_hard") feedbackWeightModifier = 0.95;
+    else if (lastFeedback.perceivedIntensity === "too_easy" && lastFeedback.postFeeling === "energized") feedbackWeightModifier = 1.025;
+    else if (lastFeedback.perceivedIntensity === "too_easy") feedbackWeightModifier = 1.015;
+  }
+
+  // ── Volume tracking ──────────────────────────────────────────────────────
+  const volumeContext = computeWeeklyVolumeContext(history);
+
+  // ── Exercise rotation ────────────────────────────────────────────────────
+  const rotationContext = getExerciseRotationContext(history);
+
   const sessions = history
     .filter(e => normalizeSportKey(e.sport) === sport)
     .slice(0, 20);
@@ -306,9 +370,12 @@ export function buildUserAdaptiveContext(
   // ── Gym ──────────────────────────────────────────────────────────────────
   const topExercises: PersonalizedExercise[] = [];
   let nextSplit: SplitType = "push";
+  let weekSplitHistory: WeekSplitEntry[] = [];
 
   if (sport === "gym" && sessions.length > 0) {
-    nextSplit = getNextSplit(sessions);
+    const splitResult = getNextSplitWeekAware(sessions);
+    nextSplit = splitResult.nextSplit;
+    weekSplitHistory = splitResult.weekHistory;
     const progressionMap = buildProgressionMap(sessions);
 
     const exerciseMap = new Map<string, {
@@ -382,13 +449,51 @@ export function buildUserAdaptiveContext(
   const typicalPaceSecPerKm =
     sport !== "gym" ? getTypicalPace(sessions) : 0;
 
+  // Combined weight modifier: base × feedback
+  const combinedWeightModifier = Math.max(0.7, Math.min(1.15, weightModifier * feedbackWeightModifier));
+
+  // Fallback: if no history, provide default exercises per split
+  if (sport === "gym" && topExercises.length === 0) {
+    const defaults: Record<SplitType, string[]> = {
+      push: ["Barbell Bench Press", "Overhead Press", "Incline Dumbbell Press", "Dumbbell Lateral Raise", "Triceps Pushdown"],
+      pull: ["Barbell Row", "Pull-Up", "Seated Cable Row", "Face Pull", "Barbell Curl"],
+      legs: ["Barbell Squat", "Romanian Deadlift", "Leg Press", "Leg Curl", "Calf Raise"],
+      full: ["Barbell Bench Press", "Barbell Row", "Barbell Squat", "Overhead Press", "Pull-Up"],
+    };
+    for (const split of (["push", "pull", "legs", "full"] as SplitType[])) {
+      for (const name of defaults[split]) {
+        topExercises.push({
+          name,
+          exerciseId: undefined,
+          avgWeight: 0,
+          avgReps: 0,
+          suggestedWeight: 0,
+          progressionReady: false,
+          splitType: split,
+        });
+      }
+    }
+  }
+
+  // Filter out exercises done in last 24h from topExercises
+  const filteredExercises = topExercises.filter(
+    (ex) => !rotationContext.recentExerciseNames.includes(ex.name.toLowerCase())
+  );
+  // If filtering removed too many, keep original
+  const finalExercises = filteredExercises.length >= 3 ? filteredExercises : topExercises;
+
   return {
     sport,
-    topExercises,
+    topExercises: finalExercises,
     avgDurationMin,
-    weightModifier,
+    weightModifier: combinedWeightModifier,
     nextSplit,
     suggestedCardioType,
     typicalPaceSecPerKm,
+    lastFeedback,
+    feedbackWeightModifier,
+    volumeContext,
+    rotationContext,
+    weekSplitHistory: weekSplitHistory ?? [],
   };
 }

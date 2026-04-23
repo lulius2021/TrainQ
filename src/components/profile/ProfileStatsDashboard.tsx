@@ -20,6 +20,7 @@ import {
 import { GarminService } from "../../services/garmin/api";
 import type { GarminDailyMetrics, GarminSleepSummary } from "../../services/garmin/types";
 import { useGarminConnection } from "../../hooks/useGarminConnection";
+import { FEATURE_FLAGS } from "../../config/featureFlags";
 import { motion } from "framer-motion";
 
 type RangePreset = "7d" | "4w" | "12w" | "custom";
@@ -173,7 +174,7 @@ export default function ProfileStatsDashboard(props: Props) {
   const [garminSleep, setGarminSleep] = useState<GarminSleepSummary[]>([]);
 
   useEffect(() => {
-    if (!garminConnected || tab !== "recovery") return;
+    if (!FEATURE_FLAGS.garmin || !garminConnected || tab !== "recovery") return;
     const from = toISODate(range.from);
     const to = toISODate(range.to);
     GarminService.getDailyMetrics(from, to).then(setGarminMetrics);
@@ -237,7 +238,7 @@ export default function ProfileStatsDashboard(props: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {(["overview", "strength", "volume", "load", ...(garminConnected ? ["recovery" as StatsTab] : [])] as StatsTab[]).map(k => (
+        {(["overview", "strength", "volume", "load", ...(FEATURE_FLAGS.garmin && garminConnected ? ["recovery" as StatsTab] : [])] as StatsTab[]).map(k => (
           <button key={k} type="button" onClick={() => setTab(k)}
             className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors border ${tab === k ? 'text-white shadow-lg' : 'hover:opacity-80'}`}
             style={{
@@ -308,7 +309,7 @@ export default function ProfileStatsDashboard(props: Props) {
           </StatWidget>
         )}
 
-        {tab === "recovery" && garminConnected && (
+        {tab === "recovery" && FEATURE_FLAGS.garmin && garminConnected && (
           <>
             {garminMetrics.length === 0 && garminSleep.length === 0 ? (
               <StatWidget title="Recovery" className="md:col-span-2">

@@ -20,10 +20,6 @@ const PrivacyPage          = React.lazy(() => import("../pages/legal/PrivacyPage
 const TermsPage            = React.lazy(() => import("../pages/legal/TermsPage"));
 const CsvImportPage        = React.lazy(() => import("../pages/CsvImportPage"));
 const NutritionPage        = React.lazy(() => import("../pages/NutritionPage"));
-const CommunityPage        = React.lazy(() => import("../pages/community/CommunityPage"));
-const PostDetailPage       = React.lazy(() => import("../pages/community/PostDetailPage"));
-const CommunityProfilePage = React.lazy(() => import("../pages/community/CommunityProfilePage"));
-const NotificationsPage    = React.lazy(() => import("../pages/community/NotificationsPage"));
 
 // Components
 import { MainLayout } from "../layouts/MainLayout";
@@ -32,7 +28,6 @@ import { PageErrorBoundary } from "../components/common/PageErrorBoundary";
 // Hooks & Context
 import { useAuth } from "../context/AuthContext";
 import { useTabSwipeNavigation } from "../hooks/useTabSwipeNavigation";
-import { useEntitlements } from "../hooks/useEntitlements";
 
 // Utils
 import { scheduleTrainingReminders } from "../utils/notificationScheduler";
@@ -66,10 +61,6 @@ type AppRoute =
     | "/calendar"
     | "/plan"
     | "/profile"
-    | "/community"
-    | "/community/post"
-    | "/community/profile"
-    | "/community/notifications"
     | "/live-training"
     | "/debug/trainq"
     | "/workout-share"
@@ -209,10 +200,6 @@ function getRouteFromLocation(): AppRoute {
     if (path === "/terms") return "/terms";
     if (path === "/import-csv") return "/import-csv";
     if (path === "/nutrition") return "/nutrition";
-    if (path === "/community/post") return "/community/post";
-    if (path === "/community/profile") return "/community/profile";
-    if (path === "/community/notifications") return "/community/notifications";
-    if (path === "/community") return "/community";
     if (path.startsWith("/u/")) return "/public-profile";
     return "/";
 }
@@ -374,7 +361,6 @@ type ProfileScreen = "profile" | "settings";
 const MainAppShell: React.FC = () => {
     const { user } = useAuth();
     const userId = user?.id;
-    const { isPro } = useEntitlements(userId);
     const { t } = useI18n();
 
     const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -383,7 +369,6 @@ const MainAppShell: React.FC = () => {
         if (path === "/dashboard") return "dashboard";
         if (path === "/calendar") return "calendar";
         if (path === "/plan") return "plan";
-        if (path === "/community" || path.startsWith("/community/")) return "dashboard";
         if (path === "/profile") return "profile";
         return "today"; // Default /train -> today tab
     });
@@ -410,11 +395,6 @@ const MainAppShell: React.FC = () => {
     });
 
     const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
-
-    // Community sub-navigation state
-    const [communityPostId, setCommunityPostId] = useState<string | null>(null);
-    const [communityProfileId, setCommunityProfileId] = useState<string | null>(null);
-
 
     const [events, setEvents] = useState<CalendarEvent[]>(() => {
         const loaded = readEventsFromStorage(userId);
@@ -523,8 +503,6 @@ const MainAppShell: React.FC = () => {
                 setActiveTab("calendar");
             } else if (nextRoute === "/plan") {
                 setActiveTab("plan");
-            } else if (nextRoute === "/community") {
-                setActiveTab("dashboard");
             } else if (nextRoute === "/profile") {
                 setActiveTab("profile");
             } else if (nextRoute === "/workout-share") {
@@ -556,8 +534,6 @@ const MainAppShell: React.FC = () => {
                 setActiveTab("calendar");
             } else if (next === "/plan") {
                 setActiveTab("plan");
-            } else if (next === "/community") {
-                setActiveTab("dashboard");
             } else if (next === "/profile") {
                 setActiveTab("profile");
             } else if (next === "/workout-share") {
@@ -810,14 +786,12 @@ const MainAppShell: React.FC = () => {
         );
     }
     if (route === "/debug/trainq") return <div className="w-full h-full overflow-auto"><React.Suspense fallback={null}><TrainQCoreDebug /></React.Suspense></div>;
-    if (route === "/impressum") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><ImpressumPage /></React.Suspense></MotionDiv>;
-    if (route === "/privacy") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><PrivacyPage /></React.Suspense></MotionDiv>;
-    if (route === "/terms") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><TermsPage /></React.Suspense></MotionDiv>;
+    const backToSettings = () => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); };
+    if (route === "/impressum") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><ImpressumPage onBack={backToSettings} /></React.Suspense></MotionDiv>;
+    if (route === "/privacy") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><PrivacyPage onBack={backToSettings} /></React.Suspense></MotionDiv>;
+    if (route === "/terms") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><TermsPage onBack={backToSettings} /></React.Suspense></MotionDiv>;
     if (route === "/import-csv") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></React.Suspense></MotionDiv>;
     if (route === "/nutrition") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></React.Suspense></MotionDiv>;
-    if (route === "/community/post" && communityPostId && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><PostDetailPage postId={communityPostId} viewerId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); setCommunityPostId(null); }} onAuthorTap={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} onPostDeleted={() => {}} /></React.Suspense></MotionDiv>;
-    if (route === "/community/profile" && communityProfileId && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><CommunityProfilePage profileUserId={communityProfileId} viewerId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); setCommunityProfileId(null); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} /></React.Suspense></MotionDiv>;
-    if (route === "/community/notifications" && userId) return <MotionDiv className="w-full h-full overflow-hidden" {...pageSlideRight}><React.Suspense fallback={null}><NotificationsPage userId={userId} onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} onOpenPostDetail={(pid) => { setCommunityPostId(pid); pushRoute("/community/post"); setRoute("/community/post"); }} onOpenProfile={(uid) => { setCommunityProfileId(uid); pushRoute("/community/profile"); setRoute("/community/profile"); }} /></React.Suspense></MotionDiv>;
 
     // ---------- App Layout via MainLayout ----------
 
@@ -893,7 +867,7 @@ const MainAppShell: React.FC = () => {
                                 {tab === "dashboard" && <Dashboard />}
                                 {tab === "calendar" && <CalendarPage />}
                                 {tab === "today" && <StartTodayPage events={events} onPlanTraining={() => { setActiveTab("calendar"); pushRoute("/"); setRoute("/"); }} />}
-                                {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} isPro={isPro} />}
+                                {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} />}
                                 {tab === "profile" && (
                                     profileScreen === "settings" ? (
                                         <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenGoals={() => alert("Funktion folgt.")} />

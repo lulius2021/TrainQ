@@ -1,15 +1,16 @@
 // src/pages/NutritionPage.tsx
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Settings2, Check, AlertCircle } from "lucide-react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight, Settings2, Check, AlertCircle, History, Search, X, Loader2 } from "lucide-react";
+import { BottomSheet } from "../components/common/BottomSheet";
 import { motion, AnimatePresence } from "framer-motion";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { hapticMedium, hapticLight } from "../native/haptics";
 import type { FoodItem, FoodMatchResult, Macros, DiaryEntry, CustomFoodItem } from "../types/nutrition";
 import { useNutrition } from "../hooks/useNutrition";
 import { useFoodSearch } from "../hooks/useFoodSearch";
 import { resolveToGrams } from "../features/nutrition/unitResolver";
 import { computeMacros } from "../features/nutrition/macroCalculator";
 import { isHighConfidence } from "../features/nutrition/foodMatcher";
-import { lookupBarcode, type OFFSearchResult } from "../features/nutrition/barcodeLookup";
+import { lookupBarcode, searchFoodByName, type OFFSearchResult } from "../features/nutrition/barcodeLookup";
 import { addCustomFood, updateCustomFood } from "../utils/customFoodsStore";
 import DailyMacroSummary from "../components/nutrition/DailyMacroSummary";
 import FoodInput from "../components/nutrition/FoodInput";
@@ -20,6 +21,7 @@ import MacroGoalsSheet from "../components/nutrition/MacroGoalsSheet";
 import BarcodeScannerModal from "../components/nutrition/BarcodeScannerModal";
 import CreateFoodSheet from "../components/nutrition/CreateFoodSheet";
 import NutritionHistory from "../components/nutrition/NutritionHistory";
+import NutritionStatsBlock from "../components/nutrition/NutritionStatsBlock";
 import { useI18n } from "../i18n/useI18n";
 
 const MotionDiv = motion.div as any;
@@ -92,6 +94,119 @@ const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => (
   </AnimatePresence>
 );
 
+// --- Search Food BottomSheet ---
+
+const SearchFoodSheet: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  onSelectProduct: (product: OFFSearchResult) => void;
+}> = ({ open, onClose, onSelectProduct }) => {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<OFFSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setResults([]);
+    setSearching(false);
+    setTimeout(() => inputRef.current?.focus(), 400);
+  }, [open]);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setResults([]); setSearching(false); return; }
+    setSearching(true);
+    const res = await searchFoodByName(q, 20);
+    setResults(res);
+    setSearching(false);
+  }, []);
+
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(val), 400);
+  };
+
+  return (
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      height="92dvh"
+      showHandle
+      header={
+        <div className="px-5 pb-2">
+          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--text-color)" }}>Lebensmittel suchen</h2>
+          <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] flex items-center gap-2 px-3 py-2">
+            <Search size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              placeholder="z.B. Nutella, Skyr, Haferflocken..."
+              className="flex-1 bg-transparent text-sm outline-none min-w-0"
+              style={{ color: "var(--text-color)" }}
+              autoComplete="off"
+              autoCapitalize="off"
+            />
+            {query && (
+              <button onClick={() => { setQuery(""); setResults([]); }} className="p-1">
+                <X size={14} style={{ color: "var(--text-secondary)" }} />
+              </button>
+            )}
+          </div>
+        </div>
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-8"
+    >
+      <div className="space-y-2">
+        {searching && (
+          <div className="flex items-center justify-center py-8 gap-2">
+            <Loader2 size={18} className="animate-spin" style={{ color: "var(--accent-color)" }} />
+            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Suche...</span>
+          </div>
+        )}
+        {!searching && query.trim().length >= 2 && results.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Ergebnisse gefunden</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Versuche einen anderen Suchbegriff</p>
+          </div>
+        )}
+        {!searching && results.map((r, i) => (
+          <button
+            key={`${r.ean}-${i}`}
+            onClick={() => { onSelectProduct(r); onClose(); }}
+            className="w-full text-left rounded-2xl border p-3.5 active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+          >
+            <div className="flex items-start gap-3">
+              {r.imageUrl ? (
+                <img src={r.imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover" style={{ backgroundColor: "var(--border-color)" }} loading="lazy" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--input-bg)" }}>
+                  <Search size={16} style={{ color: "var(--text-secondary)" }} />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--text-color)" }}>{r.name}</p>
+                {r.brand && <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{r.brand}</p>}
+                <div className="flex gap-3 mt-1.5">
+                  <span className="text-xs font-bold" style={{ color: "var(--accent-color)" }}>{r.per100g.kcal} kcal</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>P {r.per100g.protein}g</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>K {r.per100g.carbs}g</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>F {r.per100g.fat}g</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </BottomSheet>
+  );
+};
+
 // --- Main Page ---
 interface NutritionPageProps {
   onBack: () => void;
@@ -128,11 +243,12 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
   const [pendingUnit, setPendingUnit] = useState("g");
   const [showGoalsSheet, setShowGoalsSheet] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [barcodeModalTab, setBarcodeModalTab] = useState<"search" | "barcode">("search");
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showCreateFood, setShowCreateFood] = useState(false);
   const [createFoodInitialName, setCreateFoodInitialName] = useState("");
-  const [activeTab, setActiveTab] = useState<"diary" | "history">("diary");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Track whether we're editing an existing entry
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -151,6 +267,25 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
     const timer = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // Live search while typing
+  const handleLiveSearch = useCallback(
+    (raw: string) => {
+      const trimmed = raw.trim();
+      if (trimmed.length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      const parsed = parseInput(trimmed);
+      const results = search(parsed.query);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+      setPendingQty(parsed.qty);
+      setPendingUnit(parsed.unit);
+    },
+    [search, parseInput]
+  );
 
   const handleFoodInput = useCallback(
     (raw: string) => {
@@ -230,7 +365,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
       setBarcodeFood(null);
       setEditingEntryId(null);
 
-      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+      hapticMedium();
     },
     [dateISO, addEntry, editEntry, editingEntryId, selectedFood, barcodeFood, showToast]
   );
@@ -238,7 +373,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
   const handleDeleteEntry = useCallback(
     (id: string) => {
       removeEntry(id);
-      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+      hapticLight();
       showToast(t("nutrition.deleted"));
     },
     [removeEntry, showToast]
@@ -362,80 +497,102 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
     }
   }, [showSuggestions]);
 
+  // Swipe to change day with animation direction
+  const swipeDirRef = useRef(0);
+  const prevOffsetRef = useRef(dateOffset);
+  if (dateOffset !== prevOffsetRef.current) {
+    swipeDirRef.current = dateOffset > prevOffsetRef.current ? 1 : -1;
+    prevOffsetRef.current = dateOffset;
+  }
+
+  const slideVariants = useMemo(() => ({
+    enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0.3 }),
+    center: { x: "0%", opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0.3 }),
+  }), []);
+
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    if (dx > 0) setDateOffset((d) => d - 1);
+    else setDateOffset((d) => d + 1);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[var(--bg-color)] text-[var(--text-color)] pb-32">
       {/* Toast */}
       <Toast toast={toast} />
 
-      {/* Sticky header */}
-      <div className="sticky top-0 z-50 bg-[var(--nav-bg)] backdrop-blur-xl border-b border-[var(--border-color)] pt-[env(safe-area-inset-top)]">
-        <div className="flex items-center justify-between px-4 pb-3 mt-[10px]">
+      {/* Header */}
+      <div className="pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <button
             onClick={onBack}
-            className="w-9 h-9 rounded-full bg-[var(--border-color)] flex items-center justify-center active:scale-90 transition-transform"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ backgroundColor: "var(--input-bg)" }}
           >
-            <ChevronLeft size={20} className="text-[var(--text-color)]" />
+            <ChevronLeft size={20} style={{ color: "var(--text-color)" }} />
           </button>
-          <h1 className="text-lg font-bold text-[var(--text-color)]">
-            {t("nutrition.title")}
-          </h1>
+
+          {/* Date picker inline */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDateOffset((d) => d - 1)}
+              className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              style={{ backgroundColor: "var(--input-bg)" }}
+            >
+              <ChevronLeft size={16} style={{ color: "var(--text-secondary)" }} />
+            </button>
+            <button
+              onClick={() => setDateOffset(0)}
+              className="text-sm font-bold min-w-[100px] text-center"
+              style={{ color: "var(--text-color)" }}
+            >
+              {formatDisplayDate(dateISO, t)}
+            </button>
+            <button
+              onClick={() => setDateOffset((d) => d + 1)}
+              className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              style={{ backgroundColor: "var(--input-bg)" }}
+            >
+              <ChevronRight size={16} style={{ color: "var(--text-secondary)" }} />
+            </button>
+          </div>
+
           <button
             onClick={() => setShowGoalsSheet(true)}
-            className="w-9 h-9 rounded-full bg-[var(--border-color)] flex items-center justify-center active:scale-90 transition-transform"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ backgroundColor: "var(--input-bg)" }}
           >
-            <Settings2 size={18} className="text-[var(--text-color)]" />
-          </button>
-        </div>
-
-        {/* Date picker */}
-        <div className="flex items-center justify-center gap-4 pb-3">
-          <button
-            onClick={() => setDateOffset((d) => d - 1)}
-            className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center active:scale-90 transition-transform"
-          >
-            <ChevronLeft size={16} className="text-[var(--text-secondary)]" />
-          </button>
-          <button
-            onClick={() => setDateOffset(0)}
-            className="text-sm font-semibold text-[var(--text-color)] min-w-[120px] text-center"
-          >
-            {formatDisplayDate(dateISO, t)}
-          </button>
-          <button
-            onClick={() => setDateOffset((d) => d + 1)}
-            className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center active:scale-90 transition-transform"
-          >
-            <ChevronRight size={16} className="text-[var(--text-secondary)]" />
-          </button>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex items-center justify-center gap-1 pb-3 px-4">
-          <button
-            onClick={() => setActiveTab("diary")}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "diary"
-                ? "bg-[var(--accent-color)] text-white"
-                : "bg-[var(--border-color)] text-[var(--text-secondary)]"
-            }`}
-          >
-            {t("nutrition.diary")}
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "history"
-                ? "bg-[var(--accent-color)] text-white"
-                : "bg-[var(--border-color)] text-[var(--text-secondary)]"
-            }`}
-          >
-            {t("nutrition.history")}
+            <Settings2 size={18} style={{ color: "var(--text-color)" }} />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4 max-w-md mx-auto" onClick={handleContentTap}>
+      <div className="overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <AnimatePresence mode="popLayout" custom={swipeDirRef.current} initial={false}>
+          <MotionDiv
+            key={dateISO}
+            custom={swipeDirRef.current}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+            className="p-4 space-y-4 max-w-md mx-auto"
+            onClick={handleContentTap}
+          >
         {/* Macro summary */}
         <DailyMacroSummary
           totals={totals}
@@ -443,62 +600,107 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
           progress={progress}
         />
 
-        {activeTab === "diary" ? (
-          <>
-            {/* Food input */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <FoodInput
-                onSubmit={handleFoodInput}
-                onSearchTap={() => { setBarcodeModalTab("search"); setShowBarcodeModal(true); }}
-                onBarcodeTap={() => { setBarcodeModalTab("barcode"); setShowBarcodeModal(true); }}
-                onCreateFood={() => {
-                  setCreateFoodInitialName("");
-                  setShowCreateFood(true);
-                }}
-              />
-              {/* Suggestion dropdown */}
-              <div className="mt-1">
-                <FoodSuggestionList
-                  results={suggestions}
-                  onSelect={handleSelectSuggestion}
-                  visible={showSuggestions}
-                />
-              </div>
-            </div>
-
-            {/* "Create food" prompt when search found nothing */}
-            {createFoodInitialName && suggestions.length === 0 && !showSuggestions && (
-              <button
-                onClick={() => setShowCreateFood(true)}
-                className="w-full py-3 rounded-2xl border border-dashed border-[var(--border-color)] text-sm font-semibold text-[var(--accent-color)] active:scale-[0.98] transition-transform"
-              >
-                &quot;{createFoodInitialName}&quot; erstellen
-              </button>
-            )}
-
-            {/* Diary section header */}
-            <div className="flex items-center justify-between pt-2">
-              <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px] pl-1">
-                {t("nutrition.diary")}
-              </h3>
-              {entries.length > 0 && (
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
-                  {entries.length} {entries.length === 1 ? t("nutrition.entry") : t("nutrition.entries")}
-                </span>
-              )}
-            </div>
-
-            {/* Diary list */}
-            <DiaryList
-              entries={entries}
-              onDelete={handleDeleteEntry}
-              onTapEntry={handleTapEntry}
+        {/* Food input */}
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <FoodInput
+            onSubmit={handleFoodInput}
+            onLiveSearch={handleLiveSearch}
+            onSearchTap={() => setShowSearchSheet(true)}
+            onBarcodeTap={() => setShowBarcodeModal(true)}
+            onCreateFood={() => {
+              setCreateFoodInitialName("");
+              setShowCreateFood(true);
+            }}
+          />
+          {/* Suggestion dropdown */}
+          <div className="mt-1">
+            <FoodSuggestionList
+              results={suggestions}
+              onSelect={handleSelectSuggestion}
+              visible={showSuggestions}
             />
-          </>
-        ) : (
-          <NutritionHistory goals={goals} />
+          </div>
+        </div>
+
+        {/* "Create food" prompt when search found nothing */}
+        {createFoodInitialName && suggestions.length === 0 && !showSuggestions && (
+          <button
+            onClick={() => setShowCreateFood(true)}
+            className="w-full py-3 rounded-2xl border border-dashed border-[var(--border-color)] text-sm font-semibold text-[var(--accent-color)] active:scale-[0.98] transition-transform"
+          >
+            &quot;{createFoodInitialName}&quot; erstellen
+          </button>
         )}
+
+        {/* Diary section header */}
+        <div className="flex items-center justify-between pt-2">
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[11px] pl-1">
+            {t("nutrition.diary")}
+          </h3>
+          {entries.length > 0 && (
+            <span className="text-xs font-medium text-[var(--text-secondary)]">
+              {entries.length} {entries.length === 1 ? t("nutrition.entry") : t("nutrition.entries")}
+            </span>
+          )}
+        </div>
+
+        {/* Diary list */}
+        <DiaryList
+          entries={entries}
+          onDelete={handleDeleteEntry}
+          onTapEntry={handleTapEntry}
+        />
+
+        {/* Nutrition Stats */}
+        <div className="pt-4">
+          <NutritionStatsBlock />
+        </div>
+
+        {/* History Button */}
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="w-full rounded-3xl p-4 flex items-center justify-between transition-all active:scale-[0.98]"
+          style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)", outline: "none", WebkitTapHighlightColor: "transparent" }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2 rounded-2xl" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-muted)" }}>
+              <History className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("nutrition.history")}</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>Vergangene Tage ansehen</div>
+            </div>
+          </div>
+          <div style={{ color: "var(--text-muted)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+          </div>
+        </button>
+          </MotionDiv>
+        </AnimatePresence>
       </div>
+
+      {/* History BottomSheet */}
+      <BottomSheet
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        height="92dvh"
+        showHandle
+        header={
+          <div className="px-5 pb-1">
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t("nutrition.history")}</h2>
+          </div>
+        }
+        contentClassName="flex-1 min-h-0 overflow-y-auto px-4 pb-8"
+      >
+        <NutritionHistory goals={goals} />
+      </BottomSheet>
+
+      {/* Search BottomSheet */}
+      <SearchFoodSheet
+        open={showSearchSheet}
+        onClose={() => setShowSearchSheet(false)}
+        onSelectProduct={handleSelectProduct}
+      />
 
       {/* Sheets/Modals */}
       <FoodDetailSheet
@@ -509,19 +711,17 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
         onClose={handleCloseDetailSheet}
       />
 
-      <AnimatePresence>
-        {showGoalsSheet && (
-          <MacroGoalsSheet
-            goals={goals}
-            onSave={(g) => {
-              setGoals(g);
-              setShowGoalsSheet(false);
-              showToast(t("nutrition.goalsSaved"));
-            }}
-            onClose={() => setShowGoalsSheet(false)}
-          />
-        )}
-      </AnimatePresence>
+      {showGoalsSheet && (
+        <MacroGoalsSheet
+          goals={goals}
+          onSave={(g) => {
+            setGoals(g);
+            setShowGoalsSheet(false);
+            showToast(t("nutrition.goalsSaved"));
+          }}
+          onClose={() => setShowGoalsSheet(false)}
+        />
+      )}
 
       <BarcodeScannerModal
         open={showBarcodeModal}
@@ -531,18 +731,16 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
         onClose={() => setShowBarcodeModal(false)}
       />
 
-      <AnimatePresence>
-        {showCreateFood && (
-          <CreateFoodSheet
-            initialName={createFoodInitialName}
-            onSave={handleSaveCustomFood}
-            onClose={() => {
-              setShowCreateFood(false);
-              setCreateFoodInitialName("");
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {showCreateFood && (
+        <CreateFoodSheet
+          initialName={createFoodInitialName}
+          onSave={handleSaveCustomFood}
+          onClose={() => {
+            setShowCreateFood(false);
+            setCreateFoodInitialName("");
+          }}
+        />
+      )}
     </div>
   );
 };

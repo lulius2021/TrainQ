@@ -1,12 +1,11 @@
 // src/components/nutrition/BarcodeScannerModal.tsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, ScanBarcode, Search, Camera, AlertCircle, Loader2 } from "lucide-react";
+import { Search, Camera, AlertCircle } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 import { scanBarcode } from "../../native/barcodeScanner";
 import { searchFoodByName, type OFFSearchResult } from "../../features/nutrition/barcodeLookup";
-
-const MotionDiv = motion.div as any;
+import { BottomSheet } from "../common/BottomSheet";
 
 type TabMode = "search" | "barcode";
 
@@ -18,13 +17,13 @@ interface BarcodeScannerModalProps {
   onClose: () => void;
 }
 
-// ─── Native Barcode Scanner Button ────────────────────────────────────────────
+// ─── Native Camera Scanner Button ──────────────────────────────────────────
 
-const NativeScanButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan }) => {
-  const [scanning, setScanning] = useState(false);
+const NativeScannerButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan }) => {
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
-  const handleScan = async () => {
+  const handleScan = useCallback(async () => {
     setError(null);
     setScanning(true);
     try {
@@ -32,40 +31,46 @@ const NativeScanButton: React.FC<{ onScan: (code: string) => void }> = ({ onScan
       if (code) {
         onScan(code);
       }
-      // null = user cancelled, no error shown
+      // null = user cancelled or not on iOS — no error needed
     } catch (e: any) {
-      if (e?.code === "ERR_NO_CAMERA") {
-        setError("Kamera nicht verfügbar. Bitte auf echtem Gerät nutzen.");
-      } else if (e?.code === "ERR_PERMISSION_DENIED") {
+      const msg = String(e?.message || e || "");
+      if (msg.includes("PERMISSION_DENIED")) {
         setError("Kamera-Zugriff verweigert. Bitte unter Einstellungen → TrainQ → Kamera aktivieren.");
+      } else if (msg.includes("NO_CAMERA")) {
+        setError("Keine Kamera verfügbar.");
       } else {
-        setError("Scan fehlgeschlagen. Bitte erneut versuchen.");
+        setError(`Scanner-Fehler: ${msg}`);
       }
     } finally {
       setScanning(false);
     }
-  };
+  }, [onScan]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 w-full">
       <button
         onClick={handleScan}
         disabled={scanning}
-        className="w-56 h-56 rounded-3xl flex flex-col items-center justify-center gap-3 bg-[var(--card-bg)] border-2 border-[var(--border-color)] active:scale-95 transition-transform disabled:opacity-60"
+        className="w-full rounded-3xl flex flex-col items-center justify-center gap-3 py-12 transition-all active:scale-[0.97] disabled:opacity-60"
+        style={{
+          backgroundColor: "var(--card-bg)",
+          border: "2px dashed var(--border-color)",
+        }}
       >
-        {scanning ? (
-          <Loader2 size={44} className="animate-spin text-[var(--accent-color)]" />
-        ) : (
-          <Camera size={44} className="text-[var(--accent-color)]" />
-        )}
-        <span className="text-sm font-semibold text-[var(--text-color)]">
-          {scanning ? "Scannen..." : "Kamera öffnen"}
+        <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--accent-color)" }}>
+          <Camera size={28} className="text-white" />
+        </div>
+        <span className="text-base font-bold" style={{ color: "var(--text-color)" }}>
+          {scanning ? "Scanner öffnet..." : "Barcode scannen"}
+        </span>
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Kamera öffnet sich automatisch
         </span>
       </button>
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-red-500/10 max-w-xs w-full">
-          <AlertCircle size={16} className="text-red-500 shrink-0" />
-          <p className="text-xs text-red-500">{error}</p>
+        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl w-full" style={{ backgroundColor: "rgba(255,59,48,0.1)" }}>
+          <AlertCircle size={16} style={{ color: "#FF3B30" }} />
+          <p className="text-xs" style={{ color: "#FF3B30" }}>{error}</p>
         </div>
       )}
     </div>
@@ -136,154 +141,55 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   }, [onScan]);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <MotionDiv
-          className="fixed inset-0 z-[10000] bg-[var(--bg-color)] flex flex-col"
-          initial={{ opacity: 0, y: "100%" }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: "100%" }}
-          transition={{ type: "spring", damping: 28, stiffness: 300 }}
-        >
-          {/* Header */}
-          <div className="pt-[env(safe-area-inset-top)]">
-            <div className="flex items-center justify-between px-5 py-3">
-              <h2 className="text-lg font-bold text-[var(--text-color)]">Lebensmittel finden</h2>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[var(--border-color)] flex items-center justify-center active:scale-90 transition-transform"
-              >
-                <X size={16} className="text-[var(--text-secondary)]" />
-              </button>
-            </div>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      height="92dvh"
+      showHandle
+      header={
+        <div className="px-5 pb-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Barcode scannen</h2>
+        </div>
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-8"
+    >
+      <div className="flex flex-col items-center gap-5">
+        <NativeScannerButton onScan={handleScan} />
 
-            {/* Tabs */}
-            <div className="flex gap-1 mx-5 p-1 rounded-xl bg-[var(--border-color)]/40">
-              <button
-                onClick={() => { setTab("search"); setTimeout(() => searchRef.current?.focus(), 100); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "search" ? "bg-[var(--accent-color)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}
-              >
-                <Search size={14} className="inline mr-1.5 -mt-0.5" />
-                Suche
-              </button>
-              <button
-                onClick={() => { setTab("barcode"); setTimeout(() => eanRef.current?.focus(), 100); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "barcode" ? "bg-[var(--accent-color)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}
-              >
-                <ScanBarcode size={14} className="inline mr-1.5 -mt-0.5" />
-                Barcode
-              </button>
-            </div>
+        {/* Divider */}
+        <div className="flex items-center gap-3 w-full">
+          <div className="flex-1 h-px bg-[var(--border-color)]" />
+          <span className="text-xs font-medium text-[var(--text-secondary)]">oder EAN eingeben</span>
+          <div className="flex-1 h-px bg-[var(--border-color)]" />
+        </div>
+
+        {/* Manual EAN */}
+        <div className="w-full">
+          <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] flex items-center gap-2 px-3 py-2">
+            <input
+              ref={eanRef}
+              type="text"
+              value={ean}
+              onChange={(e) => setEan(e.target.value.replace(/[^0-9]/g, ""))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualEan(); } }}
+              placeholder="EAN / Barcode-Nummer"
+              className="flex-1 bg-transparent text-sm text-[var(--text-color)] placeholder-[var(--text-secondary)] outline-none min-w-0 tabular-nums"
+              inputMode="numeric"
+              maxLength={13}
+              autoComplete="off"
+            />
+            <button
+              onClick={handleManualEan}
+              disabled={!ean.trim()}
+              className="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <Search size={14} />
+              Suchen
+            </button>
           </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-[env(safe-area-inset-bottom)]">
-            {tab === "search" ? (
-              <>
-                <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] flex items-center gap-2 px-3 py-2">
-                  <Search size={16} className="text-[var(--text-secondary)] shrink-0" />
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    value={query}
-                    onChange={(e) => handleQueryChange(e.target.value)}
-                    placeholder="z.B. Nutella, Skyr, Haferflocken..."
-                    className="flex-1 bg-transparent text-sm text-[var(--text-color)] placeholder-[var(--text-secondary)] outline-none min-w-0"
-                    autoComplete="off"
-                    autoCapitalize="off"
-                  />
-                  {query && (
-                    <button onClick={() => { setQuery(""); setResults([]); }} className="p-1">
-                      <X size={14} className="text-[var(--text-secondary)]" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-3 space-y-2">
-                  {searching && (
-                    <div className="flex items-center justify-center py-8 gap-2">
-                      <Loader2 size={18} className="animate-spin text-[var(--accent-color)]" />
-                      <span className="text-sm text-[var(--text-secondary)]">Suche...</span>
-                    </div>
-                  )}
-                  {!searching && query.trim().length >= 2 && results.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-[var(--text-secondary)]">Keine Ergebnisse gefunden</p>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1">Versuche einen anderen Suchbegriff</p>
-                    </div>
-                  )}
-                  {!searching && results.map((r, i) => (
-                    <button
-                      key={`${r.ean}-${i}`}
-                      onClick={() => onSelectProduct(r)}
-                      className="w-full text-left bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] p-3.5 active:scale-[0.98] transition-transform"
-                    >
-                      <div className="flex items-start gap-3">
-                        {r.imageUrl ? (
-                          <img src={r.imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover bg-[var(--border-color)]" loading="lazy" />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-[var(--border-color)]/50 flex items-center justify-center shrink-0">
-                            <Search size={16} className="text-[var(--text-secondary)]" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[var(--text-color)] truncate">{r.name}</p>
-                          {r.brand && <p className="text-xs text-[var(--text-secondary)] truncate">{r.brand}</p>}
-                          <div className="flex gap-3 mt-1.5">
-                            <span className="text-xs font-bold text-[var(--accent-color)]">{r.per100g.kcal} kcal</span>
-                            <span className="text-[10px] text-[var(--text-secondary)]">P {r.per100g.protein}g</span>
-                            <span className="text-[10px] text-[var(--text-secondary)]">K {r.per100g.carbs}g</span>
-                            <span className="text-[10px] text-[var(--text-secondary)]">F {r.per100g.fat}g</span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              /* Barcode tab */
-              <div className="flex flex-col items-center gap-5">
-                <NativeScanButton onScan={handleScan} />
-
-                {/* Divider */}
-                <div className="flex items-center gap-3 w-full max-w-xs">
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
-                  <span className="text-xs font-medium text-[var(--text-secondary)]">oder EAN eingeben</span>
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
-                </div>
-
-                {/* Manual EAN */}
-                <div className="w-full max-w-xs">
-                  <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] flex items-center gap-2 px-3 py-2">
-                    <input
-                      ref={eanRef}
-                      type="text"
-                      value={ean}
-                      onChange={(e) => setEan(e.target.value.replace(/[^0-9]/g, ""))}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualEan(); } }}
-                      placeholder="EAN / Barcode-Nummer"
-                      className="flex-1 bg-transparent text-sm text-[var(--text-color)] placeholder-[var(--text-secondary)] outline-none min-w-0 tabular-nums"
-                      inputMode="numeric"
-                      maxLength={13}
-                      autoComplete="off"
-                    />
-                    <button
-                      onClick={handleManualEan}
-                      disabled={!ean.trim()}
-                      className="px-4 py-2 rounded-xl bg-[var(--accent-color)] text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-40 flex items-center gap-1.5"
-                    >
-                      <Search size={14} />
-                      Suchen
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </MotionDiv>
-      )}
-    </AnimatePresence>
+        </div>
+      </div>
+    </BottomSheet>
   );
 };
 

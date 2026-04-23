@@ -6,10 +6,9 @@ import { Dumbbell, Zap, Target } from "lucide-react";
 
 interface AdaptivePlanCardProps {
   suggestion: AdaptiveSuggestion;
-  isPro?: boolean;
 }
 
-const GRADIENTS: Record<string, { base: string; blob1: string; blob2: string }> = {
+export const GRADIENTS: Record<string, { base: string; blob1: string; blob2: string }> = {
   stabil: {
     base:  "linear-gradient(145deg, #020c1b 0%, #071425 100%)",
     blob1: "radial-gradient(ellipse 85% 65% at 18% 18%, rgba(0,100,255,0.58) 0%, transparent 65%)",
@@ -33,7 +32,7 @@ function getSportIcon(profile: string): React.ReactNode {
   return <Dumbbell size={38} />;
 }
 
-export default function AdaptivePlanCard({ suggestion, isPro = false }: AdaptivePlanCardProps) {
+export default function AdaptivePlanCard({ suggestion }: AdaptivePlanCardProps) {
   const { t } = useI18n();
   const isBlocked = suggestion.estimatedMinutes === 0;
   const g = GRADIENTS[suggestion.profile] ?? GRADIENTS.stabil;
@@ -41,47 +40,16 @@ export default function AdaptivePlanCard({ suggestion, isPro = false }: Adaptive
 
   return (
     <div
-      className="rounded-[28px] overflow-hidden relative select-none w-full"
-      style={{ height: 220, background: g.base }}
+      className="relative select-none w-full"
+      style={{ minHeight: 180 }}
     >
-      {/* Aurora blobs */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: g.blob1 }} />
-      <div className="absolute inset-0 pointer-events-none" style={{ background: g.blob2 }} />
-
-      {/* Diagonal shine */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%)" }}
-      />
-
       {/* Content */}
       <div className="relative z-10 h-full flex flex-col justify-between p-5 force-white">
         {/* Top row */}
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              {isBlocked ? "— · —" : `${suggestion.estimatedMinutes} min · ${suggestion.exercisesCount} ${t("adaptive.card.exercises")}`}
-            </div>
-            {!isPro && suggestion.profile !== "stabil" && (
-              <span
-                style={{
-                  alignSelf: "flex-start",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#fff",
-                  background: "rgba(255,255,255,0.18)",
-                  borderRadius: 6,
-                  padding: "2px 7px",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                PRO
-              </span>
-            )}
+        <div>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {isBlocked ? "— · —" : `${suggestion.estimatedMinutes} min · ${suggestion.exercisesCount} ${t("adaptive.card.exercises")}`}
           </div>
-          <span style={{ lineHeight: 1, filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.6))", color: "rgba(255,255,255,0.9)" }}>
-            {icon}
-          </span>
         </div>
 
         {/* Bottom: title + subtitle */}
@@ -107,7 +75,7 @@ export default function AdaptivePlanCard({ suggestion, isPro = false }: Adaptive
       {/* Blocked overlay */}
       {isBlocked && (
         <div
-          className="absolute inset-0 rounded-[28px] flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)" }}
         >
           <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>

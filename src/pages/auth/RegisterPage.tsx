@@ -22,6 +22,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 8) {
+      setError(t("auth.register.passwordTooShort"));
+      return;
+    }
     if (password !== confirm) {
       setError(t("auth.register.passwordMismatch"));
       return;

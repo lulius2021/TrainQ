@@ -64,17 +64,17 @@ import { loadWorkoutHistory } from "../../utils/workoutHistory";
 
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { useAuth } from "../../context/AuthContext";
-import { postWorkoutToFeed } from "../../services/community/postWorkout";
 import { buildPRBaseline, checkSetPR, type PRBaseline } from "../../utils/prDetection";
 import { getWeightSuggestion, type WeightSuggestion } from "../../utils/weightSuggestion";
 import { calculateWarmupSets } from "../../utils/warmupCalculator";
+import { FEATURE_FLAGS } from "../../config/featureFlags";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessoryBar";
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
 import { formatMmSs, formatTimeParts } from "../../utils/timeFormat";
-import { clearLiveTrainingState, setLiveTrainingState, startFreshLiveActivity, type LiveActivityPayload } from "../../native/liveActivity";
+import { clearLiveTrainingState, setLiveTrainingState, startFreshLiveActivity, refreshLiveActivity, type LiveActivityPayload } from "../../native/liveActivity";
 import { App as CapApp } from "@capacitor/app";
-import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { hapticMedium, hapticHeavy, hapticSuccess } from "../../native/haptics";
 import WheelPicker from "../../components/ui/WheelPicker";
 import { ProfileService } from "../../services/ProfileService";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
@@ -248,9 +248,12 @@ export default function LiveTrainingPage({
   const [showAbortConfirm, setShowAbortConfirm] = useState(false);
   const [reviewName, setReviewName] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
+  const [reviewIntensity, setReviewIntensity] = useState<"too_easy" | "right" | "too_hard">("right");
+  const [reviewFeeling, setReviewFeeling] = useState<"exhausted" | "good" | "energized">("good");
 
   // Save-as-Template Flow
   const [showSaveTemplatePrompt, setShowSaveTemplatePrompt] = useState(false);
+  const isQuickStartRef = useRef(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [tplName, setTplName] = useState("");
   const [tplEmoji, setTplEmoji] = useState<TemplateIconId>("bicep");
@@ -438,6 +441,8 @@ export default function LiveTrainingPage({
       const globalSeed = readGlobalLiveSeed();
       if (globalSeed) {
         clearGlobalLiveSeed();
+        // Quick start = no exercises in seed, no calendar event
+        isQuickStartRef.current = !eventId && (globalSeed.exercises ?? []).length === 0;
 
         const seedToUse = event?.adaptiveSuggestion
           ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
@@ -731,7 +736,7 @@ export default function LiveTrainingPage({
 
     // Side effects OUTSIDE the updater
     if (isTogglingOn) {
-      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => { });
+      hapticMedium();
       if (typeof rest === "number" && rest > 0) {
         setActiveRest({ exerciseId, setId, restSeconds: rest });
       }
@@ -770,7 +775,7 @@ export default function LiveTrainingPage({
           return next;
         });
         setShowConfetti(true);
-        Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => { });
+        hapticHeavy();
       }
     } else if (!isTogglingOn) {
       setPrSets((prev) => {
@@ -793,7 +798,11 @@ export default function LiveTrainingPage({
       const setId = current.activeExercise.sets?.[current.activeSetIndex]?.id;
       if (setId) toggleSetCompleted(current.activeExercise.id, setId);
     });
-    return () => { sub.then((h) => h.remove()); };
+    // Refresh Live Activity when app comes back from background
+    const stateSub = CapApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) refreshLiveActivity();
+    });
+    return () => { sub.then((h) => h.remove()); stateSub.then((h) => h.remove()); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1251,22 +1260,22 @@ export default function LiveTrainingPage({
 
   const confirmFinish = () => {
     if (!workout) return;
-    const finalWorkout = { ...workout, title: reviewName, rating: reviewRating > 0 ? reviewRating : undefined } as any; // Apply renamed title + rating
+    const finalWorkout = {
+      ...workout,
+      title: reviewName,
+      rating: reviewRating > 0 ? reviewRating : undefined,
+      postFeedback: { perceivedIntensity: reviewIntensity, postFeeling: reviewFeeling },
+    } as any;
     const completed = completeLiveWorkout(finalWorkout);
     markCalendarEvent("completed", completed.id);
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
-    Haptics.notification({ type: NotificationType.Success }).catch(() => { });
-
-    // Auto-post to community feed (fire-and-forget, unless disabled in settings)
-    if (authUser?.id && localStorage.getItem("trainq_pref_auto_share_workout") !== "false") {
-      postWorkoutToFeed(completed, authUser.id);
-    }
+    hapticSuccess();
 
     setShowFinishReview(false);
 
-    // Free training (no calendar event) → offer to save as template
-    if (!eventId && !isCardioWorkout) {
+    // Quick start only → offer to save as template
+    if (isQuickStartRef.current && !isCardioWorkout) {
       pendingCompletedWorkoutRef.current = completed as unknown as import("../../types/training").CompletedWorkout;
       postFinishExitFnRef.current = () => doExit(completed.id);
       setTplName(reviewName || completed.title || "Training");
@@ -1531,7 +1540,7 @@ export default function LiveTrainingPage({
                         onOpenExerciseDetails={handleOpenDetails}
                         onOpenTimer={handleOpenTimer}
                         weightSuggestion={weightSuggestions.get(ex.id)}
-                        onAddWarmupSets={!isCardioWorkout ? () => addWarmupSets(ex.id) : undefined}
+                        onAddWarmupSets={FEATURE_FLAGS.warmupSets && !isCardioWorkout ? () => addWarmupSets(ex.id) : undefined}
                         historySessionCount={sessionCountByExerciseId.get(ex.id) ?? 0}
                         prSets={prSets}
                       />
@@ -1714,7 +1723,7 @@ export default function LiveTrainingPage({
               </div>
 
               {/* Star Rating */}
-              <div className="mb-6">
+              <div className="mb-5">
                 <label className="block text-xs font-bold uppercase tracking-wider mb-3 text-center" style={{ color: "var(--text-secondary)" }}>Wie war das Training?</label>
                 <div className="flex justify-center gap-3">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -1726,6 +1735,48 @@ export default function LiveTrainingPage({
                       style={{ filter: star <= reviewRating ? "none" : "grayscale(1) opacity(0.3)" }}
                     >
                       ⭐
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Intensity Feedback */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>Intensität</label>
+                <div className="flex gap-2">
+                  {([["too_easy", "Zu leicht"], ["right", "Genau richtig"], ["too_hard", "Zu schwer"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setReviewIntensity(val)}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+                      style={{
+                        backgroundColor: reviewIntensity === val ? "var(--accent-color)" : "var(--input-bg)",
+                        color: reviewIntensity === val ? "#fff" : "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Feeling Feedback */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-center" style={{ color: "var(--text-secondary)" }}>Wie fühlst du dich?</label>
+                <div className="flex gap-2">
+                  {([["exhausted", "Erschöpft"], ["good", "Gut"], ["energized", "Voller Energie"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setReviewFeeling(val)}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+                      style={{
+                        backgroundColor: reviewFeeling === val ? "var(--accent-color)" : "var(--input-bg)",
+                        color: reviewFeeling === val ? "#fff" : "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
                     </button>
                   ))}
                 </div>

@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { LiveActivity } from "capacitor-live-activity";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 
 export type LiveActivityPayload = {
   exerciseName: string;
@@ -11,11 +12,11 @@ export type LiveActivityPayload = {
   progress: number;      // 0.0–1.0
 };
 
-const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
+const isNativeIOS = FEATURE_FLAGS.widgets && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 const ACTIVITY_LOGICAL_ID = "TRAINQ_LIVE_WORKOUT";
 
-// Module-level flag — set BEFORE the async call to prevent concurrent starts.
 let activityStarted = false;
+let lastPayload: LiveActivityPayload | null = null;
 
 function buildContentState(payload: LiveActivityPayload): Record<string, string> {
   return {
@@ -29,93 +30,90 @@ function buildContentState(payload: LiveActivityPayload): Record<string, string>
   };
 }
 
+async function ensureActivityStarted(payload: LiveActivityPayload): Promise<void> {
+  const contentState = buildContentState(payload);
+
+  // Try update first (faster if already running)
+  if (activityStarted) {
+    try {
+      await LiveActivity.updateActivity({
+        id: ACTIVITY_LOGICAL_ID,
+        contentState: contentState as any,
+      });
+      return;
+    } catch {
+      // Activity might have been killed — fall through to restart
+      activityStarted = false;
+    }
+  }
+
+  // Check if activity is still running
+  try {
+    const status = await LiveActivity.isRunning({ id: ACTIVITY_LOGICAL_ID });
+    if (status.value) {
+      activityStarted = true;
+      await LiveActivity.updateActivity({
+        id: ACTIVITY_LOGICAL_ID,
+        contentState: contentState as any,
+      });
+      return;
+    }
+  } catch { /* ignore */ }
+
+  // Start fresh
+  try {
+    activityStarted = true;
+    await LiveActivity.startActivity({
+      id: ACTIVITY_LOGICAL_ID,
+      attributes: { customId: ACTIVITY_LOGICAL_ID },
+      contentState: contentState as any,
+    });
+  } catch (error) {
+    activityStarted = false;
+    if (import.meta.env.DEV) console.error("[LiveActivity] start failed:", error);
+  }
+}
+
 /**
  * Called ONCE at the start of training.
- * Always ends any stale activity first, then starts a fresh one.
- * This guarantees the widget appears immediately on the lock screen.
  */
 export async function startFreshLiveActivity(payload: LiveActivityPayload): Promise<void> {
   if (!isNativeIOS) return;
+  lastPayload = payload;
 
-  // End any stale activity from a previous session (silently ignore errors)
+  // End any stale activity
   try {
     await LiveActivity.endActivity({
       id: ACTIVITY_LOGICAL_ID,
       contentState: buildContentState(payload) as any,
-      dismissalDate: 0, // dismiss immediately
+      dismissalDate: 0,
     });
-  } catch { /* no activity to end — that's fine */ }
+  } catch { /* no activity to end */ }
 
-  activityStarted = false; // reset after end
+  activityStarted = false;
+  await new Promise((r) => setTimeout(r, 150));
 
-  // Small delay to let iOS process the end before starting fresh
-  await new Promise((r) => setTimeout(r, 100));
-
-  try {
-    activityStarted = true; // set before await to block concurrent calls
-    await LiveActivity.startActivity({
-      id: ACTIVITY_LOGICAL_ID,
-      attributes: { customId: ACTIVITY_LOGICAL_ID },
-      contentState: buildContentState(payload) as any,
-    });
-  } catch (error) {
-    activityStarted = false;
-    if (import.meta.env.DEV) console.error("[LiveActivity] startFreshLiveActivity failed:", error);
-  }
+  await ensureActivityStarted(payload);
 }
 
 /**
  * Called periodically during training to update the widget content.
+ * Throttled to 1.5s intervals by the caller.
  */
 export async function setLiveTrainingState(payload: LiveActivityPayload): Promise<void> {
   if (!isNativeIOS) return;
-
-  try {
-    if (activityStarted) {
-      // Fast path: just update
-      await LiveActivity.updateActivity({
-        id: ACTIVITY_LOGICAL_ID,
-        contentState: buildContentState(payload) as any,
-      });
-      return;
-    }
-
-    // Fallback: activity wasn't started via startFreshLiveActivity (e.g. resumed session)
-    let isRunning = false;
-    try {
-      const status = await LiveActivity.isRunning({ id: ACTIVITY_LOGICAL_ID });
-      isRunning = status.value;
-    } catch { /* ignore */ }
-
-    activityStarted = true; // set before await
-
-    if (isRunning) {
-      await LiveActivity.updateActivity({
-        id: ACTIVITY_LOGICAL_ID,
-        contentState: buildContentState(payload) as any,
-      });
-    } else {
-      await LiveActivity.startActivity({
-        id: ACTIVITY_LOGICAL_ID,
-        attributes: { customId: ACTIVITY_LOGICAL_ID },
-        contentState: buildContentState(payload) as any,
-      });
-    }
-  } catch (error) {
-    activityStarted = false; // reset so next call can retry
-    if (import.meta.env.DEV) console.error("[LiveActivity] setLiveTrainingState failed:", error);
-  }
+  lastPayload = payload;
+  await ensureActivityStarted(payload);
 }
 
 /**
- * Called when training ends (complete or abort).
- * Always attempts to end — does NOT rely on activityStarted flag,
- * which may have been reset to false by error handling mid-session.
+ * Called when training ends.
  */
 export async function clearLiveTrainingState(): Promise<void> {
   if (!isNativeIOS) return;
 
-  activityStarted = false; // reset immediately regardless
+  activityStarted = false;
+  lastPayload = null;
 
   try {
     await LiveActivity.endActivity({
@@ -129,9 +127,15 @@ export async function clearLiveTrainingState(): Promise<void> {
         restEndsAt: "0",
         progress: "1.0",
       } as any,
-      dismissalDate: Math.floor(Date.now() / 1000) + 2,
+      dismissalDate: Math.floor(Date.now() / 1000) + 3,
     });
-  } catch {
-    // Activity may not exist (e.g. first session, or already ended) — that's fine
-  }
+  } catch { /* ignore */ }
+}
+
+/**
+ * Re-ensure the activity is alive. Call this when app resumes from background.
+ */
+export async function refreshLiveActivity(): Promise<void> {
+  if (!isNativeIOS || !lastPayload) return;
+  await ensureActivityStarted(lastPayload);
 }

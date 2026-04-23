@@ -34,6 +34,8 @@ export function getSupabaseClient(): SupabaseClient | null {
           autoRefreshToken: true,
           detectSessionInUrl: true,
           storage: authStorageAdapter,
+          lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => await fn(),
+          flowType: "implicit",
         },
       });
     } catch (err) {

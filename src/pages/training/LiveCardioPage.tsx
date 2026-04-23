@@ -27,7 +27,6 @@ import {
 } from "../../utils/gpsUtils";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useAuth } from "../../context/AuthContext";
-import { postWorkoutToFeed } from "../../services/community/postWorkout";
 import type { CalendarEvent, LiveWorkout } from "../../types/training";
 import type { GpsPoint, LapEntry, CardioInterval, CardioTarget } from "../../types/cardio";
 
@@ -248,8 +247,6 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
     clearActiveLiveWorkout();
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
-
-    if (authUser?.id && localStorage.getItem("trainq_pref_auto_share_workout") !== "false") postWorkoutToFeed(entry, authUser.id);
 
     if (typeof onShareWorkout === "function") onShareWorkout(entry.id);
     else onExit();
