@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { syncWidgetData } from "../services/widgetDataSync";
+import { FEATURE_FLAGS } from "../config/featureFlags";
 import { useI18n } from "../i18n/useI18n";
 import { useModalStore } from "../store/useModalStore";
 
@@ -791,7 +792,7 @@ const MainAppShell: React.FC = () => {
     if (route === "/privacy") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><PrivacyPage onBack={backToSettings} /></React.Suspense></MotionDiv>;
     if (route === "/terms") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><TermsPage onBack={backToSettings} /></React.Suspense></MotionDiv>;
     if (route === "/import-csv") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><CsvImportPage onBack={() => { pushRoute("/profile"); setRoute("/profile"); setActiveTab("profile"); setProfileScreen("settings"); }} /></React.Suspense></MotionDiv>;
-    if (route === "/nutrition") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></React.Suspense></MotionDiv>;
+    if (FEATURE_FLAGS.nutrition && route === "/nutrition") return <MotionDiv className="w-full h-full overflow-y-auto" {...pageSlideRight}><React.Suspense fallback={null}><NutritionPage onBack={() => { pushRoute("/dashboard"); setRoute("/dashboard"); setActiveTab("dashboard"); }} /></React.Suspense></MotionDiv>;
 
     // ---------- App Layout via MainLayout ----------
 

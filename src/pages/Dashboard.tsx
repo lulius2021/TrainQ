@@ -58,6 +58,7 @@ import { loadWorkoutHistory, type WorkoutHistoryEntry } from '../utils/workoutHi
 import { startFreeTraining } from '../utils/startSession';
 import { formatPace, formatDistanceKm } from '../utils/gpsUtils';
 import NutritionDashboardWidget from '../components/nutrition/NutritionDashboardWidget';
+import { FEATURE_FLAGS } from '../config/featureFlags';
 import { useI18n } from '../i18n/useI18n';
 
 // --- HELPER ---
@@ -620,7 +621,7 @@ const DashboardPage = () => {
 
 
         {/* NUTRITION TRACKER */}
-        <NutritionDashboardWidget />
+        {FEATURE_FLAGS.nutrition && <NutritionDashboardWidget />}
 
 
       </div>

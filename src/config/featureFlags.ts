@@ -11,4 +11,6 @@ export const FEATURE_FLAGS = {
   widgets: false,
   /** Warm-up sets (auto-generated warm-up before working sets) */
   warmupSets: false,
+  /** Nutrition tracking (food diary, barcode scanner, macros) */
+  nutrition: false,
 } as const;
