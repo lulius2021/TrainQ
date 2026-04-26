@@ -605,12 +605,15 @@ const MainAppShell: React.FC = () => {
 
     // Auto-resume: if app opens and there's an active workout, navigate to live training
     useEffect(() => {
-        const currentRoute = window.location.pathname;
-        const workout = useLiveTrainingStore.getState().activeWorkout;
-        if (!workout?.isActive || currentRoute === "/live-training") return;
-        const id = setTimeout(() => maximizeLiveTraining(workout.calendarEventId), 500);
+        const id = setTimeout(() => {
+            const workout = getActiveLiveWorkout();
+            if (!workout?.isActive) return;
+            const currentRoute = window.location.pathname;
+            if (currentRoute === "/live-training") return;
+            maximizeLiveTraining(workout.calendarEventId);
+        }, 400);
         return () => clearTimeout(id);
-    }, []); // Only on mount — eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Sync widget data when app becomes active
     useEffect(() => {

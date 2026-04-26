@@ -310,26 +310,20 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                     </h1>
 
                     {(gifSrc || imageUrl) && (
-                        <div className="flex justify-center py-3">
+                        <div className="flex justify-center py-3" style={{ marginTop: -12 }}>
                             {gifSrc && !gifFailed ? (
-                                <div className="w-full max-w-[300px] rounded-2xl overflow-hidden" style={{ backgroundColor: "#111" }}>
-                                    <img
-                                        src={gifSrc}
-                                        alt={exercise.name}
-                                        onError={() => setGifFailed(true)}
-                                        className="w-full"
-                                        style={{ marginTop: "-8%", marginBottom: "-2%" }}
-                                    />
-                                </div>
+                                <img
+                                    src={gifSrc}
+                                    alt={exercise.name}
+                                    onError={() => setGifFailed(true)}
+                                    className="w-full max-w-[300px] rounded-2xl"
+                                />
                             ) : imageUrl ? (
-                                <div className="w-full max-w-[280px] rounded-2xl overflow-hidden">
-                                    <img
-                                        src={imageUrl}
-                                        alt={exercise.name}
-                                        className="w-full"
-                                        style={{ marginTop: "-8%", marginBottom: "-2%" }}
-                                    />
-                                </div>
+                                <img
+                                    src={imageUrl}
+                                    alt={exercise.name}
+                                    className="w-full max-w-[280px] rounded-2xl"
+                                />
                             ) : null}
                         </div>
                     )}

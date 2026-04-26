@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Zap, Target, Trophy, Flame, TrendingUp } from "lucide-react";
+import React, { useMemo, useState, useCallback } from "react";
+import { Zap, Target, Trophy, Flame, TrendingUp, Info } from "lucide-react";
 import type { LiveWorkout, ExerciseHistoryEntry } from "../../types/training";
 import { EXERCISES } from "../../data/exerciseLibrary";
 import { BottomSheet } from "../common/BottomSheet";
@@ -12,8 +12,13 @@ interface Props {
     historyMap: Map<string, ExerciseHistoryEntry | null>;
 }
 
+type InfoKey = "beastScore" | "grade" | "completion";
+
 export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, historyMap }) => {
     const { t } = useI18n();
+    const [infoKey, setInfoKey] = useState<InfoKey | null>(null);
+    const openInfo = useCallback((key: InfoKey) => setInfoKey(key), []);
+
     const stats = useMemo(() => {
         let currentVolume = 0;
         let completedSets = 0;
@@ -25,8 +30,8 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
 
         workout.exercises.forEach((ex) => {
             const def = EXERCISES.find((e) => e.id === ex.exerciseId);
-            const muscle = def?.primaryMuscles?.[0] || "Ganzkörper";
-            const exName = def?.name || ex.name || "Übung";
+            const muscle = def?.primaryMuscles?.[0] || "full_body";
+            const exName = def?.name || ex.name || t("training.liveStats.exercise");
 
             const history = historyMap.get(ex.id) || null;
             let maxWeightPrev = 0;
@@ -60,7 +65,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                     name: exName,
                     sets: exSets,
                     volume: exVolume,
-                    bestSet: bestWeight > 0 ? `${bestWeight} kg × ${bestReps}` : `${bestReps} Wdh.`,
+                    bestSet: bestWeight > 0 ? `${bestWeight} kg × ${bestReps}` : `${bestReps} ${t("training.liveStats.reps")}`,
                 });
             }
         });
@@ -87,7 +92,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
     const grade = stats.beastScore >= 80 ? "S" : stats.beastScore >= 60 ? "A" : stats.beastScore >= 40 ? "B" : stats.beastScore >= 20 ? "C" : "D";
     const gradeColor = stats.beastScore >= 80 ? "#f59e0b" : stats.beastScore >= 60 ? "#10b981" : stats.beastScore >= 40 ? "#3b82f6" : "#8b5cf6";
 
-    // Theme-adaptive surface colors using CSS variables
+    // Theme-adaptive surface colors
     const cardBg = "var(--button-bg)";
     const cardBorder = "var(--border-color)";
     const dividerColor = "var(--border-color)";
@@ -116,71 +121,84 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                     className="flex-1 overflow-y-auto px-4 space-y-3"
                     style={{ paddingBottom: "max(env(safe-area-inset-bottom), 28px)" }}
                 >
-                    {/* Hero: Two Rings */}
+                    {/* Hero: Beast Score + Grade + Completion */}
                     <div
-                        className="rounded-3xl p-5 flex items-center justify-around"
+                        className="rounded-3xl p-5"
                         style={{ background: cardBg, border: `1px solid ${cardBorder}` }}
                     >
-                        {/* Beast Score ring */}
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="relative" style={{ width: 112, height: 112 }}>
-                                <svg width={112} height={112} viewBox="0 0 112 112">
-                                    <defs>
-                                        <linearGradient id="beastGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stopColor="#3b82f6" />
-                                            <stop offset="100%" stopColor="#8b5cf6" />
-                                        </linearGradient>
-                                    </defs>
-                                    <circle cx={56} cy={56} r={R} fill="none" stroke="rgba(59,130,246,0.12)" strokeWidth={9} />
-                                    <circle cx={56} cy={56} r={R} fill="none" stroke="url(#beastGrad)" strokeWidth={9}
-                                        strokeDasharray={`${beastDash} ${C}`} strokeLinecap="round"
-                                        transform="rotate(-90 56 56)" />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-3xl font-black tabular-nums leading-none" style={{ color: textPrimary }}>{stats.beastScore}</span>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "#8b5cf6" }}>Score</span>
+                        <div className="flex items-center justify-around">
+                            {/* Beast Score ring with Grade */}
+                            <div className="flex flex-col items-center gap-1.5">
+                                <div className="relative" style={{ width: 120, height: 120 }}>
+                                    <svg width={120} height={120} viewBox="0 0 120 120">
+                                        <defs>
+                                            <linearGradient id="beastGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#3b82f6" />
+                                                <stop offset="100%" stopColor="#8b5cf6" />
+                                            </linearGradient>
+                                        </defs>
+                                        <circle cx={60} cy={60} r={R} fill="none" stroke="rgba(59,130,246,0.12)" strokeWidth={8} />
+                                        {stats.beastScore > 0 && (
+                                            <circle cx={60} cy={60} r={R} fill="none" stroke="url(#beastGrad)" strokeWidth={8}
+                                                strokeDasharray={`${beastDash} ${C}`} strokeLinecap="round"
+                                                transform="rotate(-90 60 60)" />
+                                        )}
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-[32px] font-black tabular-nums leading-none" style={{ color: textPrimary }}>{stats.beastScore}</span>
+                                        {stats.beastScore > 0 ? (
+                                            <div className="mt-1 px-2 py-0.5 rounded-md" style={{ background: `${gradeColor}18` }}>
+                                                <span className="text-[10px] font-black tracking-wide" style={{ color: gradeColor }}>{t("training.liveStats.gradeLabel")} {grade}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-[9px] font-bold uppercase tracking-widest mt-1" style={{ color: textMuted }}>{t("training.liveStats.score")}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.beastScore")}</p>
+                                    <InfoButton onTap={() => openInfo("beastScore")} />
                                 </div>
                             </div>
-                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.beastScore")}</p>
-                        </div>
 
-                        {/* Center: Grade */}
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                                style={{ background: `${gradeColor}18`, border: `1.5px solid ${gradeColor}40` }}>
-                                <span className="text-2xl font-black" style={{ color: gradeColor }}>{grade}</span>
-                            </div>
-                            <p className="text-[10px] font-medium" style={{ color: textMuted }}>Grade</p>
-                        </div>
-
-                        {/* Completion ring */}
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="relative" style={{ width: 112, height: 112 }}>
-                                <svg width={112} height={112} viewBox="0 0 112 112">
-                                    <defs>
-                                        <linearGradient id="doneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stopColor="#10b981" />
-                                            <stop offset="100%" stopColor="#06b6d4" />
-                                        </linearGradient>
-                                    </defs>
-                                    <circle cx={56} cy={56} r={R} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={9} />
-                                    <circle cx={56} cy={56} r={R} fill="none" stroke="url(#doneGrad)" strokeWidth={9}
-                                        strokeDasharray={`${completionDash} ${C}`} strokeLinecap="round"
-                                        transform="rotate(-90 56 56)" />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-3xl font-black tabular-nums leading-none" style={{ color: textPrimary }}>{stats.completionPct}%</span>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "#10b981" }}>Done</span>
+                            {/* Completion ring */}
+                            <div className="flex flex-col items-center gap-1.5">
+                                <div className="relative" style={{ width: 120, height: 120 }}>
+                                    <svg width={120} height={120} viewBox="0 0 120 120">
+                                        <defs>
+                                            <linearGradient id="doneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#10b981" />
+                                                <stop offset="100%" stopColor="#06b6d4" />
+                                            </linearGradient>
+                                        </defs>
+                                        <circle cx={60} cy={60} r={R} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={8} />
+                                        {stats.completionPct > 0 && (
+                                            <circle cx={60} cy={60} r={R} fill="none" stroke="url(#doneGrad)" strokeWidth={8}
+                                                strokeDasharray={`${completionDash} ${C}`} strokeLinecap="round"
+                                                transform="rotate(-90 60 60)" />
+                                        )}
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-[32px] font-black tabular-nums leading-none" style={{ color: textPrimary }}>{stats.completionPct}%</span>
+                                        {stats.totalSets > 0 && (
+                                            <span className="text-[11px] font-semibold mt-1" style={{ color: "#10b981" }}>
+                                                {stats.completedSets} / {stats.totalSets}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.completion")}</p>
+                                    <InfoButton onTap={() => openInfo("completion")} />
                                 </div>
                             </div>
-                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.completion")}</p>
                         </div>
                     </div>
 
                     {/* Stat Pills */}
                     <div className="grid grid-cols-3 gap-2">
                         <StatPill icon={<Zap size={15} />}
-                            value={stats.currentVolume >= 1000 ? `${(stats.currentVolume / 1000).toFixed(2)}t` : `${stats.currentVolume}kg`}
+                            value={formatVolume(stats.currentVolume)}
                             label={t("training.liveStats.volume")} accent="#3b82f6"
                             textPrimary={textPrimary} textSecondary={textMuted} />
                         <StatPill icon={<Target size={15} />}
@@ -203,9 +221,9 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                             </div>
                             <div>
                                 <p className="text-sm font-bold text-amber-400">
-                                    {stats.personalRecords} neuer Rekord{stats.personalRecords !== 1 ? "e" : ""}! 🏆
+                                    {t("training.liveStats.prBannerTitle", { count: stats.personalRecords })}
                                 </p>
-                                <p className="text-xs text-amber-500/60">Du hast heute deine Bestleistung gebrochen</p>
+                                <p className="text-xs text-amber-500/60">{t("training.liveStats.prBannerSubtitle")}</p>
                             </div>
                         </div>
                     )}
@@ -223,7 +241,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                                     <div className="flex justify-between items-center mb-1.5">
                                         <span className="text-xs font-semibold" style={{ color: textSecondary }}>{m.label}</span>
                                         <span className="text-[10px] font-mono" style={{ color: textMuted }}>
-                                            {m.vol >= 1000 ? `${(m.vol / 1000).toFixed(2)}t` : `${m.vol}kg`}
+                                            {formatVolume(m.vol)}
                                         </span>
                                     </div>
                                     <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
@@ -250,7 +268,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                             style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
                             <div className="px-4 pt-4 pb-2 flex items-center gap-2">
                                 <TrendingUp size={13} className="text-blue-400" />
-                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: textMuted }}>Übungen</p>
+                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: textMuted }}>{t("training.liveStats.exercises")}</p>
                             </div>
                             {stats.exerciseStats.map((ex, i) => (
                                 <div
@@ -260,13 +278,15 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                                 >
                                     <div className="min-w-0 flex-1 pr-3">
                                         <p className="text-sm font-semibold truncate" style={{ color: textPrimary }}>{ex.name}</p>
-                                        <p className="text-xs mt-0.5" style={{ color: textMuted }}>{ex.sets} Sätze · Best: {ex.bestSet}</p>
+                                        <p className="text-xs mt-0.5" style={{ color: textMuted }}>
+                                            {t("training.liveStats.setsCount", { count: ex.sets })} · {t("training.liveStats.best")}: {ex.bestSet}
+                                        </p>
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <p className="text-sm font-black" style={{ color: "#3b82f6" }}>
-                                            {ex.volume >= 1000 ? `${(ex.volume / 1000).toFixed(2)}t` : `${ex.volume} kg`}
+                                            {formatVolume(ex.volume)}
                                         </p>
-                                        <p className="text-[10px]" style={{ color: textMuted }}>Volumen</p>
+                                        <p className="text-[10px]" style={{ color: textMuted }}>{t("training.liveStats.volume")}</p>
                                     </div>
                                 </div>
                             ))}
@@ -280,16 +300,57 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                                 style={{ background: cardBg }}>
                                 <Zap size={28} style={{ color: textMuted }} />
                             </div>
-                            <p className="text-sm" style={{ color: textMuted }}>Starte dein erstes Set um Stats zu sehen</p>
+                            <p className="text-sm" style={{ color: textMuted }}>{t("training.liveStats.emptyState")}</p>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Info Sheet */}
+            <BottomSheet open={!!infoKey} onClose={() => setInfoKey(null)} height="auto">
+                {infoKey && (
+                    <div className="px-5 pb-8 pt-2">
+                        <h3 className="text-lg font-black mb-3" style={{ color: textPrimary }}>
+                            {t(`training.liveStats.info.${infoKey}.title`)}
+                        </h3>
+                        <p className="text-sm leading-relaxed" style={{ color: textSecondary }}>
+                            {t(`training.liveStats.info.${infoKey}.description`)}
+                        </p>
+                        {infoKey === "grade" && (
+                            <div className="mt-4 space-y-2">
+                                {(["S", "A", "B", "C", "D"] as const).map((g) => {
+                                    const color = g === "S" ? "#f59e0b" : g === "A" ? "#10b981" : g === "B" ? "#3b82f6" : "#8b5cf6";
+                                    const range = g === "S" ? "80–100" : g === "A" ? "60–79" : g === "B" ? "40–59" : g === "C" ? "20–39" : "0–19";
+                                    return (
+                                        <div key={g} className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}20`, border: `1.5px solid ${color}50` }}>
+                                                <span className="text-sm font-black" style={{ color }}>{g}</span>
+                                            </div>
+                                            <span className="text-sm font-medium tabular-nums" style={{ color: textSecondary }}>{range}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </BottomSheet>
         </BottomSheet>
     );
 };
 
 // ── Subcomponents ──────────────────────────────────────────────────────────────
+
+const InfoButton: React.FC<{ onTap: () => void }> = ({ onTap }) => (
+    <button
+        type="button"
+        onPointerDown={(e) => { e.stopPropagation(); onTap(); }}
+        className="ml-0.5 flex items-center justify-center"
+        style={{ width: 18, height: 18, minWidth: 18 }}
+    >
+        <Info size={13} strokeWidth={2.5} style={{ color: "var(--text-secondary)", opacity: 0.5 }} />
+    </button>
+);
 
 const StatPill = ({ icon, value, label, accent, glow, textPrimary, textSecondary }: {
     icon: React.ReactNode;
@@ -316,17 +377,18 @@ const StatPill = ({ icon, value, label, accent, glow, textPrimary, textSecondary
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function formatVolume(vol: number): string {
+    return vol >= 1000 ? `${(vol / 1000).toFixed(2)}t` : `${vol} kg`;
+}
+
 function formatMuscle(m: string): string {
-    // Uses i18n keys from training.muscle.* — called from useMemo so we use
-    // a static fallback map here. The component passes translated labels via
-    // the existing training.muscle keys at render time through muscleBars.
     const fallback: Record<string, string> = {
         chest: "Chest", back: "Back", lats: "Lats", traps: "Traps",
         rear_delts: "Rear Delts", front_delts: "Front Delts", side_delts: "Side Delts",
         biceps: "Biceps", triceps: "Triceps", forearms: "Forearms",
         quads: "Quads", hamstrings: "Hamstrings", glutes: "Glutes",
         calves: "Calves", core: "Core", obliques: "Obliques",
-        lower_back: "Lower Back", hip_flexors: "Hip Flexors", Ganzkörper: "Full Body",
+        lower_back: "Lower Back", hip_flexors: "Hip Flexors", full_body: "Full Body",
     };
     return fallback[m] || m;
 }
