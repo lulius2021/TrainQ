@@ -31,7 +31,7 @@ const ExerciseThumb: React.FC<{ exercise: { id: string; exerciseId?: string; nam
       style={{ backgroundColor: "var(--input-bg)" }}
     >
       {imgSrc ? (
-        <img src={imgSrc} alt="" className="w-full h-full object-cover" />
+        <img src={imgSrc} alt="" className="w-full h-full object-cover" style={{ objectPosition: "center 60%" }} />
       ) : (
         <span className="text-base font-bold" style={{ color: "var(--text-secondary)" }}>
           {(exercise.name || "?")[0].toUpperCase()}

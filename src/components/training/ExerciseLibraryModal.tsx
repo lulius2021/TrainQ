@@ -81,7 +81,7 @@ function ExerciseThumbnail({ exercise }: { exercise: Exercise }) {
       <img
         src={src}
         alt=""
-        style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
+        style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', objectPosition: 'center 60%', flexShrink: 0 }}
         loading="eager"
         decoding="async"
       />

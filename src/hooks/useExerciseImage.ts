@@ -5,6 +5,13 @@ import { loadExerciseImageUrl } from "../utils/exerciseImageStore";
 
 const resolvedImageCache = new Map<string, string>();
 
+// Force clear cache on HMR
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    resolvedImageCache.clear();
+  });
+}
+
 export function useExerciseImage(exercise?: Exercise | null): string | null {
   const [src, setSrc] = useState<string | null>(() => {
     if (!exercise) return null;

@@ -13,7 +13,7 @@ interface LiveTrainingStore {
     finishWorkout: () => void;
 }
 
-const MAX_WORKOUT_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — clear stale state faster
+const MAX_WORKOUT_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours — allow long sessions + background recovery
 
 export const useLiveTrainingStore = create(
     persist<LiveTrainingStore>(

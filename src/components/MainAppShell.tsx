@@ -603,6 +603,15 @@ const MainAppShell: React.FC = () => {
         return () => { cleanup?.(); };
     }, []);
 
+    // Auto-resume: if app opens and there's an active workout, navigate to live training
+    useEffect(() => {
+        const currentRoute = window.location.pathname;
+        const workout = useLiveTrainingStore.getState().activeWorkout;
+        if (!workout?.isActive || currentRoute === "/live-training") return;
+        const id = setTimeout(() => maximizeLiveTraining(workout.calendarEventId), 500);
+        return () => clearTimeout(id);
+    }, []); // Only on mount — eslint-disable-line react-hooks/exhaustive-deps
+
     // Sync widget data when app becomes active
     useEffect(() => {
         let cleanup: (() => void) | undefined;

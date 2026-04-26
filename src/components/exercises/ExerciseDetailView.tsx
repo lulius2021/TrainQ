@@ -312,20 +312,24 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                     {(gifSrc || imageUrl) && (
                         <div className="flex justify-center py-3">
                             {gifSrc && !gifFailed ? (
-                                <img
-                                    src={gifSrc}
-                                    alt={exercise.name}
-                                    onError={() => setGifFailed(true)}
-                                    className="w-full max-w-[300px] rounded-2xl object-contain"
-                                    style={{ backgroundColor: "#111" }}
-                                />
+                                <div className="w-full max-w-[300px] rounded-2xl overflow-hidden" style={{ backgroundColor: "#111" }}>
+                                    <img
+                                        src={gifSrc}
+                                        alt={exercise.name}
+                                        onError={() => setGifFailed(true)}
+                                        className="w-full"
+                                        style={{ marginTop: "-8%", marginBottom: "-2%" }}
+                                    />
+                                </div>
                             ) : imageUrl ? (
-                                <img
-                                    src={imageUrl}
-                                    alt={exercise.name}
-                                    className="w-full max-w-[280px] rounded-2xl object-cover"
-                                    style={{ aspectRatio: "3/2" }}
-                                />
+                                <div className="w-full max-w-[280px] rounded-2xl overflow-hidden">
+                                    <img
+                                        src={imageUrl}
+                                        alt={exercise.name}
+                                        className="w-full"
+                                        style={{ marginTop: "-8%", marginBottom: "-2%" }}
+                                    />
+                                </div>
                             ) : null}
                         </div>
                     )}
