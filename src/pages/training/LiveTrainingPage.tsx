@@ -703,12 +703,9 @@ export default function LiveTrainingPage({
   const toggleSetCompleted = (exerciseId: string, setId: string, autofill?: { weight?: number; reps?: number }) => {
     if (!workout) return;
 
-    // Capture side-effect values from current (non-stale) workout state
-    const exerciseForPR = workout.exercises.find((e) => e.id === exerciseId);
-    const setForPR = exerciseForPR?.sets?.find((s) => s.id === setId);
-    const wasCompleted = setForPR?.completed ?? false; // current state BEFORE toggle
-    const isTogglingOn = !wasCompleted;
-    const rest = exerciseForPR ? normalizeRestSeconds((exerciseForPR as any).restSeconds) : undefined;
+    // Use a ref-like approach: determine toggle direction from prev state inside updater
+    let toggledOn = false;
+    let restSeconds: number | undefined;
 
     // Single state update — autofill + toggle in one pass
     setWorkout((prev) => {
@@ -722,6 +719,8 @@ export default function LiveTrainingPage({
         const nextSets = sets.map((s) => {
           if (!s || s.id !== setId) return s;
           const nowCompleted = !s.completed;
+          toggledOn = nowCompleted;
+          restSeconds = normalizeRestSeconds((e as any).restSeconds);
           const filled: typeof s = { ...s };
           // Apply autofill only when toggling ON and field is empty
           if (nowCompleted && autofill) {
@@ -737,18 +736,23 @@ export default function LiveTrainingPage({
       return { ...prev, exercises: nextExercises };
     });
 
-    // Side effects OUTSIDE the updater
-    if (isTogglingOn) {
-      hapticMedium();
-      if (typeof rest === "number" && rest > 0) {
-        setActiveRest({ exerciseId, setId, restSeconds: rest });
+    // Side effects — toggledOn is set by the updater above (synchronous in React 18 batching)
+    // Use setTimeout(0) to ensure the updater has run
+    setTimeout(() => {
+      if (toggledOn) {
+        hapticMedium();
+        if (typeof restSeconds === "number" && restSeconds > 0) {
+          setActiveRest({ exerciseId, setId, restSeconds });
+        }
+      } else {
+        setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
       }
-    } else {
-      setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
-    }
+    }, 0);
 
     // PR Detection: only one gold set per exercise (the strongest)
-    if (isTogglingOn && exerciseForPR && setForPR && prBaseline) {
+    const exerciseForPR = workout.exercises.find((e) => e.id === exerciseId);
+    const setForPR = exerciseForPR?.sets?.find((s) => s.id === setId);
+    if (toggledOn && exerciseForPR && setForPR && prBaseline) {
       const result = checkSetPR(
         exerciseForPR.name,
         { weight: setForPR.weight, reps: setForPR.reps },

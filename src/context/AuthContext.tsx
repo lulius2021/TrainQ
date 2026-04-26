@@ -72,7 +72,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     const u = session.user;
-    const isPro = u.app_metadata?.plan === "pro" || u.user_metadata?.plan === "pro" || hasActiveChallengeGrant();
+    const isPro = u.app_metadata?.plan === "pro" || hasActiveChallengeGrant();
 
     // ✅ Get onboarding status with fallback to cache
     let onboardingCompleted = false;

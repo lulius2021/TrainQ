@@ -483,7 +483,7 @@ const SwipeableSetRow = ({
           onUpdate={(patch) => onSetChange(set.id, patch)}
           onToggle={() => {
             const now = Date.now();
-            if (now - lastToggleMs.current < 400) return;
+            if (now - lastToggleMs.current < 600) return;
             lastToggleMs.current = now;
             set.completed ? hapticLight() : hapticSuccess();
             const autofill: any = {};
@@ -615,7 +615,7 @@ const SwipeableSetRow = ({
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   const now = Date.now();
-                  if (now - lastToggleMs.current < 400) return;
+                  if (now - lastToggleMs.current < 600) return;
                   lastToggleMs.current = now;
                   set.completed ? hapticLight() : hapticSuccess();
                   onToggleSet(set.id);
@@ -633,7 +633,7 @@ const SwipeableSetRow = ({
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   const now = Date.now();
-                  if (now - lastToggleMs.current < 400) return;
+                  if (now - lastToggleMs.current < 600) return;
                   lastToggleMs.current = now;
                   // Pass autofill values directly to onToggleSet (single state update)
                   const autofill: any = {};
@@ -763,6 +763,7 @@ function ExerciseEditorInner({
   const nameRef = useRef<HTMLInputElement | null>(null);
   const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const lastAddSetMs = useRef(0);
 
   if (!theme) return null;
 
@@ -975,9 +976,16 @@ function ExerciseEditorInner({
       <div className="flex justify-center pt-0.5">
         <button
           type="button"
-          onClick={onAddSet}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastAddSetMs.current < 500) return;
+            lastAddSetMs.current = now;
+            onAddSet();
+          }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
           className="w-full h-8 flex items-center justify-center rounded-3xl transition-all active:scale-95"
-          style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)" }}
+          style={{ backgroundColor: "var(--input-bg)", color: "var(--text-secondary)", touchAction: "manipulation" }}
           aria-label={addSetLabel}
         >
           <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
