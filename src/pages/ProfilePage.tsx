@@ -459,7 +459,12 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
 /* ─── Nutrition Stats BottomSheet ─── */
 
 const NutritionStatsSheet: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
-  const hasData = useMemo(() => open ? loadDiaryEntries().length > 0 : false, [open]);
+  const [hasData, setHasData] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setHasData(loadDiaryEntries().length > 0);
+    }
+  }, [open]);
 
   return (
     <BottomSheet
@@ -1250,7 +1255,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
               </div>
             </button>
 
-            {/* Nutrition Stats TRIGGER */}
+            {/* Nutrition Stats TRIGGER — behind feature flag */}
+            {FEATURE_FLAGS.nutrition && (
             <button
               onClick={() => setNutritionStatsOpen(true)}
               className="w-full rounded-3xl p-4 flex items-center justify-between transition-all active:scale-[0.98]"
@@ -1269,6 +1275,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
               </div>
             </button>
+            )}
 
             {/* Workout history list TRIGGER */}
             <button
@@ -1331,7 +1338,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
       <AllStatsSheet open={allStatsOpen} onClose={() => setAllStatsOpen(false)} workouts={workouts} />
 
       {/* NUTRITION STATS BOTTOM SHEET */}
-      <NutritionStatsSheet open={nutritionStatsOpen} onClose={() => setNutritionStatsOpen(false)} />
+      {FEATURE_FLAGS.nutrition && <NutritionStatsSheet open={nutritionStatsOpen} onClose={() => setNutritionStatsOpen(false)} />}
 
       {/* STAT DETAIL BOTTOM SHEET */}
       <StatDetailSheet

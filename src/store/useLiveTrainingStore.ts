@@ -30,28 +30,25 @@ export const useLiveTrainingStore = create(
         {
             name: 'trainq-active-workout-storage',
             storage: createJSONStorage(() => localStorage),
-            onRehydrateStorage: () => (state: LiveTrainingStore | undefined) => {
-                if (!state) return;
+            onRehydrateStorage: () => (state: LiveTrainingStore | undefined, error) => {
+                if (error || !state) return;
                 try {
                     const workout = state.activeWorkout;
                     if (!workout) return;
 
                     // Clear if no valid startedAt (corrupt state)
                     if (!workout.startedAt) {
-                        state.activeWorkout = null;
-                        state.activeExerciseIndex = 0;
+                        useLiveTrainingStore.setState({ activeWorkout: null, activeExerciseIndex: 0 });
                         return;
                     }
 
                     // Clear if older than MAX_WORKOUT_AGE_MS
                     const age = Date.now() - new Date(workout.startedAt).getTime();
                     if (age > MAX_WORKOUT_AGE_MS || isNaN(age)) {
-                        state.activeWorkout = null;
-                        state.activeExerciseIndex = 0;
+                        useLiveTrainingStore.setState({ activeWorkout: null, activeExerciseIndex: 0 });
                     }
                 } catch {
-                    state.activeWorkout = null;
-                    state.activeExerciseIndex = 0;
+                    useLiveTrainingStore.setState({ activeWorkout: null, activeExerciseIndex: 0 });
                 }
             },
         }

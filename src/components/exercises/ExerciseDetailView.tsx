@@ -1,15 +1,30 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Info, Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Exercise } from "../../data/exerciseLibrary";
 import { useExerciseImage } from "../../hooks/useExerciseImage";
 import { resolveExerciseGifSrc } from "../../utils/exerciseImage";
+import { useI18n } from "../../i18n/useI18n";
 import { loadWorkoutHistory, type WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { getInstructionsForExercise } from "../../data/exerciseInstructions";
 import { BottomSheet } from "../common/BottomSheet";
 import MuscleBodyMap from "./MuscleBodyMap";
+
+// --- Stat Info Keys (i18n-based) ---
+const STAT_INFO_KEYS = ["maxWeight", "maxVolume", "estimated1RM", "weightTrend"] as const;
+
+const StatInfoButton: React.FC<{ statKey: string; onOpen: (key: string) => void }> = ({ statKey, onOpen }) => (
+  <button
+    type="button"
+    onClick={(e) => { e.stopPropagation(); onOpen(statKey); }}
+    className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full opacity-40 hover:opacity-80 transition-opacity"
+    style={{ color: "var(--text-muted)" }}
+  >
+    <Info size={12} />
+  </button>
+);
 
 // --- Augment Exercise type for instructions if needed (or correct usage below)
 interface ExtendedExercise extends Exercise {
@@ -44,12 +59,12 @@ type ExerciseLog = {
 };
 
 // --- CHART COMPONENT (SVG) ---
-const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" }: { data: ExerciseLog[], dataKey: keyof ExerciseLog, color?: string, label: string, suffix?: string }) => {
+const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "", emptyLabel = "No data available", sessionLabelFn }: { data: ExerciseLog[], dataKey: keyof ExerciseLog, color?: string, label: string, suffix?: string, emptyLabel?: string, sessionLabelFn?: (count: number, isLive: boolean) => string }) => {
     // Show chart if we have at least 1 point (visualize dot) or more
     if (data.length === 0) {
         return (
             <div className="h-32 rounded-2xl border flex items-center justify-center text-xs italic" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-muted)" }}>
-                Noch keine Daten vorhanden
+                {emptyLabel}
             </div>
         );
     }
@@ -129,13 +144,14 @@ const SimpleLineChart = ({ data, dataKey, color = "#007AFF", label, suffix = "" 
                 </svg>
             </div>
             <div className="mt-2 text-[10px] font-medium text-center" style={{ color: "var(--text-secondary)" }}>
-                Letzte {chartData.length} Einheiten {isLive && "(inkl. Heute)"}
+                {sessionLabelFn ? sessionLabelFn(chartData.length, !!isLive) : `Last ${chartData.length} sessions${isLive ? " (incl. Today)" : ""}`}
             </div>
         </div>
     );
 };
 
 export default function ExerciseDetailView({ isOpen, onClose, exercise }: ExerciseDetailViewProps) {
+    const { t } = useI18n();
     const imageUrl = useExerciseImage(exercise);
     const gifSrc = useMemo(() => resolveExerciseGifSrc(exercise), [exercise?.id]);
     const [gifFailed, setGifFailed] = useState(false);
@@ -150,6 +166,8 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
     const [history, setHistory] = useState<ExerciseLog[]>([]);
     const [records, setRecords] = useState<{ maxWeight: number; maxVolume: number }>({ maxWeight: 0, maxVolume: 0 });
     const [instructionsOpen, setInstructionsOpen] = useState(false);
+    const [statInfoKey, setStatInfoKey] = useState<string | null>(null);
+    const openStatInfo = useCallback((key: string) => setStatInfoKey(key), []);
 
     // --- LOAD DATA + LIVE MERGE ---
     useEffect(() => {
@@ -276,6 +294,7 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
     if (!isOpen || !exercise) return null;
 
     return (
+        <>
         <BottomSheet
             open={isOpen}
             onClose={onClose}
@@ -322,17 +341,21 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                 <div>
                     <div className="flex items-center gap-2 mb-3 px-1">
                         <Trophy size={16} className="text-yellow-500" />
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">All-Time Bestleistungen</h3>
+                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{t("stats.allTimeRecords")}</h3>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-2xl p-4 border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                            <div className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Max Gewicht</div>
+                            <div className="text-xs font-medium mb-1 flex items-center" style={{ color: "var(--text-muted)" }}>
+                                {t("stats.maxWeight")}<StatInfoButton statKey="maxWeight" onOpen={openStatInfo} />
+                            </div>
                             <div className="text-2xl font-black tracking-tight" style={{ color: "var(--text-color)" }}>
                                 {records.maxWeight} <span className="text-sm font-bold" style={{ color: "var(--text-muted)" }}>kg</span>
                             </div>
                         </div>
                         <div className="rounded-2xl p-4 border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                            <div className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Max Volumen</div>
+                            <div className="text-xs font-medium mb-1 flex items-center" style={{ color: "var(--text-muted)" }}>
+                                {t("stats.maxVolume")}<StatInfoButton statKey="maxVolume" onOpen={openStatInfo} />
+                            </div>
                             <div className="text-2xl font-black tracking-tight" style={{ color: "var(--text-color)" }}>
                                 {records.maxVolume} <span className="text-sm font-bold" style={{ color: "var(--text-muted)" }}>kg</span>
                             </div>
@@ -342,19 +365,20 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
 
                 {/* 3. CHARTS */}
                 <div className="space-y-4">
-                    <SimpleLineChart
-                        label="1RM Trend (geschätzt)"
-                        data={history}
-                        dataKey="estimated1RM"
-                        color="#32ADE6"
-                        suffix=" kg"
-                    />
-                    <SimpleLineChart
-                        label="Gewichtsentwicklung (Top Sets)"
-                        data={history}
-                        dataKey="maxWeight"
-                        suffix=" kg"
-                    />
+                    <div>
+                        <div className="flex items-center gap-1 mb-1 px-1">
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("exercise.1rmTrend")}</span>
+                            <StatInfoButton statKey="estimated1RM" onOpen={openStatInfo} />
+                        </div>
+                        <SimpleLineChart label="" data={history} dataKey="estimated1RM" color="#32ADE6" suffix=" kg" emptyLabel={t("stats.noData")} sessionLabelFn={(count, live) => live ? t("stats.lastNSessionsToday", { count }) : t("stats.lastNSessions", { count })} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-1 mb-1 px-1">
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("exercise.weightTrend")}</span>
+                            <StatInfoButton statKey="weightTrend" onOpen={openStatInfo} />
+                        </div>
+                        <SimpleLineChart label="" data={history} dataKey="maxWeight" suffix=" kg" emptyLabel={t("stats.noData")} sessionLabelFn={(count, live) => live ? t("stats.lastNSessionsToday", { count }) : t("stats.lastNSessions", { count })} />
+                    </div>
                 </div>
 
                 {/* 4. INSTRUCTIONS */}
@@ -368,7 +392,7 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                             <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
                                 <Info size={16} strokeWidth={2.5} />
                             </div>
-                            <span className="font-bold text-base" style={{ color: "var(--text-color)" }}>Anleitung & Form</span>
+                            <span className="font-bold text-base" style={{ color: "var(--text-color)" }}>{t("exercise.instructions")}</span>
                         </div>
                         {instructionsOpen ? <ChevronUp size={20} style={{ color: "var(--text-muted)" }} /> : <ChevronDown size={20} style={{ color: "var(--text-muted)" }} />}
                     </button>
@@ -390,7 +414,7 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                                         ))}
                                     </ul>
                                     <div className="mt-4 bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
-                                        <span className="text-blue-400 text-xs font-black uppercase tracking-wider block mb-1">Pro Tipp</span>
+                                        <span className="text-blue-400 text-xs font-black uppercase tracking-wider block mb-1">{t("exercise.proTip")}</span>
                                         <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                                             {instructionSet.proTip}
                                         </p>
@@ -402,5 +426,39 @@ export default function ExerciseDetailView({ isOpen, onClose, exercise }: Exerci
                 </div>
             </div>
         </BottomSheet>
+        {statInfoKey && STAT_INFO_KEYS.includes(statInfoKey as any) && (
+            <div
+                className="fixed inset-0 z-[10030] flex items-end justify-center"
+                onClick={() => setStatInfoKey(null)}
+            >
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                <div
+                    className="relative w-full max-w-md rounded-t-3xl p-6 pb-10"
+                    style={{ backgroundColor: "var(--card-bg)" }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: "var(--border-color)" }} />
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center">
+                            <Info size={16} className="text-blue-500" />
+                        </div>
+                        <h3 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>
+                            {t(`stats.info.${statInfoKey}.title`)}
+                        </h3>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                        {t(`stats.info.${statInfoKey}.description`)}
+                    </p>
+                    <button
+                        onClick={() => setStatInfoKey(null)}
+                        className="w-full mt-6 py-3 rounded-2xl font-bold text-sm"
+                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                    >
+                        {t("stats.info.understood")}
+                    </button>
+                </div>
+            </div>
+        )}
+        </>
     );
 }

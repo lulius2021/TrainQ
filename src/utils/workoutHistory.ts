@@ -482,17 +482,24 @@ export function addWorkoutEntry(
   if (isCardioSport(sanitized.sport)) {
     const derived = computeCardioFromExercises(sanitized.exercises);
 
+    const cardioPatches: Partial<WorkoutHistoryEntry> = {};
+
     if (sanitized.distanceKm == null && derived.distanceFromSetsKm > 0) {
-      sanitized.distanceKm = clampDistanceKm(derived.distanceFromSetsKm);
+      cardioPatches.distanceKm = clampDistanceKm(derived.distanceFromSetsKm);
     }
 
     if ((!Number.isFinite(sanitized.durationSec) || sanitized.durationSec <= 0) && derived.minutesFromSets > 0) {
-      sanitized.durationSec = derived.minutesFromSets * 60;
+      cardioPatches.durationSec = derived.minutesFromSets * 60;
     }
 
-    if (sanitized.paceSecPerKm == null && sanitized.distanceKm != null) {
-      sanitized.paceSecPerKm = computePaceFrom(sanitized.durationSec, sanitized.distanceKm);
+    const effectiveDistance = cardioPatches.distanceKm ?? sanitized.distanceKm;
+    const effectiveDuration = cardioPatches.durationSec ?? sanitized.durationSec;
+
+    if (sanitized.paceSecPerKm == null && effectiveDistance != null) {
+      cardioPatches.paceSecPerKm = computePaceFrom(effectiveDuration, effectiveDistance);
     }
+
+    Object.assign(sanitized, cardioPatches);
   }
 
   const autoAllowEmpty = !isGymSport(sanitized.sport); // Cardio/Custom default: true

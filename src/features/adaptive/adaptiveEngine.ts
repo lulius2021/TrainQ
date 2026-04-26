@@ -176,6 +176,7 @@ async function getRecoveryData(): Promise<{
             return { data: garminData, source: "garmin" };
         }
     } catch (error) {
+        if (import.meta.env.DEV) console.warn("[AdaptiveEngine] getRecoveryData failed:", error);
     }
 
     // Fallback: Use 7-day average from cache

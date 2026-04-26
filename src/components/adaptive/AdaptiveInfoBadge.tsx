@@ -8,6 +8,7 @@
 
 import React, { useState } from "react";
 import { TriangleAlert, Info, Lightbulb } from "lucide-react";
+import { useI18n } from "../../i18n/useI18n";
 
 export interface AdaptiveInfoBadgeProps {
     /** Main reason for the adjustment */
@@ -29,6 +30,7 @@ export function AdaptiveInfoBadge({
     isDeload = false,
     details
 }: AdaptiveInfoBadgeProps) {
+    const { t } = useI18n();
     const [showDetails, setShowDetails] = useState(false);
 
     // Determine badge color based on context
@@ -69,7 +71,7 @@ export function AdaptiveInfoBadge({
                 type="button"
                 onClick={() => setShowDetails(!showDetails)}
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl border text-xs font-medium transition-all ${getBadgeColor()} hover:opacity-80`}
-                title="Click for details"
+                title={t("adaptive.info.clickForDetails")}
             >
                 <span className="flex items-center">{getIcon()}</span>
                 <span>{reason}</span>
@@ -81,7 +83,7 @@ export function AdaptiveInfoBadge({
             {showDetails && details && (
                 <div className="absolute top-full left-0 mt-2 w-64 p-3 rounded-2xl border border-white/20 bg-black/90 backdrop-blur-sm shadow-xl z-50 text-xs text-gray-300">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="font-semibold text-white">Strategy Details</span>
+                        <span className="font-semibold text-white">{t("adaptive.info.strategyDetails")}</span>
                         <button
                             type="button"
                             onClick={() => setShowDetails(false)}

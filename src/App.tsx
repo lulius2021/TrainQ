@@ -11,6 +11,9 @@ import { SplashScreen } from "@capacitor/splash-screen";
 // Types explicitly exported to maintain compatibility
 export type { TabKey } from "./types";
 
+let _autoRecoveryRetries = 0;
+const MAX_AUTO_RECOVERY_RETRIES = 3;
+
 class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -27,7 +30,8 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
     // Auto-recover from transient auth-context init errors (race condition on cold start).
     // On retry the JS module is fully loaded and the context renders correctly.
     const msg = (error as any)?.message ?? "";
-    if (msg.includes("AuthContextProvider")) {
+    if (msg.includes("AuthContextProvider") && _autoRecoveryRetries < MAX_AUTO_RECOVERY_RETRIES) {
+      _autoRecoveryRetries++;
       setTimeout(() => this.setState({ hasError: false, error: null }), 400);
     }
   }

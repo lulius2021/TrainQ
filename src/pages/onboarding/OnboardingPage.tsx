@@ -40,7 +40,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
             });
 
           if (error) {
-            if (import.meta.env.DEV) console.error("Failed to save profile:", error);
+            if (import.meta.env.DEV) console.error("[Onboarding] save failed:", error);
+            return; // don't complete onboarding
           }
         }
       }
@@ -49,8 +50,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
       onFinished();
     } catch (e) {
       if (import.meta.env.DEV) console.error("Onboarding finish error:", e);
-      complete();
-      onFinished();
     } finally {
       setIsSaving(false);
     }

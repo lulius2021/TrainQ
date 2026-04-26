@@ -378,12 +378,12 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
             <span style={{ color: "var(--text-muted)" }}>{durationMin} Min</span>
             <span className={`rounded-full ${isExportMode ? 'w-3 h-3' : 'w-1 h-1'}`} style={{ backgroundColor: "var(--text-muted)" }} />
             <span className="text-blue-500">
-              {volume > 0 ? `${(volume / 1000).toFixed(1)}t` : (workout.distance ? `${workout.distance}km` : 'Cardio')}
+              {volume > 0 ? `${(volume / 1000).toFixed(1)}t` : (workout.distanceKm ? `${workout.distanceKm.toFixed(1)}km` : (workout.sport === "gym" || workout.sport === "Gym" ? "Kraft" : "Cardio"))}
             </span>
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <span className={`text-blue-600 font-black tracking-tighter ${isExportMode ? 'text-6xl' : 'text-xl'}`}>TRAINQ</span>
+          <span className={`font-black tracking-tight ${isExportMode ? 'text-5xl' : 'text-lg'}`} style={{ color: "var(--accent-color)" }}>trainq</span>
           <span className={`font-bold uppercase tracking-[0.2em] ${isExportMode ? 'text-2xl mt-2' : 'text-[9px] mt-0.5'}`} style={{ color: "var(--text-muted)" }}>{userName}</span>
         </div>
       </div>
@@ -402,7 +402,7 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
         <div className="flex flex-col gap-1">
           <div className={`flex items-center ${isExportMode ? 'gap-4' : 'gap-1.5'}`}>
             <div className={`bg-blue-600 rounded-full animate-pulse ${isExportMode ? 'w-4 h-4' : 'w-1.5 h-1.5'}`} />
-            <span className={`font-bold ${isExportMode ? 'text-3xl' : 'text-xs'}`} style={{ color: "var(--text-muted)" }}>TrainQ Pro</span>
+            <span className={`font-bold ${isExportMode ? 'text-3xl' : 'text-xs'}`} style={{ color: "var(--text-muted)" }}>trainq.app</span>
           </div>
         </div>
         <div className={`font-medium tracking-wide ${isExportMode ? 'text-3xl' : 'text-[10px]'}`} style={{ color: "var(--text-muted)" }}>trainq.app</div>

@@ -298,7 +298,10 @@ const DashboardPage = () => {
             return;
           }
           let events = [];
-          try { events = JSON.parse(raw); } catch { }
+          try { events = JSON.parse(raw); } catch (e) {
+            if (import.meta.env.DEV) console.warn("[Dashboard] corrupted calendar events, resetting", e);
+            localStorage.removeItem("trainq_calendar_events");
+          }
           if (!Array.isArray(events)) return;
 
           const now = new Date();
@@ -418,7 +421,7 @@ const DashboardPage = () => {
     const onboarding = readOnboardingDataFromStorage();
     const persona = onboarding.personal.persona || "beginner";
     const template = getAdaptiveTemplate("Push", persona);
-    return template.map(t => ({ name: t.name }));
+    return template.map(tpl => ({ name: tpl.name }));
     // The modal will override this with personal history when available
   }, []);
 
@@ -619,6 +622,44 @@ const DashboardPage = () => {
         </div>
 
 
+
+        {/* WEEKLY OVERVIEW */}
+        <div>
+          <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.weekOverview")}</h3>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="bg-[var(--card-bg)] rounded-[20px] p-3.5 border border-[var(--border-color)] flex flex-col items-center gap-1">
+              <span className="text-2xl font-black tabular-nums" style={{ color: "var(--accent-color)" }}>{weeklyWorkouts}</span>
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{t("dashboard.week.workouts")}</span>
+            </div>
+            <div className="bg-[var(--card-bg)] rounded-[20px] p-3.5 border border-[var(--border-color)] flex flex-col items-center gap-1">
+              <span className="text-2xl font-black tabular-nums" style={{ color: "var(--text-color)" }}>{weeklyMinutes}</span>
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{t("dashboard.week.minutes")}</span>
+            </div>
+            <div className="bg-[var(--card-bg)] rounded-[20px] p-3.5 border border-[var(--border-color)] flex flex-col items-center gap-1">
+              <span className="text-2xl font-black tabular-nums" style={{ color: "var(--text-color)" }}>{weeklyDistanceKm > 0 ? `${weeklyDistanceKm}` : "—"}</span>
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{weeklyDistanceKm > 0 ? "km" : t("dashboard.week.distance")}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* LAST ACTIVITY */}
+        {lastActivity && (
+          <div>
+            <h3 className="text-sm font-bold text-[var(--text-secondary)] mb-2 pl-1 uppercase tracking-wider text-[11px]">{t("dashboard.lastTraining")}</h3>
+            <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: lastActivity.sport === "gym" ? "rgba(59,130,246,0.1)" : lastActivity.sport === "laufen" ? "rgba(34,197,94,0.1)" : "rgba(249,115,22,0.1)" }}>
+                {lastActivity.sport === "gym" ? <Dumbbell size={20} style={{ color: "#3B82F6" }} /> : lastActivity.sport === "laufen" ? <Footprints size={20} style={{ color: "#22C55E" }} /> : <Bike size={20} style={{ color: "#F97316" }} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate" style={{ color: "var(--text-color)" }}>{lastActivity.title || lastActivity.sport}</div>
+                <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {(() => { try { return format(parseISO(lastActivity.startedAt), "EEEE, d. MMM", { locale: de }); } catch { return ""; } })()}
+                  {lastActivity.durationSec ? ` · ${Math.round(lastActivity.durationSec / 60)} min` : ""}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* NUTRITION TRACKER */}
         {FEATURE_FLAGS.nutrition && <NutritionDashboardWidget />}

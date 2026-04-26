@@ -91,6 +91,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
             onboardingCompleted = true;
             (async () => {
               for (let i = 0; i < 3; i++) {
+                if (!mountedRef.current) return;
                 const { error } = await client.from('profiles').update({ onboarding_completed: true }).eq('id', u.id);
                 if (!error) break;
                 if (i < 2) await new Promise(r => setTimeout(r, (i + 1) * 500));
@@ -118,6 +119,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       updatedAt: u.updated_at,
       onboardingCompleted,
     };
+
+    if (!mountedRef.current) return;
 
     setUser((prev) => {
       if (prev && JSON.stringify(prev) === JSON.stringify(authUser)) {
@@ -269,11 +272,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [syncSessionToUser, ensureLocalUser]);
 
   const getSafeClient = useCallback((): ReturnType<typeof getSupabaseClient> => {
-    let client = getSupabaseClient();
-    if (!client) {
-      client = getSupabaseClient();
-    }
-    return client;
+    return getSupabaseClient();
   }, []);
 
   // -------------------- Actions --------------------
@@ -339,7 +338,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     localStorage.removeItem(CACHED_AUTH_KEY);
     clearActiveSession();
     setUser(null);
-  }, [getSafeClient, user?.id]);
+  }, [getSafeClient, user]);
 
   // -------------------- Apple --------------------
 
@@ -425,7 +424,10 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSafeClient();
     if (!client) return;
 
-    // Fire-and-forget — UI state already updated above; don't block on network
+    // Update React state so UI reflects new pro status immediately
+    setUser((prev) => prev ? { ...prev, isPro } : prev);
+
+    // Fire-and-forget — persist to backend; UI state already updated above
     client.auth.updateUser({ data: { plan: isPro ? "pro" : "free" } })
       .then(() => {}, (e: unknown) => { if (import.meta.env.DEV) console.warn("Could not update user metadata:", e); });
     void Promise.resolve(client.from('profiles').update({ is_pro: isPro }).eq('id', user?.id))

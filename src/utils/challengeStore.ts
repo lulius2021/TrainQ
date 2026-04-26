@@ -72,8 +72,7 @@ export function joinChallenge(challengeId: string, durationDays: number): void {
     rewardClaimed: false,
   };
 
-  data.joined.push(state);
-  saveChallengesData(data);
+  saveChallengesData({ ...data, joined: [...data.joined, state] });
 }
 
 export function markCompleted(challengeId: string): void {
@@ -81,9 +80,8 @@ export function markCompleted(challengeId: string): void {
   const entry = data.joined.find((j) => j.challengeId === challengeId);
   if (!entry || entry.completed) return;
 
-  entry.completed = true;
-  entry.completedAt = new Date().toISOString();
-  saveChallengesData(data);
+  const updatedEntry = { ...entry, completed: true, completedAt: new Date().toISOString() };
+  saveChallengesData({ ...data, joined: data.joined.map((e) => e.challengeId === entry.challengeId ? updatedEntry : e) });
 }
 
 export function claimReward(challengeId: string, rewardDays: number): void {
@@ -91,17 +89,18 @@ export function claimReward(challengeId: string, rewardDays: number): void {
   const entry = data.joined.find((j) => j.challengeId === challengeId);
   if (!entry || !entry.completed || entry.rewardClaimed) return;
 
-  entry.rewardClaimed = true;
-
   const now = new Date();
   const grant: ProGrant = {
     grantedAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + rewardDays * 86400000).toISOString(),
     source: challengeId,
   };
-  data.proGrants.push(grant);
-
-  saveChallengesData(data);
+  const updatedEntry = { ...entry, rewardClaimed: true };
+  saveChallengesData({
+    ...data,
+    joined: data.joined.map((e) => e.challengeId === entry.challengeId ? updatedEntry : e),
+    proGrants: [...data.proGrants, grant],
+  });
 }
 
 export function getActiveProGrants(): ProGrant[] {

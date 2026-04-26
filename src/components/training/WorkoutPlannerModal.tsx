@@ -6,6 +6,7 @@ import { getActiveUserId } from '../../utils/session';
 import type { CalendarEvent } from '../../types';
 import { format } from 'date-fns';
 import { BottomSheet } from '../common/BottomSheet';
+import { useI18n } from '../../i18n/useI18n';
 
 interface WorkoutPlannerModalProps {
     open: boolean;
@@ -15,15 +16,20 @@ interface WorkoutPlannerModalProps {
 
 type SportType = 'gym' | 'run' | 'cycle' | 'custom';
 
-const SPORTS: { id: SportType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-    { id: 'gym',    label: 'Gym',     icon: <Dumbbell size={20} />,   color: '#007AFF', bg: 'rgba(0,122,255,0.12)' },
-    { id: 'run',    label: 'Laufen',  icon: <Footprints size={20} />, color: '#34C759', bg: 'rgba(52,199,89,0.12)' },
-    { id: 'cycle',  label: 'Rad',     icon: <Bike size={20} />,       color: '#FF9500', bg: 'rgba(255,149,0,0.12)' },
-    { id: 'custom', label: 'Custom',  icon: <Sparkles size={20} />,   color: '#AF52DE', bg: 'rgba(175,82,222,0.12)' },
-];
+function usePlannerSports() {
+    const { t } = useI18n();
+    return [
+        { id: 'gym' as SportType,    label: t("training.planner.gym"),     icon: <Dumbbell size={20} />,   color: '#007AFF', bg: 'rgba(0,122,255,0.12)' },
+        { id: 'run' as SportType,    label: t("training.planner.running"), icon: <Footprints size={20} />, color: '#34C759', bg: 'rgba(52,199,89,0.12)' },
+        { id: 'cycle' as SportType,  label: t("training.planner.cycling"), icon: <Bike size={20} />,       color: '#FF9500', bg: 'rgba(255,149,0,0.12)' },
+        { id: 'custom' as SportType, label: t("training.planner.custom"),  icon: <Sparkles size={20} />,   color: '#AF52DE', bg: 'rgba(175,82,222,0.12)' },
+    ];
+}
 
 export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPlannerModalProps) {
-    const [title, setTitle] = useState("Manuelles Training");
+    const { t } = useI18n();
+    const SPORTS = usePlannerSports();
+    const [title, setTitle] = useState(t("training.planner.manualTraining"));
     const [sport, setSport] = useState<SportType>("gym");
     const [startTime, setStartTime] = useState(format(new Date(), "HH:mm"));
     const [exercises, setExercises] = useState<any[]>([]);
@@ -64,7 +70,7 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
         onClose();
     };
 
-    const activeSport = SPORTS.find(s => s.id === sport)!;
+    const activeSport = SPORTS.find((s: any) => s.id === sport)!;
 
     return (
         <>
@@ -79,7 +85,7 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
                             className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white active:scale-[0.97] transition-all"
                             style={{ backgroundColor: "#007AFF", boxShadow: "0 4px 16px rgba(0,122,255,0.35)" }}
                         >
-                            Plan speichern
+                            {t("training.planner.savePlan")}
                         </button>
                     </div>
                 }
@@ -88,10 +94,10 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
                     {/* Header */}
                     <div>
                         <h2 className="text-[28px] font-black tracking-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.5px" }}>
-                            Training anlegen
+                            {t("training.planner.createTraining")}
                         </h2>
                         <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                            Füge ein Training zum Kalender hinzu
+                            {t("training.planner.addToCalendar")}
                         </p>
                     </div>
 
@@ -116,7 +122,7 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
 
                     {/* Title */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Titel</label>
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>{t("training.planner.titleLabel")}</label>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -128,7 +134,7 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
 
                     {/* Startzeit */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Startzeit</label>
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>{t("training.planner.startTime")}</label>
                         <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5 border" style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)" }}>
                             <Clock size={18} style={{ color: "var(--text-secondary)" }} />
                             <input
@@ -145,14 +151,14 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
                     <div className="space-y-2">
                         <div className="flex items-center justify-between ml-1">
                             <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                                Übungen ({exercises.length})
+                                {t("training.planner.exercises")} ({exercises.length})
                             </label>
                             <button
                                 onClick={() => setShowLibrary(true)}
                                 className="flex items-center gap-1 text-[13px] font-bold"
                                 style={{ color: activeSport.color }}
                             >
-                                <Plus size={14} /> Hinzufügen
+                                <Plus size={14} /> {t("common.add")}
                             </button>
                         </div>
 
@@ -180,7 +186,7 @@ export default function WorkoutPlannerModal({ open, onClose, onSave }: WorkoutPl
                                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: activeSport.bg, color: activeSport.color }}>
                                     {activeSport.icon}
                                 </div>
-                                <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Übungen hinzufügen</span>
+                                <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>{t("training.planner.addExercises")}</span>
                             </button>
                         )}
                     </div>

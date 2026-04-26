@@ -3,6 +3,7 @@ import { Zap, Target, Trophy, Flame, TrendingUp } from "lucide-react";
 import type { LiveWorkout, ExerciseHistoryEntry } from "../../types/training";
 import { EXERCISES } from "../../data/exerciseLibrary";
 import { BottomSheet } from "../common/BottomSheet";
+import { useI18n } from "../../i18n/useI18n";
 
 interface Props {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, historyMap }) => {
+    const { t } = useI18n();
     const stats = useMemo(() => {
         let currentVolume = 0;
         let completedSets = 0;
@@ -65,7 +67,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
 
         const maxMuscleVol = Math.max(...Object.values(muscleVolume), 1);
         const muscleBars = Object.entries(muscleVolume)
-            .map(([m, vol]) => ({ label: formatMuscle(m), pct: vol / maxMuscleVol, vol }))
+            .map(([m, vol]) => ({ label: t(`training.muscle.${m}`, { defaultValue: formatMuscle(m) }), pct: vol / maxMuscleVol, vol }))
             .sort((a, b) => b.vol - a.vol)
             .slice(0, 5);
 
@@ -73,7 +75,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
         const completionPct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
         return { currentVolume, completedSets, totalSets, personalRecords, muscleBars, exerciseStats, beastScore, completionPct };
-    }, [workout, historyMap]);
+    }, [workout, historyMap, t]);
 
     // SVG ring math
     const R = 46;
@@ -104,9 +106,9 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                 {/* Header */}
                 <div className="px-5 pt-1 pb-4 flex-shrink-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.25em] mb-0.5" style={{ color: "#007AFF", opacity: 0.85 }}>
-                        Live Session
+                        {t("training.liveStats.liveSession")}
                     </p>
-                    <h2 className="text-xl font-black tracking-tight" style={{ color: textPrimary }}>Performance</h2>
+                    <h2 className="text-xl font-black tracking-tight" style={{ color: textPrimary }}>{t("training.liveStats.performance")}</h2>
                 </div>
 
                 {/* Scrollable body */}
@@ -139,7 +141,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                                     <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "#8b5cf6" }}>Score</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>Beast Score</p>
+                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.beastScore")}</p>
                         </div>
 
                         {/* Center: Grade */}
@@ -171,7 +173,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                                     <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "#10b981" }}>Done</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>Abschluss</p>
+                            <p className="text-[11px] font-semibold" style={{ color: textMuted }}>{t("training.liveStats.completion")}</p>
                         </div>
                     </div>
 
@@ -179,15 +181,15 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                     <div className="grid grid-cols-3 gap-2">
                         <StatPill icon={<Zap size={15} />}
                             value={stats.currentVolume >= 1000 ? `${(stats.currentVolume / 1000).toFixed(2)}t` : `${stats.currentVolume}kg`}
-                            label="Volumen" accent="#3b82f6"
+                            label={t("training.liveStats.volume")} accent="#3b82f6"
                             textPrimary={textPrimary} textSecondary={textMuted} />
                         <StatPill icon={<Target size={15} />}
                             value={`${stats.completedSets}`}
-                            label="Sätze" accent="#10b981"
+                            label={t("training.liveStats.sets")} accent="#10b981"
                             textPrimary={textPrimary} textSecondary={textMuted} />
                         <StatPill icon={<Trophy size={15} />}
                             value={`${stats.personalRecords}`}
-                            label="PRs" accent="#f59e0b" glow={stats.personalRecords > 0}
+                            label={t("training.liveStats.prs")} accent="#f59e0b" glow={stats.personalRecords > 0}
                             textPrimary={textPrimary} textSecondary={textMuted} />
                     </div>
 
@@ -214,7 +216,7 @@ export const LiveStatsOverlay: React.FC<Props> = ({ isOpen, onClose, workout, hi
                             style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
                             <div className="flex items-center gap-2 mb-1">
                                 <Flame size={13} className="text-orange-400" />
-                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: textMuted }}>Muskel Aktivierung</p>
+                                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: textMuted }}>{t("training.liveStats.muscleActivation")}</p>
                             </div>
                             {stats.muscleBars.map((m, i) => (
                                 <div key={i}>
@@ -315,13 +317,16 @@ const StatPill = ({ icon, value, label, accent, glow, textPrimary, textSecondary
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatMuscle(m: string): string {
-    const map: Record<string, string> = {
-        chest: "Brust", back: "Rücken", lats: "Lat", traps: "Nacken",
-        rear_delts: "Rück. Schulter", front_delts: "Vord. Schulter", side_delts: "Seitl. Schulter",
-        biceps: "Bizeps", triceps: "Trizeps", forearms: "Unterarme",
-        quads: "Quads", hamstrings: "Hamstrings", glutes: "Gesäß",
-        calves: "Waden", core: "Core", obliques: "Obliques",
-        lower_back: "Unt. Rücken", hip_flexors: "Hüftbeuger", Ganzkörper: "Ganzkörper",
+    // Uses i18n keys from training.muscle.* — called from useMemo so we use
+    // a static fallback map here. The component passes translated labels via
+    // the existing training.muscle keys at render time through muscleBars.
+    const fallback: Record<string, string> = {
+        chest: "Chest", back: "Back", lats: "Lats", traps: "Traps",
+        rear_delts: "Rear Delts", front_delts: "Front Delts", side_delts: "Side Delts",
+        biceps: "Biceps", triceps: "Triceps", forearms: "Forearms",
+        quads: "Quads", hamstrings: "Hamstrings", glutes: "Glutes",
+        calves: "Calves", core: "Core", obliques: "Obliques",
+        lower_back: "Lower Back", hip_flexors: "Hip Flexors", Ganzkörper: "Full Body",
     };
-    return map[m] || m;
+    return fallback[m] || m;
 }

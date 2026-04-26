@@ -38,12 +38,12 @@ export function loadDiaryEntries(dateISO?: string): DiaryEntry[] {
 }
 
 export function addDiaryEntry(entry: DiaryEntry): void {
-  if (!entry.updatedAt) entry.updatedAt = entry.createdAt || new Date().toISOString();
+  const normalized = { ...entry, updatedAt: entry.updatedAt ?? entry.createdAt ?? new Date().toISOString() };
   const all = loadDiaryEntries();
-  all.push(entry);
+  all.push(normalized);
   setScopedItem(DIARY_KEY, JSON.stringify(all), userId());
   fireUpdate();
-  pushEntry(entry);
+  pushEntry(normalized);
 }
 
 export function updateDiaryEntry(

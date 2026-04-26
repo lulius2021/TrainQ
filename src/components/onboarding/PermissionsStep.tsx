@@ -7,6 +7,7 @@ import { Camera, MapPin, Bell } from "lucide-react";
 import { AppButton } from "../ui/AppButton";
 import { requestLocationPermission } from "../../native/geolocation";
 import { requestNotificationPermission } from "../../native/notifications";
+import { useI18n } from "../../i18n/useI18n";
 
 type PermissionStatus = "idle" | "granted" | "denied";
 
@@ -17,26 +18,29 @@ interface PermissionItem {
   description: string;
 }
 
-const PERMISSIONS: PermissionItem[] = [
-  {
-    key: "camera",
-    icon: <Camera size={24} />,
-    title: "Kamera",
-    description: "Für Food-Scanning und Fortschrittsfotos",
-  },
-  {
-    key: "location",
-    icon: <MapPin size={24} />,
-    title: "Standort",
-    description: "Für GPS-Tracking beim Laufen & Radfahren",
-  },
-  {
-    key: "notifications",
-    icon: <Bell size={24} />,
-    title: "Benachrichtigungen",
-    description: "Für Trainingserinnerungen & Motivation",
-  },
-];
+function usePermissionItems(): PermissionItem[] {
+  const { t } = useI18n();
+  return [
+    {
+      key: "camera",
+      icon: <Camera size={24} />,
+      title: t("onboarding.permissions.camera"),
+      description: t("onboarding.permissions.cameraDesc"),
+    },
+    {
+      key: "location",
+      icon: <MapPin size={24} />,
+      title: t("onboarding.permissions.location"),
+      description: t("onboarding.permissions.locationDesc"),
+    },
+    {
+      key: "notifications",
+      icon: <Bell size={24} />,
+      title: t("onboarding.permissions.notifications"),
+      description: t("onboarding.permissions.notificationsDesc"),
+    },
+  ];
+}
 
 async function requestCameraPermission(): Promise<boolean> {
   try {
@@ -50,6 +54,8 @@ async function requestCameraPermission(): Promise<boolean> {
 }
 
 const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
+  const { t } = useI18n();
+  const PERMISSIONS = usePermissionItems();
   const [statuses, setStatuses] = useState<Record<string, PermissionStatus>>({
     camera: "idle",
     location: "idle",
@@ -91,11 +97,10 @@ const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
         className="text-2xl font-bold tracking-tight mb-2"
         style={{ color: "var(--text-color)" }}
       >
-        Berechtigungen
+        {t("onboarding.permissions.title")}
       </h2>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        TrainQ braucht kurz deine Erlaubnis — du kannst jede davon jederzeit
-        widerrufen.
+        {t("onboarding.permissions.subtitle")}
       </p>
 
       <div className="flex flex-col gap-4 mb-auto">
@@ -137,7 +142,7 @@ const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
               <div className="shrink-0">
                 {isGranted ? (
                   <span className="text-sm font-bold text-emerald-500 whitespace-nowrap">
-                    Erteilt ✓
+                    {t("onboarding.permissions.granted")}
                   </span>
                 ) : (
                   <button
@@ -149,7 +154,7 @@ const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
                       color: "#fff",
                     }}
                   >
-                    {isLoading ? "..." : "Erlauben"}
+                    {isLoading ? "..." : t("onboarding.permissions.allow")}
                   </button>
                 )}
               </div>
@@ -165,7 +170,7 @@ const PermissionsStep: React.FC<{ onNext: () => void }> = ({ onNext }) => {
           size="lg"
           className="!rounded-2xl !text-lg !font-black shadow-lg"
         >
-          Weiter
+          {t("common.next")}
         </AppButton>
       </div>
     </div>

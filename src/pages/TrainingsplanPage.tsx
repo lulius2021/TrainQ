@@ -49,14 +49,14 @@ type WeeklySportType = "Gym" | "Laufen" | "Radfahren" | "Custom" | "Ruhetag";
 type TrainingSportType = Exclude<WeeklySportType, "Ruhetag">;
 
 type ExerciseSet = {
-  id: number;
+  id: string | number;
   reps?: number;
   weight?: number;
   notes?: string;
 };
 
 type BlockExercise = {
-  id: number;
+  id: string | number;
   exerciseId?: string;
   name: string;
   sets: ExerciseSet[];
@@ -179,13 +179,11 @@ const STORAGE_KEY_PLAN_START_ISO = "trainq_plan_start_date_iso";
 const STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID = "trainq_last_import_template_id_v1";
 
 // IDs für Übungen/Sätze
-let blockExerciseIdCounter = 1;
-let exerciseSetIdCounter = 1;
 function nextBlockExerciseId() {
-  return blockExerciseIdCounter++;
+  return crypto.randomUUID();
 }
 function nextExerciseSetId() {
-  return exerciseSetIdCounter++;
+  return crypto.randomUUID();
 }
 
 // Helpers

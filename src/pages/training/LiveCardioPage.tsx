@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useGpsTracking } from "../../hooks/useGpsTracking";
 import CardioMap, { type MapStyle } from "../../components/cardio/CardioMap";
+import GpsSignalIndicator from "../../components/cardio/GpsSignalIndicator";
+import { warmupGps } from "../../native/geolocation";
 import { addWorkoutEntry } from "../../utils/workoutHistory";
 import { useLiveTrainingStore } from "../../store/useLiveTrainingStore";
 import { clearLiveTrainingState } from "../../native/liveActivity";
@@ -118,6 +120,7 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
 }) => {
   const {
     state: gps,
+    gpsSignal,
     startTracking,
     pauseTracking,
     resumeTracking,
@@ -125,6 +128,11 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
     addLap,
     getElapsedMs,
   } = useGpsTracking();
+
+  // Warm up GPS receiver on mount (before user presses start)
+  useEffect(() => {
+    warmupGps();
+  }, []);
 
   const insets     = useSafeAreaInsets();
   const { user: authUser } = useAuth();
@@ -321,13 +329,16 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
               <ChevronDown size={22} className="text-white" />
             </button>
 
-            {/* Timer + sport */}
+            {/* Timer + sport + GPS signal */}
             <div className="text-center">
               <div className="text-white font-black tabular-nums text-2xl leading-none drop-shadow">
                 {formatElapsedSec(elapsedSec)}
               </div>
               <div className="text-white/70 text-[11px] uppercase tracking-widest mt-0.5">
                 {isPaused ? "Pausiert" : isCycling ? "Radfahren" : "Laufen"}
+              </div>
+              <div className="mt-1 flex justify-center">
+                <GpsSignalIndicator signal={gpsSignal} />
               </div>
             </div>
 

@@ -101,6 +101,7 @@ const SearchFoodSheet: React.FC<{
   onClose: () => void;
   onSelectProduct: (product: OFFSearchResult) => void;
 }> = ({ open, onClose, onSelectProduct }) => {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<OFFSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -137,7 +138,7 @@ const SearchFoodSheet: React.FC<{
       showHandle
       header={
         <div className="px-5 pb-2">
-          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--text-color)" }}>Lebensmittel suchen</h2>
+          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--text-color)" }}>{t("nutrition.search.title")}</h2>
           <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] flex items-center gap-2 px-3 py-2">
             <Search size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
             <input
@@ -145,7 +146,7 @@ const SearchFoodSheet: React.FC<{
               type="text"
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="z.B. Nutella, Skyr, Haferflocken..."
+              placeholder={t("nutrition.search.placeholder")}
               className="flex-1 bg-transparent text-sm outline-none min-w-0"
               style={{ color: "var(--text-color)" }}
               autoComplete="off"
@@ -165,13 +166,13 @@ const SearchFoodSheet: React.FC<{
         {searching && (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 size={18} className="animate-spin" style={{ color: "var(--accent-color)" }} />
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Suche...</span>
+            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("nutrition.search.searching")}</span>
           </div>
         )}
         {!searching && query.trim().length >= 2 && results.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Keine Ergebnisse gefunden</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Versuche einen anderen Suchbegriff</p>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("nutrition.search.noResults")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{t("nutrition.search.tryDifferent")}</p>
           </div>
         )}
         {!searching && results.map((r, i) => (

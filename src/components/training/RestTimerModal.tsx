@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { hapticLight } from "../../native/haptics";
 import { BottomSheet } from "../common/BottomSheet";
+import { useI18n } from "../../i18n/useI18n";
 
 type Props = {
     open: boolean;
@@ -13,6 +14,7 @@ const minOptions = Array.from({ length: 16 }, (_, i) => i); // 0–15
 const secOptions = Array.from({ length: 12 }, (_, i) => i * 5); // 0,5,10...55
 
 export default function RestTimerModal({ open, onClose, initialSeconds = 90, onSave }: Props) {
+    const { t } = useI18n();
     const [minutes, setMinutes] = useState(1);
     const [seconds, setSeconds] = useState(30);
 
@@ -75,14 +77,14 @@ export default function RestTimerModal({ open, onClose, initialSeconds = 90, onS
                         className="flex-1 py-3.5 rounded-2xl font-bold text-[15px] border transition-all active:scale-[0.97]"
                         style={{ borderColor: "var(--border-color)", color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
                     >
-                        Abbrechen
+                        {t("common.cancel")}
                     </button>
                     <button
                         onClick={handleApply}
                         className="flex-1 py-3.5 rounded-2xl font-bold text-[15px] text-white transition-all active:scale-[0.97]"
                         style={{ backgroundColor: "#007AFF", boxShadow: "0 4px 16px rgba(0,122,255,0.35)" }}
                     >
-                        Fertig
+                        {t("common.done")}
                     </button>
                 </div>
             }
@@ -90,7 +92,7 @@ export default function RestTimerModal({ open, onClose, initialSeconds = 90, onS
             <div className="px-5 pt-2 pb-4">
                 {/* Header */}
                 <div className="flex items-baseline justify-between mb-5">
-                    <h2 className="text-[22px] font-black" style={{ color: "var(--text-color)" }}>Pausenzeit</h2>
+                    <h2 className="text-[22px] font-black" style={{ color: "var(--text-color)" }}>{t("training.rest.title")}</h2>
                     <span className="text-[28px] font-black tabular-nums" style={{ color: "#007AFF" }}>{preview}</span>
                 </div>
 
@@ -118,7 +120,7 @@ export default function RestTimerModal({ open, onClose, initialSeconds = 90, onS
                 {/* Native select pickers */}
                 <div className="flex items-center justify-center gap-3">
                     <div className="flex flex-col items-center gap-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Min</span>
+                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>{t("training.rest.min")}</span>
                         <select
                             value={minutes}
                             onChange={(e) => { setMinutes(Number(e.target.value)); hapticLight(); }}
@@ -133,7 +135,7 @@ export default function RestTimerModal({ open, onClose, initialSeconds = 90, onS
                     <span className="text-[36px] font-black mt-5" style={{ color: "var(--text-color)" }}>:</span>
 
                     <div className="flex flex-col items-center gap-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Sek</span>
+                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>{t("training.rest.sec")}</span>
                         <select
                             value={seconds}
                             onChange={(e) => { setSeconds(Number(e.target.value)); hapticLight(); }}

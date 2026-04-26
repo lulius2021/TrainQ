@@ -1,6 +1,7 @@
 // src/components/training/TrainingModeSelector.tsx
 import React from "react";
 import type { TrainingMode } from "../../lib/trainingLogic";
+import { useI18n } from "../../i18n/useI18n";
 
 interface TrainingModeSelectorProps {
   value: TrainingMode;
@@ -8,17 +9,19 @@ interface TrainingModeSelectorProps {
   className?: string;
 }
 
-const LABELS: Record<TrainingMode, string> = {
-  gym: "Gym",
-  running: "Laufen",
-  cycling: "Radfahren",
-};
-
 export const TrainingModeSelector: React.FC<TrainingModeSelectorProps> = ({
   value,
   onChange,
   className = "",
 }) => {
+  const { t } = useI18n();
+
+  const LABELS: Record<TrainingMode, string> = {
+    gym: t("training.mode.gym"),
+    running: t("training.mode.running"),
+    cycling: t("training.mode.cycling"),
+  };
+
   return (
     <div
       className={

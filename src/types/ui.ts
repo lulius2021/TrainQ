@@ -9,6 +9,6 @@ export interface CalendarEvent {
     duration: number;
     intensity: "low" | "medium" | "high";
     color?: string;
-    workoutData?: any;
+    workoutData?: { exercises?: unknown[]; templateId?: string };
     status: "planned" | "completed" | "skipped" | "open";
 }

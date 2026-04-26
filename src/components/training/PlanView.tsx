@@ -1,6 +1,7 @@
 
 import React from "react";
 import { Calendar, Minus, Plus, Layout, FileText } from "lucide-react";
+import { useI18n } from "../../i18n/useI18n";
 
 type PlanTab = "weekly" | "routine";
 
@@ -26,6 +27,7 @@ export default function PlanView({
     onOpenWorkoutTemplates,
     onOpenPlanTemplates,
 }: PlanViewProps) {
+    const { t } = useI18n();
     const dateLabel = new Date(startDateISO).toLocaleDateString("de-DE", {
         day: "2-digit", month: "short", year: "numeric",
     });
@@ -48,7 +50,7 @@ export default function PlanView({
                             boxShadow: activeTab === tab ? "0 1px 4px rgba(0,0,0,0.12)" : "none",
                         }}
                     >
-                        {tab === "weekly" ? "Wochenplan" : "Routine"}
+                        {tab === "weekly" ? t("training.plan.weeklyPlan") : t("training.plan.routine")}
                     </button>
                 ))}
             </div>
@@ -64,7 +66,7 @@ export default function PlanView({
                         <Calendar size={16} className="text-blue-500" />
                     </div>
                     <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Start</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>{t("training.plan.start")}</div>
                         <div className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>{dateLabel}</div>
                     </div>
                     <input
@@ -81,8 +83,8 @@ export default function PlanView({
                 {/* Duration */}
                 <div className="flex items-center gap-2">
                     <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Dauer</div>
-                        <div className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>{durationWeeks} Wo.</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>{t("training.plan.duration")}</div>
+                        <div className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>{durationWeeks} {t("training.plan.weeksShort")}</div>
                     </div>
                     <div className="flex items-center gap-1">
                         <button
@@ -114,8 +116,8 @@ export default function PlanView({
                         <Layout size={14} className="text-blue-400" />
                     </div>
                     <div className="text-left">
-                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>Workouts</div>
-                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Vorlagen</div>
+                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.workouts")}</div>
+                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.templates")}</div>
                     </div>
                 </button>
                 <button
@@ -127,8 +129,8 @@ export default function PlanView({
                         <FileText size={14} className="text-purple-400" />
                     </div>
                     <div className="text-left">
-                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>Pläne</div>
-                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>Wochenpläne</div>
+                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.plans")}</div>
+                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.weeklyPlans")}</div>
                     </div>
                 </button>
             </div>

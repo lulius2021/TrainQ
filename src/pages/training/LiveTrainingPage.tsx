@@ -399,8 +399,8 @@ export default function LiveTrainingPage({
     const launchLiveActivity = (w: LiveWorkout) => {
       const allSets = w.exercises.flatMap((e) => e.sets || []);
       startFreshLiveActivity({
-        exerciseName: w.title || "Training",
-        setInfo: "Training gestartet",
+        exerciseName: w.title || t("liveTraining.training"),
+        setInfo: t("liveTraining.started"),
         setDetail: "",
         completedSets: 0,
         totalSetsCount: allSets.length,
@@ -514,7 +514,7 @@ export default function LiveTrainingPage({
       setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
     } catch (err) {
       if (import.meta.env.DEV) console.error("[LiveTraining] init error", err);
-      setInitError("Live-Training konnte nicht gestartet werden.");
+      setInitError(t("liveTraining.initError"));
       setInitDone(true);
     }
   }, [
@@ -541,7 +541,8 @@ export default function LiveTrainingPage({
       }
     }
     return map;
-  }, [workout?.exercises?.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workout?.exercises?.length, workout?.exercises?.map(e => e.exerciseId ?? e.name).join(",")]);
 
   const totalSets = useMemo(() => {
     if (!workout) return 0;
@@ -621,9 +622,9 @@ export default function LiveTrainingPage({
   const overlayData = useMemo(() => {
     if (!workout) return null;
 
-    const t = formatTimeParts(elapsedSec);
-    const showHours = t.h > 0;
-    const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
+    const tp = formatTimeParts(elapsedSec);
+    const showHours = tp.h > 0;
+    const elapsedText = showHours ? `${tp.h}:${tp.mm}:${tp.ss}` : `${Number(tp.mm)}:${tp.ss}`;
     const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
 
     const overlayMode =
@@ -657,13 +658,13 @@ export default function LiveTrainingPage({
 
     const overlaySubtitle = isCardioWorkout
       ? activeExercise
-        ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
-        : "Einheit 0/0"
+        ? t("liveTraining.unitXofY", { x: activeExerciseIndex + 1, y: exercises.length })
+        : t("liveTraining.unitXofY", { x: 0, y: 0 })
       : activeSet
-        ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
+        ? t("liveTraining.setXofY", { x: activeSetIndex + 1, y: activeSets.length })
         : activeExercise
-          ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
-          : "Übung 0/0";
+          ? t("liveTraining.exerciseXofY", { x: activeExerciseIndex + 1, y: exercises.length })
+          : t("liveTraining.exerciseXofY", { x: 0, y: 0 });
 
     const overlayPrimaryText = isCardioWorkout
       ? cardioDistance > 0
@@ -672,14 +673,14 @@ export default function LiveTrainingPage({
           ? `${elapsedText} • ${cardioMinutes} min`
           : `${elapsedText}`
       : restRemainingSec != null && restRemainingSec > 0
-        ? `Pause ${formatMmSs(restRemainingSec)}`
+        ? `${t("liveTraining.pause")} ${formatMmSs(restRemainingSec)}`
         : activeSet
-          ? `Satz ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
+          ? `${t("liveTraining.setShort")} ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
           : activeExercise
-            ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
-            : "Workout läuft";
+            ? t("liveTraining.exerciseXofY", { x: activeExerciseIndex + 1, y: exercises.length })
+            : t("liveTraining.workoutRunning");
 
-    const overlayRightTopText = restRemainingSec != null && restRemainingSec > 0 ? `${restRemainingSec} Sek.` : undefined;
+    const overlayRightTopText = restRemainingSec != null && restRemainingSec > 0 ? `${restRemainingSec} ${t("liveTraining.secShort")}` : undefined;
 
     return {
       elapsedText,
@@ -988,15 +989,16 @@ export default function LiveTrainingPage({
   }, [swappingExerciseId]);
 
   const moveExercise = (exerciseId: string, direction: "up" | "down") => {
-    if (!workout) return;
-    const idx = workout.exercises.findIndex((e) => e.id === exerciseId);
-    if (idx === -1) return;
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= workout.exercises.length) return;
-
-    const newExercises = [...workout.exercises];
-    [newExercises[idx], newExercises[newIdx]] = [newExercises[newIdx], newExercises[idx]];
-    setWorkout((prev) => (prev ? { ...prev, exercises: newExercises } : prev));
+    setWorkout((prev) => {
+      if (!prev) return prev;
+      const idx = prev.exercises.findIndex((e) => e.id === exerciseId);
+      if (idx === -1) return prev;
+      const newIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.exercises.length) return prev;
+      const arr = [...prev.exercises];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return { ...prev, exercises: arr };
+    });
   };
 
   const updateExercise = (exerciseId: string, patch: Partial<LiveExercise>) => {
@@ -1174,8 +1176,8 @@ export default function LiveTrainingPage({
 
     if (!currentEx) {
       return {
-        exerciseName: workout.title || "Training",
-        setInfo: "Training läuft",
+        exerciseName: workout.title || t("liveTraining.training"),
+        setInfo: t("liveTraining.trainingRunning"),
         setDetail: "",
         completedSets: allCompleted,
         totalSetsCount: allSets.length,
@@ -1187,7 +1189,7 @@ export default function LiveTrainingPage({
     const totalSetsCount = currentEx.sets?.length || 0;
     const completedSets = (currentEx.sets || []).filter((s) => s.completed).length;
     const setNumber = (overlayData.activeSetIndex ?? 0) + 1;
-    const currentSetInfo = `Satz ${setNumber} von ${totalSetsCount}`;
+    const currentSetInfo = t("liveTraining.setXofY", { x: setNumber, y: totalSetsCount });
 
     // Detail for active set: "80 kg × 8 Wdh"
     const activeSet = overlayData.activeSetIndex != null ? currentEx.sets?.[overlayData.activeSetIndex] : undefined;
@@ -1203,7 +1205,7 @@ export default function LiveTrainingPage({
       : 0;
 
     return {
-      exerciseName: currentEx.name || "Übung",
+      exerciseName: currentEx.name || t("liveTraining.exercise"),
       setInfo: currentSetInfo,
       setDetail,
       completedSets,
@@ -1405,11 +1407,11 @@ export default function LiveTrainingPage({
         style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
       >
         <AppCard className="w-full max-w-md text-center">
-          <div className="text-sm font-semibold">Lade Live-Training…</div>
+          <div className="text-sm font-semibold">{t("liveTraining.loading")}</div>
           {initDone && (
             <>
               <div className="mt-2 text-xs" style={{ color: theme.colors.textSecondary }}>
-                {initError || "Kein Live-Workout gefunden."}
+                {initError || t("liveTraining.notFound")}
               </div>
               <AppButton
                 onClick={onExit}
@@ -1417,8 +1419,7 @@ export default function LiveTrainingPage({
                 variant="secondary"
                 fullWidth
               >
-                Zurück
-              </AppButton>
+                {t("common.back")}</AppButton>
             </>
           )}
         </AppCard>
@@ -1487,7 +1488,7 @@ export default function LiveTrainingPage({
                     size="sm"
                     className="px-6 shadow-[0_0_20px_theme(colors.sky.500/50%)] btn-haptic"
                   >
-                    Beenden
+                    {t("common.finish")}
                   </AppButton>
                 }
               />
@@ -1513,10 +1514,10 @@ export default function LiveTrainingPage({
               {exercises.length === 0 ? (
                 <AppCard variant="soft" className="p-5 text-center bg-[var(--card-bg)]">
                   <div className="text-base mb-4 text-[var(--text-secondary)]">
-                    Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
+                    {isCardioWorkout ? t("liveTraining.noUnitsYet") : t("liveTraining.noExercisesYet")}
                   </div>
                   <AppButton onClick={() => setLibraryOpen(true)} className="w-full btn-haptic" variant="secondary">
-                    + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                    + {isCardioWorkout ? t("liveTraining.addUnit") : t("liveTraining.addExercise")}
                   </AppButton>
                 </AppCard>
               ) : (
@@ -1550,7 +1551,7 @@ export default function LiveTrainingPage({
                   ))}
 
                   <AppButton onClick={() => setLibraryOpen(true)} variant="ghost" fullWidth className="py-6 border-dashed border-2 bg-transparent hover:bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--text-color)] btn-haptic">
-                    + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                    + {isCardioWorkout ? t("liveTraining.addUnit") : t("liveTraining.addExercise")}
                   </AppButton>
                 </div>
               )}
@@ -1578,10 +1579,10 @@ export default function LiveTrainingPage({
             <div className="mx-auto w-full max-w-5xl">
               <div className="flex gap-3">
                 <AppButton onClick={minimize} variant="secondary" className="flex-1 h-12 btn-haptic bg-[var(--card-bg)] text-[var(--text-color)] border border-[var(--border-color)]">
-                  Minimieren
+                  {t("liveTraining.minimize")}
                 </AppButton>
-                <AppButton onClick={handleAbortClick} variant="ghost" className="flex-1 h-12 text-red-500 hover:bg-red-500/10 hover:text-red-600 btn-haptic" title="Training abbrechen">
-                  Abbrechen
+                <AppButton onClick={handleAbortClick} variant="ghost" className="flex-1 h-12 text-red-500 hover:bg-red-500/10 hover:text-red-600 btn-haptic" title={t("live.abortTitle")}>
+                  {t("common.cancel")}
                 </AppButton>
               </div>
             </div>
@@ -1633,7 +1634,7 @@ export default function LiveTrainingPage({
                 size="sm"
                 className="rounded-full backdrop-blur shadow-lg border border-white/10 text-white"
               >
-                Fertig
+                {t("common.done")}
               </AppButton>
             }
           />
@@ -1663,23 +1664,23 @@ export default function LiveTrainingPage({
               <div className="w-16 h-16 rounded-full flex items-center justify-center text-red-500 mb-4" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
-              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>Training abbrechen?</h3>
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-color)" }}>{t("liveTraining.abortTitle")}</h3>
               <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                Alle bisherigen Daten dieses Workouts gehen verloren. Bist du sicher?
+                {t("liveTraining.abortMessage")}
               </p>
               <div className="flex flex-col gap-3 w-full">
                 <button
                   onClick={confirmAbort}
                   className="w-full py-3.5 rounded-xl bg-red-500 text-white font-bold active:scale-95 transition-transform"
                 >
-                  Ja, Abbrechen
+                  {t("liveTraining.abortConfirm")}
                 </button>
                 <button
                   onClick={() => setShowAbortConfirm(false)}
                   className="w-full py-3.5 rounded-xl font-semibold active:scale-95 transition-transform"
                   style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
                 >
-                  Nein, Weiter trainieren
+                  {t("liveTraining.abortCancel")}
                 </button>
               </div>
             </div>
@@ -1692,11 +1693,11 @@ export default function LiveTrainingPage({
             <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
               <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
 
-              <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-color)" }}>Zusammenfassung</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-color)" }}>{t("liveTraining.summary")}</h2>
 
               <div className="space-y-4 mb-8">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>Name des Trainings</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>{t("liveTraining.trainingName")}</label>
                   <input
                     type="text"
                     value={reviewName}
@@ -1709,11 +1710,11 @@ export default function LiveTrainingPage({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-4 rounded-2xl flex flex-col items-center" style={{ backgroundColor: "var(--bg-color)" }}>
-                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>Dauer</span>
+                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>{t("liveTraining.durationLabel")}</span>
                     <span className="text-xl font-bold tabular-nums" style={{ color: "var(--text-color)" }}>{overlayData?.elapsedText}</span>
                   </div>
                   <div className="p-4 rounded-2xl flex flex-col items-center" style={{ backgroundColor: "var(--bg-color)" }}>
-                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>Volumen</span>
+                    <span className="text-xs font-medium uppercase mb-1" style={{ color: "var(--text-secondary)" }}>{t("liveTraining.volumeLabel")}</span>
                     <span className="text-xl font-bold tabular-nums" style={{ color: "var(--text-color)" }}>
                       {isCardioWorkout
                         ? (overlayData?.cardioDistance ? overlayData.cardioDistance.toFixed(1) + " km" : "-")
@@ -1726,7 +1727,7 @@ export default function LiveTrainingPage({
 
               {/* Star Rating */}
               <div className="mb-5">
-                <label className="block text-xs font-bold uppercase tracking-wider mb-3 text-center" style={{ color: "var(--text-secondary)" }}>Wie war das Training?</label>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3 text-center" style={{ color: "var(--text-secondary)" }}>{t("liveTraining.howWasTraining")}</label>
                 <div className="flex justify-center gap-3">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -1809,23 +1810,23 @@ export default function LiveTrainingPage({
             <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
               <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
               <div className="text-4xl text-center mb-4">📋</div>
-              <h2 className="text-xl font-bold text-center mb-2" style={{ color: "var(--text-color)" }}>Als Vorlage speichern?</h2>
+              <h2 className="text-xl font-bold text-center mb-2" style={{ color: "var(--text-color)" }}>{t("liveTraining.saveAsTemplate")}</h2>
               <p className="text-sm text-center mb-8" style={{ color: "var(--text-secondary)" }}>
-                Speichere dieses Training als Vorlage, um es später schnell wieder zu starten.
+                {t("liveTraining.saveAsTemplateDesc")}
               </p>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleConfirmSaveTemplate}
                   className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
                 >
-                  Ja, als Vorlage speichern
+                  {t("liveTraining.saveAsTemplateConfirm")}
                 </button>
                 <button
                   onClick={handleSkipSaveTemplate}
                   className="w-full py-3 rounded-xl font-medium transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Überspringen
+                  {t("liveTraining.skip")}
                 </button>
               </div>
             </div>
@@ -1837,7 +1838,7 @@ export default function LiveTrainingPage({
           <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
             <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
               <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
-              <h2 className="text-xl font-bold mb-6" style={{ color: "var(--text-color)" }}>Vorlage erstellen</h2>
+              <h2 className="text-xl font-bold mb-6" style={{ color: "var(--text-color)" }}>{t("liveTraining.createTemplate")}</h2>
 
               {/* Icon Picker */}
               <div className="mb-5">
@@ -1914,14 +1915,14 @@ export default function LiveTrainingPage({
                   className="w-full py-4 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-[0.98] transition-all"
                   style={{ backgroundColor: tplColor, boxShadow: `0 8px 24px ${tplColor}40` }}
                 >
-                  <span className="flex items-center justify-center gap-2"><TemplateIcon iconId={tplEmoji} size={18} /> Vorlage speichern</span>
+                  <span className="flex items-center justify-center gap-2"><TemplateIcon iconId={tplEmoji} size={18} /> {t("startToday.saveTemplate")}</span>
                 </button>
                 <button
                   onClick={handleSkipSaveTemplate}
                   className="w-full py-3 rounded-xl font-medium transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Abbrechen
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>

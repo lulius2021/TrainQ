@@ -33,9 +33,8 @@ export async function requestLocationPermission(): Promise<boolean> {
 export async function getCurrentPosition(): Promise<GpsPoint | null> {
   try {
     const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: false, // fast coarse fix first (GPS cold start)
-      timeout: 10000,
-      maximumAge: 60000,        // accept cached position up to 1 min old
+      enableHighAccuracy: true,
+      timeout: 15000,
     });
     return {
       lat: pos.coords.latitude,
@@ -93,5 +92,21 @@ export async function clearWatch(id: WatchCallbackId): Promise<void> {
     await Geolocation.clearWatch({ id });
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Warm up the GPS receiver by requesting a single high-accuracy position.
+ * Call this early (e.g. when the cardio page mounts) so the GPS chip is
+ * already locked on satellites by the time the user taps "Start".
+ */
+export async function warmupGps(): Promise<void> {
+  try {
+    await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+    });
+  } catch {
+    // Best-effort warmup — failure is fine
   }
 }

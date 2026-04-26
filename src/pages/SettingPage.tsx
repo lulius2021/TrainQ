@@ -329,7 +329,10 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
         try {
             const dbRef = await ProfileService.uploadProfileImage(file);
             const blobUrl = URL.createObjectURL(file);
-            setProfileImageSrc(blobUrl);
+            setProfileImageSrc((prev) => {
+                if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                return blobUrl;
+            });
             setProfileImageUrlRaw(dbRef);
             // Optional: Auto-save immediately to ensure image works if app crashes
             ProfileService.updateUserProfile({ profileImageUrl: dbRef });

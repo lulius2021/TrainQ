@@ -71,6 +71,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     onClose: () => void;
     onSave: (t: { title: string; sportType: TrainingType; exercises?: TemplateExercise[] }) => void;
 }) {
+    const { t } = useI18n();
     const [title, setTitle] = useState("");
     const [sport, setSport] = useState<TrainingType>("gym");
     const [exercises, setExercises] = useState<TemplateExercise[]>([]);
@@ -181,7 +182,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                             className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white active:scale-[0.97] transition-all disabled:opacity-40"
                             style={{ backgroundColor: activeSport.color, boxShadow: `0 4px 16px ${activeSport.color}55` }}
                         >
-                            Vorlage speichern
+                            {t("startToday.saveTemplate")}
                         </button>
                     </div>
                 }
@@ -190,10 +191,10 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                     {/* Header */}
                     <div>
                         <h2 className="text-[28px] font-black tracking-tight" style={{ color: "var(--text-color)", letterSpacing: "-0.5px" }}>
-                            Vorlage erstellen
+                            {t("startToday.createTemplate")}
                         </h2>
                         <p className="text-[14px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                            Speichere dein Lieblingstraining
+                            {t("startToday.saveYourFavorite")}
                         </p>
                     </div>
 
@@ -218,7 +219,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
 
                     {/* Title */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>Bezeichnung</label>
+                        <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>{t("startToday.label")}</label>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -313,7 +314,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: activeSport.bg, color: activeSport.color }}>
                                         {activeSport.icon}
                                     </div>
-                                    <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>Übungen hinzufügen</span>
+                                    <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>{t("startToday.addExercises")}</span>
                                 </button>
                             )}
                         </div>
@@ -323,7 +324,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                     {isCardio && (
                         <div className="space-y-2">
                             <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>
-                                {sport === "laufen" ? "Lauf-Parameter" : "Rad-Parameter"}
+                                {sport === "laufen" ? t("startToday.runParams") : t("startToday.bikeParams")}
                             </label>
                             <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
                                 <div>
@@ -367,6 +368,7 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
     onConfirm: () => void;
     onCancel: () => void;
 }) {
+    const { t } = useI18n();
     return (
         <BottomSheet
             open
@@ -375,7 +377,7 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
             showHandle
             header={
                 <div className="text-center space-y-1 px-6">
-                    <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Training starten?</p>
+                    <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>{t("startToday.startTraining")}</p>
                     <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{pendingLabel}</p>
                 </div>
             }
@@ -386,14 +388,14 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
                 className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
                 style={{ backgroundColor: "#007AFF" }}
             >
-                Starten
+                {t("startToday.start")}
             </button>
             <button
                 onPointerDown={() => { hapticButton(); onCancel(); }}
                 className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
                 style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
             >
-                Abbrechen
+                {t("common.cancel")}
             </button>
         </BottomSheet>
     );
@@ -401,7 +403,7 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
 
 // ---- Main Page ----
 export default function StartTodayPage({ events, onPlanTraining }: StartTodayPageProps) {
-    const { formatDate } = useI18n();
+    const { t, formatDate } = useI18n();
     const { sessions, status, primarySession } = useTodaysSessions(events);
     const activeWorkout = useLiveTrainingStore((s) => s.activeWorkout);
     const hasActiveWorkout = !!activeWorkout?.isActive;
@@ -467,7 +469,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                     >
                         <AlertTriangle size={18} className="text-amber-500 shrink-0" />
                         <p className="text-[13px] font-medium" style={{ color: "var(--text-color)" }}>
-                            Ein Training läuft bereits. Beende es zuerst.
+                            {t("startToday.activeWorkoutWarning")}
                         </p>
                     </div>
                 )}
@@ -478,7 +480,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         className="text-[11px] font-bold uppercase tracking-wider pl-1"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Heute geplant
+                        {t("today.section.planned")}
                     </h2>
 
                     {hasSessions ? (
@@ -528,10 +530,10 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 <Dumbbell size={18} style={{ color: "var(--text-secondary)" }} />
                             </div>
                             <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                                Kein Training geplant
+                                {t("today.empty.title")}
                             </p>
                             <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                Plane Trainings im Kalender oder starte unten ein freies Workout
+                                {t("today.empty.subtitle")}
                             </p>
                         </div>
                     )}
@@ -543,7 +545,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         className="text-[11px] font-bold uppercase tracking-wider pl-1"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Schnellstart
+                        {t("startToday.quickStart")}
                     </h2>
 
                     <div className="grid grid-cols-3 gap-2.5">
@@ -561,8 +563,8 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 <Dumbbell size={26} />
                             </div>
                             <div className="text-center">
-                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Gym</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>Krafttraining</p>
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.gym")}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{t("startToday.strength")}</p>
                             </div>
                         </button>
 
@@ -580,7 +582,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 <Footprints size={26} />
                             </div>
                             <div className="text-center">
-                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Laufen</p>
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.running")}</p>
                                 <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
                             </div>
                         </button>
@@ -599,7 +601,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 <Bike size={26} />
                             </div>
                             <div className="text-center">
-                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>Radfahren</p>
+                                <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.cycling")}</p>
                                 <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
                             </div>
                         </button>
@@ -612,7 +614,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         className="text-[11px] font-bold uppercase tracking-wider pl-1"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Meine Vorlagen
+                        {t("startToday.myTemplates")}
                     </h2>
 
                     {/* Empty state */}
@@ -672,7 +674,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         >
                             <Plus size={16} style={{ color: "var(--text-secondary)" }} />
                             <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                                Vorlage erstellen
+                                {t("startToday.createTemplate")}
                             </span>
                         </button>
                     </section>

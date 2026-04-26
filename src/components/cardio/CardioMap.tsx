@@ -122,6 +122,9 @@ const CardioMap: React.FC<CardioMapProps> = ({
     polylineRef.current = polyline;
     tileLayerRef.current = tiles;
 
+    // Disable follow mode when user manually drags the map
+    map.on("dragstart", () => setFollowMode(false));
+
     // Capacitor WKWebView needs multiple invalidateSize calls — the layout
     // isn't always finalized when requestAnimationFrame fires.
     requestAnimationFrame(() => map.invalidateSize());
@@ -243,14 +246,7 @@ const CardioMap: React.FC<CardioMapProps> = ({
     }
   };
 
-  // Disable follow mode when user manually drags the map
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const onDrag = () => setFollowMode(false);
-    map.on("dragstart", onDrag);
-    return () => { map.off("dragstart", onDrag); };
-  }, [mapRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Drag listener is set up in the map initialization effect above
 
 
   return (

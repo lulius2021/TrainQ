@@ -1,5 +1,6 @@
 // src/components/profile/ProfileStatsDashboard.tsx
 import React, { useMemo, useState, useEffect } from "react";
+import { useI18n } from "../../i18n/useI18n";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import {
   computeAllTimeE1RMPR,
@@ -97,8 +98,8 @@ function BarChart({ series, labelFormatter }: { series: DailyValue[] | WeeklyVal
   );
 }
 
-function LineChart({ series }: { series: DailyValue[] }) {
-  if (series.length < 2) return <div className="h-36 flex items-center justify-center text-sm text-gray-400">Nicht genügend Datenpunkte.</div>;
+function LineChart({ series, emptyLabel = "Not enough data points." }: { series: DailyValue[]; emptyLabel?: string }) {
+  if (series.length < 2) return <div className="h-36 flex items-center justify-center text-sm text-gray-400">{emptyLabel}</div>;
 
   const values = series.map(s => s.value);
   const min = Math.min(...values);
@@ -129,10 +130,19 @@ function LineChart({ series }: { series: DailyValue[] }) {
   );
 }
 
-const StatWidget: React.FC<{ title: string; value?: string; hint?: string; children?: React.ReactNode; className?: string; }> = ({ title, value = "—", hint, children, className }) => (
+const PROFILE_STAT_INFO_KEYS = ["volume", "e1rm", "progression", "volumeDay", "volumeWeek", "trainingLoad"] as const;
+
+const StatWidget: React.FC<{ title: string; value?: string; hint?: string; infoKey?: string; onInfo?: (key: string) => void; children?: React.ReactNode; className?: string; }> = ({ title, value = "—", hint, infoKey, onInfo, children, className }) => (
   <div className={`rounded-[32px] p-8 backdrop-blur-xl flex flex-col justify-between border ${className}`} style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
     <div>
-      <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>{title}</h3>
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>{title}</h3>
+        {infoKey && onInfo && (
+          <button onClick={() => onInfo(infoKey)} className="opacity-40 hover:opacity-80 transition-opacity" style={{ color: "var(--text-muted)" }}>
+            <Info size={14} />
+          </button>
+        )}
+      </div>
       <p className="text-6xl font-black tabular-nums mt-2" style={{ color: "var(--text-color)" }}>{value}</p>
       {hint && <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{hint}</p>}
     </div>
@@ -140,8 +150,8 @@ const StatWidget: React.FC<{ title: string; value?: string; hint?: string; child
   </div>
 );
 
-function RecoveryChart({ series, color, label, unit }: { series: { date: string; value: number }[]; color: string; label: string; unit?: string }) {
-  if (series.length < 2) return <div className="h-24 flex items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>Nicht genügend Daten</div>;
+function RecoveryChart({ series, color, label, unit, emptyLabel = "Not enough data." }: { series: { date: string; value: number }[]; color: string; label: string; unit?: string; emptyLabel?: string }) {
+  if (series.length < 2) return <div className="h-24 flex items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>{emptyLabel}</div>;
   const values = series.map(s => s.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -166,9 +176,11 @@ function RecoveryChart({ series, color, label, unit }: { series: { date: string;
 }
 
 export default function ProfileStatsDashboard(props: Props) {
+  const { t } = useI18n();
   const { workouts, weeklyGoalMinutes = 0 } = props;
   const { preset, setPreset, range } = useRangeState();
   const [tab, setTab] = useState<StatsTab>("overview");
+  const [profileStatInfoKey, setProfileStatInfoKey] = useState<string | null>(null);
   const { connected: garminConnected } = useGarminConnection();
   const [garminMetrics, setGarminMetrics] = useState<GarminDailyMetrics[]>([]);
   const [garminSleep, setGarminSleep] = useState<GarminSleepSummary[]>([]);
@@ -232,7 +244,7 @@ export default function ProfileStatsDashboard(props: Props) {
               color: preset === k ? "#FFFFFF" : "var(--text-muted)"
             }}
           >
-            {k === "7d" ? "7 Tage" : k === "4w" ? "4 Wochen" : "12 Wochen"}
+            {k === "7d" ? t("stats.range.7d") : k === "4w" ? t("stats.range.4w") : t("stats.range.12w")}
           </button>
         ))}
       </div>
@@ -247,7 +259,7 @@ export default function ProfileStatsDashboard(props: Props) {
               color: tab === k ? "#FFFFFF" : "var(--text-muted)"
             }}
           >
-            {k === "overview" ? "Übersicht" : k === "strength" ? "Kraft" : k === "volume" ? "Volumen" : k === "load" ? "Belastung" : "Recovery"}
+            {k === "overview" ? t("stats.tab.overview") : k === "strength" ? t("stats.tab.strength") : k === "volume" ? t("stats.tab.volume") : k === "load" ? t("stats.tab.load") : t("stats.tab.recovery")}
           </button>
         ))}
       </div>
@@ -255,9 +267,9 @@ export default function ProfileStatsDashboard(props: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {tab === "overview" && (
           <>
-            <StatWidget title="Volumen" value={`${Math.round(totalVolume).toLocaleString("de-DE")} kg`} hint="Summe aus reps × weight" />
-            <StatWidget title="Trainingstage" value={trainingDays.length.toString()} hint={`Streak: ${streaks.current} (aktuell) · ${streaks.longest} (max)`} />
-            <StatWidget title="Trainingstage / Woche" className="md:col-span-2">
+            <StatWidget title={t("stats.info.volume.title")} value={`${Math.round(totalVolume).toLocaleString("de-DE")} kg`} hint={t("stats.volumeHint")} infoKey="volume" onInfo={setProfileStatInfoKey} />
+            <StatWidget title={t("stats.trainingDays")} value={trainingDays.length.toString()} hint={t("stats.streakHint", { current: streaks.current, longest: streaks.longest })} />
+            <StatWidget title={t("stats.trainingDaysPerWeek")} className="md:col-span-2">
               <BarChart series={weeklyTrainingDays} labelFormatter={formatWeekLabel} />
             </StatWidget>
           </>
@@ -266,35 +278,35 @@ export default function ProfileStatsDashboard(props: Props) {
         {tab === "strength" && (
           <>
             <div className="rounded-[32px] p-8 backdrop-blur-xl md:col-span-2 flex items-center justify-between border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-              <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>Übung für e1RM</h3>
+              <h3 className="text-lg font-bold" style={{ color: "var(--text-muted)" }}>{t("stats.exerciseForE1rm")}</h3>
               <select value={selectedExercise} onChange={e => setSelectedExercise(e.target.value)}
                 className="rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 border"
                 style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)", borderColor: "var(--border-color)" }}
               >
-                {allExercises.length === 0 && <option value="">Keine Übungen</option>}
+                {allExercises.length === 0 && <option value="">{t("stats.noExercises")}</option>}
                 {allExercises.map(name => <option key={name} value={name}>{name}</option>)}
               </select>
             </div>
-            <StatWidget title="e1RM Verlauf" hint={selectedExercise ? `All-Time PR: ${Math.round(allTimePR.get(selectedExercise) ?? 0)} kg` : ''}>
-              <LineChart series={bestE1RMSeries} />
+            <StatWidget title={t("stats.e1rmTrend")} hint={selectedExercise ? `All-Time PR: ${Math.round(allTimePR.get(selectedExercise) ?? 0)} kg` : ''} infoKey="e1rm" onInfo={setProfileStatInfoKey}>
+              <LineChart series={bestE1RMSeries} emptyLabel={t("stats.notEnoughData")} />
             </StatWidget>
-            <StatWidget title="Progression (7 vs 7 Tage)" value={`${Math.round(progressionDelta)}%`} hint="Basierend auf bestem e1RM" />
+            <StatWidget title={t("stats.progression7v7")} value={`${Math.round(progressionDelta)}%`} hint="Basierend auf bestem e1RM" infoKey="progression" onInfo={setProfileStatInfoKey} />
           </>
         )}
 
         {tab === "volume" && (
           <>
-            <StatWidget title="Volumen pro Tag" className="md:col-span-2">
+            <StatWidget title={t("stats.volumePerDay")} className="md:col-span-2" infoKey="volumeDay" onInfo={setProfileStatInfoKey}>
               <BarChart series={volumeByDay} labelFormatter={formatShortDate} />
             </StatWidget>
-            <StatWidget title="Volumen pro Woche" className="md:col-span-2">
+            <StatWidget title={t("stats.volumePerWeek")} className="md:col-span-2" infoKey="volumeWeek" onInfo={setProfileStatInfoKey}>
               <BarChart series={volumeByWeek} labelFormatter={formatWeekLabel} />
             </StatWidget>
           </>
         )}
 
         {tab === "load" && (
-          <StatWidget title="Belastung (sRPE × Dauer)" className="md:col-span-2">
+          <StatWidget title={`${t("stats.tab.load")} (sRPE × Dauer)`} className="md:col-span-2">
             {hasSrpeData ? (
               <>
                 <div className="flex items-baseline gap-3">
@@ -326,6 +338,7 @@ export default function ProfileStatsDashboard(props: Props) {
                     color="#00c853"
                     label="Aktuell"
                     unit="%"
+                    emptyLabel={t("stats.notEnoughData")}
                   />
                 </StatWidget>
 
@@ -336,6 +349,7 @@ export default function ProfileStatsDashboard(props: Props) {
                     color="#FF6B35"
                     label="Durchschnitt"
                     unit=""
+                    emptyLabel={t("stats.notEnoughData")}
                   />
                 </StatWidget>
 
@@ -346,6 +360,7 @@ export default function ProfileStatsDashboard(props: Props) {
                     color="#E63946"
                     label="Aktuell"
                     unit=" bpm"
+                    emptyLabel={t("stats.notEnoughData")}
                   />
                 </StatWidget>
 
@@ -357,6 +372,7 @@ export default function ProfileStatsDashboard(props: Props) {
                       color="#7C4DFF"
                       label="Sleep Score"
                       unit=""
+                      emptyLabel={t("stats.notEnoughData")}
                     />
                     {/* Sleep breakdown for latest night */}
                     {(() => {
@@ -411,6 +427,24 @@ export default function ProfileStatsDashboard(props: Props) {
           </>
         )}
       </div>
+
+      {/* Stat Info Sheet */}
+      {profileStatInfoKey && PROFILE_STAT_INFO_KEYS.includes(profileStatInfoKey as any) && (
+        <div className="fixed inset-0 z-[10030] flex items-end justify-center" onClick={() => setProfileStatInfoKey(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-t-3xl p-6 pb-10" style={{ backgroundColor: "var(--card-bg)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: "var(--border-color)" }} />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center">
+                <Info size={16} className="text-blue-500" />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t(`stats.info.${profileStatInfoKey}.title`)}</h3>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{t(`stats.info.${profileStatInfoKey}.description`)}</p>
+            <button onClick={() => setProfileStatInfoKey(null)} className="w-full mt-6 py-3 rounded-2xl font-bold text-sm" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}>{t("stats.info.understood")}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

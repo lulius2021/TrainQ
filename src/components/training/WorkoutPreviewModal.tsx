@@ -7,6 +7,7 @@ import { persistActiveLiveWorkout } from '../../utils/trainingHistory';
 import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
 import { getActiveUserId } from '../../utils/session';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useI18n } from '../../i18n/useI18n';
 
 interface WorkoutPreviewModalProps {
     event: CalendarEvent | null;
@@ -15,6 +16,7 @@ interface WorkoutPreviewModalProps {
 }
 
 const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalProps) => {
+    const { t } = useI18n();
     useBodyScrollLock(!!event);
     const [clickShield, setClickShield] = useState(false);
     const shieldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,10 +51,17 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
     };
 
     const baseColor = getBgColor();
+    const colorMap: Record<string, string> = {
+        'red-500': 'rgba(239,68,68,0.2)',
+        'green-500': 'rgba(34,197,94,0.2)',
+        'blue-500': 'rgba(59,130,246,0.2)',
+    };
+    const iconBgStyle = { backgroundColor: colorMap[baseColor] ?? 'rgba(59,130,246,0.2)' };
+    const iconBorderStyle = { borderColor: colorMap[baseColor] ?? 'rgba(59,130,246,0.2)' };
 
     const handleDelete = () => {
         if (!event) return;
-        if (window.confirm("Training löschen?")) {
+        if (window.confirm(t("training.preview.confirmDelete"))) {
             const userId = getActiveUserId() || "user";
             const storageKey = "trainq_calendar_events";
             const raw = getScopedItem(storageKey, userId);
@@ -88,7 +97,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                 {/* Header (Fixed) */}
                 <div className="shrink-0 flex justify-between items-start p-6 pb-4 border-b border-[var(--border-color)] bg-[var(--card-bg)] z-10 rounded-t-[32px]">
                     <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl bg-${baseColor}/20 flex items-center justify-center border border-${baseColor}/20 shrink-0`}>
+                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center border shrink-0" style={{ ...iconBgStyle, ...iconBorderStyle }}>
                             {getIcon()}
                         </div>
                         <div>
@@ -115,7 +124,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                 {/* Content (Scrollable) */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     <div>
-                        <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-3 sticky top-0 bg-[var(--card-bg)] py-1 z-10">Geplante Übungen</h3>
+                        <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-3 sticky top-0 bg-[var(--card-bg)] py-1 z-10">{t("training.preview.plannedExercises")}</h3>
 
                         {exercises.length > 0 ? (
                             <div className="space-y-2">
@@ -130,7 +139,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                             </div>
                         ) : (
                             <div className="text-center py-8 bg-[var(--button-bg)] rounded-xl border border-dashed border-[var(--border-color)]">
-                                <p className="text-sm text-[var(--text-secondary)]">Keine Details verfügbar</p>
+                                <p className="text-sm text-[var(--text-secondary)]">{t("training.preview.noDetails")}</p>
                             </div>
                         )}
                     </div>
@@ -143,7 +152,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                             onClick={onClose}
                             className="flex-1 py-4 rounded-xl bg-[var(--button-bg)] text-[var(--text-color)] font-bold text-sm hover:opacity-80 transition-colors"
                         >
-                            Schließen
+                            {t("common.close")}
                         </button>
                         <button
                             onClick={() => {
@@ -179,7 +188,7 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
                             className="flex-[2] py-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                         >
                             <Play size={18} fill="currentColor" />
-                            Training starten
+                            {t("training.preview.startTraining")}
                         </button>
                     </div>
                 </div>

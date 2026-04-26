@@ -14,7 +14,7 @@ export function hasSupabaseEnv(): boolean {
   } else if (url.includes("replace-me") || key.includes("replace-me")) {
     if (import.meta.env.DEV) console.error("CRITICAL: Supabase Env contains placeholders. Please update .env file with real values.");
   }
-  return !!(url && key && !url.includes("replace-me"));
+  return !!(url && key && !url.includes("replace-me") && !key.includes("replace-me"));
 }
 
 export function getSupabaseClient(): SupabaseClient | null {

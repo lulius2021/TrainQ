@@ -759,12 +759,13 @@ function ExerciseEditorInner({
   onSwap,                // Swap exercise callback
 }: any) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const nameRef = useRef<HTMLInputElement | null>(null);
   const lastSets = useMemo(() => history?.sets ?? [], [history?.sets]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!theme) return null;
 
-  const { t } = useI18n();
   const repsUnit = isCardio ? "Min" : "Wdh.";
   const weightUnit = isCardio ? "km" : "kg";
   const addSetLabel = isCardio ? "Intervall hinzufügen" : "Satz hinzufügen";
@@ -777,8 +778,6 @@ function ExerciseEditorInner({
   const handleTimerClick = () => {
     if (onOpenTimer) onOpenTimer(exercise.id);
   };
-
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="space-y-2 rounded-3xl p-3 border-[1.5px] shadow-2xl" style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}>

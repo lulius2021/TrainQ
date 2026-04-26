@@ -251,43 +251,43 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
             },
             {
               id: "q1", icon: <Clock size={16} />, key: "timeToday",
-              title: "Wie viel Zeit hast du heute?",
-              sub: "Wir passen Umfang und Übungsanzahl an",
+              title: t("adaptive.survey.timeTitle"),
+              sub: t("adaptive.survey.timeSub"),
               options: [
-                ["lt20",   "< 20 Min"],
-                ["20to40", "20–40 Min"],
-                ["40to60", "40–60 Min"],
-                ["gt60",   "60+ Min"],
+                ["lt20",   t("adaptive.q1.lt20")],
+                ["20to40", t("adaptive.q1.min20to40")],
+                ["40to60", t("adaptive.q1.min40to60")],
+                ["gt60",   t("adaptive.q1.gt60")],
               ],
             },
             {
               id: "q2", icon: <Zap size={16} />, key: "dayForm",
-              title: "Wie ist deine Energie gerade?",
-              sub: "Beeinflusst Intensität und Gewichte",
+              title: t("adaptive.survey.energyTitle"),
+              sub: t("adaptive.survey.energySub"),
               options: [
-                ["low",  "Niedrig"],
-                ["mid",  "Mittel"],
-                ["high", "Top"],
+                ["low",  t("adaptive.survey.energyLow")],
+                ["mid",  t("adaptive.survey.energyMid")],
+                ["high", t("adaptive.survey.energyHigh")],
               ],
             },
             {
               id: "q3", icon: <Brain size={16} />, key: "stress",
-              title: "Wie gestresst bist du heute?",
-              sub: "Hoher Stress = mehr Regenerationsfokus",
+              title: t("adaptive.survey.stressTitle"),
+              sub: t("adaptive.survey.stressSub"),
               options: [
-                ["low",  "Entspannt"],
-                ["mid",  "Etwas"],
-                ["high", "Viel"],
+                ["low",  t("adaptive.survey.stressLow")],
+                ["mid",  t("adaptive.survey.stressMid")],
+                ["high", t("adaptive.survey.stressHigh")],
               ],
             },
             {
               id: "q4", icon: <Dumbbell size={16} />, key: "yesterdayEffort",
-              title: "Wie war das letzte Training?",
-              sub: "Wir berücksichtigen deine Erholung",
+              title: t("adaptive.survey.effortTitle"),
+              sub: t("adaptive.survey.effortSub"),
               options: [
-                ["low",  "Leicht"],
-                ["mid",  "Normal"],
-                ["high", "Intensiv"],
+                ["low",  t("adaptive.survey.effortLow")],
+                ["mid",  t("adaptive.survey.effortMid")],
+                ["high", t("adaptive.survey.effortHigh")],
               ],
             },
           ];
@@ -339,6 +339,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
 
             {step === "suggestions" && (() => {
               const s = suggestions[activeIdx];
+              if (!s) return <div>{t("adaptive.noSuggestions")}</div>;
               const accent = profileAccent(s.profile);
               const isBlocked = s.estimatedMinutes === 0;
               const reasons = s.reasons ?? [];

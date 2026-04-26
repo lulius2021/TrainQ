@@ -160,7 +160,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
       });
     }, 1000);
     return () => clearTick();
-  }, [running, total, left, clearTick]);
+  }, [running, total, clearTick]);
 
   useEffect(() => {
     if (!running || left !== 0 || doneCalledRef.current) return;
@@ -230,7 +230,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
         </button>
 
         <div className="flex-1 text-center">
-          <div className="text-sm text-gray-400">Pause</div>
+          <div className="text-sm text-gray-400">{t("training.rest.pauseLabel")}</div>
           <div className="text-3xl font-bold text-white tabular-nums" style={{ textShadow: "0 0 10px rgba(255,255,255,0.2)" }}>
             {formatHMMSS(left)}
           </div>
@@ -280,7 +280,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
             style={{ backgroundColor: "#22c55e", boxShadow: "0 0 16px rgba(34,197,94,0.4)" }}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            Satz abhaken
+            {t("training.rest.checkSet")}
           </button>
         ) : (
           <button
