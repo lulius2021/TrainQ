@@ -4,11 +4,11 @@ import { useI18n } from "../../i18n/useI18n";
 import { useModalStore } from "../../store/useModalStore";
 import { hapticButton } from "../../native/haptics";
 
-import DashboardIcon from "../../assets/icons/Dashboard.png";
-import KalenderIcon from "../../assets/icons/Kalender.png";
-import TrainIcon from "../../assets/icons/Train.png";
-import TrainingsplanIcon from "../../assets/icons/Trainingsplan.png";
-import ProfilIcon from "../../assets/icons/Profil.png";
+import { IconListDashHeaderRectangle } from "../../assets/icons/IconListDashHeaderRectangle";
+import { IconCalendarBadgeCheckmark } from "../../assets/icons/IconCalendarBadgeCheckmark";
+import { IconPerson } from "../../assets/icons/IconPerson";
+import { IconFigureStrengthtraining } from "../../assets/icons/IconFigureStrengthtraining";
+import { IconListClipboard } from "../../assets/icons/IconListClipboard";
 
 type BottomNavProps = {
   activeTab: TabKey;
@@ -17,12 +17,14 @@ type BottomNavProps = {
   onActiveTap?: (t: TabKey) => void;
 };
 
-const TABS: { key: TabKey; icon: string }[] = [
-  { key: "dashboard", icon: DashboardIcon },
-  { key: "calendar",  icon: KalenderIcon },
-  { key: "today",     icon: TrainIcon },
-  { key: "plan",      icon: TrainingsplanIcon },
-  { key: "profile",   icon: ProfilIcon },
+type TabDef = { key: TabKey; icon?: string; SvgIcon?: React.FC<React.SVGProps<SVGSVGElement>> };
+
+const TABS: TabDef[] = [
+  { key: "dashboard", SvgIcon: IconListDashHeaderRectangle },
+  { key: "calendar",  SvgIcon: IconCalendarBadgeCheckmark },
+  { key: "today",     SvgIcon: IconFigureStrengthtraining },
+  { key: "plan",      SvgIcon: IconListClipboard },
+  { key: "profile",   SvgIcon: IconPerson },
 ];
 
 export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) {
@@ -62,8 +64,9 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
           padding: "0 2px",
         }}
       >
-        {TABS.map(({ key, icon }) => {
+        {TABS.map(({ key, icon, SvgIcon }) => {
           const active = activeTab === key;
+          const iconColor = active ? "var(--nav-item-active)" : "var(--nav-item-inactive)";
           return (
             <button
               key={key}
@@ -82,12 +85,19 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              {/* Icon — color driven by CSS variable via backgroundColor on mask */}
+              {SvgIcon ? (
+                <SvgIcon
+                  width={23}
+                  height={23}
+                  fill={iconColor}
+                  style={{ transition: "fill 0.18s ease", flexShrink: 0 }}
+                />
+              ) : (
               <div
                 style={{
                   width: 23,
                   height: 23,
-                  backgroundColor: active ? "var(--nav-item-active)" : "var(--nav-item-inactive)",
+                  backgroundColor: iconColor,
                   maskImage: `url(${icon})`,
                   WebkitMaskImage: `url(${icon})`,
                   maskSize: "contain",
@@ -100,6 +110,7 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
                   flexShrink: 0,
                 }}
               />
+              )}
               {/* Label */}
               <span
                 style={{
