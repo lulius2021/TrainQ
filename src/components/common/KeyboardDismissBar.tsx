@@ -42,10 +42,7 @@ export function KeyboardDismissBar() {
       if (!target?.tagName) return;
       const tag = target.tagName.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") {
-        // Only show if we believe keyboard is open (give it a moment)
-        setTimeout(() => {
-          if (keyboardOpen.current) setVisible(true);
-        }, 400);
+        setVisible(true);
       }
     };
 
