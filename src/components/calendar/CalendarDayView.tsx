@@ -170,7 +170,7 @@ function TimelineEventBlock({
                 </p>
                 {/* Subtitle: time or duration */}
                 {infoLine && clampedHeight >= 36 && (
-                    <p className="text-[11px] leading-tight truncate mt-0.5" style={{ color: "#8E8E93" }}>
+                    <p className="text-[11px] leading-tight truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
                         {infoLine}
                     </p>
                 )}
@@ -198,20 +198,20 @@ function AllDayArea({
     return (
         <div
             className="flex items-stretch border-b"
-            style={{ borderColor: "rgba(255,255,255,0.06)", minHeight: 36 }}
+            style={{ borderColor: "var(--border-color)", minHeight: 36 }}
         >
             {/* Label column — same width as time column */}
             <div
                 className="shrink-0 flex items-center justify-end pr-2"
                 style={{ width: TIME_COLUMN_WIDTH }}
             >
-                <span className="text-[10px] font-medium" style={{ color: "#8E8E93" }}>
+                <span className="text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>
                     {label}
                 </span>
             </div>
 
             {/* Separator line */}
-            <div className="w-px self-stretch" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
+            <div className="w-px self-stretch" style={{ backgroundColor: "var(--border-color)" }} />
 
             {/* Event pills */}
             <div className="flex-1 flex flex-wrap gap-1.5 px-2 py-2">
@@ -354,7 +354,7 @@ export default function CalendarDayView({
     const dateLabel = format(selectedDate, "EEEE, d. MMMM", { locale: de });
 
     return (
-        <div className="flex flex-col h-full" style={{ backgroundColor: "#0A0A0E" }}>
+        <div className="flex flex-col h-full" style={{ backgroundColor: "var(--bg-color)" }}>
 
             {/* All-day strip */}
             <AllDayArea
@@ -389,7 +389,7 @@ export default function CalendarDayView({
                                     style={{
                                         width: TIME_COLUMN_WIDTH,
                                         paddingRight: 8,
-                                        color: "#8E8E93",
+                                        color: "var(--text-secondary)",
                                         // Offset upward so the label sits above the line
                                         transform: "translateY(-50%)",
                                     }}
@@ -400,7 +400,7 @@ export default function CalendarDayView({
                                 {/* Full-hour line */}
                                 <div
                                     className="flex-1 h-px"
-                                    style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+                                    style={{ backgroundColor: "var(--border-color)" }}
                                 />
                             </div>
                         ))}
@@ -415,7 +415,8 @@ export default function CalendarDayView({
                                     left: TIME_COLUMN_WIDTH,
                                     right: 0,
                                     height: 1,
-                                    backgroundColor: "rgba(255,255,255,0.03)",
+                                    backgroundColor: "var(--border-color)",
+                                    opacity: 0.4,
                                     pointerEvents: "none",
                                 }}
                             />
@@ -427,7 +428,7 @@ export default function CalendarDayView({
                             style={{
                                 left: TIME_COLUMN_WIDTH,
                                 width: 1,
-                                backgroundColor: "rgba(255,255,255,0.06)",
+                                backgroundColor: "var(--border-color)",
                                 pointerEvents: "none",
                             }}
                         />
@@ -490,10 +491,10 @@ export default function CalendarDayView({
                     >
                         <CalendarIcon size={22} style={{ color: "#2952E3" }} />
                     </div>
-                    <p className="text-[14px] font-semibold text-center" style={{ color: "#8E8E93" }}>
+                    <p className="text-[14px] font-semibold text-center" style={{ color: "var(--text-secondary)" }}>
                         {t("calendar.dayView.noEvents")}
                     </p>
-                    <p className="text-[12px] text-center" style={{ color: "#48484A" }}>
+                    <p className="text-[12px] text-center" style={{ color: "var(--text-muted, var(--text-secondary))" }}>
                         {dateLabel}
                     </p>
                 </motion.div>

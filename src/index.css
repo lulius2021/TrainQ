@@ -92,37 +92,36 @@
     }
 
     body.light-theme {
-        /* Light Theme — white bg, soft glass cards */
-        --bg-color: #FFFFFF;
-        --card-bg: #F4F4F5;
-        --button-bg: #EBEBED;
+        /* Light Theme — warm off-white bg, bright white glass cards */
+        --bg-color: #EDEDED;
+        --card-bg: #FFFFFF;
+        --button-bg: #F0F0F0;
         --text-color: #1A1A1A;
         --text-main: #1A1A1A !important;
         --text-secondary: #6B6B70;
         --text-muted: #9A9A9F;
         --accent-color: #007AFF;
-        --border-color: rgba(0, 0, 0, 0.06);
-        --input-bg: #F0F0F2;
-        --tab-bar-bg: rgba(255, 255, 255, 0.75);
+        --border-color: rgba(0, 0, 0, 0.05);
+        --input-bg: #F5F5F5;
+        --tab-bar-bg: rgba(255, 255, 255, 0.80);
         --success: #34C759;
         --danger: #FF3B30;
 
         /* Glass surface card effect — light */
         --card-shadow:
-            inset 0 1px 0 0 rgba(255, 255, 255, 0.8),
-            0 4px 16px rgba(0, 0, 0, 0.04),
-            0 1px 4px rgba(0, 0, 0, 0.03);
-        --card-border: 0.5px solid rgba(0, 0, 0, 0.06);
+            0 1px 3px rgba(0, 0, 0, 0.04),
+            0 4px 16px rgba(0, 0, 0, 0.03);
+        --card-border: 0.5px solid rgba(0, 0, 0, 0.04);
         --card-backdrop: blur(12px) saturate(1.5) brightness(1.02);
 
         /* Modal & Overlays */
         --modal-bg: #FFFFFF;
         --modal-header: rgba(255, 255, 255, 0.95);
-        --card-plan-bg: #F4F4F5;
+        --card-plan-bg: #F5F5F5;
         --button-text: #1A1A1A;
 
         /* Navigation */
-        --nav-bg: rgba(255, 255, 255, 0.9);
+        --nav-bg: rgba(255, 255, 255, 0.92);
         --nav-icon-active: #007AFF;
         --nav-icon-inactive: #1A1A1A;
         --nav-label: #1A1A1A;
@@ -294,20 +293,60 @@
     touch-action: manipulation !important;
 }
 
-/* FINAL UI FORCE-OVERRIDE */
-body.light-theme .text-white:not(.force-white *),
-body.light-theme .text-zinc-400:not(.force-white *) {
+/* ── THEME FORCE-OVERRIDES ──
+   Maps hardcoded Tailwind colors to CSS variables so both themes work.
+   .force-white descendants are excluded (used in gradient cards etc.) */
+
+/* Text overrides */
+body.light-theme .text-white:not(.force-white *):not([class*="bg-blue"]):not([class*="bg-green"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-brand"]),
+body.light-theme .text-zinc-400:not(.force-white *),
+body.light-theme .text-zinc-300:not(.force-white *),
+body.light-theme .text-zinc-500:not(.force-white *) {
     color: var(--text-color) !important;
 }
 
-body.light-theme h1:not(.force-white h1):not(.force-white *),
-body.light-theme h2:not(.force-white h2):not(.force-white *),
-body.light-theme h3:not(.force-white h3):not(.force-white *) {
+body.light-theme .text-zinc-600:not(.force-white *),
+body.light-theme .text-gray-400:not(.force-white *),
+body.light-theme .text-gray-500:not(.force-white *) {
+    color: var(--text-secondary) !important;
+}
+
+body.light-theme h1:not(.force-white *),
+body.light-theme h2:not(.force-white *),
+body.light-theme h3:not(.force-white *),
+body.light-theme h4:not(.force-white *) {
     color: var(--text-color) !important;
 }
 
+/* Background overrides */
 body.light-theme .bg-zinc-900,
-body.light-theme .bg-zinc-950 {
+body.light-theme .bg-zinc-950,
+body.light-theme .bg-zinc-800,
+body.light-theme .bg-black:not(.force-white *) {
+    background-color: var(--bg-color) !important;
+}
+
+body.light-theme .bg-zinc-800\/50,
+body.light-theme .bg-zinc-900\/50 {
+    background-color: var(--card-bg) !important;
+}
+
+/* Card/surface backgrounds — map to theme tokens */
+body.light-theme .bg-white:not(.force-white *):not([data-export]) {
+    background-color: var(--card-bg) !important;
+}
+
+/* Border overrides */
+body.light-theme .border-zinc-700,
+body.light-theme .border-zinc-800,
+body.light-theme .border-white\/10,
+body.light-theme .border-white\/20 {
+    border-color: var(--border-color) !important;
+}
+
+/* ── DARK MODE: same overrides for hardcoded light colors ── */
+body.dark-theme .bg-white:not(.force-white *):not([data-export]),
+:root:not(.light-theme) .bg-white:not(.force-white *):not([data-export]) {
     background-color: var(--card-bg) !important;
 }
 

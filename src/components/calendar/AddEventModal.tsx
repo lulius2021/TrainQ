@@ -466,7 +466,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                         </div>
 
                         <div className="pt-5 mt-2 border-t border-[var(--border-color)]">
-                            <AppButton onClick={() => handleSubmit()} className="w-full bg-white text-black hover:bg-gray-200">
+                            <AppButton onClick={() => handleSubmit()} className="w-full bg-[var(--card-bg)] text-[var(--text-color)] hover:opacity-90">
                                 {t('common.save')}
                             </AppButton>
                         </div>
