@@ -27,54 +27,52 @@
 
     /* GLOBAL RESET & THEME VARIABLES */
     :root {
-        /* Default Dark Theme — glass surface style */
-        --bg-color: #0A0A0A;
-        --card-bg: rgba(255, 255, 255, 0.07);
-        --button-bg: rgba(255, 255, 255, 0.10);
-        --text-color: #F5F5F5;
-        --text-main: #F5F5F5;
-        --text-secondary: #9A9A9F;
-        --text-muted: #6B6B70;
+        /* Default Dark Theme — sage/olive inspired */
+        --bg-color: #2C3029;
+        --card-bg: rgba(255, 255, 255, 0.10);
+        --button-bg: rgba(255, 255, 255, 0.12);
+        --text-color: #F0EDE8;
+        --text-main: #F0EDE8;
+        --text-secondary: #A8A59E;
+        --text-muted: #7A776F;
         --accent-color: #007AFF;
-        --border-color: rgba(255, 255, 255, 0.10);
+        --border-color: rgba(255, 255, 255, 0.06);
         --input-bg: rgba(255, 255, 255, 0.08);
-        --tab-bar-bg: rgba(10, 10, 10, 0.65);
+        --tab-bar-bg: rgba(35, 38, 32, 0.70);
         --success: #34C759;
         --danger: #FF3B30;
 
         /* Glass surface card effect */
         --card-shadow:
-            inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
-            inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
-            0 8px 32px rgba(0, 0, 0, 0.2),
-            0 2px 8px rgba(0, 0, 0, 0.15);
-        --card-border: 0.5px solid rgba(255, 255, 255, 0.12);
-        --card-backdrop: blur(12px) saturate(1.8) brightness(1.15);
+            inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+            0 4px 24px rgba(0, 0, 0, 0.15);
+        --card-border: 0.5px solid rgba(255, 255, 255, 0.08);
+        --card-backdrop: blur(16px) saturate(1.6) brightness(1.1);
 
         /* Modal & Overlays */
-        --modal-bg: #111111;
-        --modal-header: rgba(17, 17, 17, 0.95);
-        --card-plan-bg: rgba(255, 255, 255, 0.07);
-        --button-text: #F5F5F5;
+        --modal-bg: #252821;
+        --modal-header: rgba(37, 40, 33, 0.95);
+        --card-plan-bg: rgba(255, 255, 255, 0.10);
+        --button-text: #F0EDE8;
 
         /* Navigation */
-        --nav-bg: rgba(17, 17, 17, 0.85);
+        --nav-bg: rgba(37, 40, 33, 0.88);
         --nav-icon-active: #0A84FF;
-        --nav-icon-inactive: #6B6B70;
-        --nav-label: #F5F5F5;
+        --nav-icon-inactive: #7A776F;
+        --nav-label: #F0EDE8;
         --nav-item-active: #0A84FF;
-        --nav-item-inactive: #6B6B70;
-        --button-haptic: rgba(255, 255, 255, 0.12);
+        --nav-item-inactive: #7A776F;
+        --button-haptic: rgba(255, 255, 255, 0.14);
         --nav-icon-filter: brightness(0) invert(1);
-        --mini-bar-bg: rgba(17, 17, 17, 0.92);
+        --mini-bar-bg: rgba(37, 40, 33, 0.94);
         --chart-grid: rgba(255, 255, 255, 0.06);
         --text: var(--text-color);
 
         /* iOS 26 Liquid Glass */
-        --glass-bg: rgba(255, 255, 255, 0.07);
-        --glass-border: rgba(255, 255, 255, 0.12);
-        --glass-highlight: rgba(255, 255, 255, 0.10);
-        --glass-shadow: rgba(0, 0, 0, 0.45);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.10);
+        --glass-highlight: rgba(255, 255, 255, 0.08);
+        --glass-shadow: rgba(0, 0, 0, 0.30);
 
         /* ── Layout geometry — single source of truth ───────────────
            --tab-bar-height   : pill height (no safe area included)

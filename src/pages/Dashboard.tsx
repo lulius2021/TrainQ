@@ -542,7 +542,7 @@ const DashboardPage = () => {
         {/* ADAPTIVES TRAINING */}
         <button
           onClick={handleOpenAdaptive}
-          className="w-full relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 rounded-[20px] px-5 py-4 group active:scale-[0.98] transition-transform text-left shadow-lg shadow-blue-500/15"
+          className="w-full relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 rounded-[28px] px-6 py-5 group active:scale-[0.98] transition-transform text-left shadow-lg shadow-blue-500/15"
           style={{ color: 'white' }}
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/8 blur-[50px] rounded-full" />
@@ -569,7 +569,7 @@ const DashboardPage = () => {
               <button
                 onClick={() => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym"))}
                 disabled={isWorkoutActive}
-                className="bg-[var(--card-bg)] rounded-[20px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
+                className="bg-[var(--card-bg)] rounded-[28px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
               >
                 <div className="w-12 h-12 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center" style={{ color: "var(--accent-color)" }}>
                   <Dumbbell size={24} />
@@ -580,7 +580,7 @@ const DashboardPage = () => {
               <button
                 onClick={() => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen"))}
                 disabled={isWorkoutActive}
-                className="bg-[var(--card-bg)] rounded-[20px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
+                className="bg-[var(--card-bg)] rounded-[28px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
               >
                 <div className="w-12 h-12 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center" style={{ color: "var(--accent-color)" }}>
                   <Footprints size={24} />
@@ -591,7 +591,7 @@ const DashboardPage = () => {
               <button
                 onClick={() => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren"))}
                 disabled={isWorkoutActive}
-                className="bg-[var(--card-bg)] rounded-[20px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
+                className="bg-[var(--card-bg)] rounded-[28px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic disabled:opacity-50"
               >
                 <div className="w-12 h-12 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center" style={{ color: "var(--accent-color)" }}>
                   <Bike size={24} />
@@ -605,14 +605,14 @@ const DashboardPage = () => {
         <div>
           <h3 className="text-[13px] font-bold text-[var(--text-muted)] mb-3 pl-1 uppercase tracking-wider">{t("dashboard.quickAccess")}</h3>
           <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[20px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic">
+              <button onClick={() => setShowPlanModal(true)} className="bg-[var(--card-bg)] rounded-[28px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic">
                 <div className="w-12 h-12 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center" style={{ color: "var(--accent-color)" }}>
                   <Plus size={24} strokeWidth={2.5} />
                 </div>
                 <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
               </button>
 
-              <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[20px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic">
+              <button onClick={() => setShowShiftModal(true)} className="bg-[var(--card-bg)] rounded-[28px] p-5 flex flex-col items-center justify-center gap-3 active:scale-[0.96] transition-transform border border-[var(--border-color)] btn-haptic">
                 <div className="w-12 h-12 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center" style={{ color: "var(--accent-color)" }}>
                   <RefreshCw size={22} />
                 </div>
@@ -627,15 +627,15 @@ const DashboardPage = () => {
         <div>
           <h3 className="text-[13px] font-bold text-[var(--text-muted)] mb-3 pl-1 uppercase tracking-wider">{t("dashboard.weekOverview")}</h3>
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
+            <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
               <span className="text-3xl font-black tabular-nums" style={{ color: "var(--accent-color)" }}>{weeklyWorkouts}</span>
               <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{t("dashboard.week.workouts")}</span>
             </div>
-            <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
+            <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
               <span className="text-3xl font-black tabular-nums text-[var(--text-color)]">{weeklyMinutes}</span>
               <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{t("dashboard.week.minutes")}</span>
             </div>
-            <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
+            <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex flex-col items-center gap-1.5">
               <span className="text-3xl font-black tabular-nums text-[var(--text-color)]">{weeklyDistanceKm > 0 ? `${weeklyDistanceKm}` : "—"}</span>
               <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{weeklyDistanceKm > 0 ? "km" : t("dashboard.week.distance")}</span>
             </div>
@@ -646,7 +646,7 @@ const DashboardPage = () => {
         {lastActivity && (
           <div>
             <h3 className="text-[13px] font-bold text-[var(--text-muted)] mb-3 pl-1 uppercase tracking-wider">{t("dashboard.lastTraining")}</h3>
-            <div className="bg-[var(--card-bg)] rounded-[20px] p-4 border border-[var(--border-color)] flex items-center gap-4">
+            <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex items-center gap-4">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
                 {lastActivity.sport === "gym" ? <Dumbbell size={20} style={{ color: "#007AFF" }} /> : lastActivity.sport === "laufen" ? <Footprints size={20} style={{ color: "#007AFF" }} /> : <Bike size={20} style={{ color: "#007AFF" }} />}
               </div>

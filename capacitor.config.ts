@@ -12,9 +12,9 @@ const config: CapacitorConfig = {
       cleartext: true,
     },
   }),
-  backgroundColor: '#0A0A0A',
+  backgroundColor: '#2C3029',
   ios: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#2C3029',
     contentInset: 'automatic',
     scrollEnabled: false,
   },
