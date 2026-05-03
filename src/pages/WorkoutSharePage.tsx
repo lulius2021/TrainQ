@@ -449,7 +449,14 @@ const ShareCard = React.forwardRef(({ workout, userName, type, dateStr, history,
           </div>
         </div>
         <div className="flex flex-col items-end shrink-0">
-          <span className={`font-black tracking-tight ${isExport ? 'text-4xl' : 'text-base'}`} style={{ color: "var(--accent-color)" }}>trainq</span>
+          <div className={`flex items-center ${isExport ? 'gap-3' : 'gap-1.5'}`}>
+            <img
+              src="/logo-dark.png"
+              alt=""
+              className={`rounded-lg ${isExport ? 'w-10 h-10' : 'w-5 h-5'}`}
+            />
+            <span className={`font-black tracking-tight ${isExport ? 'text-4xl' : 'text-base'}`} style={{ color: "var(--accent-color)" }}>trainq</span>
+          </div>
           <span className={`font-semibold uppercase tracking-[0.15em] ${isExport ? 'text-xl mt-1' : 'text-[8px] mt-0.5'}`} style={{ color: "var(--text-muted)" }}>{userName}</span>
         </div>
       </div>
