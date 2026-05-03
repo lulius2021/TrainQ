@@ -1,62 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Keyboard } from "@capacitor/keyboard";
 import { useModalStore } from "../../store/useModalStore";
+import { useI18n } from "../../i18n/useI18n";
 
-/**
- * Shows a "Fertig" button floating just above the iOS keyboard.
- * Uses @capacitor/keyboard events to get exact keyboard height in WKWebView.
- * Ghost-click protection via global shield in useModalStore.
- */
 export function KeyboardDismissBar() {
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [visible, setVisible] = useState(false);
   const activateShield = useModalStore((s) => s.activateShield);
+  const { t } = useI18n();
 
   useEffect(() => {
-    let showListener: any;
-    let hideListener: any;
-
-    const setup = async () => {
-      showListener = await Keyboard.addListener("keyboardWillShow", (info) => {
-        setKeyboardHeight(info.keyboardHeight);
-      });
-      hideListener = await Keyboard.addListener("keyboardWillHide", () => {
-        setKeyboardHeight(0);
-      });
+    const onFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target?.tagName) return;
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        setVisible(true);
+      }
     };
 
-    setup();
+    const onBlur = () => {
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (!active || active === document.body) {
+          setVisible(false);
+        }
+      }, 150);
+    };
 
+    document.addEventListener("focusin", onFocus);
+    document.addEventListener("focusout", onBlur);
     return () => {
-      showListener?.remove();
-      hideListener?.remove();
+      document.removeEventListener("focusin", onFocus);
+      document.removeEventListener("focusout", onBlur);
     };
   }, []);
 
-  if (keyboardHeight === 0) return null;
-
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     activateShield();
     (document.activeElement as HTMLElement)?.blur();
     Keyboard.hide().catch(() => {});
-  };
+    setVisible(false);
+  }, [activateShield]);
+
+  if (!visible) return null;
 
   return (
-    <div
-      className="fixed left-0 right-0 flex justify-end px-4 py-2 z-[9999]"
+    <button
+      type="button"
+      onPointerDown={(e) => { e.preventDefault(); dismiss(); }}
+      className="fixed z-[9999] active:scale-95 transition-transform"
       style={{
-        bottom: keyboardHeight,
-        background: "var(--card-bg)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderTop: "1px solid var(--border-color)",
+        right: 16,
+        top: "61%",
+        transform: "translateY(-50%)",
+        backgroundColor: "var(--accent-color, #007AFF)",
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: 600,
+        borderRadius: 10,
+        padding: "10px 20px",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+        border: "none",
       }}
     >
-      <button
-        onPointerDown={(e) => { e.preventDefault(); dismiss(); }}
-        className="text-[#007AFF] text-base font-semibold px-2 py-1 active:opacity-60"
-      >
-        Fertig
-      </button>
-    </div>
+      {t("common.done" as any)}
+    </button>
   );
 }

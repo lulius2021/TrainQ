@@ -784,7 +784,7 @@ export default function LiveTrainingPage({
         setShowConfetti(true);
         hapticHeavy();
       }
-    } else if (!isTogglingOn) {
+    } else if (!toggledOn) {
       setPrSets((prev) => {
         if (!prev.has(setId)) return prev;
         const next = new Set(prev);
@@ -1459,7 +1459,7 @@ export default function LiveTrainingPage({
     : `calc(${insets.top}px + 112px)`;
 
   // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
-  const footerHeightPx = 72;
+  const footerHeightPx = 100;
   const mainPadBottom = `calc(${Math.max(insets.bottom, 0)}px + ${footerHeightPx}px)`;
 
   const overlaySubtitle = overlayData?.overlaySubtitle ?? "";

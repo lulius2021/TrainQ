@@ -11,7 +11,8 @@ import MuscleBodyMap from "../exercises/MuscleBodyMap";
 import { EXERCISES } from "../../data/exerciseLibrary";
 import { resolveExerciseImageSrc } from "../../utils/exerciseImage";
 
-/** Small exercise thumbnail — shows image from library, falls back to first letter */
+/** Small exercise thumbnail — shows image from library, falls back to TrainQ logo */
+const LOGO_FALLBACK = "/logo-dark.png";
 const ExerciseThumb: React.FC<{ exercise: { id: string; exerciseId?: string; name: string; imageSrc?: string }; onClick?: () => void }> = ({ exercise, onClick }) => {
   const imgSrc = useMemo(() => {
     if (exercise.imageSrc) return exercise.imageSrc;
@@ -30,13 +31,12 @@ const ExerciseThumb: React.FC<{ exercise: { id: string; exerciseId?: string; nam
       className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden cursor-pointer"
       style={{ backgroundColor: "var(--input-bg)" }}
     >
-      {imgSrc ? (
-        <img src={imgSrc} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-base font-bold" style={{ color: "var(--text-secondary)" }}>
-          {(exercise.name || "?")[0].toUpperCase()}
-        </span>
-      )}
+      <img
+        src={imgSrc || LOGO_FALLBACK}
+        alt=""
+        className="w-full h-full object-cover"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).src = LOGO_FALLBACK; }}
+      />
     </div>
   );
 };
@@ -64,6 +64,7 @@ function uid(): string {
 function useSwipeToDismiss(onDelete: () => void) {
   const contentRef = useRef<HTMLDivElement>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
   const state = useRef({
     startX: 0,
     startY: 0,
@@ -95,8 +96,11 @@ function useSwipeToDismiss(onDelete: () => void) {
     if (!s.locked) {
       if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
         s.locked = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
-        if (s.locked === "h" && document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
+        if (s.locked === "h") {
+          setIsSwiping(true);
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
         }
       }
       return;
@@ -122,6 +126,7 @@ function useSwipeToDismiss(onDelete: () => void) {
     if (s.locked !== "h") {
       el.style.transition = "transform 0.2s ease";
       el.style.transform = "translateX(0)";
+      setIsSwiping(false);
       return;
     }
 
@@ -135,19 +140,22 @@ function useSwipeToDismiss(onDelete: () => void) {
       // Snap back
       el.style.transition = "transform 0.2s ease";
       el.style.transform = "translateX(0)";
+      setTimeout(() => setIsSwiping(false), 200);
     }
   }, [onDelete]);
 
-  return { contentRef, onTouchStart, onTouchMove, onTouchEnd };
+  return { contentRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping };
 }
 
 const SwipeableItem = ({ children, onDelete, className }: { children: React.ReactNode; onDelete: () => void; className?: string }) => {
-  const { contentRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(onDelete);
+  const { contentRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(onDelete);
   return (
     <div className={`relative overflow-hidden ${className || ""}`}>
-      <div className="absolute inset-y-0 right-0 w-full bg-red-500 flex items-center justify-end px-4 rounded-3xl">
-        <Trash2 size={18} className="text-white" />
-      </div>
+      {isSwiping && (
+        <div className="absolute inset-y-0 right-0 w-full bg-red-500 flex items-center justify-end px-4 rounded-3xl">
+          <Trash2 size={18} className="text-white" />
+        </div>
+      )}
       <div
         ref={contentRef}
         onTouchStart={onTouchStart}
@@ -161,6 +169,94 @@ const SwipeableItem = ({ children, onDelete, className }: { children: React.Reac
   );
 };
 
+// -------------------- Drop Swipe Row (same structure as normal sets) --------------------
+
+const DropSwipeRow = ({ drop, dropIdx, theme, onUpdate, onToggle, onDelete }: {
+  drop: any; dropIdx: number; theme: any;
+  onUpdate: (patch: any) => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) => {
+  const { contentRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(onDelete);
+
+  return (
+    <MotionDiv
+      layout
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+      transition={{ duration: 0.2 }}
+      className="relative mt-2 overflow-hidden rounded-2xl"
+    >
+      {isSwiping && (
+        <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
+          <div className="flex items-center gap-2 font-bold text-white">
+            <Trash2 size={16} />
+          </div>
+        </div>
+      )}
+      <div
+        ref={contentRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ backgroundColor: theme.colors.card }}
+        className="relative z-10 rounded-2xl overflow-hidden"
+      >
+        <div className="grid grid-cols-[40px_1fr_1fr_56px] gap-2 items-center p-0">
+          <div className="flex items-center justify-center h-9">
+            <span className="text-xs font-bold select-none text-[var(--text-secondary)]">D{dropIdx + 2}</span>
+          </div>
+          <input
+            type="number" inputMode="decimal" step={0.5}
+            value={typeof drop.weight === "number" && drop.weight !== 0 ? drop.weight : ""} placeholder="-"
+            onChange={(e) => {
+              const parsed = Number(e.target.value.replace(",", "."));
+              onUpdate({ weight: Number.isFinite(parsed) ? parsed : undefined });
+            }}
+            style={{
+              backgroundColor: drop.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: drop.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
+          />
+          <input
+            type="number" inputMode="numeric"
+            value={typeof drop.reps === "number" && drop.reps !== 0 ? drop.reps : ""} placeholder="-"
+            onChange={(e) => {
+              const parsed = Number(e.target.value.replace(",", "."));
+              onUpdate({ reps: Number.isFinite(parsed) ? parsed : undefined });
+            }}
+            style={{
+              backgroundColor: drop.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: drop.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
+          />
+          <div className="flex items-center justify-center w-full h-9">
+            <button type="button"
+              onTouchStart={(e) => e.stopPropagation()}
+              onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              className={`h-9 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${drop.completed
+                ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
+                : "border-transparent hover:border-[#007AFF]"
+              }`}
+              style={{ touchAction: "manipulation", backgroundColor: !drop.completed ? theme.colors.inputBackground : undefined }}
+            >
+              {drop.completed ? (
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </MotionDiv>
+  );
+};
+
 // -------------------- Swipeable Drop Row --------------------
 
 const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, isMain }: {
@@ -171,60 +267,64 @@ const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, is
   label?: React.ReactNode;
   isMain?: boolean;
 }) => {
-  const { contentRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(onDelete);
+  const { contentRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(onDelete);
   const isCompleted = !!drop.completed;
 
   return (
     <div className="relative overflow-hidden">
       {/* Delete background */}
-      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0">
-        <Trash2 size={14} className="text-white" />
-      </div>
+      {isSwiping && (
+        <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0">
+          <Trash2 size={14} className="text-white" />
+        </div>
+      )}
       {/* Foreground */}
       <div
         ref={contentRef}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className="relative z-10 grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center px-0 py-1"
+        className="relative z-10 grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center rounded-3xl p-0"
         style={{ backgroundColor: theme.colors.card }}
       >
-        <div className="flex items-center justify-center">
-          {label || <div className="w-1.5 h-1.5 rounded-full bg-purple-500/40" />}
+        <div className="flex items-center justify-center cursor-pointer h-10 w-8 shrink-0">
+          {label || (
+            <span className="text-sm font-bold select-none text-[var(--text-secondary)]">D</span>
+          )}
         </div>
         <input
           type="number" inputMode="decimal" step={0.5}
-          value={typeof drop.weight === "number" ? drop.weight : ""} placeholder="kg"
+          value={typeof drop.weight === "number" ? drop.weight : ""} placeholder="-"
           onChange={(e) => {
             const parsed = Number(e.target.value.replace(",", "."));
             onUpdate({ weight: Number.isFinite(parsed) ? parsed : undefined });
           }}
           style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-          className={`${isMain ? "h-10 text-base" : "h-9 text-sm"} w-full rounded-3xl text-center font-bold outline-none border-2 border-transparent ${isMain ? "focus:border-[#007AFF]/50" : "focus:border-purple-500/50"} transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
+          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
         />
         <input
           type="number" inputMode="numeric"
-          value={typeof drop.reps === "number" ? drop.reps : ""} placeholder="Wdh"
+          value={typeof drop.reps === "number" ? drop.reps : ""} placeholder="-"
           onChange={(e) => {
             const parsed = Number(e.target.value.replace(",", "."));
             onUpdate({ reps: Number.isFinite(parsed) ? parsed : undefined });
           }}
           style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-          className={`${isMain ? "h-10 text-base" : "h-9 text-sm"} w-full rounded-3xl text-center font-bold outline-none border-2 border-transparent ${isMain ? "focus:border-[#007AFF]/50" : "focus:border-purple-500/50"} transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
+          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
         />
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center w-full h-10">
           <button type="button"
             onTouchStart={(e) => e.stopPropagation()}
             onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-            className={`${isMain ? "h-10 w-14" : "h-9 w-12"} rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
-              ? (isMain ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]" : "bg-purple-600 border-purple-600 shadow-sm")
-              : (isMain ? "border-transparent hover:border-[#007AFF]" : "border-transparent hover:border-purple-500/50")
+            className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
+              ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
+              : "border-transparent hover:border-[#007AFF]"
             }`}
             style={{ touchAction: "manipulation", backgroundColor: !isCompleted ? theme.colors.inputBackground : undefined }}
           >
             {isCompleted ? (
-              <svg viewBox="0 0 24 24" className={`${isMain ? "h-5 w-5" : "h-4 w-4"} text-white`} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
             ) : (
               <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
             )}
@@ -260,7 +360,7 @@ const SwipeableSetRow = ({
   const lastToggleMs = useRef(0);
   const isDropset = set.type === "d" || set.type === "1D"; // Treat 'd' or '1D' as dropset-capable
 
-  const { contentRef: swipeRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDismiss(
+  const { contentRef: swipeRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(
     () => onRemoveSet(set.id)
   );
 
@@ -472,40 +572,89 @@ const SwipeableSetRow = ({
         layout
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
-        exit={{ opacity: 0, height: 0 }}
-        className="mb-2"
-        style={{ backgroundColor: theme.colors.card, borderRadius: 16, overflow: "hidden" }}
+        exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+        transition={{ duration: 0.2 }}
+        className="relative mb-2 overflow-hidden rounded-2xl"
       >
-        {/* Main set row — individually swipeable */}
-        <SwipeableDropRow
-          drop={{ ...set, weight: set.weight, reps: set.reps, completed: set.completed }}
-          theme={theme}
-          onUpdate={(patch) => onSetChange(set.id, patch)}
-          onToggle={() => {
-            const now = Date.now();
-            if (now - lastToggleMs.current < 600) return;
-            lastToggleMs.current = now;
-            set.completed ? hapticLight() : hapticSuccess();
-            const autofill: any = {};
-            if (!set.weight && last?.weight) autofill.weight = last.weight;
-            if (!set.reps && last?.reps) autofill.reps = last.reps;
-            onToggleSet(set.id, Object.keys(autofill).length > 0 ? autofill : undefined);
-          }}
-          onDelete={() => onRemoveSet(set.id)}
-          label={
-            <div className="flex items-center justify-center cursor-pointer h-10" onClick={handleTypeCycle}>
-              <span className={`text-sm font-bold select-none ${getTypeColor(set.type)}`}>{getTypeLabel(set.type)}</span>
+      <div className="flex flex-col">
+        {/* Main set row (D1) — swipeable to delete entire dropset */}
+        <div className="relative overflow-hidden rounded-2xl">
+          {isSwiping && (
+            <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
+              <div className="flex items-center gap-2 font-bold text-white">
+                <Trash2 size={16} />
+              </div>
             </div>
-          }
-          isMain
-        />
+          )}
+          <div
+            ref={swipeRef}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            style={{ backgroundColor: theme.colors.card }}
+            className="relative z-10 rounded-2xl overflow-hidden"
+          >
+        <div className="grid grid-cols-[40px_1fr_1fr_56px] gap-2 items-center p-0">
+          <div className="flex items-center justify-center cursor-pointer h-9" onClick={handleTypeCycle}>
+            <span className={`text-sm font-bold select-none ${set.completed ? "text-[#007AFF]" : "text-[var(--text-color)]"}`}>D1</span>
+          </div>
+          <input
+            type="number" inputMode="decimal" step={isCardio ? 0.1 : 0.5}
+            value={typeof set.weight === "number" ? set.weight : ""} placeholder={fmtPlaceholderNumber(last?.weight, "-")}
+            onChange={(e) => onSetChange(set.id, { weight: parseOptionalNumber(e.target.value) })}
+            onFocus={() => onWeightFocus?.(set.id, set.weight)}
+            onBlur={() => onWeightBlur?.()}
+            style={{
+              backgroundColor: set.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: set.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
+          />
+          <input
+            type="number" inputMode="numeric"
+            value={typeof set.reps === "number" ? set.reps : ""} placeholder={fmtPlaceholderNumber(last?.reps, "-")}
+            onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
+            style={{
+              backgroundColor: set.completed ? "rgba(0,122,255,0.12)" : theme.colors.inputBackground,
+              color: set.completed ? "#007AFF" : theme.colors.text
+            }}
+            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400"
+          />
+          <div className="flex items-center justify-center w-full h-9">
+            <button type="button"
+              onTouchStart={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                const now = Date.now();
+                if (now - lastToggleMs.current < 600) return;
+                lastToggleMs.current = now;
+                set.completed ? hapticLight() : hapticSuccess();
+                const autofill: any = {};
+                if (!set.weight && last?.weight) autofill.weight = last.weight;
+                if (!set.reps && last?.reps) autofill.reps = last.reps;
+                onToggleSet(set.id, Object.keys(autofill).length > 0 ? autofill : undefined);
+              }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              className={`h-9 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
+                ? (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
+                : "border-transparent hover:border-[#007AFF]"
+              }`}
+              style={{ touchAction: "manipulation", backgroundColor: !set.completed ? theme.colors.inputBackground : undefined }}
+            >
+              {set.completed ? (
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
+              )}
+            </button>
+          </div>
+        </div>
+          </div>
+        </div>
 
-        {/* Drop rows — individually swipeable */}
-        {(set.drops || []).map((drop: any) => (
-          <SwipeableDropRow
-            key={drop.id}
-            drop={drop}
-            theme={theme}
+        {/* Drop rows — identical swipe-to-delete as normal sets */}
+        {(set.drops || []).map((drop: any, dropIdx: number) => (
+          <DropSwipeRow key={drop.id} drop={drop} dropIdx={dropIdx} theme={theme}
             onUpdate={(patch) => updateDrop(drop.id, patch)}
             onToggle={() => toggleDropComplete(drop.id)}
             onDelete={() => deleteDrop(drop.id)}
@@ -524,7 +673,7 @@ const SwipeableSetRow = ({
                 refWeight = lastDrop.weight || 0;
                 refReps = lastDrop.reps || 0;
               }
-              onSetChange(set.id, { drops: [...currentDrops, { id: uid(), weight: Math.max(0, refWeight - 5), reps: refReps, completed: false }] });
+              onSetChange(set.id, { drops: [...currentDrops, { id: uid(), weight: refWeight > 0 ? Math.max(0, refWeight - 5) : undefined, reps: refReps > 0 ? refReps : undefined, completed: false }] });
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-colors"
             style={{ backgroundColor: theme.colors.inputBackground, color: "var(--text-secondary)" }}
@@ -533,6 +682,7 @@ const SwipeableSetRow = ({
             DROP
           </button>
         </div>
+      </div>
       </MotionDiv>
     );
   }
@@ -544,15 +694,17 @@ const SwipeableSetRow = ({
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0, overflow: "hidden" }}
       transition={{ duration: 0.2 }}
-      className="relative mb-2"
+      className="relative mb-2 overflow-hidden rounded-2xl"
     >
-      {/* Background Layer (Delete Reveal) */}
-      <div className="absolute inset-y-0 right-0 left-0 bg-red-500 rounded-2xl flex items-center justify-end px-4 z-0 h-full">
-        <div className="flex items-center gap-2 font-bold text-white">
-          <Trash2 size={16} />
-          <span className="text-sm">Löschen</span>
+      {/* Background Layer (Delete Reveal) — only visible during swipe */}
+      {isSwiping && (
+        <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
+          <div className="flex items-center gap-2 font-bold text-white">
+            <Trash2 size={16} />
+            <span className="text-sm">Löschen</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Foreground Layer (Content) */}
       <div

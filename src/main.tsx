@@ -7,7 +7,10 @@ import "./index.css";
 import "./i18n/config"; // Initialize i18n
 
 import { applyTheme, loadTheme } from "./utils/theme";
-// SplashScreen is hidden in App.tsx after React has mounted
+import { SplashScreen } from "@capacitor/splash-screen";
+
+// Hide Capacitor splash immediately — native LaunchScreen.storyboard is enough
+SplashScreen.hide({ fadeOutDuration: 0 }).catch(() => {});
 
 
 // Theme initial anwenden (light/dark/system)
@@ -43,6 +46,69 @@ function setupGlobalNoZoom() {
 }
 
 setupGlobalNoZoom();
+
+// ----- Global: scroll focused input into view when keyboard opens -----
+// Capacitor Keyboard resize is set to 'none', so we handle it manually.
+function setupKeyboardScrollFix() {
+  let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+  let paddingTarget: HTMLElement | null = null;
+  let originalPadding = "";
+
+  document.addEventListener("focusin", (e) => {
+    const target = e.target as HTMLElement;
+    if (!target || !("tagName" in target)) return;
+    const tag = target.tagName.toLowerCase();
+    if (tag !== "input" && tag !== "textarea" && tag !== "select") return;
+
+    // Add extra bottom padding to nearest scrollable parent so we can scroll down far enough
+    const scrollParent = findScrollParent(target);
+    if (scrollParent && !paddingTarget) {
+      paddingTarget = scrollParent;
+      originalPadding = scrollParent.style.paddingBottom;
+      const currentPad = getComputedStyle(scrollParent).paddingBottom;
+      scrollParent.style.paddingBottom = `calc(${currentPad} + 320px)`;
+    }
+
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 350);
+  });
+
+  document.addEventListener("focusout", () => {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) {
+        if (paddingTarget) {
+          // Restore original padding and scroll back so content isn't stuck up high
+          const el = paddingTarget;
+          el.style.paddingBottom = originalPadding;
+
+          // Clamp scroll so the last content item sits above the footer
+          const maxScroll = el.scrollHeight - el.clientHeight;
+          if (el.scrollTop > maxScroll) {
+            el.scrollTo({ top: maxScroll, behavior: "smooth" });
+          }
+
+          paddingTarget = null;
+          originalPadding = "";
+        }
+      }
+    }, 200);
+  });
+}
+
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let current = el.parentElement;
+  while (current) {
+    const overflow = getComputedStyle(current).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+
+setupKeyboardScrollFix();
 import { hasSupabaseEnv } from "./lib/supabaseClient";
 
 if (!hasSupabaseEnv()) {

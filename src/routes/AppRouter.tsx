@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LoadingScreen } from "../components/ui/LoadingScreen";
+
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
@@ -41,9 +41,9 @@ export const AppRouter: React.FC = () => {
         return () => window.removeEventListener("popstate", handler);
     }, [loading, user?.onboardingCompleted, !!user]);
 
-    // 0. Loading State
+    // 0. Loading State — native splash covers this, no extra screen needed
     if (loading) {
-        return <LoadingScreen />;
+        return null;
     }
 
     // 1. Not Authenticated
