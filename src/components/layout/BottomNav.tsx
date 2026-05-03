@@ -17,14 +17,14 @@ type BottomNavProps = {
   onActiveTap?: (t: TabKey) => void;
 };
 
-type TabDef = { key: TabKey; SvgIcon: React.FC<React.SVGProps<SVGSVGElement>> };
+type TabDef = { key: TabKey; SvgIcon: React.FC<React.SVGProps<SVGSVGElement>>; w: number; h: number };
 
 const TABS: TabDef[] = [
-  { key: "dashboard", SvgIcon: IconListDashHeaderRectangle },
-  { key: "calendar",  SvgIcon: IconCalendarBadgeCheckmark },
-  { key: "today",     SvgIcon: IconFigureStrengthtraining },
-  { key: "plan",      SvgIcon: IconListClipboard },
-  { key: "profile",   SvgIcon: IconPerson },
+  { key: "dashboard", SvgIcon: IconListDashHeaderRectangle, w: 24, h: 18 },
+  { key: "calendar",  SvgIcon: IconCalendarBadgeCheckmark,  w: 24, h: 20 },
+  { key: "today",     SvgIcon: IconFigureStrengthtraining,  w: 22, h: 22 },
+  { key: "plan",      SvgIcon: IconListClipboard,           w: 18, h: 22 },
+  { key: "profile",   SvgIcon: IconPerson,                  w: 20, h: 21 },
 ];
 
 export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) {
@@ -66,7 +66,7 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
           padding: "0 4px",
         }}
       >
-        {TABS.map(({ key, SvgIcon }) => {
+        {TABS.map(({ key, SvgIcon, w, h }) => {
           const active = activeTab === key;
           const iconColor = active ? "var(--nav-item-active)" : "var(--nav-item-inactive)";
           return (
@@ -88,8 +88,8 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
               }}
             >
               <SvgIcon
-                width={23}
-                height={23}
+                width={w}
+                height={h}
                 fill={iconColor}
                 style={{ transition: "fill 0.18s ease", flexShrink: 0 }}
               />
