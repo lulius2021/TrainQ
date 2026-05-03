@@ -90,56 +90,56 @@
     }
 
     body.light-theme {
-        /* Light Theme — warm off-white bg, bright white glass cards */
-        --bg-color: #EDEDED;
-        --card-bg: #FFFFFF;
-        --button-bg: #F0F0F0;
-        --text-color: #1A1A1A;
-        --text-main: #1A1A1A !important;
-        --text-secondary: #6B6B70;
-        --text-muted: #9A9A9F;
+        /* Light Theme — same sage/olive as dark for consistency */
+        --bg-color: #2C3029;
+        --card-bg: rgba(255, 255, 255, 0.10);
+        --button-bg: rgba(255, 255, 255, 0.12);
+        --text-color: #F0EDE8;
+        --text-main: #F0EDE8 !important;
+        --text-secondary: #A8A59E;
+        --text-muted: #7A776F;
         --accent-color: #007AFF;
-        --border-color: rgba(0, 0, 0, 0.05);
-        --input-bg: #F5F5F5;
-        --tab-bar-bg: rgba(255, 255, 255, 0.80);
+        --border-color: rgba(255, 255, 255, 0.06);
+        --input-bg: rgba(255, 255, 255, 0.08);
+        --tab-bar-bg: rgba(35, 38, 32, 0.70);
         --success: #34C759;
         --danger: #FF3B30;
 
-        /* Glass surface card effect — light */
+        /* Glass surface card effect — same as dark */
         --card-shadow:
-            0 1px 3px rgba(0, 0, 0, 0.04),
-            0 4px 16px rgba(0, 0, 0, 0.03);
-        --card-border: 0.5px solid rgba(0, 0, 0, 0.04);
-        --card-backdrop: blur(12px) saturate(1.5) brightness(1.02);
+            inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+            0 4px 24px rgba(0, 0, 0, 0.15);
+        --card-border: 0.5px solid rgba(255, 255, 255, 0.08);
+        --card-backdrop: blur(16px) saturate(1.6) brightness(1.1);
 
         /* Modal & Overlays */
-        --modal-bg: #FFFFFF;
-        --modal-header: rgba(255, 255, 255, 0.95);
-        --card-plan-bg: #F5F5F5;
-        --button-text: #1A1A1A;
+        --modal-bg: #252821;
+        --modal-header: rgba(37, 40, 33, 0.95);
+        --card-plan-bg: rgba(255, 255, 255, 0.10);
+        --button-text: #F0EDE8;
 
         /* Navigation */
-        --nav-bg: rgba(255, 255, 255, 0.92);
-        --nav-icon-active: #007AFF;
-        --nav-icon-inactive: #1A1A1A;
-        --nav-label: #1A1A1A;
-        --nav-item-active: #007AFF;
-        --nav-item-inactive: #9A9A9F;
-        --button-haptic: #DCDCE0;
-        --nav-icon-filter: brightness(0);
-        --mini-bar-bg: rgba(255, 255, 255, 0.95);
-        --chart-grid: rgba(0, 0, 0, 0.06);
+        --nav-bg: rgba(37, 40, 33, 0.88);
+        --nav-icon-active: #0A84FF;
+        --nav-icon-inactive: #7A776F;
+        --nav-label: #F0EDE8;
+        --nav-item-active: #0A84FF;
+        --nav-item-inactive: #7A776F;
+        --button-haptic: rgba(255, 255, 255, 0.14);
+        --nav-icon-filter: brightness(0) invert(1);
+        --mini-bar-bg: rgba(37, 40, 33, 0.94);
+        --chart-grid: rgba(255, 255, 255, 0.06);
 
         /* iOS 26 Liquid Glass */
-        --glass-bg: rgba(255, 255, 255, 0.70);
-        --glass-border: rgba(0, 0, 0, 0.06);
-        --glass-highlight: rgba(255, 255, 255, 0.80);
-        --glass-shadow: rgba(0, 0, 0, 0.06);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.10);
+        --glass-highlight: rgba(255, 255, 255, 0.08);
+        --glass-shadow: rgba(0, 0, 0, 0.30);
 
         /* PageNavBar scrolled-state surface */
-        --nav-scrolled-bg: rgba(255, 255, 255, 0.92);
+        --nav-scrolled-bg: rgba(44, 48, 41, 0.90);
 
-        color-scheme: light;
+        color-scheme: dark;
     }
 
     /* Theme switching transition — scoped to layout containers only */
@@ -291,61 +291,24 @@
     touch-action: manipulation !important;
 }
 
-/* ── THEME FORCE-OVERRIDES ──
-   Maps hardcoded Tailwind colors to CSS variables so both themes work.
-   .force-white descendants are excluded (used in gradient cards etc.) */
+/* ── THEME OVERRIDES — both themes now use sage/dark palette ── */
+.bg-white:not(.force-white *):not([data-export]) {
+    background-color: var(--card-bg) !important;
+}
 
-/* Text overrides */
-body.light-theme .text-white:not(.force-white *):not([class*="bg-blue"]):not([class*="bg-green"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-brand"]),
-body.light-theme .text-zinc-400:not(.force-white *),
-body.light-theme .text-zinc-300:not(.force-white *),
-body.light-theme .text-zinc-500:not(.force-white *) {
+h1:not(.force-white *),
+h2:not(.force-white *),
+h3:not(.force-white *),
+h4:not(.force-white *) {
     color: var(--text-color) !important;
 }
 
-body.light-theme .text-zinc-600:not(.force-white *),
-body.light-theme .text-gray-400:not(.force-white *),
-body.light-theme .text-gray-500:not(.force-white *) {
-    color: var(--text-secondary) !important;
-}
-
-body.light-theme h1:not(.force-white *),
-body.light-theme h2:not(.force-white *),
-body.light-theme h3:not(.force-white *),
-body.light-theme h4:not(.force-white *) {
+.text-black:not(.force-white *) {
     color: var(--text-color) !important;
 }
 
-/* Background overrides */
-body.light-theme .bg-zinc-900,
-body.light-theme .bg-zinc-950,
-body.light-theme .bg-zinc-800,
-body.light-theme .bg-black:not(.force-white *) {
+.bg-zinc-900, .bg-zinc-950, .bg-zinc-800 {
     background-color: var(--bg-color) !important;
-}
-
-body.light-theme .bg-zinc-800\/50,
-body.light-theme .bg-zinc-900\/50 {
-    background-color: var(--card-bg) !important;
-}
-
-/* Card/surface backgrounds — map to theme tokens */
-body.light-theme .bg-white:not(.force-white *):not([data-export]) {
-    background-color: var(--card-bg) !important;
-}
-
-/* Border overrides */
-body.light-theme .border-zinc-700,
-body.light-theme .border-zinc-800,
-body.light-theme .border-white\/10,
-body.light-theme .border-white\/20 {
-    border-color: var(--border-color) !important;
-}
-
-/* ── DARK MODE: same overrides for hardcoded light colors ── */
-body.dark-theme .bg-white:not(.force-white *):not([data-export]),
-:root:not(.light-theme) .bg-white:not(.force-white *):not([data-export]) {
-    background-color: var(--card-bg) !important;
 }
 
 /* ── Cardio map: pulse animation for "you are here" ring ── */
