@@ -10,6 +10,10 @@ export function KeyboardDismissBar() {
 
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
+      // Only show in live training context
+      const isLiveTraining = !!document.querySelector('[data-live-training]');
+      if (!isLiveTraining) return;
+
       const target = e.target as HTMLElement;
       if (!target?.tagName) return;
       const tag = target.tagName.toLowerCase();

@@ -1474,6 +1474,7 @@ export default function LiveTrainingPage({
       <ConfettiOverlay show={showConfetti} onDone={() => setShowConfetti(false)} />
       <LiveTrainingErrorBoundary onExit={onExit} theme={theme}>
         <div
+          data-live-training
           className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[var(--bg-color)] text-[var(--text-color)] w-screen"
           style={{ touchAction: "pan-y" }}
         >
