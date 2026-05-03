@@ -12,9 +12,9 @@ const config: CapacitorConfig = {
       cleartext: true,
     },
   }),
-  backgroundColor: '#F2F2F7',
+  backgroundColor: '#0A0A0A',
   ios: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#0A0A0A',
     contentInset: 'automatic',
     scrollEnabled: false,
   },
@@ -28,6 +28,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 0,
       launchAutoHide: true,
+      showSpinner: false,
     },
   },
 };

@@ -55,13 +55,15 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
         style={{
           maxWidth: 390,
           height: "var(--tab-bar-height)",
-          borderRadius: 22,
-          backgroundColor: "var(--card-bg)",
+          borderRadius: 24,
+          backgroundColor: "var(--nav-bg)",
+          backdropFilter: "blur(40px) saturate(1.8)",
+          WebkitBackdropFilter: "blur(40px) saturate(1.8)",
           border: "0.5px solid var(--border-color)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.13), 0 1px 3px rgba(0,0,0,0.07)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.1)",
           display: "flex",
           alignItems: "stretch",
-          padding: "0 2px",
+          padding: "0 4px",
         }}
       >
         {TABS.map(({ key, SvgIcon }) => {
