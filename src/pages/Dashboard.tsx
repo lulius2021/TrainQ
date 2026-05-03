@@ -542,83 +542,59 @@ const DashboardPage = () => {
         {/* ADAPTIVES TRAINING */}
         <button
           onClick={handleOpenAdaptive}
-          className="w-full bg-[var(--card-bg)] rounded-[24px] px-5 py-4 border border-[var(--border-color)] active:scale-[0.98] transition-transform text-left"
+          className="w-full relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 rounded-[24px] px-5 py-4 active:scale-[0.98] transition-transform text-left"
+          style={{ color: 'white' }}
         >
-          <div className="flex items-center justify-between">
+          <div className="relative z-10 flex items-center justify-between force-white">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                <Sparkles size={18} />
-              </div>
               <div className="min-w-0">
-                <div className="text-[14px] font-bold text-[var(--text-color)] leading-tight">{t("dashboard.adaptive.title")}</div>
-                <div className="text-[11px] text-[var(--text-muted)] leading-tight truncate mt-0.5">{t("dashboard.adaptive.subtitle")}</div>
+                <div className="text-[14px] font-bold leading-tight">{t("dashboard.adaptive.title")}</div>
+                <div className="text-[11px] opacity-70 leading-tight truncate mt-0.5">{t("dashboard.adaptive.subtitle")}</div>
               </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-[#007AFF] text-white px-3.5 py-2 rounded-full shrink-0 ml-3">
-              <Zap size={11} fill="currentColor" />
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-white/20 px-3.5 py-2 rounded-full shrink-0 ml-3">
               {t("dashboard.adaptive.generate")}
+              <ChevronRight size={14} />
             </div>
           </div>
         </button>
 
 
-        {/* QUICK START */}
-        <div className="bg-[var(--card-bg)] rounded-[24px] px-5 py-4 border border-[var(--border-color)]">
-          <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">{t("dashboard.startTraining")}</h3>
-          <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym"))}
-                disabled={isWorkoutActive}
-                className="flex flex-col items-center justify-center gap-2 active:scale-[0.94] transition-transform btn-haptic disabled:opacity-50"
-              >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                  <Dumbbell size={20} />
-                </div>
-                <span className="text-[12px] font-semibold text-[var(--text-color)]">{t("dashboard.quickStart.gym")}</span>
-              </button>
-
-              <button
-                onClick={() => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen"))}
-                disabled={isWorkoutActive}
-                className="flex flex-col items-center justify-center gap-2 active:scale-[0.94] transition-transform btn-haptic disabled:opacity-50"
-              >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                  <Footprints size={20} />
-                </div>
-                <span className="text-[12px] font-semibold text-[var(--text-color)]">{t("dashboard.quickStart.running")}</span>
-              </button>
-
-              <button
-                onClick={() => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren"))}
-                disabled={isWorkoutActive}
-                className="flex flex-col items-center justify-center gap-2 active:scale-[0.94] transition-transform btn-haptic disabled:opacity-50"
-              >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                  <Bike size={20} />
-                </div>
-                <span className="text-[12px] font-semibold text-[var(--text-color)]">{t("dashboard.quickStart.cycling")}</span>
-              </button>
-          </div>
+        {/* QUICK START — 3 full-width rows */}
+        <div className="space-y-2">
+          {[
+            { label: t("dashboard.quickStart.gym"), sub: "Krafttraining", icon: <Dumbbell size={20} />, action: () => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym")) },
+            { label: t("dashboard.quickStart.running"), sub: "GPS-Tracking", icon: <Footprints size={20} />, action: () => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen")) },
+            { label: t("dashboard.quickStart.cycling"), sub: "GPS-Tracking", icon: <Bike size={20} />, action: () => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren")) },
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={item.action}
+              disabled={isWorkoutActive}
+              className="w-full bg-[var(--card-bg)] rounded-[20px] px-4 py-3.5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform btn-haptic disabled:opacity-50"
+            >
+              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
+                {item.icon}
+              </div>
+              <div className="flex-1 text-left">
+                <div className="text-[14px] font-bold text-[var(--text-color)]">{item.label}</div>
+                <div className="text-[11px] text-[var(--text-muted)]">{item.sub}</div>
+              </div>
+              <ChevronRight size={18} style={{ color: "var(--text-muted)" }} />
+            </button>
+          ))}
         </div>
 
-        {/* AKTIONEN */}
-        <div className="bg-[var(--card-bg)] rounded-[24px] px-5 py-4 border border-[var(--border-color)]">
-          <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">{t("dashboard.quickAccess")}</h3>
-          <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowPlanModal(true)} className="flex flex-col items-center justify-center gap-2 active:scale-[0.94] transition-transform btn-haptic">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                  <Plus size={20} strokeWidth={2.5} />
-                </div>
-                <span className="text-[12px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
-              </button>
-
-              <button onClick={() => setShowShiftModal(true)} className="flex flex-col items-center justify-center gap-2 active:scale-[0.94] transition-transform btn-haptic">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
-                  <RefreshCw size={20} />
-                </div>
-                <span className="text-[12px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
-              </button>
-          </div>
+        {/* QUICK ACCESS — inline row */}
+        <div className="flex gap-2">
+          <button onClick={() => setShowPlanModal(true)} className="flex-1 bg-[var(--card-bg)] rounded-[20px] px-4 py-3 border border-[var(--border-color)] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic">
+            <Plus size={16} style={{ color: "#007AFF" }} strokeWidth={2.5} />
+            <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
+          </button>
+          <button onClick={() => setShowShiftModal(true)} className="flex-1 bg-[var(--card-bg)] rounded-[20px] px-4 py-3 border border-[var(--border-color)] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic">
+            <RefreshCw size={14} style={{ color: "#007AFF" }} />
+            <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
+          </button>
         </div>
 
 

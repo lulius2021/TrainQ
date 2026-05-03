@@ -28,7 +28,7 @@
     /* GLOBAL RESET & THEME VARIABLES */
     :root {
         /* Default Dark Theme — sage/olive inspired */
-        --bg-color: #2C3029;
+        --bg-color: #000000;
         --card-bg: rgba(255, 255, 255, 0.10);
         --button-bg: rgba(255, 255, 255, 0.12);
         --text-color: #F0EDE8;
@@ -91,7 +91,7 @@
 
     body.light-theme {
         /* Light Theme — same sage/olive as dark for consistency */
-        --bg-color: #2C3029;
+        --bg-color: #000000;
         --card-bg: rgba(255, 255, 255, 0.10);
         --button-bg: rgba(255, 255, 255, 0.12);
         --text-color: #F0EDE8;
