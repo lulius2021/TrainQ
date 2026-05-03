@@ -90,56 +90,56 @@
     }
 
     body.light-theme {
-        /* Light Theme — same sage/olive as dark for consistency */
-        --bg-color: #000000;
-        --card-bg: rgba(255, 255, 255, 0.10);
-        --button-bg: rgba(255, 255, 255, 0.12);
-        --text-color: #F0EDE8;
-        --text-main: #F0EDE8 !important;
-        --text-secondary: #A8A59E;
-        --text-muted: #7A776F;
+        /* Light Theme — clean white */
+        --bg-color: #F2F2F7;
+        --card-bg: #FFFFFF;
+        --button-bg: #E5E5EA;
+        --text-color: #000000;
+        --text-main: #000000 !important;
+        --text-secondary: #6B6B70;
+        --text-muted: #8E8E93;
         --accent-color: #007AFF;
-        --border-color: rgba(255, 255, 255, 0.06);
-        --input-bg: rgba(255, 255, 255, 0.08);
-        --tab-bar-bg: rgba(35, 38, 32, 0.70);
+        --border-color: rgba(0, 0, 0, 0.08);
+        --input-bg: #F2F2F7;
+        --tab-bar-bg: rgba(255, 255, 255, 0.80);
         --success: #007AFF;
         --danger: #FF3B30;
 
-        /* Glass surface card effect — same as dark */
+        /* Glass surface card effect — light */
         --card-shadow:
-            inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-            0 4px 24px rgba(0, 0, 0, 0.15);
-        --card-border: 0.5px solid rgba(255, 255, 255, 0.08);
-        --card-backdrop: blur(16px) saturate(1.6) brightness(1.1);
+            0 1px 3px rgba(0, 0, 0, 0.06),
+            0 4px 12px rgba(0, 0, 0, 0.04);
+        --card-border: 0.5px solid rgba(0, 0, 0, 0.06);
+        --card-backdrop: blur(12px) saturate(1.5);
 
         /* Modal & Overlays */
-        --modal-bg: #252821;
-        --modal-header: rgba(37, 40, 33, 0.95);
-        --card-plan-bg: rgba(255, 255, 255, 0.10);
-        --button-text: #F0EDE8;
+        --modal-bg: #FFFFFF;
+        --modal-header: rgba(255, 255, 255, 0.95);
+        --card-plan-bg: #F2F2F7;
+        --button-text: #000000;
 
         /* Navigation */
-        --nav-bg: rgba(37, 40, 33, 0.88);
-        --nav-icon-active: #0A84FF;
-        --nav-icon-inactive: #7A776F;
-        --nav-label: #F0EDE8;
-        --nav-item-active: #0A84FF;
-        --nav-item-inactive: #7A776F;
-        --button-haptic: rgba(255, 255, 255, 0.14);
-        --nav-icon-filter: brightness(0) invert(1);
-        --mini-bar-bg: rgba(37, 40, 33, 0.94);
-        --chart-grid: rgba(255, 255, 255, 0.06);
+        --nav-bg: rgba(255, 255, 255, 0.92);
+        --nav-icon-active: #007AFF;
+        --nav-icon-inactive: #8E8E93;
+        --nav-label: #000000;
+        --nav-item-active: #007AFF;
+        --nav-item-inactive: #8E8E93;
+        --button-haptic: #D1D1D6;
+        --nav-icon-filter: brightness(0);
+        --mini-bar-bg: rgba(255, 255, 255, 0.95);
+        --chart-grid: rgba(0, 0, 0, 0.08);
 
         /* iOS 26 Liquid Glass */
-        --glass-bg: rgba(255, 255, 255, 0.08);
-        --glass-border: rgba(255, 255, 255, 0.10);
-        --glass-highlight: rgba(255, 255, 255, 0.08);
-        --glass-shadow: rgba(0, 0, 0, 0.30);
+        --glass-bg: rgba(255, 255, 255, 0.70);
+        --glass-border: rgba(0, 0, 0, 0.06);
+        --glass-highlight: rgba(255, 255, 255, 0.80);
+        --glass-shadow: rgba(0, 0, 0, 0.08);
 
         /* PageNavBar scrolled-state surface */
-        --nav-scrolled-bg: rgba(44, 48, 41, 0.90);
+        --nav-scrolled-bg: rgba(242, 242, 247, 0.92);
 
-        color-scheme: dark;
+        color-scheme: light;
     }
 
     /* Theme switching transition — scoped to layout containers only */
