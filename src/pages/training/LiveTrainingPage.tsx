@@ -443,8 +443,9 @@ export default function LiveTrainingPage({
       const globalSeed = readGlobalLiveSeed();
       if (globalSeed) {
         clearGlobalLiveSeed();
-        // Quick start = no exercises in seed, no calendar event
-        isQuickStartRef.current = !eventId && (globalSeed.exercises ?? []).length === 0;
+        // Quick start = no exercises in seed AND no calendar event
+        // Templates always have exercises pre-loaded, so this stays false for them
+        isQuickStartRef.current = !eventId && (globalSeed.exercises ?? []).length === 0 && !globalSeed.calendarEventId;
 
         const seedToUse = event?.adaptiveSuggestion
           ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
@@ -1283,7 +1284,9 @@ export default function LiveTrainingPage({
     setShowFinishReview(false);
 
     // Quick start only → offer to save as template
-    if (isQuickStartRef.current && !isCardioWorkout) {
+    // Only for free trainings (no template/plan), not for cardio
+    const hasExercises = (completed.exercises || []).length > 0;
+    if (isQuickStartRef.current && !isCardioWorkout && hasExercises) {
       pendingCompletedWorkoutRef.current = completed as unknown as import("../../types/training").CompletedWorkout;
       postFinishExitFnRef.current = () => doExit(completed.id);
       setTplName(reviewName || completed.title || "Training");
