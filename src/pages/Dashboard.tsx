@@ -542,20 +542,20 @@ const DashboardPage = () => {
         {/* ADAPTIVES TRAINING */}
         <button
           onClick={handleOpenAdaptive}
-          className="w-full relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 rounded-[24px] px-5 py-4 group active:scale-[0.98] transition-transform text-left shadow-lg shadow-blue-500/15"
-          style={{ color: 'white' }}
+          className="w-full bg-[var(--card-bg)] rounded-[24px] px-5 py-4 border border-[var(--border-color)] active:scale-[0.98] transition-transform text-left"
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/8 blur-[50px] rounded-full" />
-          <div className="relative z-10 flex items-center gap-4 force-white">
-            <div className="w-11 h-11 shrink-0 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center">
-              <Sparkles size={20} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
+                <Sparkles size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[14px] font-bold text-[var(--text-color)] leading-tight">{t("dashboard.adaptive.title")}</div>
+                <div className="text-[11px] text-[var(--text-muted)] leading-tight truncate mt-0.5">{t("dashboard.adaptive.subtitle")}</div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[15px] font-black leading-tight">{t("dashboard.adaptive.title")}</div>
-              <div className="text-[12px] opacity-70 leading-tight truncate mt-0.5">{t("dashboard.adaptive.subtitle")}</div>
-            </div>
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider bg-white/20 px-4 py-2 rounded-full shrink-0">
-              <Zap size={12} fill="currentColor" />
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-[#007AFF] text-white px-3.5 py-2 rounded-full shrink-0 ml-3">
+              <Zap size={11} fill="currentColor" />
               {t("dashboard.adaptive.generate")}
             </div>
           </div>
