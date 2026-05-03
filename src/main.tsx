@@ -8,6 +8,7 @@ import "./i18n/config"; // Initialize i18n
 
 import { applyTheme, loadTheme } from "./utils/theme";
 import { SplashScreen } from "@capacitor/splash-screen";
+import { hasSupabaseEnv } from "./lib/supabaseClient";
 
 // Hide Capacitor splash immediately — native LaunchScreen.storyboard is enough
 SplashScreen.hide({ fadeOutDuration: 0 }).catch(() => {});
@@ -66,7 +67,9 @@ function setupKeyboardScrollFix() {
       paddingTarget = scrollParent;
       originalPadding = scrollParent.style.paddingBottom;
       const currentPad = getComputedStyle(scrollParent).paddingBottom;
-      scrollParent.style.paddingBottom = `calc(${currentPad} + 320px)`;
+      // Approximate iOS keyboard height (~290px) + extra buffer for safe area
+      const KEYBOARD_PADDING = 320;
+      scrollParent.style.paddingBottom = `calc(${currentPad} + ${KEYBOARD_PADDING}px)`;
     }
 
     if (scrollTimer) clearTimeout(scrollTimer);
@@ -109,7 +112,6 @@ function findScrollParent(el: HTMLElement): HTMLElement | null {
 }
 
 setupKeyboardScrollFix();
-import { hasSupabaseEnv } from "./lib/supabaseClient";
 
 if (!hasSupabaseEnv()) {
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);

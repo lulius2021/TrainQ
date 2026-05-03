@@ -51,6 +51,8 @@ export function KeyboardDismissBar() {
       className="fixed z-[9999] active:scale-95 transition-transform"
       style={{
         right: 16,
+        // Positioned between content and keyboard — 61% keeps it visible
+        // above the iOS keyboard (~40% of screen) while not overlapping header
         top: "61%",
         transform: "translateY(-50%)",
         backgroundColor: "var(--accent-color, #007AFF)",
@@ -63,7 +65,7 @@ export function KeyboardDismissBar() {
         border: "none",
       }}
     >
-      {t("common.done" as any)}
+      {t("common.done")}
     </button>
   );
 }

@@ -17,7 +17,7 @@ type BottomNavProps = {
   onActiveTap?: (t: TabKey) => void;
 };
 
-type TabDef = { key: TabKey; icon?: string; SvgIcon?: React.FC<React.SVGProps<SVGSVGElement>> };
+type TabDef = { key: TabKey; SvgIcon: React.FC<React.SVGProps<SVGSVGElement>> };
 
 const TABS: TabDef[] = [
   { key: "dashboard", SvgIcon: IconListDashHeaderRectangle },
@@ -64,7 +64,7 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
           padding: "0 2px",
         }}
       >
-        {TABS.map(({ key, icon, SvgIcon }) => {
+        {TABS.map(({ key, SvgIcon }) => {
           const active = activeTab === key;
           const iconColor = active ? "var(--nav-item-active)" : "var(--nav-item-inactive)";
           return (
@@ -85,32 +85,12 @@ export function BottomNav({ activeTab, onChange, onActiveTap }: BottomNavProps) 
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              {SvgIcon ? (
-                <SvgIcon
-                  width={23}
-                  height={23}
-                  fill={iconColor}
-                  style={{ transition: "fill 0.18s ease", flexShrink: 0 }}
-                />
-              ) : (
-              <div
-                style={{
-                  width: 23,
-                  height: 23,
-                  backgroundColor: iconColor,
-                  maskImage: `url(${icon})`,
-                  WebkitMaskImage: `url(${icon})`,
-                  maskSize: "contain",
-                  WebkitMaskSize: "contain",
-                  maskRepeat: "no-repeat",
-                  WebkitMaskRepeat: "no-repeat",
-                  maskPosition: "center",
-                  WebkitMaskPosition: "center",
-                  transition: "background-color 0.18s ease",
-                  flexShrink: 0,
-                }}
+              <SvgIcon
+                width={23}
+                height={23}
+                fill={iconColor}
+                style={{ transition: "fill 0.18s ease", flexShrink: 0 }}
               />
-              )}
               {/* Label */}
               <span
                 style={{

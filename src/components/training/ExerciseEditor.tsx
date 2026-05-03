@@ -257,84 +257,6 @@ const DropSwipeRow = ({ drop, dropIdx, theme, onUpdate, onToggle, onDelete }: {
   );
 };
 
-// -------------------- Swipeable Drop Row --------------------
-
-const SwipeableDropRow = ({ drop, theme, onUpdate, onToggle, onDelete, label, isMain }: {
-  drop: any; theme: any;
-  onUpdate: (patch: any) => void;
-  onToggle: () => void;
-  onDelete: () => void;
-  label?: React.ReactNode;
-  isMain?: boolean;
-}) => {
-  const { contentRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(onDelete);
-  const isCompleted = !!drop.completed;
-
-  return (
-    <div className="relative overflow-hidden">
-      {/* Delete background */}
-      {isSwiping && (
-        <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0">
-          <Trash2 size={14} className="text-white" />
-        </div>
-      )}
-      {/* Foreground */}
-      <div
-        ref={contentRef}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        className="relative z-10 grid grid-cols-[40px_1fr_1fr_56px] gap-3 items-center rounded-3xl p-0"
-        style={{ backgroundColor: theme.colors.card }}
-      >
-        <div className="flex items-center justify-center cursor-pointer h-10 w-8 shrink-0">
-          {label || (
-            <span className="text-sm font-bold select-none text-[var(--text-secondary)]">D</span>
-          )}
-        </div>
-        <input
-          type="number" inputMode="decimal" step={0.5}
-          value={typeof drop.weight === "number" ? drop.weight : ""} placeholder="-"
-          onChange={(e) => {
-            const parsed = Number(e.target.value.replace(",", "."));
-            onUpdate({ weight: Number.isFinite(parsed) ? parsed : undefined });
-          }}
-          style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
-        />
-        <input
-          type="number" inputMode="numeric"
-          value={typeof drop.reps === "number" ? drop.reps : ""} placeholder="-"
-          onChange={(e) => {
-            const parsed = Number(e.target.value.replace(",", "."));
-            onUpdate({ reps: Number.isFinite(parsed) ? parsed : undefined });
-          }}
-          style={{ backgroundColor: theme.colors.inputBackground, color: theme.colors.text }}
-          className={`h-10 w-full rounded-3xl text-center text-base font-bold outline-none border-2 border-transparent focus:border-[#007AFF]/50 transition-all placeholder-zinc-400 ${isCompleted ? "opacity-50" : ""}`}
-        />
-        <div className="flex items-center justify-center w-full h-10">
-          <button type="button"
-            onTouchStart={(e) => e.stopPropagation()}
-            onPointerDown={(e) => { e.stopPropagation(); onToggle(); }}
-            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-            className={`h-10 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${isCompleted
-              ? "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]"
-              : "border-transparent hover:border-[#007AFF]"
-            }`}
-            style={{ touchAction: "manipulation", backgroundColor: !isCompleted ? theme.colors.inputBackground : undefined }}
-          >
-            {isCompleted ? (
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            ) : (
-              <div className="h-2 w-2 rounded-full bg-[var(--border-color)]" />
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // -------------------- Swipeable Row Component --------------------
 
 const SwipeableSetRow = ({
@@ -355,6 +277,7 @@ const SwipeableSetRow = ({
   prSets,     // Set<string> of set IDs that are PRs
 }: any) => {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
   // Debounce: prevent double-fire from iOS pointer/touch event overlap
   const lastToggleMs = useRef(0);
@@ -701,7 +624,7 @@ const SwipeableSetRow = ({
         <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
           <div className="flex items-center gap-2 font-bold text-white">
             <Trash2 size={16} />
-            <span className="text-sm">Löschen</span>
+            <span className="text-sm">{t("common.delete")}</span>
           </div>
         </div>
       )}

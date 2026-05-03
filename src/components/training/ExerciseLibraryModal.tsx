@@ -192,7 +192,6 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
   const [filters, setFilters] = useState<ExerciseFilters>(defaultExerciseFilters);
   const [searchTerm, setSearchTerm] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const existingSet = useMemo(() => new Set(existingExerciseIds ?? []), [existingExerciseIds]);
   const [localAddedIds, setLocalAddedIds] = useState<Set<string>>(() => new Set(existingExerciseIds ?? []));
 
@@ -358,7 +357,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             </div>
             <div className="flex-1">
               <h3 className="text-xl font-bold text-[var(--text-color)]">{getExerciseDisplayName(ex, lang)}</h3>
-              <p className="text-base text-[var(--text-secondary)] mt-1">{t(`training.difficulty.${ex.difficulty || "Mittel"}` as any)}</p>
+              <p className="text-base text-[var(--text-secondary)] mt-1">{t(`training.difficulty.${ex.difficulty || "Mittel"}`)}</p>
             </div>
             {isAdded && (
               <div className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-black">
@@ -482,13 +481,13 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             <div className="flex items-center gap-2 px-1 mb-2">
               <div className="w-1.5 h-5 rounded-full bg-[#007AFF]" />
               <span className="text-sm font-semibold" style={{ color: "var(--text-color)" }}>
-                {t("training.exerciseLibrary.suggestions" as any)}
+                {t("training.exerciseLibrary.suggestions")}
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
                 {suggestedExercises.length}
               </span>
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                {t("training.exerciseLibrary.suggestionsHint" as any)}
+                {t("training.exerciseLibrary.suggestionsHint")}
               </span>
             </div>
             <div className="space-y-2">
@@ -509,7 +508,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             <div className="my-4 h-px" style={{ backgroundColor: "var(--border-color)" }} />
             <div className="px-1 mb-2">
               <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                {t("training.exerciseLibrary.allExercises" as any)}
+                {t("training.exerciseLibrary.allExercises")}
               </span>
             </div>
           </div>
@@ -562,7 +561,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           <div className="flex items-center justify-between px-4 py-3">
             <div className="min-w-0">
               <div className="truncate text-lg font-bold text-[var(--text-color)]">
-                {title || (category === 'running' ? t("training.exerciseLibrary.runningTitle" as any) : category === 'cycling' ? t("training.exerciseLibrary.cyclingTitle" as any) : t("training.exerciseLibrary.title"))}
+                {title || (category === 'running' ? t("training.exerciseLibrary.runningTitle") : category === 'cycling' ? t("training.exerciseLibrary.cyclingTitle") : t("training.exerciseLibrary.title"))}
               </div>
             </div>
             <button
