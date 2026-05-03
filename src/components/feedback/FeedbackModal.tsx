@@ -208,7 +208,7 @@ export function FeedbackModal({ page, onClose }: FeedbackModalProps) {
           <button
             type="submit"
             disabled={isSending}
-            className="px-5 py-2 rounded-3xl bg-brand-primary text-sm font-semibold text-black hover:bg-brand-primary/90 disabled:opacity-60"
+            className="px-5 py-2 rounded-3xl bg-[#007AFF] text-sm font-semibold text-black hover:bg-[#007AFF]/90 disabled:opacity-60"
           >
             {isSending ? t("feedback.sending") : t("feedback.send")}
           </button>

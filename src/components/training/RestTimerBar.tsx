@@ -265,7 +265,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
 
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
           <div
-            className="h-full rounded-full bg-brand-primary transition-all duration-300"
+            className="h-full rounded-full bg-[#007AFF] transition-all duration-300"
             style={{
               width: `${progressPct}%`,
               boxShadow: '0 0 10px 0px rgba(37, 99, 235, 0.7)'

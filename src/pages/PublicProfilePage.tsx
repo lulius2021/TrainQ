@@ -70,7 +70,7 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
 
       {user && (
         <div className="rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl p-6 flex items-center gap-6">
-          <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-brand-primary/50 to-white/10 border-2 border-white/20">
+          <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-[#007AFF]/50 to-white/10 border-2 border-white/20">
             {user.avatarDataUrl ? (
               <img src={user.avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
             ) : (

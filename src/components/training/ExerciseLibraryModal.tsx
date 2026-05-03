@@ -328,7 +328,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
 
   // Helper to get icon for running/cycling cards
   const getCardIcon = (id: string) => {
-    if (id.includes("run_1") || id.includes("cycle_1")) return <MapPin className="text-brand-primary" size={32} />; // Normal Run/Bike
+    if (id.includes("run_1") || id.includes("cycle_1")) return <MapPin className="text-[#007AFF]" size={32} />; // Normal Run/Bike
     if (id.includes("run_2") || id.includes("cycle_2")) return <Activity className="text-green-400" size={32} />; // Recovery
     if (id.includes("run_3") || id.includes("cycle_3")) return <Repeat className="text-orange-400" size={32} />; // Intervals
     return <Activity className="text-gray-400" size={32} />;
@@ -399,7 +399,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           <button
             type="button"
             onClick={openCreate}
-            className="shrink-0 flex items-center gap-1.5 rounded-full bg-brand-primary px-3.5 py-1.5 text-[13px] font-semibold text-white active:scale-[0.96] transition-transform"
+            className="shrink-0 flex items-center gap-1.5 rounded-full bg-[#007AFF] px-3.5 py-1.5 text-[13px] font-semibold text-white active:scale-[0.96] transition-transform"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
@@ -417,7 +417,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             }}
             className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
               filters.muscle !== "alle"
-                ? "bg-brand-primary/15 text-brand-primary"
+                ? "bg-[#007AFF]/15 text-[#007AFF]"
                 : "bg-[var(--input-bg)] text-[var(--text-secondary)]"
             }`}
           >
@@ -435,7 +435,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             }}
             className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
               filters.equipment !== "alle"
-                ? "bg-brand-primary/15 text-brand-primary"
+                ? "bg-[#007AFF]/15 text-[#007AFF]"
                 : "bg-[var(--input-bg)] text-[var(--text-secondary)]"
             }`}
           >
@@ -453,7 +453,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
             }}
             className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
               filters.type !== "alle"
-                ? "bg-brand-primary/15 text-brand-primary"
+                ? "bg-[#007AFF]/15 text-[#007AFF]"
                 : "bg-[var(--input-bg)] text-[var(--text-secondary)]"
             }`}
           >
@@ -615,7 +615,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               placeholder={t("training.exerciseLibrary.createNamePlaceholder")}
-              className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-[var(--text-secondary)]"
+              className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-[#007AFF] placeholder:text-[var(--text-secondary)]"
               autoFocus
             />
           </div>
@@ -629,7 +629,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
               <button
                 type="button"
                 onClick={() => createImageInputRef.current?.click()}
-                className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[var(--border-color)] bg-[var(--input-bg)] transition-colors hover:border-brand-primary"
+                className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[var(--border-color)] bg-[var(--input-bg)] transition-colors hover:border-[#007AFF]"
               >
                 {createImagePreview ? (
                   <img src={createImagePreview} alt="" className="h-full w-full object-cover" />
@@ -667,7 +667,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
               <select
                 value={createMuscle}
                 onChange={(e) => setCreateMuscle(e.target.value as Muscle)}
-                className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-brand-primary"
+                className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-[#007AFF]"
               >
                 {MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{muscleLabels[m]}</option>)}
               </select>
@@ -679,7 +679,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
               <select
                 value={createEquipment}
                 onChange={(e) => setCreateEquipment(e.target.value as Equipment)}
-                className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-brand-primary"
+                className="mt-2 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--input-bg)] px-4 py-3 text-[15px] text-[var(--text-color)] outline-none focus:ring-2 focus:ring-[#007AFF]"
               >
                 {EQUIPMENTS.map((eq) => <option key={eq} value={eq}>{equipmentLabels[eq]}</option>)}
               </select>
@@ -699,7 +699,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
                   onClick={() => setCreateType(type)}
                   className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                     createType === type
-                      ? 'bg-brand-primary text-white border-brand-primary'
+                      ? 'bg-[#007AFF] text-white border-[#007AFF]'
                       : 'border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]'
                   }`}
                 >
@@ -722,7 +722,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
                   onClick={() => toggleMetric(metric)}
                   className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                     createMetrics.includes(metric)
-                      ? 'bg-brand-primary text-white border-brand-primary'
+                      ? 'bg-[#007AFF] text-white border-[#007AFF]'
                       : 'border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:bg-[var(--button-bg)]'
                   }`}
                 >
@@ -745,7 +745,7 @@ const ExerciseLibraryModal = React.memo(function ExerciseLibraryModal({ open, ti
           <button
             type="button"
             onClick={handleCreate}
-            className="w-full rounded-2xl bg-brand-primary py-3.5 text-base font-semibold text-white transition-colors hover:bg-brand-primary/90 active:scale-[0.98]"
+            className="w-full rounded-2xl bg-[#007AFF] py-3.5 text-base font-semibold text-white transition-colors hover:bg-[#007AFF]/90 active:scale-[0.98]"
           >
             {t("training.exerciseLibrary.createSave")}
           </button>

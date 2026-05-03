@@ -39,7 +39,7 @@ export const TrainingModeSelector: React.FC<TrainingModeSelectorProps> = ({
             className={
               "px-3 py-1 rounded-full transition " +
               (active
-                ? "bg-brand-primary text-black shadow-sm"
+                ? "bg-[#007AFF] text-black shadow-sm"
                 : "text-white/80 hover:bg-white/5")
             }
           >

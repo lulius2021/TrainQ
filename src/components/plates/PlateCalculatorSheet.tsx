@@ -107,7 +107,7 @@ function PlateVisual({
           <div
             key={`${kg}_${idx}`}
             style={{ width: widthFor(kg), height: 86, marginLeft: -Math.round(widthFor(kg) * 0.55), transition: "width 180ms ease, margin 180ms ease" }}
-            className="relative flex items-center justify-center rounded-[14px] border border-white/10 bg-brand-primary"
+            className="relative flex items-center justify-center rounded-[14px] border border-white/10 bg-[#007AFF]"
             title={`${fmtKg(kg)} kg`}
           >
             <div className="absolute inset-0 rounded-[14px] bg-gradient-to-b from-white/20 to-transparent" />
@@ -187,13 +187,13 @@ export function PlateCalculatorSheet({ open, onClose, initialTotalKg = 0, onAppl
           <div className="px-6 pb-5">
             <div className="flex items-center justify-between">
               <div className="text-xl font-bold text-white">Verfügbare Scheiben</div>
-              <button type="button" onClick={() => setManageOpen((v) => !v)} className="text-lg font-semibold text-brand-primary">{manageOpen ? "Fertig" : "Verwalten"}</button>
+              <button type="button" onClick={() => setManageOpen((v) => !v)} className="text-lg font-semibold text-[#007AFF]">{manageOpen ? "Fertig" : "Verwalten"}</button>
             </div>
             <div className="mt-4 flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {DEFAULT_PLATES.map((kg) => {
                 const active = available.includes(kg);
                 return (
-                  <button key={kg} type="button" disabled={!manageOpen} onClick={() => togglePlateAvailable(kg)} className={`h-16 w-16 rounded-full flex items-center justify-center text-2xl font-bold tabular-nums transition-all ${active ? "bg-brand-primary text-white shadow-[0_0_10px_rgba(37,99,235,0.7)]" : "bg-white/5 text-gray-400"} ${!manageOpen && "cursor-default"}`} title={manageOpen ? "Tippen zum Aktivieren/Deaktivieren" : "Zum Ändern: Verwalten"}>{fmtKg(kg)}</button>
+                  <button key={kg} type="button" disabled={!manageOpen} onClick={() => togglePlateAvailable(kg)} className={`h-16 w-16 rounded-full flex items-center justify-center text-2xl font-bold tabular-nums transition-all ${active ? "bg-[#007AFF] text-white shadow-[0_0_10px_rgba(37,99,235,0.7)]" : "bg-white/5 text-gray-400"} ${!manageOpen && "cursor-default"}`} title={manageOpen ? "Tippen zum Aktivieren/Deaktivieren" : "Zum Ändern: Verwalten"}>{fmtKg(kg)}</button>
                 );
               })}
             </div>

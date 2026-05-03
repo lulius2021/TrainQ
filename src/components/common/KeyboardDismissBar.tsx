@@ -79,7 +79,7 @@ export function KeyboardDismissBar() {
       className="fixed z-[9999] active:scale-95 transition-transform"
       style={{
         right: 16,
-        top: "61%",
+        top: "60%",
         transform: "translateY(-50%)",
         backgroundColor: "var(--accent-color, #007AFF)",
         color: "#fff",
