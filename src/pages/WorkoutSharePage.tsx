@@ -9,6 +9,13 @@ import { X, Share2, Download, Dumbbell, Flame, Check, MapPin, Bike, Footprints }
 import CardioMap from "../components/cardio/CardioMap";
 import type { GpsPoint } from "../types/cardio";
 import { hapticLight } from "../native/haptics";
+import { MotionDiv } from "../components/ui/Motion";
+
+const shareSlideVariants = {
+  enter: (dir: number) => ({ x: dir >= 0 ? "100%" : "-100%", opacity: 0.3 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir >= 0 ? "-100%" : "100%", opacity: 0.3 }),
+};
 
 // --- MOCK DATA ---
 const MOCK_WORKOUT: any = {
@@ -460,21 +467,30 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
   ];
   const currentTemplate = TEMPLATES[templateIndex];
 
-  const swipeDir = useRef<1 | -1>(1);
-  const swipeTouchStartX = useRef<number | null>(null);
+  const [swipeDir, setSwipeDir] = useState(1);
+  const swipeTouchRef = useRef<{ x: number; y: number } | null>(null);
 
-  const nextT = () => { swipeDir.current = 1; setTemplateIndex((p) => (p + 1) % TEMPLATES.length); };
-  const prevT = () => { swipeDir.current = -1; setTemplateIndex((p) => (p - 1 + TEMPLATES.length) % TEMPLATES.length); };
+  const navigateTemplate = (dir: 1 | -1) => {
+    setSwipeDir(dir);
+    setTemplateIndex((p) => (p + dir + TEMPLATES.length) % TEMPLATES.length);
+  };
 
   const handleSwipeTouchStart = (e: React.TouchEvent) => {
-    swipeTouchStartX.current = e.touches[0].clientX;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, select, [role='button']")) {
+      swipeTouchRef.current = null;
+      return;
+    }
+    swipeTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
   const handleSwipeTouchEnd = (e: React.TouchEvent) => {
-    if (swipeTouchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - swipeTouchStartX.current;
-    swipeTouchStartX.current = null;
-    if (Math.abs(delta) < 40) return;
-    if (delta < 0) nextT(); else prevT();
+    const start = swipeTouchRef.current;
+    if (!start) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    swipeTouchRef.current = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+    if (dx < 0) navigateTemplate(1); else navigateTemplate(-1);
   };
 
   // EXPORT HANDLER (Targets HIDDEN Container)
@@ -547,14 +563,15 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         onTouchStart={handleSwipeTouchStart}
         onTouchEnd={handleSwipeTouchEnd}
       >
-        <AnimatePresence mode="wait" initial={false} custom={swipeDir.current}>
-          <motion.div
+        <AnimatePresence mode="popLayout" custom={swipeDir} initial={false}>
+          <MotionDiv
             key={templateIndex}
-            custom={swipeDir.current}
-            initial={{ x: swipeDir.current * 300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: swipeDir.current * -300, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            custom={swipeDir}
+            variants={shareSlideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
             className="transform scale-[0.60] xs:scale-[0.68] sm:scale-[0.76] shadow-2xl shadow-blue-900/10 rounded-[32px] overflow-hidden"
             style={{ border: "1px solid var(--border-color)" }}
           >
@@ -566,7 +583,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
               history={history}
               isExportMode={false}
             />
-          </motion.div>
+          </MotionDiv>
         </AnimatePresence>
       </div>
 
