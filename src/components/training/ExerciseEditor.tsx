@@ -277,7 +277,6 @@ const SwipeableSetRow = ({
   prSets,     // Set<string> of set IDs that are PRs
 }: any) => {
   const { theme } = useTheme();
-  const { t } = useI18n();
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
   // Debounce: prevent double-fire from iOS pointer/touch event overlap
   const lastToggleMs = useRef(0);
@@ -624,7 +623,7 @@ const SwipeableSetRow = ({
         <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
           <div className="flex items-center gap-2 font-bold text-white">
             <Trash2 size={16} />
-            <span className="text-sm">{t("common.delete")}</span>
+            <span className="text-sm">Löschen</span>
           </div>
         </div>
       )}
