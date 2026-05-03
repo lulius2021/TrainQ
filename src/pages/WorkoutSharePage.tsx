@@ -5,9 +5,11 @@ import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
 import { loadWorkoutHistory } from "../utils/workoutHistory";
 import { useAuth } from "../context/AuthContext";
 import { X, Share2, Download, Dumbbell, Flame, Check, Trophy, Zap, TrendingUp, Target } from "lucide-react";
-import { hapticLight } from "../native/haptics";
+import { hapticLight, hapticSuccess } from "../native/haptics";
 import { MotionDiv } from "../components/ui/Motion";
 import { useI18n } from "../i18n/useI18n";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 const shareSlideVariants = {
   enter: (dir: number) => ({ x: dir >= 0 ? "100%" : "-100%", opacity: 0.3 }),
@@ -553,19 +555,34 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         windowWidth: 1080,
         windowHeight: 1920,
       });
-      cvs.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `trainq-share-${Date.now()}.png`, { type: 'image/png' });
-        if (mode === 'share' && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file] });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'trainq-share.png';
-          a.click();
-        }
+
+      // Convert canvas to base64
+      const base64 = cvs.toDataURL('image/png').split(',')[1];
+      const fileName = `trainq-share-${Date.now()}.png`;
+
+      // Save to device via Capacitor Filesystem
+      const saved = await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: Directory.Cache,
       });
+
+      if (mode === 'share') {
+        await Share.share({
+          title: 'TrainQ Workout',
+          files: [saved.uri],
+        });
+      } else {
+        // Save to photo library
+        try {
+          const { Media } = await import('@capacitor-community/media');
+          await Media.savePhoto({ path: saved.uri });
+          hapticSuccess();
+        } catch {
+          // Fallback: share dialog so user can save manually
+          await Share.share({ files: [saved.uri] });
+        }
+      }
     } catch (e) {
       if (import.meta.env.DEV) console.error("Export failed", e);
     } finally {
