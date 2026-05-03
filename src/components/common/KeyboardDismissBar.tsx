@@ -1,16 +1,40 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Keyboard } from "@capacitor/keyboard";
 import { useModalStore } from "../../store/useModalStore";
 import { useI18n } from "../../i18n/useI18n";
 
 export function KeyboardDismissBar() {
   const [visible, setVisible] = useState(false);
+  const keyboardOpen = useRef(false);
   const activateShield = useModalStore((s) => s.activateShield);
   const { t } = useI18n();
 
+  // Track actual keyboard state via Capacitor plugin
+  useEffect(() => {
+    let showListener: any;
+    let hideListener: any;
+
+    const setup = async () => {
+      try {
+        showListener = await Keyboard.addListener("keyboardWillShow", () => {
+          keyboardOpen.current = true;
+          const isLiveTraining = !!document.querySelector('[data-live-training]');
+          if (isLiveTraining) setVisible(true);
+        });
+        hideListener = await Keyboard.addListener("keyboardWillHide", () => {
+          keyboardOpen.current = false;
+          setVisible(false);
+        });
+      } catch {}
+    };
+
+    setup();
+    return () => { showListener?.remove(); hideListener?.remove(); };
+  }, []);
+
+  // Fallback: focus-based detection for when Capacitor plugin doesn't fire
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
-      // Only show in live training context
       const isLiveTraining = !!document.querySelector('[data-live-training]');
       if (!isLiveTraining) return;
 
@@ -18,7 +42,10 @@ export function KeyboardDismissBar() {
       if (!target?.tagName) return;
       const tag = target.tagName.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") {
-        setVisible(true);
+        // Only show if we believe keyboard is open (give it a moment)
+        setTimeout(() => {
+          if (keyboardOpen.current) setVisible(true);
+        }, 400);
       }
     };
 
@@ -55,8 +82,6 @@ export function KeyboardDismissBar() {
       className="fixed z-[9999] active:scale-95 transition-transform"
       style={{
         right: 16,
-        // Positioned between content and keyboard — 61% keeps it visible
-        // above the iOS keyboard (~40% of screen) while not overlapping header
         top: "61%",
         transform: "translateY(-50%)",
         backgroundColor: "var(--accent-color, #007AFF)",
