@@ -45,10 +45,7 @@ function sportIcon(type: TrainingType) {
     return <Dumbbell size={20} />;
 }
 
-function sportColor(type: TrainingType): { color: string; bg: string } {
-    if (type === "laufen") return { color: "#34C759", bg: "rgba(52,199,89,0.1)" };
-    if (type === "radfahren") return { color: "#FF9500", bg: "rgba(255,149,0,0.1)" };
-    if (type === "custom") return { color: "#AF52DE", bg: "rgba(175,82,222,0.1)" };
+function sportColor(_type: TrainingType): { color: string; bg: string } {
     return { color: "#007AFF", bg: "rgba(0,122,255,0.1)" };
 }
 
@@ -60,9 +57,9 @@ function makeDefaultSets(count = 3): TemplateSet[] {
 // Sport options for template modal
 const TEMPLATE_SPORTS: { id: TrainingType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
     { id: "gym",      label: "Gym",      icon: <Dumbbell size={20} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "laufen",   label: "Laufen",   icon: <Footprints size={20} />, color: "#34C759", bg: "rgba(52,199,89,0.12)" },
-    { id: "radfahren",label: "Rad",      icon: <Bike size={20} />,       color: "#FF9500", bg: "rgba(255,149,0,0.12)" },
-    { id: "custom",   label: "Custom",   icon: <Sparkles size={20} />,   color: "#AF52DE", bg: "rgba(175,82,222,0.12)" },
+    { id: "laufen",   label: "Laufen",   icon: <Footprints size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "radfahren",label: "Rad",      icon: <Bike size={20} />,       color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "custom",   label: "Custom",   icon: <Sparkles size={20} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
 ];
 
 // ---- Create Template Modal (BottomSheet editor) ----
@@ -477,8 +474,8 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 {/* ── HEUTE GEPLANT ── */}
                 <section className="space-y-2.5">
                     <h2
-                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
-                        style={{ color: "var(--text-secondary)" }}
+                        className="text-[13px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-muted)" }}
                     >
                         {t("today.section.planned")}
                     </h2>
@@ -542,18 +539,18 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 {/* ── SCHNELLSTART — 3 gleichwertige Sport-Buttons ── */}
                 <section className="space-y-2.5">
                     <h2
-                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
-                        style={{ color: "var(--text-secondary)" }}
+                        className="text-[13px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-muted)" }}
                     >
                         {t("startToday.quickStart")}
                     </h2>
 
-                    <div className="grid grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-3 gap-3">
                         {/* Gym */}
                         <button
                             onClick={() => handleFreeTraining("gym")}
                             disabled={hasActiveWorkout}
-                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            className="rounded-[20px] p-5 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
                             style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                         >
                             <div
@@ -564,7 +561,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.gym")}</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{t("startToday.strength")}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{t("startToday.strength")}</p>
                             </div>
                         </button>
 
@@ -572,18 +569,18 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         <button
                             onClick={() => handleFreeTraining("laufen")}
                             disabled={hasActiveWorkout}
-                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            className="rounded-[20px] p-5 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
                             style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                         >
                             <div
                                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                                style={{ backgroundColor: "rgba(52,199,89,0.1)", color: "#34C759" }}
+                                style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                             >
                                 <Footprints size={26} />
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.running")}</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>GPS-Tracking</p>
                             </div>
                         </button>
 
@@ -591,18 +588,18 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         <button
                             onClick={() => handleFreeTraining("radfahren")}
                             disabled={hasActiveWorkout}
-                            className="rounded-2xl p-4 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
+                            className="rounded-[20px] p-5 border flex flex-col items-center gap-3 active:scale-[0.96] transition-transform disabled:opacity-50"
                             style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                         >
                             <div
                                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                                style={{ backgroundColor: "rgba(255,149,0,0.1)", color: "#FF9500" }}
+                                style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                             >
                                 <Bike size={26} />
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.cycling")}</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>GPS-Tracking</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>GPS-Tracking</p>
                             </div>
                         </button>
                     </div>
@@ -611,8 +608,8 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                 {/* ── VORLAGEN ── */}
                 <section className="space-y-2.5">
                     <h2
-                        className="text-[11px] font-bold uppercase tracking-wider pl-1"
-                        style={{ color: "var(--text-secondary)" }}
+                        className="text-[13px] font-bold uppercase tracking-wider pl-1"
+                        style={{ color: "var(--text-muted)" }}
                     >
                         {t("startToday.myTemplates")}
                     </h2>
