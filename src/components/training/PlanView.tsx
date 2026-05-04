@@ -105,6 +105,20 @@ export default function PlanView({
                 </div>
             </div>
 
+            {/* Plan templates */}
+            <button
+                onClick={onOpenPlanTemplates}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-[14px] active:scale-[0.97] transition-transform"
+                style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+            >
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
+                    <FileText size={16} className="text-blue-500" />
+                </div>
+                <div className="text-left flex-1">
+                    <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.plans")}</div>
+                    <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.weeklyPlans")}</div>
+                </div>
+            </button>
         </div>
     );
 }
