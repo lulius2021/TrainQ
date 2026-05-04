@@ -93,10 +93,30 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const [sport, setSport] = useState<TrainingType>("gym");
     const [exercises, setExercises] = useState<TemplateExercise[]>([]);
     const [showLibrary, setShowLibrary] = useState(false);
-    const [cardioDuration, setCardioDuration] = useState<number | "">("");
-    const [cardioDistance, setCardioDistance] = useState<number | "">("");
+    const [cardioType, setCardioType] = useState<"long" | "intervals" | "recovery" | "">("");
+    const [cardioDistanceKm, setCardioDistanceKm] = useState<number | "">("");
+    const [cardioTimeMin, setCardioTimeMin] = useState<number | "">("");
+    const [cardioPaceMinKm, setCardioPaceMinKm] = useState<number | "">("");
     const [customNameInput, setCustomNameInput] = useState("");
     const [showCustomInput, setShowCustomInput] = useState(false);
+
+    // Auto-calculate missing cardio field
+    useEffect(() => {
+        const dist = typeof cardioDistanceKm === "number" ? cardioDistanceKm : 0;
+        const time = typeof cardioTimeMin === "number" ? cardioTimeMin : 0;
+        const pace = typeof cardioPaceMinKm === "number" ? cardioPaceMinKm : 0;
+
+        if (dist > 0 && time > 0 && pace === 0) {
+            // Distance + Time → Pace
+            setCardioPaceMinKm(Math.round((time / dist) * 10) / 10);
+        } else if (dist > 0 && pace > 0 && time === 0) {
+            // Distance + Pace → Time
+            setCardioTimeMin(Math.round(dist * pace * 10) / 10);
+        } else if (time > 0 && pace > 0 && dist === 0) {
+            // Time + Pace → Distance
+            setCardioDistanceKm(Math.round((time / pace) * 10) / 10);
+        }
+    }, [cardioDistanceKm, cardioTimeMin, cardioPaceMinKm]);
 
     // Reset form when sheet opens
     useEffect(() => {
@@ -104,8 +124,10 @@ function CreateTemplateModal({ open, onClose, onSave }: {
             setTitle("");
             setSport("gym");
             setExercises([]);
-            setCardioDuration("");
-            setCardioDistance("");
+            setCardioType("");
+            setCardioDistanceKm("");
+            setCardioTimeMin("");
+            setCardioPaceMinKm("");
             setCustomNameInput("");
             setShowCustomInput(false);
         }
@@ -115,8 +137,10 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         hapticSelect();
         setSport(newSport);
         setExercises([]);
-        setCardioDuration("");
-        setCardioDistance("");
+        setCardioType("");
+        setCardioDistanceKm("");
+        setCardioTimeMin("");
+        setCardioPaceMinKm("");
         setCustomNameInput("");
         setShowCustomInput(false);
     };
@@ -130,12 +154,13 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         let finalExercises: TemplateExercise[] | undefined;
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
-        } else if (isCardio) {
-            const cardioType = cardioDuration as any as string;
+        } else if (isCardio && cardioType) {
             const cardioName = cardioType === "intervals" ? "Intervalle"
                 : cardioType === "recovery" ? (sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt")
                 : (sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt");
-            finalExercises = [{ name: cardioName, sets: [{}] }];
+            const dist = typeof cardioDistanceKm === "number" ? cardioDistanceKm : 0;
+            const mins = typeof cardioTimeMin === "number" ? cardioTimeMin : 0;
+            finalExercises = [{ name: cardioName, sets: [{ weight: dist, reps: mins }] }];
         }
         onSave({ title: title.trim(), sportType: sport, exercises: finalExercises });
     };
@@ -498,7 +523,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                         </div>
                     )}
 
-                    {/* Cardio type selection */}
+                    {/* Cardio type selection + parameters */}
                     {isCardio && (
                         <div className="space-y-3">
                             <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>
@@ -507,53 +532,136 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                             <div className="space-y-2">
                                 {[
                                     {
-                                        key: "long",
+                                        key: "long" as const,
                                         title: sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt",
                                         desc: "Gleichmäßiges Tempo, Ausdauer aufbauen",
                                         icon: <MapPin size={20} />,
                                     },
                                     {
-                                        key: "intervals",
+                                        key: "intervals" as const,
                                         title: "Intervalle",
                                         desc: "Wechsel zwischen schnell und langsam",
                                         icon: <Sparkles size={20} />,
                                     },
                                     {
-                                        key: "recovery",
+                                        key: "recovery" as const,
                                         title: sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt",
                                         desc: "Lockeres Tempo, aktive Erholung",
                                         icon: <Play size={20} />,
                                     },
                                 ].map((option) => {
-                                    const isSelected = (cardioDuration as any) === option.key;
+                                    const isSelected = cardioType === option.key;
                                     return (
-                                        <button
-                                            key={option.key}
-                                            onClick={() => setCardioDuration(option.key as any)}
-                                            className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
-                                            style={{
-                                                backgroundColor: isSelected ? "rgba(0,122,255,0.1)" : "var(--card-bg)",
-                                                border: isSelected ? "1.5px solid #007AFF" : "1px solid var(--border-color)",
-                                            }}
-                                        >
-                                            <div
-                                                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                                        <div key={option.key}>
+                                            <button
+                                                onClick={() => setCardioType(isSelected ? "" : option.key)}
+                                                className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
                                                 style={{
-                                                    backgroundColor: isSelected ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
-                                                    color: isSelected ? "#007AFF" : "var(--text-muted)",
+                                                    backgroundColor: isSelected ? "rgba(0,122,255,0.1)" : "var(--card-bg)",
+                                                    border: isSelected ? "1.5px solid #007AFF" : "1px solid var(--border-color)",
+                                                    borderRadius: isSelected ? "16px 16px 0 0" : "16px",
                                                 }}
                                             >
-                                                {option.icon}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-[15px] font-bold" style={{ color: isSelected ? "#007AFF" : "var(--text-color)" }}>
-                                                    {option.title}
+                                                <div
+                                                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                                                    style={{
+                                                        backgroundColor: isSelected ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
+                                                        color: isSelected ? "#007AFF" : "var(--text-muted)",
+                                                    }}
+                                                >
+                                                    {option.icon}
                                                 </div>
-                                                <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                                                    {option.desc}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-[15px] font-bold" style={{ color: isSelected ? "#007AFF" : "var(--text-color)" }}>
+                                                        {option.title}
+                                                    </div>
+                                                    <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                                        {option.desc}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </button>
+                                            </button>
+
+                                            {/* Expandable parameter fields */}
+                                            {isSelected && (
+                                                <div
+                                                    className="rounded-b-2xl p-4 space-y-3"
+                                                    style={{ backgroundColor: "var(--card-bg)", borderLeft: "1.5px solid #007AFF", borderRight: "1.5px solid #007AFF", borderBottom: "1.5px solid #007AFF" }}
+                                                >
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        {/* Distance */}
+                                                        <div>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
+                                                                Distanz
+                                                            </label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number" inputMode="decimal" step={0.1}
+                                                                    value={cardioDistanceKm || ""}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                                        setCardioDistanceKm(v);
+                                                                        if (v) setCardioPaceMinKm(""); // reset auto-calc target
+                                                                    }}
+                                                                    className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                                />
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Time */}
+                                                        <div>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
+                                                                Zeit
+                                                            </label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number" inputMode="numeric"
+                                                                    value={cardioTimeMin || ""}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                                        setCardioTimeMin(v);
+                                                                        if (v) setCardioPaceMinKm(""); // reset auto-calc target
+                                                                    }}
+                                                                    className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                                />
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Pace */}
+                                                        <div>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
+                                                                Pace
+                                                            </label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number" inputMode="decimal" step={0.1}
+                                                                    value={cardioPaceMinKm || ""}
+                                                                    placeholder="-"
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                                        setCardioPaceMinKm(v);
+                                                                        if (v) setCardioTimeMin(""); // reset auto-calc target
+                                                                    }}
+                                                                    className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                                />
+                                                                <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Auto-calc hint */}
+                                                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
+                                                        2 Werte eingeben — der 3. wird berechnet
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>
