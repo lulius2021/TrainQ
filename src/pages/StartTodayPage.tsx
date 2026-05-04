@@ -97,6 +97,8 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const [cardioDistanceKm, setCardioDistanceKm] = useState<number | "">("");
     const [cardioTimeMin, setCardioTimeMin] = useState<number | "">("");
     const [cardioPaceMinKm, setCardioPaceMinKm] = useState<number | "">("");
+    type IntervalBlock = { distanceKm: number | ""; timeMin: number | ""; paceMinKm: number | "" };
+    const [intervals, setIntervals] = useState<IntervalBlock[]>([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
     const [customNameInput, setCustomNameInput] = useState("");
     const [showCustomInput, setShowCustomInput] = useState(false);
 
@@ -128,6 +130,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
             setCardioDistanceKm("");
             setCardioTimeMin("");
             setCardioPaceMinKm("");
+            setIntervals([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
             setCustomNameInput("");
             setShowCustomInput(false);
         }
@@ -141,6 +144,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         setCardioDistanceKm("");
         setCardioTimeMin("");
         setCardioPaceMinKm("");
+        setIntervals([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
         setCustomNameInput("");
         setShowCustomInput(false);
     };
@@ -189,6 +193,21 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         setExercises((prev) =>
             prev.map((ex, i) => i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: undefined, weight: undefined }] } : ex)
         );
+    };
+
+    const handleIntervalChange = (idx: number, field: keyof IntervalBlock, value: string) => {
+        const num = value === "" ? "" as const : parseFloat(value);
+        setIntervals(prev => prev.map((iv, i) => i === idx ? { ...iv, [field]: num } : iv));
+    };
+
+    const addInterval = () => {
+        hapticButton();
+        setIntervals(prev => [...prev, { distanceKm: "", timeMin: "", paceMinKm: "" }]);
+    };
+
+    const removeInterval = (idx: number) => {
+        hapticDestructive();
+        setIntervals(prev => prev.filter((_, i) => i !== idx));
     };
 
     const handleSetTypeCycle = (exIdx: number, setIdx: number) => {
@@ -582,105 +601,95 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                             </button>
 
                                             {/* Expandable parameter fields */}
-                                            {isSelected && (
+                                            {isSelected && option.key !== "intervals" && (
                                                 <div
                                                     className="rounded-b-2xl p-4 space-y-3"
                                                     style={{ backgroundColor: "var(--card-bg)", borderLeft: "1.5px solid #007AFF", borderRight: "1.5px solid #007AFF", borderBottom: "1.5px solid #007AFF" }}
                                                 >
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        {/* Distance */}
+                                                    <div className="grid grid-cols-3 gap-2">
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
-                                                                Distanz
-                                                            </label>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Distanz</label>
                                                             <div className="relative">
-                                                                <input
-                                                                    type="number" inputMode="decimal" step={0.1}
-                                                                    value={cardioDistanceKm || ""}
-                                                                    placeholder="-"
-                                                                    onChange={(e) => {
-                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
-                                                                        setCardioDistanceKm(v);
-                                                                        if (v) setCardioPaceMinKm(""); // reset auto-calc target
-                                                                    }}
+                                                                <input type="number" inputMode="decimal" step={0.1} value={cardioDistanceKm || ""} placeholder="-"
+                                                                    onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioDistanceKm(v); if (v) setCardioPaceMinKm(""); }}
                                                                     className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
-                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
-                                                                />
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
                                                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
                                                             </div>
                                                         </div>
-
-                                                        {/* Time (h + min) */}
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
-                                                                Zeit
-                                                            </label>
-                                                            <div className="flex gap-1 items-center">
-                                                                <div className="relative flex-1">
-                                                                    <input
-                                                                        type="number" inputMode="numeric"
-                                                                        value={typeof cardioTimeMin === "number" ? Math.floor(cardioTimeMin / 60) || "" : ""}
-                                                                        placeholder="-"
-                                                                        onChange={(e) => {
-                                                                            const h = e.target.value === "" ? 0 : parseInt(e.target.value);
-                                                                            const currentMin = typeof cardioTimeMin === "number" ? cardioTimeMin % 60 : 0;
-                                                                            const total = h * 60 + currentMin;
-                                                                            setCardioTimeMin(total || "");
-                                                                            if (total) setCardioPaceMinKm("");
-                                                                        }}
-                                                                        className="h-10 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
-                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
-                                                                    />
-                                                                    <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>h</span>
-                                                                </div>
-                                                                <span className="text-[12px] font-bold" style={{ color: "var(--text-muted)" }}>:</span>
-                                                                <div className="relative flex-1">
-                                                                    <input
-                                                                        type="number" inputMode="numeric"
-                                                                        value={typeof cardioTimeMin === "number" ? Math.round(cardioTimeMin % 60) || "" : ""}
-                                                                        placeholder="-"
-                                                                        onChange={(e) => {
-                                                                            const m = e.target.value === "" ? 0 : parseInt(e.target.value);
-                                                                            const currentH = typeof cardioTimeMin === "number" ? Math.floor(cardioTimeMin / 60) : 0;
-                                                                            const total = currentH * 60 + m;
-                                                                            setCardioTimeMin(total || "");
-                                                                            if (total) setCardioPaceMinKm("");
-                                                                        }}
-                                                                        className="h-10 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
-                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
-                                                                    />
-                                                                    <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>m</span>
-                                                                </div>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Zeit</label>
+                                                            <div className="relative">
+                                                                <input type="number" inputMode="numeric" value={cardioTimeMin || ""} placeholder="-"
+                                                                    onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioTimeMin(v); if (v) setCardioPaceMinKm(""); }}
+                                                                    className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
                                                             </div>
                                                         </div>
-
-                                                        {/* Pace */}
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
-                                                                Pace
-                                                            </label>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Pace</label>
                                                             <div className="relative">
-                                                                <input
-                                                                    type="number" inputMode="decimal" step={0.1}
-                                                                    value={cardioPaceMinKm || ""}
-                                                                    placeholder="-"
-                                                                    onChange={(e) => {
-                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
-                                                                        setCardioPaceMinKm(v);
-                                                                        if (v) setCardioTimeMin(""); // reset auto-calc target
-                                                                    }}
+                                                                <input type="number" inputMode="decimal" step={0.1} value={cardioPaceMinKm || ""} placeholder="-"
+                                                                    onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioPaceMinKm(v); if (v) setCardioTimeMin(""); }}
                                                                     className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
-                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
-                                                                />
+                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
                                                                 <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>2 Werte eingeben — der 3. wird berechnet</p>
+                                                </div>
+                                            )}
 
-                                                    {/* Auto-calc hint */}
-                                                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
-                                                        2 Werte eingeben — der 3. wird berechnet
-                                                    </p>
+                                            {/* Intervals — multiple blocks */}
+                                            {isSelected && option.key === "intervals" && (
+                                                <div
+                                                    className="rounded-b-2xl p-4 space-y-3"
+                                                    style={{ backgroundColor: "var(--card-bg)", borderLeft: "1.5px solid #007AFF", borderRight: "1.5px solid #007AFF", borderBottom: "1.5px solid #007AFF" }}
+                                                >
+                                                    {intervals.map((iv, ivIdx) => (
+                                                        <div key={ivIdx}>
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <span className="text-[11px] font-bold" style={{ color: "var(--text-color)" }}>Intervall {ivIdx + 1}</span>
+                                                                {intervals.length > 1 && (
+                                                                    <button onClick={() => removeInterval(ivIdx)} className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--button-bg)" }}>
+                                                                        <X size={10} style={{ color: "var(--text-muted)" }} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div className="relative">
+                                                                    <input type="number" inputMode="decimal" step={0.1} value={iv.distanceKm || ""} placeholder="-"
+                                                                        onChange={(e) => handleIntervalChange(ivIdx, "distanceKm", e.target.value)}
+                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
+                                                                </div>
+                                                                <div className="relative">
+                                                                    <input type="number" inputMode="numeric" value={iv.timeMin || ""} placeholder="-"
+                                                                        onChange={(e) => handleIntervalChange(ivIdx, "timeMin", e.target.value)}
+                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                                                                </div>
+                                                                <div className="relative">
+                                                                    <input type="number" inputMode="decimal" step={0.1} value={iv.paceMinKm || ""} placeholder="-"
+                                                                        onChange={(e) => handleIntervalChange(ivIdx, "paceMinKm", e.target.value)}
+                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                    <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        onClick={addInterval}
+                                                        className="w-full py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
+                                                        style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
+                                                    >
+                                                        <Plus size={15} /> Intervall
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
