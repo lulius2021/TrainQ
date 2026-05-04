@@ -1972,85 +1972,100 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
                 return (
                   <div
                     key={day.id}
-                    className="flex items-center gap-3 px-4 py-3"
+                    className={`px-4 ${hasWorkout ? 'py-3' : 'py-3'}`}
                     style={{
                       borderBottom: idx < 6 ? `1px solid var(--border-color)` : undefined,
                       opacity: isRest ? 0.55 : 1,
                     }}
                   >
-                    {/* Day abbrev */}
-                    <div className="w-7 text-xs font-bold shrink-0 tabular-nums" style={{ color: "var(--text-secondary)" }}>
-                      {DAY_ABBR[idx]}
-                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Day abbrev */}
+                      <div className="w-7 text-xs font-bold shrink-0 tabular-nums" style={{ color: "var(--text-secondary)" }}>
+                        {DAY_ABBR[idx]}
+                      </div>
 
-                    {/* Sport icon — tap to open picker */}
-                    <button
-                      type="button"
-                      title="Sportart ändern"
-                      className="w-8 h-8 text-base flex items-center justify-center rounded-xl shrink-0 active:scale-90 transition-transform"
-                      style={{ backgroundColor: "var(--border-color)" }}
-                      onClick={() => setSportPicker({ kind: "weekly", id: day.id, current: day.sport as WeeklySportType })}
-                    >
-                      {SPORT_ICON_COMPONENTS[day.sport as WeeklySportType] ?? <Dumbbell size={16} />}
-                    </button>
-
-                    {/* Focus name — editable inline */}
-                    {isRest ? (
-                      <div className="flex-1 text-sm" style={{ color: "var(--text-secondary)" }}>Ruhetag</div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={day.focus}
-                        onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
-                        placeholder="z.B. Push, Beine…"
-                        className="flex-1 text-sm font-medium bg-transparent outline-none min-w-0"
-                        style={{ color: "var(--text-color)" }}
-                      />
-                    )}
-
-                    {/* Action button */}
-                    {isRest ? (
+                      {/* Sport icon — tap to open picker */}
                       <button
                         type="button"
-                        onClick={() => handleWeeklyDayChange(day.id, "sport", "Gym")}
-                        className="shrink-0 text-xs px-2.5 py-1.5 rounded-full font-medium active:scale-95 transition-transform"
-                        style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
+                        title="Sportart ändern"
+                        className="w-8 h-8 text-base flex items-center justify-center rounded-xl shrink-0 active:scale-90 transition-transform"
+                        style={{ backgroundColor: hasWorkout ? "rgba(0,122,255,0.12)" : "var(--border-color)", color: hasWorkout ? "#007AFF" : "var(--text-muted)" }}
+                        onClick={() => setSportPicker({ kind: "weekly", id: day.id, current: day.sport as WeeklySportType })}
                       >
-                        Aktivieren
+                        {SPORT_ICON_COMPONENTS[day.sport as WeeklySportType] ?? <Dumbbell size={16} />}
                       </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5 shrink-0">
+
+                      {/* Focus name — editable inline */}
+                      {isRest ? (
+                        <div className="flex-1 text-sm" style={{ color: "var(--text-secondary)" }}>Ruhetag</div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={day.focus}
+                          onChange={(e) => handleWeeklyDayChange(day.id, "focus", e.target.value)}
+                          placeholder="z.B. Push, Beine…"
+                          className="flex-1 text-sm font-medium bg-transparent outline-none min-w-0"
+                          style={{ color: "var(--text-color)" }}
+                        />
+                      )}
+
+                      {/* Action buttons */}
+                      {isRest ? (
                         <button
                           type="button"
-                          onClick={() => openWeeklyTraining(day)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
-                          style={hasWorkout
-                            ? { backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }
-                            : { backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }
-                          }
+                          onClick={() => handleWeeklyDayChange(day.id, "sport", "Gym")}
+                          className="shrink-0 text-xs px-2.5 py-1.5 rounded-full font-medium active:scale-95 transition-transform"
+                          style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
                         >
-                          {hasWorkout
-                            ? `${day.exercises.length} Üb.`
-                            : "+ Übungen"}
+                          Aktivieren
                         </button>
-                        {!hasWorkout && (
+                      ) : (
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => {
-                              // Quick-import: pick a template and apply directly
-                              const templates = getTemplates();
-                              if (templates.length === 0) {
-                                openWeeklyTraining(day);
-                                return;
-                              }
-                              // Show inline template picker for this day
-                              setQuickTemplatePicker({ dayId: day.id, dayIdx: idx });
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
-                            style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
+                            onClick={() => openWeeklyTraining(day)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
+                            style={hasWorkout
+                              ? { backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }
+                              : { backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }
+                            }
                           >
-                            Vorlage
+                            {hasWorkout ? `${day.exercises.length} Üb.` : "+ Übungen"}
                           </button>
+                          {!hasWorkout && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const templates = getTemplates();
+                                if (templates.length === 0) { openWeeklyTraining(day); return; }
+                                setQuickTemplatePicker({ dayId: day.id, dayIdx: idx });
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
+                              style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
+                            >
+                              Vorlage
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Exercise preview — shown when day has exercises */}
+                    {hasWorkout && !isRest && (
+                      <div className="ml-10 mt-2 flex flex-wrap gap-1.5">
+                        {day.exercises.slice(0, 4).map((ex: any, i: number) => (
+                          <span
+                            key={i}
+                            className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: "rgba(0,122,255,0.08)", color: "#007AFF" }}
+                          >
+                            {ex.name}
+                          </span>
+                        ))}
+                        {day.exercises.length > 4 && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}>
+                            +{day.exercises.length - 4}
+                          </span>
                         )}
                       </div>
                     )}
