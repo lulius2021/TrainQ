@@ -1277,9 +1277,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
     const startDate = isoToDate(planStartISO);
     const totalDays = weeklyDurationWeeks * 7;
 
+    // Map calendar date to correct weekday (Mo=0 ... So=6)
+    const startDayOfWeek = (startDate.getDay() + 6) % 7; // JS Sunday=0 → Monday-first: Mo=0, So=6
+
     for (let i = 0; i < totalDays; i++) {
-      const raw = weeklyDays[i % weeklyDays.length];
-      const dayConfig = normalizeWeeklyDay(raw as any, (i % weeklyDays.length) + 1);
+      const weekdayIdx = (startDayOfWeek + i) % 7;
+      const raw = weeklyDays[weekdayIdx];
+      const dayConfig = normalizeWeeklyDay(raw as any, weekdayIdx + 1);
 
       // ✅ Ruhetag wird nicht importiert
       if (isRestSport(dayConfig.sport)) continue;
