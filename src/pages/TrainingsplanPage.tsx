@@ -2017,19 +2017,41 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
                         Aktivieren
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => openWeeklyTraining(day)}
-                        className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
-                        style={hasWorkout
-                          ? { backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }
-                          : { backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }
-                        }
-                      >
-                        {hasWorkout
-                          ? `${day.exercises.length} Üb.`
-                          : "+ Übungen"}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openWeeklyTraining(day)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
+                          style={hasWorkout
+                            ? { backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }
+                            : { backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }
+                          }
+                        >
+                          {hasWorkout
+                            ? `${day.exercises.length} Üb.`
+                            : "+ Übungen"}
+                        </button>
+                        {!hasWorkout && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Import template directly into this day
+                              const templates = getTemplates();
+                              if (templates.length === 0) {
+                                openWeeklyTraining(day);
+                                return;
+                              }
+                              // Open the training editor with template picker pre-opened
+                              openWeeklyTraining(day);
+                              setTimeout(() => setTemplatePickerOpen(true), 300);
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
+                            style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
+                          >
+                            Vorlage
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
