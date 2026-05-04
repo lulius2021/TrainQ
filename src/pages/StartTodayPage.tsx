@@ -131,11 +131,11 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
         } else if (isCardio) {
-            const mins = typeof cardioDuration === "number" ? cardioDuration : 0;
-            const km = typeof cardioDistance === "number" ? cardioDistance : 0;
-            if (mins > 0 || km > 0) {
-                finalExercises = [{ name: sport === "laufen" ? "Laufen" : "Radfahren", sets: [{ reps: mins, weight: km }] }];
-            }
+            const cardioType = cardioDuration as any as string;
+            const cardioName = cardioType === "intervals" ? "Intervalle"
+                : cardioType === "recovery" ? (sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt")
+                : (sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt");
+            finalExercises = [{ name: cardioName, sets: [{}] }];
         }
         onSave({ title: title.trim(), sportType: sport, exercises: finalExercises });
     };
@@ -498,31 +498,64 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                         </div>
                     )}
 
-                    {/* Cardio parameters */}
+                    {/* Cardio type selection */}
                     {isCardio && (
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-secondary)" }}>
-                                {sport === "laufen" ? t("startToday.runParams") : t("startToday.bikeParams")}
+                        <div className="space-y-3">
+                            <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>
+                                {t("startToday.cardioType" as any)}
                             </label>
-                            <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                                <div>
-                                    <label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--text-secondary)" }}>Dauer (min)</label>
-                                    <input type="number" inputMode="numeric" value={cardioDuration}
-                                        onChange={(e) => setCardioDuration(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                        placeholder="0"
-                                        className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
-                                        style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--text-secondary)" }}>Distanz (km)</label>
-                                    <input type="number" inputMode="decimal" value={cardioDistance}
-                                        onChange={(e) => setCardioDistance(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                        placeholder="0"
-                                        className="w-full px-4 py-3 rounded-xl border text-sm font-medium"
-                                        style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                                    />
-                                </div>
+                            <div className="space-y-2">
+                                {[
+                                    {
+                                        key: "long",
+                                        title: sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt",
+                                        desc: "Gleichmäßiges Tempo, Ausdauer aufbauen",
+                                        icon: <MapPin size={20} />,
+                                    },
+                                    {
+                                        key: "intervals",
+                                        title: "Intervalle",
+                                        desc: "Wechsel zwischen schnell und langsam",
+                                        icon: <Sparkles size={20} />,
+                                    },
+                                    {
+                                        key: "recovery",
+                                        title: sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt",
+                                        desc: "Lockeres Tempo, aktive Erholung",
+                                        icon: <Play size={20} />,
+                                    },
+                                ].map((option) => {
+                                    const isSelected = (cardioDuration as any) === option.key;
+                                    return (
+                                        <button
+                                            key={option.key}
+                                            onClick={() => setCardioDuration(option.key as any)}
+                                            className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
+                                            style={{
+                                                backgroundColor: isSelected ? "rgba(0,122,255,0.1)" : "var(--card-bg)",
+                                                border: isSelected ? "1.5px solid #007AFF" : "1px solid var(--border-color)",
+                                            }}
+                                        >
+                                            <div
+                                                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                                                style={{
+                                                    backgroundColor: isSelected ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
+                                                    color: isSelected ? "#007AFF" : "var(--text-muted)",
+                                                }}
+                                            >
+                                                {option.icon}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-[15px] font-bold" style={{ color: isSelected ? "#007AFF" : "var(--text-color)" }}>
+                                                    {option.title}
+                                                </div>
+                                                <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                                    {option.desc}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

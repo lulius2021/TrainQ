@@ -1526,6 +1526,7 @@
     "startToday.saveYourFavorite": "Save your favorite workout",
     "startToday.label": "Name",
     "startToday.addExercises": "Add exercises",
+    "startToday.cardioType": "Training type",
     "startToday.startTraining": "Start training?",
     "startToday.start": "Start",
     "startToday.runParams": "Run parameters",
