@@ -806,7 +806,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
 
     return (
         <div className="w-full h-full pt-safe">
-            <div className="w-full max-w-md mx-auto px-4 pt-2 space-y-6">
+            <div className="w-full max-w-md mx-auto px-4 pt-2 space-y-6 pb-32">
 
                 {/* Active workout warning */}
                 {hasActiveWorkout && (
