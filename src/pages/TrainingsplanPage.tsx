@@ -784,14 +784,19 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             {/* ── Exercise List ── */}
             <div className="space-y-3">
               {draft.exercises.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 rounded-2xl" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
-                    {isCardioLibrary ? <Footprints size={24} /> : <Dumbbell size={24} />}
+                <button
+                  type="button"
+                  onClick={() => setLibraryOpen(true)}
+                  className="w-full py-8 border-2 border-dashed rounded-3xl flex flex-col items-center gap-2 transition-all active:scale-[0.98]"
+                  style={{ borderColor: "var(--border-color)", backgroundColor: "var(--button-bg)" }}
+                >
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                    {isCardioLibrary ? <Footprints size={20} /> : <Dumbbell size={20} />}
                   </div>
-                  <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
-                    Füge {isCardioLibrary ? "Einheiten" : "Übungen"} hinzu
-                  </p>
-                </div>
+                  <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                    {isCardioLibrary ? "Einheiten" : "Übungen"} hinzufügen
+                  </span>
+                </button>
               ) : (
                 <div className="space-y-3">
                   {draft.exercises.map((ex, exIdx) => (
