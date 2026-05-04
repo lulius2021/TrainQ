@@ -1373,6 +1373,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
     id: number;
     current: WeeklySportType;
   } | null>(null);
+
+  const [quickTemplatePicker, setQuickTemplatePicker] = useState<{ dayId: number; dayIdx: number } | null>(null);
   const pushModal = useModalStore((s) => s.push);
   const popModal  = useModalStore((s) => s.pop);
 
@@ -2035,15 +2037,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
                           <button
                             type="button"
                             onClick={() => {
-                              // Import template directly into this day
+                              // Quick-import: pick a template and apply directly
                               const templates = getTemplates();
                               if (templates.length === 0) {
                                 openWeeklyTraining(day);
                                 return;
                               }
-                              // Open the training editor with template picker pre-opened
-                              openWeeklyTraining(day);
-                              setTimeout(() => setTemplatePickerOpen(true), 300);
+                              // Show inline template picker for this day
+                              setQuickTemplatePicker({ dayId: day.id, dayIdx: idx });
                             }}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-transform"
                             style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
@@ -2208,6 +2209,75 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
           </section>
         )}
       </div>
+
+      {/* Quick Template Picker — import template into a weekly day */}
+      <BottomSheet
+        open={!!quickTemplatePicker}
+        onClose={() => setQuickTemplatePicker(null)}
+        height="60dvh"
+        zIndex={300}
+        header={
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Vorlage übernehmen</span>
+            <button onClick={() => setQuickTemplatePicker(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--input-bg)]">
+              <X size={16} style={{ color: "var(--text-secondary)" }} />
+            </button>
+          </div>
+        }
+      >
+        <div className="px-4 pb-8 space-y-2">
+          {(() => {
+            const templates = getTemplates();
+            if (templates.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Keine Vorlagen vorhanden</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Erstelle zuerst eine Vorlage im Train-Tab</p>
+                </div>
+              );
+            }
+            return templates.map((tpl: TrainingTemplateLite) => (
+              <button
+                key={tpl.id}
+                onClick={() => {
+                  if (!quickTemplatePicker || !tpl.exercises?.length) {
+                    setQuickTemplatePicker(null);
+                    return;
+                  }
+                  const newExercises = tpl.exercises.map((ex) => ({
+                    id: `ex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                    name: ex.name,
+                    exerciseId: (ex as any).exerciseId,
+                    sets: (ex.sets ?? []).map((s) => ({
+                      id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      reps: s.reps,
+                      weight: s.weight,
+                    })),
+                  }));
+                  setWeeklyDays((prev) =>
+                    prev.map((d: any) =>
+                      d.id === quickTemplatePicker.dayId
+                        ? { ...d, exercises: [...(d.exercises || []), ...newExercises] }
+                        : d
+                    )
+                  );
+                  setQuickTemplatePicker(null);
+                }}
+                className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
+                style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                  <Dumbbell size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] font-bold truncate" style={{ color: "var(--text-color)" }}>{tpl.title}</div>
+                  <div className="text-[12px]" style={{ color: "var(--text-muted)" }}>{tpl.exercises?.length ?? 0} Übungen</div>
+                </div>
+              </button>
+            ));
+          })()}
+        </div>
+      </BottomSheet>
 
       {/* Sport Picker Sheet */}
       <BottomSheet
