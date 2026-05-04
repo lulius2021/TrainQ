@@ -105,35 +105,6 @@ export default function PlanView({
                 </div>
             </div>
 
-            {/* Template buttons — compact pill row */}
-            <div className="flex gap-3">
-                <button
-                    onClick={onOpenWorkoutTemplates}
-                    className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-[14px] active:scale-[0.97] transition-transform"
-                    style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
-                >
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(59,130,246,0.12)" }}>
-                        <Layout size={14} className="text-blue-400" />
-                    </div>
-                    <div className="text-left">
-                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.workouts")}</div>
-                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.templates")}</div>
-                    </div>
-                </button>
-                <button
-                    onClick={onOpenPlanTemplates}
-                    className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-[14px] active:scale-[0.97] transition-transform"
-                    style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
-                >
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(168,85,247,0.12)" }}>
-                        <FileText size={14} className="text-purple-400" />
-                    </div>
-                    <div className="text-left">
-                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.plans")}</div>
-                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.weeklyPlans")}</div>
-                    </div>
-                </button>
-            </div>
         </div>
     );
 }
