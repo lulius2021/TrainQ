@@ -1263,7 +1263,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
   };
 
   const pushWeeklyToCalendar = () => {
-    if (!onAddEvent) return;
+    if (!onAddEvent) {
+      if (import.meta.env.DEV) console.error("[Plan] onAddEvent is not defined!");
+      return;
+    }
+    if (import.meta.env.DEV) console.log("[Plan] pushWeeklyToCalendar called, days:", weeklyDays.length, "start:", planStartISO, "weeks:", weeklyDurationWeeks);
 
     const templateId = makeTemplateId();
     try {
@@ -1316,8 +1320,10 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
         },
       });
 
+      if (import.meta.env.DEV) console.log("[Plan] Adding event:", dateISO, title);
       onAddEvent(newEvent);
     }
+    if (import.meta.env.DEV) console.log("[Plan] Done — events pushed to calendar");
   };
 
   const pushRoutineToCalendar = () => {
@@ -1930,30 +1936,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
               })}
             </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setWeeklyPreviewOpen(true)}
-                className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-semibold border transition-all active:scale-[0.98]"
-                style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-              >
-                Vorschau
-              </button>
-              <button
-                onClick={() => {
-                  if (weeklySaved) {
-                    // Already saved — ask if they want to overwrite
-                    setWeeklySaveDialogOpen(true);
-                  } else {
-                    setWeeklySaveDialogOpen(true);
-                  }
-                }}
-                className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"
-                style={{ backgroundColor: "#007AFF" }}
-              >
-                {weeklySaved ? "Plan aktualisieren" : "Plan speichern"}
-              </button>
-            </div>
+            <button
+              onClick={() => setWeeklySaveDialogOpen(true)}
+              className="w-full inline-flex items-center justify-center rounded-2xl h-12 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"
+              style={{ backgroundColor: "#007AFF" }}
+            >
+              {weeklySaved ? "Plan aktualisieren" : "Plan speichern"}
+            </button>
           </section>
         )}
 
