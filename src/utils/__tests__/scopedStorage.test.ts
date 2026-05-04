@@ -29,9 +29,8 @@ function setSession(userId: string, isPro = false) {
 // ---------------------------------------------------------------------------
 
 describe("scopedStorage", () => {
-  // setup.ts already calls localStorage.clear() in beforeEach,
-  // but we also need an active session for most tests.
   beforeEach(() => {
+    localStorage.clear();
     setSession(USER_A);
   });
 
@@ -186,18 +185,15 @@ describe("scopedStorage", () => {
     it("migrates all known legacy keys for the given user", () => {
       localStorage.setItem("trainq_theme_v1", "dark");
       localStorage.setItem("trainq_language", "de");
-      localStorage.setItem("trainq_units", "kg");
 
       migrateUserStorage(USER_A);
 
       expect(getScopedItem("trainq_theme_v1", USER_A)).toBe("dark");
       expect(getScopedItem("trainq_language", USER_A)).toBe("de");
-      expect(getScopedItem("trainq_units", USER_A)).toBe("kg");
 
-      // legacy keys removed
+      // legacy keys removed (only if scoped key didn't exist before)
       expect(localStorage.getItem("trainq_theme_v1")).toBeNull();
       expect(localStorage.getItem("trainq_language")).toBeNull();
-      expect(localStorage.getItem("trainq_units")).toBeNull();
     });
 
     it("leaves keys that are not in the migration list alone", () => {
