@@ -247,32 +247,35 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                             {exercises.map((ex, exIdx) => (
                                 <div
                                     key={exIdx}
-                                    className="rounded-2xl border overflow-hidden"
-                                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                                    className="rounded-2xl overflow-hidden"
+                                    style={{ backgroundColor: "var(--card-bg)" }}
                                 >
-                                    {/* Exercise Header */}
-                                    <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                                        <span className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                                    {/* Exercise Header — like live training */}
+                                    <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+                                        <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: "var(--input-bg)" }}>
+                                            <img src="/logo-dark.png" alt="" className="w-full h-full object-cover" />
+                                        </div>
+                                        <span className="text-[15px] font-bold truncate flex-1" style={{ color: "var(--text-color)" }}>{ex.name}</span>
                                         <button
                                             onClick={() => handleRemoveExercise(exIdx)}
-                                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                                             style={{ backgroundColor: "var(--button-bg)" }}
                                         >
-                                            <X size={14} style={{ color: "var(--danger, #FF3B30)" }} />
+                                            <Trash2 size={14} style={{ color: "var(--text-muted)" }} />
                                         </button>
                                     </div>
 
                                     {/* Column Headers */}
-                                    <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 px-4 pb-1">
+                                    <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 px-4 py-1">
                                         <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>#</span>
                                         <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>KG</span>
                                         <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>WDH.</span>
                                         <span />
                                     </div>
 
-                                    {/* Sets — Live Training style */}
+                                    {/* Sets — identical to live training */}
                                     {(ex.sets ?? []).map((s, sIdx) => (
-                                        <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-1">
+                                        <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
                                             <span className="text-sm font-bold text-center" style={{ color: "var(--text-color)" }}>{sIdx + 1}</span>
                                             <input
                                                 type="number"
@@ -303,14 +306,16 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                         </div>
                                     ))}
 
-                                    {/* Add Set */}
-                                    <button
-                                        onClick={() => handleAddSet(exIdx)}
-                                        className="w-full py-2.5 flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors active:opacity-70"
-                                        style={{ color: "#007AFF" }}
-                                    >
-                                        <Plus size={15} /> Satz
-                                    </button>
+                                    {/* Add Set — like live training + button */}
+                                    <div className="px-4 py-2">
+                                        <button
+                                            onClick={() => handleAddSet(exIdx)}
+                                            className="w-full py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors active:scale-[0.97]"
+                                            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
+                                        >
+                                            <Plus size={15} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
 
