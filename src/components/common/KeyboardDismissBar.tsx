@@ -3,6 +3,11 @@ import { Keyboard } from "@capacitor/keyboard";
 import { useModalStore } from "../../store/useModalStore";
 import { useI18n } from "../../i18n/useI18n";
 
+/**
+ * Floating "Fertig" button — only shows for number inputs in Live Training.
+ * The iOS numeric keyboard has no "Done" button, so we provide one.
+ * Text/email/search keyboards already have their own return key.
+ */
 export function KeyboardDismissBar() {
   const [visible, setVisible] = useState(false);
   const keyboardOpen = useRef(false);
@@ -18,8 +23,7 @@ export function KeyboardDismissBar() {
       try {
         showListener = await Keyboard.addListener("keyboardWillShow", () => {
           keyboardOpen.current = true;
-          const isLiveTraining = !!document.querySelector('[data-live-training]');
-          if (isLiveTraining) setVisible(true);
+          checkAndShow();
         });
         hideListener = await Keyboard.addListener("keyboardWillHide", () => {
           keyboardOpen.current = false;
@@ -32,17 +36,34 @@ export function KeyboardDismissBar() {
     return () => { showListener?.remove(); hideListener?.remove(); };
   }, []);
 
+  function checkAndShow() {
+    const isLiveTraining = !!document.querySelector('[data-live-training]');
+    if (!isLiveTraining) return;
+
+    const active = document.activeElement as HTMLInputElement | null;
+    if (!active) return;
+
+    // Only show for number inputs (numeric keyboard has no Done key)
+    const isNumberInput = active.tagName === 'INPUT' && active.type === 'number';
+    if (isNumberInput) {
+      setVisible(true);
+    }
+  }
+
   // Fallback: focus-based detection for when Capacitor plugin doesn't fire
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
       const isLiveTraining = !!document.querySelector('[data-live-training]');
       if (!isLiveTraining) return;
 
-      const target = e.target as HTMLElement;
-      if (!target?.tagName) return;
-      const tag = target.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") {
+      const target = e.target as HTMLInputElement;
+      if (!target?.tagName || target.tagName !== 'INPUT') return;
+
+      // Only for number inputs — text inputs have their own return key
+      if (target.type === 'number') {
         setVisible(true);
+      } else {
+        setVisible(false);
       }
     };
 

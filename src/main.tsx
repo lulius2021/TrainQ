@@ -56,22 +56,25 @@ function setupKeyboardScrollFix() {
   let originalPadding = "";
 
   document.addEventListener("focusin", (e) => {
-    const target = e.target as HTMLElement;
+    const target = e.target as HTMLInputElement;
     if (!target || !("tagName" in target)) return;
     const tag = target.tagName.toLowerCase();
     if (tag !== "input" && tag !== "textarea" && tag !== "select") return;
 
-    // Add extra bottom padding to nearest scrollable parent so we can scroll down far enough
-    const scrollParent = findScrollParent(target);
-    if (scrollParent && !paddingTarget) {
-      paddingTarget = scrollParent;
-      originalPadding = scrollParent.style.paddingBottom;
-      const currentPad = getComputedStyle(scrollParent).paddingBottom;
-      // Approximate iOS keyboard height (~290px) + extra buffer for safe area
-      const KEYBOARD_PADDING = 320;
-      scrollParent.style.paddingBottom = `calc(${currentPad} + ${KEYBOARD_PADDING}px)`;
+    // Only add extra padding in Live Training context (prevents issues on other screens)
+    const isLiveTraining = !!document.querySelector('[data-live-training]');
+    if (isLiveTraining) {
+      const scrollParent = findScrollParent(target);
+      if (scrollParent && !paddingTarget) {
+        paddingTarget = scrollParent;
+        originalPadding = scrollParent.style.paddingBottom;
+        const currentPad = getComputedStyle(scrollParent).paddingBottom;
+        const KEYBOARD_PADDING = 320;
+        scrollParent.style.paddingBottom = `calc(${currentPad} + ${KEYBOARD_PADDING}px)`;
+      }
     }
 
+    // Scroll focused input into view (all screens, but only for inputs at bottom of view)
     if (scrollTimer) clearTimeout(scrollTimer);
     scrollTimer = setTimeout(() => {
       target.scrollIntoView({ behavior: "smooth", block: "center" });
