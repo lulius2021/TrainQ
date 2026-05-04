@@ -747,149 +747,42 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
       }
     >
       <div className="overflow-y-auto scrollbar-hide">
-
-          {/* ── Hero Banner: Emoji + Farbe ── */}
-          <div
-            className="px-5 pt-5 pb-4"
-            style={{ background: `linear-gradient(135deg, ${selectedColor}18 0%, ${selectedColor}08 100%)` }}
-          >
-            {/* Emoji row */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex gap-1.5 flex-wrap">
-                {TEMPLATE_EMOJIS.map(e => (
-                  <button
-                    key={e}
-                    onClick={() => setSelectedEmoji(e)}
-                    className="w-9 h-9 rounded-2xl flex items-center justify-center transition-all active:scale-90"
-                    style={{
-                      background: selectedEmoji === e ? `${selectedColor}30` : "var(--card-bg)",
-                      border: selectedEmoji === e ? `2px solid ${selectedColor}` : "2px solid transparent",
-                      color: selectedEmoji === e ? selectedColor : "var(--text-secondary)",
-                    }}
-                  >
-                    <TemplateIcon iconId={e} size={18} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Color row */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide mr-1" style={{ color: "var(--text-secondary)" }}>Farbe</span>
-              {TEMPLATE_COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setSelectedColor(c)}
-                  className="w-7 h-7 rounded-full transition-all active:scale-90"
-                  style={{
-                    backgroundColor: c,
-                    outline: selectedColor === c ? `3px solid ${c}` : "none",
-                    outlineOffset: "2px",
-                    opacity: selectedColor === c ? 1 : 0.6,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="px-5 space-y-5 pb-8">
+          <div className="px-5 pt-4 space-y-5 pb-8">
 
             {/* ── Name Input ── */}
-            <input
-              type="text"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              placeholder={isCardioLibrary ? "Name der Einheit..." : "Name des Trainings..."}
-              className="w-full border px-4 py-3.5 rounded-2xl text-base font-semibold placeholder:font-normal focus:outline-none transition-all"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                borderColor: "var(--border-color)",
-                color: "var(--text-color)",
-              }}
-            />
-
-            {/* ── Tags / Muskelgruppen ── */}
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider mb-2 pl-1" style={{ color: "var(--text-secondary)" }}>
-                {isCardioLibrary ? "Fokus" : "Muskelgruppen"}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {MUSCLE_TAGS.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95"
-                    style={{
-                      backgroundColor: selectedTags.includes(tag) ? selectedColor : "var(--card-bg)",
-                      color: selectedTags.includes(tag) ? "#fff" : "var(--text-secondary)",
-                      border: `1.5px solid ${selectedTags.includes(tag) ? selectedColor : "var(--border-color)"}`,
-                    }}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>Name</label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder={isCardioLibrary ? "z.B. Langer Lauf, Intervalle..." : "z.B. Push Day, Oberkörper..."}
+                className="w-full px-4 py-3.5 rounded-2xl text-[15px] font-medium focus:outline-none"
+                style={{
+                  backgroundColor: "var(--button-bg)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-color)",
+                }}
+              />
             </div>
 
-            {/* ── Vorlage laden ── */}
-            {compatibleWorkoutTemplates.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 rounded-2xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Vorlage laden</span>
-                <div className="relative">
-                  <select
-                    value={selectedWorkoutTemplateId}
-                    onChange={(e) => handleLoadWorkoutTemplate(e.target.value)}
-                    className="bg-transparent font-semibold outline-none text-right pr-5 cursor-pointer text-sm appearance-none"
-                    style={{ color: "#007AFF" }}
-                  >
-                    <option value="">Auswählen</option>
-                    {compatibleWorkoutTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#007AFF" }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* ── Add Buttons ── */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center justify-between ml-1">
+              <label className="text-[13px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                {isCardioLibrary ? "Einheiten" : "Übungen"} ({draft.exercises.length})
+              </label>
               <button
                 onClick={() => setLibraryOpen(true)}
-                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
-                style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
+                className="flex items-center gap-1 text-[13px] font-bold"
+                style={{ color: "#007AFF" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                 Bibliothek
-              </button>
-              <button
-                onClick={() => setTemplatePickerOpen(true)}
-                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
-                style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Vorlage
-              </button>
-              <button
-                onClick={handleAddCustomExercise}
-                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
-                style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Eigene
               </button>
             </div>
 
             {/* ── Exercise List ── */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between pl-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                  {isCardioLibrary ? "Einheiten" : "Übungen"} ({draft.exercises.length})
-                </span>
-              </div>
-
               {draft.exercises.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 rounded-2xl" style={{ backgroundColor: "var(--card-bg)" }}>
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
