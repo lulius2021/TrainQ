@@ -17,6 +17,7 @@ import type { TemplateIconId } from "../components/icons/AppIcons";
 
 // History für graue Werte in der Vorschau
 import { getLastSetsForExercise } from "../utils/trainingHistory";
+import { getTemplates, type TrainingTemplateLite } from "../utils/trainingTemplatesStore";
 
 // ✅ Seeds stabil per date|title (Dashboard-kompatibel) + Legacy-Migration
 import {
@@ -484,6 +485,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
   const { t } = useI18n();
   const [draft, setDraft] = useState<TrainingTemplate>(template);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
 
   // Initialize with existing label or empty to encourage naming
   const [templateName, setTemplateName] = useState<string>(() => (template.label?.trim() ? template.label : ""));
@@ -853,22 +855,30 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
             )}
 
             {/* ── Add Buttons ── */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setLibraryOpen(true)}
-                className="h-16 flex items-center justify-center gap-2 rounded-2xl font-semibold text-sm transition-all active:scale-[0.97]"
+                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
                 style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                 Bibliothek
               </button>
               <button
-                onClick={handleAddCustomExercise}
-                className="h-16 flex items-center justify-center gap-2 rounded-2xl font-semibold text-sm transition-all active:scale-[0.97]"
+                onClick={() => setTemplatePickerOpen(true)}
+                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
                 style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Eigene Übung
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Vorlage
+              </button>
+              <button
+                onClick={handleAddCustomExercise}
+                className="h-14 flex flex-col items-center justify-center gap-1 rounded-2xl font-semibold text-xs transition-all active:scale-[0.97]"
+                style={{ backgroundColor: `${selectedColor}15`, border: `1.5px solid ${selectedColor}40`, color: selectedColor }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Eigene
               </button>
             </div>
 
@@ -1057,6 +1067,73 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
         onPick={(exercise: Exercise) => handleAddExerciseFromLibrary(exercise)}
         onPickCustom={handleAddCustomExercise}
       />
+
+      {/* Template Picker */}
+      <BottomSheet
+        open={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        height="60dvh"
+        header={
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Vorlage übernehmen</span>
+            <button onClick={() => setTemplatePickerOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--input-bg)]">
+              <X size={16} style={{ color: "var(--text-secondary)" }} />
+            </button>
+          </div>
+        }
+      >
+        <div className="px-4 pb-8 space-y-2">
+          {(() => {
+            const templates = getTemplates();
+            if (templates.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Keine Vorlagen vorhanden</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Erstelle zuerst eine Vorlage im Train-Tab</p>
+                </div>
+              );
+            }
+            return templates.map((tpl: TrainingTemplateLite) => (
+              <button
+                key={tpl.id}
+                onClick={() => {
+                  // Import all exercises from the template into the current draft
+                  if (tpl.exercises?.length) {
+                    const newExercises = tpl.exercises.map((ex) => ({
+                      id: `ex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      name: ex.name,
+                      exerciseId: (ex as any).exerciseId,
+                      sets: (ex.sets ?? []).map((s) => ({
+                        id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                        reps: s.reps,
+                        weight: s.weight,
+                      })),
+                    }));
+                    setDraft((prev) => ({
+                      ...prev,
+                      exercises: [...prev.exercises, ...newExercises],
+                    }));
+                  }
+                  setTemplatePickerOpen(false);
+                }}
+                className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
+                style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                  <Dumbbell size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] font-bold truncate" style={{ color: "var(--text-color)" }}>{tpl.title}</div>
+                  <div className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                    {tpl.exercises?.length ?? 0} Übungen
+                  </div>
+                </div>
+                <ChevronUp size={16} style={{ color: "var(--text-muted)", transform: "rotate(90deg)" }} />
+              </button>
+            ));
+          })()}
+        </div>
+      </BottomSheet>
     </>
   );
 };
