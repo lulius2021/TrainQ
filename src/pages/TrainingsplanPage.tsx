@@ -1941,16 +1941,17 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
               </button>
               <button
                 onClick={() => {
-                  try {
-                    saveWeeklyTemplateAndCalendar(false);
-                  } catch (e) {
-                    if (import.meta.env.DEV) console.error("Plan save failed:", e);
+                  if (weeklySaved) {
+                    // Already saved — ask if they want to overwrite
+                    setWeeklySaveDialogOpen(true);
+                  } else {
+                    setWeeklySaveDialogOpen(true);
                   }
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"
                 style={{ backgroundColor: "#007AFF" }}
               >
-                Plan speichern
+                {weeklySaved ? "Plan aktualisieren" : "Plan speichern"}
               </button>
             </div>
           </section>
@@ -2539,34 +2540,65 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
         )}
       </BottomSheet>
 
-      {/* Save Dialogs (Plan) */}
+      {/* Save Dialog (Plan) */}
       <BottomSheet
         open={weeklySaveDialogOpen}
         onClose={() => setWeeklySaveDialogOpen(false)}
-        zIndex={50}
+        zIndex={300}
         height="auto"
-        header={<div className="px-5 pb-2"><h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Wochenplan anwenden</h3></div>}
-        footer={
-          <div className="flex gap-3 px-5 py-3">
-            <AppButton onClick={() => saveWeeklyTemplateAndCalendar(false)} variant="secondary" className="flex-1">
-              Nur Kalender
-            </AppButton>
-            <AppButton onClick={() => saveWeeklyTemplateAndCalendar(true)} variant="primary" className="flex-1">
-              Kalender + Vorlage
-            </AppButton>
+        header={
+          <div className="flex items-center justify-between px-5 pb-2">
+            <h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>
+              {weeklySaved ? "Plan aktualisieren" : "Plan speichern"}
+            </h3>
+            <button onClick={() => setWeeklySaveDialogOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--input-bg)]">
+              <X size={16} style={{ color: "var(--text-secondary)" }} />
+            </button>
           </div>
         }
       >
-        <div className="px-5 pb-4">
-          <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>Möchtest du diesen Plan auch als Vorlage speichern?</p>
-          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>Vorlagen-Name</label>
-          <input
-            type="text"
-            value={weeklyTemplateName}
-            onChange={(e) => setWeeklyTemplateName(e.target.value)}
-            className="w-full rounded-3xl border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-            style={{ backgroundColor: "var(--bg-color)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-          />
+        <div className="px-5 pb-6 space-y-4">
+          {weeklySaved && (
+            <div className="rounded-2xl p-3" style={{ backgroundColor: "rgba(0,122,255,0.08)" }}>
+              <p className="text-[13px] font-medium" style={{ color: "#007AFF" }}>
+                Dieser Plan ist bereits im Kalender. Erneut speichern erstellt doppelte Einträge.
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              try { saveWeeklyTemplateAndCalendar(false); } catch (e) { if (import.meta.env.DEV) console.error(e); }
+              setWeeklySaveDialogOpen(false);
+            }}
+            className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div>
+              <div className="text-[14px] font-bold" style={{ color: "var(--text-color)" }}>Nur in Kalender</div>
+              <div className="text-[12px]" style={{ color: "var(--text-muted)" }}>Trainings werden als Termine eingetragen</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              try { saveWeeklyTemplateAndCalendar(true); } catch (e) { if (import.meta.env.DEV) console.error(e); }
+              setWeeklySaveDialogOpen(false);
+            }}
+            className="w-full rounded-2xl p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            </div>
+            <div>
+              <div className="text-[14px] font-bold" style={{ color: "var(--text-color)" }}>Kalender + Vorlage speichern</div>
+              <div className="text-[12px]" style={{ color: "var(--text-muted)" }}>Plan wird auch als wiederverwendbare Vorlage gesichert</div>
+            </div>
+          </button>
         </div>
       </BottomSheet>
 
