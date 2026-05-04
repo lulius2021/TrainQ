@@ -189,19 +189,15 @@ function nextExerciseSetId() {
 
 // Helpers
 function dateToISO(d: Date): string {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
 }
 
 function isoToDate(iso: string): Date {
   const [y, m, dd] = iso.split("-").map((v) => Number(v));
-  const dt = new Date();
-  dt.setFullYear(y || dt.getFullYear());
-  dt.setMonth(m ? m - 1 : dt.getMonth());
-  dt.setDate(dd || dt.getDate());
-  dt.setHours(0, 0, 0, 0);
-  return dt;
+  return new Date(y, (m || 1) - 1, dd || 1, 0, 0, 0, 0);
 }
 
 function isRestSport(sport: WeeklySportType): boolean {
@@ -1288,8 +1284,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
       // ✅ Ruhetag wird nicht importiert
       if (isRestSport(dayConfig.sport)) continue;
 
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
+      const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i, 0, 0, 0, 0);
       const dateISO = dateToISO(date);
 
       if (!handleCalendar7DaysGate(dateISO)) break;
@@ -1300,6 +1295,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
       // ✅ Startzeit nur wenn gesetzt
       const startTime = (dayConfig.startTime || "").trim();
       const endTime = "";
+
+      if (import.meta.env.DEV) console.log(`[Plan] Day ${i}: weekday=${weekdayIdx} (${["Mo","Di","Mi","Do","Fr","Sa","So"][weekdayIdx]}), date=${dateISO}, title="${title}", sport=${dayConfig.sport}`);
 
       const newEvent: NewCalendarEvent = {
         title,
@@ -1348,8 +1345,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
       // ✅ Ruhetag wird nicht importiert
       if (block.type === "Rest" || isRestSport(block.sport)) continue;
 
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
+      const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i, 0, 0, 0, 0);
       const dateISO = dateToISO(date);
 
       if (!handleCalendar7DaysGate(dateISO)) break;
