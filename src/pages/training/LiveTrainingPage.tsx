@@ -1313,46 +1313,57 @@ export default function LiveTrainingPage({
 
   const handleSaveTemplate = () => {
     const completed = pendingCompletedWorkoutRef.current;
-    if (!completed || !authUser?.id) {
+    if (!completed) {
       handleSkipSaveTemplate();
       return;
     }
-    const templateExercises: TrainingTemplateExercise[] = (completed.exercises || []).map((ex) => ({
-      id: ex.id,
+
+    // Build exercises from the completed workout
+    const exercises = (completed.exercises || []).map((ex: any) => ({
       exerciseId: ex.exerciseId,
       name: ex.name,
       sets: (ex.sets || [])
-        .filter((s) => s.completed)
-        .map((s) => ({
-          id: s.id,
-          reps: s.reps,
-          weight: s.weight,
-          setType: s.setType,
-          notes: s.notes,
-        })),
+        .filter((s: any) => s.completed || s.reps || s.weight)
+        .map((s: any) => ({ reps: s.reps, weight: s.weight })),
     }));
-    const now = new Date().toISOString();
-    const tpl: TrainingTemplate = {
-      id: `tpl_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      userId: authUser.id,
-      name: tplName.trim() || completed.title || "Training",
-      sportType: completed.sport,
-      exercises: templateExercises,
-      signature: buildTrainingTemplateSignature(templateExercises),
-      createdAt: now,
-      updatedAt: now,
-    };
-    upsertTrainingTemplate(authUser.id, tpl);
-    // Also save to StartTodayPage store so the template appears in the Train tab
+
+    // Save to the trainingTemplatesStore (scoped, appears in Train tab)
     saveTemplateLite({
-      title: tpl.name,
-      sportType: tpl.sportType.toLowerCase() as TrainingType,
-      exercises: templateExercises.map((ex) => ({
+      title: tplName.trim() || completed.title || "Training",
+      sportType: (completed.sport || "Gym").toLowerCase() as TrainingType,
+      exercises,
+    });
+
+    // Also save to the Supabase-backed template store if user is authenticated
+    if (authUser?.id) {
+      const templateExercises: TrainingTemplateExercise[] = (completed.exercises || []).map((ex: any) => ({
+        id: ex.id,
         exerciseId: ex.exerciseId,
         name: ex.name,
-        sets: (ex.sets || []).map((s) => ({ reps: s.reps, weight: s.weight })),
-      })),
-    });
+        sets: (ex.sets || [])
+          .filter((s: any) => s.completed)
+          .map((s: any) => ({
+            id: s.id,
+            reps: s.reps,
+            weight: s.weight,
+            setType: s.setType,
+            notes: s.notes,
+          })),
+      }));
+      const now = new Date().toISOString();
+      const tpl: TrainingTemplate = {
+        id: `tpl_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        userId: authUser.id,
+        name: tplName.trim() || completed.title || "Training",
+        sportType: completed.sport,
+        exercises: templateExercises,
+        signature: buildTrainingTemplateSignature(templateExercises),
+        createdAt: now,
+        updatedAt: now,
+      };
+      upsertTrainingTemplate(authUser.id, tpl);
+    }
+
     window.dispatchEvent(new CustomEvent('trainq:template-saved'));
     setShowSaveTemplateModal(false);
     postFinishExitFnRef.current?.();
