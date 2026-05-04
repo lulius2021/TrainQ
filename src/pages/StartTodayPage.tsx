@@ -25,6 +25,26 @@ import {
 } from "../utils/trainingTemplatesStore";
 import ExerciseLibraryModal from "../components/training/ExerciseLibraryModal";
 import type { Exercise } from "../data/exerciseLibrary";
+import { EXERCISES } from "../data/exerciseLibrary";
+import { resolveExerciseImageSrc } from "../utils/exerciseImage";
+
+const LOGO_FALLBACK = "/logo-dark.png";
+
+function TemplateExerciseThumb({ exerciseId, name }: { exerciseId?: string; name: string }) {
+    const src = React.useMemo(() => {
+        const lib = EXERCISES.find(e => e.id === exerciseId) || EXERCISES.find(e => e.name === name || e.nameDe === name || e.nameEn === name);
+        return lib ? resolveExerciseImageSrc(lib) : null;
+    }, [exerciseId, name]);
+
+    return (
+        <img
+            src={src || LOGO_FALLBACK}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = LOGO_FALLBACK; }}
+        />
+    );
+}
 
 interface StartTodayPageProps {
     events: CalendarEvent[];
@@ -271,7 +291,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                     {/* Exercise Header — like live training */}
                                     <div className="flex items-center gap-3 px-4 pt-3 pb-1">
                                         <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: "var(--input-bg)" }}>
-                                            <img src="/logo-dark.png" alt="" className="w-full h-full object-cover" />
+                                            <TemplateExerciseThumb exerciseId={ex.exerciseId} name={ex.name} />
                                         </div>
                                         <span className="text-[15px] font-bold truncate flex-1" style={{ color: "var(--text-color)" }}>{ex.name}</span>
                                         <button
@@ -295,7 +315,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                     {(ex.sets ?? []).map((s, sIdx) => {
                                         const sType = s.type || "n";
                                         const typeLabel = sType === "w" ? "W" : sType === "f" ? "F" : sType === "d" ? "D" : String(sIdx + 1);
-                                        const typeColor = sType === "w" ? "#007AFF" : sType === "f" ? "#FF3B30" : sType === "d" ? "#007AFF" : "var(--text-color)";
+                                        const typeColor = sType === "w" ? "#EAB308" : sType === "f" ? "#FF3B30" : sType === "d" ? "#007AFF" : "var(--text-color)";
                                         return (
                                         <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
                                             <button
