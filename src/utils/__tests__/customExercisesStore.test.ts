@@ -4,8 +4,17 @@ import {
   getCustomExercises,
   updateCustomExercise,
   deleteCustomExercise,
+  migrateCustomExercises,
 } from '../customExercisesStore';
 import type { CustomExerciseInput } from '../customExercisesStore';
+import { getScopedItem, setScopedItem } from '../scopedStorage';
+
+const USER_A = 'user-a';
+const USER_B = 'user-b';
+
+function setSession(userId: string) {
+  localStorage.setItem('trainq_active_session_v1', JSON.stringify({ userId }));
+}
 
 const makeInput = (overrides?: Partial<CustomExerciseInput>): CustomExerciseInput => ({
   name: 'Test Exercise',
@@ -21,7 +30,10 @@ const makeInput = (overrides?: Partial<CustomExerciseInput>): CustomExerciseInpu
 describe('customExercisesStore', () => {
   beforeEach(() => {
     localStorage.clear();
+    setSession(USER_A);
   });
+
+  // ── Original tests (adapted for scoped storage) ──
 
   describe('addCustomExercise', () => {
     it('creates exercise with cus_ prefixed ID', () => {
@@ -29,9 +41,9 @@ describe('customExercisesStore', () => {
       expect(result.id).toMatch(/^cus_/);
     });
 
-    it('persists to localStorage', () => {
+    it('persists to scoped localStorage', () => {
       addCustomExercise(makeInput());
-      const raw = localStorage.getItem('trainq_custom_exercises_v1');
+      const raw = getScopedItem('trainq_custom_exercises_v1');
       expect(raw).toBeTruthy();
       const parsed = JSON.parse(raw!);
       expect(parsed).toHaveLength(1);
@@ -81,13 +93,13 @@ describe('customExercisesStore', () => {
       expect(results[1].name).toBe('Second');
     });
 
-    it('handles corrupted localStorage gracefully', () => {
-      localStorage.setItem('trainq_custom_exercises_v1', 'not json');
+    it('handles corrupted scoped storage gracefully', () => {
+      setScopedItem('trainq_custom_exercises_v1', 'not json');
       expect(getCustomExercises()).toEqual([]);
     });
 
     it('handles non-array JSON gracefully', () => {
-      localStorage.setItem('trainq_custom_exercises_v1', '{"foo": "bar"}');
+      setScopedItem('trainq_custom_exercises_v1', '{"foo": "bar"}');
       expect(getCustomExercises()).toEqual([]);
     });
   });
@@ -100,7 +112,7 @@ describe('customExercisesStore', () => {
       });
       expect(updated).toBeDefined();
       expect(updated!.primaryMuscles).toEqual(['back']);
-      expect(updated!.name).toBe('Original'); // preserved
+      expect(updated!.name).toBe('Original');
     });
 
     it('returns undefined for nonexistent ID', () => {
@@ -150,6 +162,134 @@ describe('customExercisesStore', () => {
       expect(result.movement).toBe('push');
       expect(result.type).toBe('strength');
       expect(result.metrics).toEqual(['weight', 'reps', 'rpe']);
+    });
+  });
+
+  // ── NEW: User isolation tests ──
+
+  describe('user isolation', () => {
+    it('User A exercises are NOT visible to User B', () => {
+      setSession(USER_A);
+      addCustomExercise(makeInput({ name: 'A Exercise' }));
+      expect(getCustomExercises()).toHaveLength(1);
+
+      // Switch to User B
+      setSession(USER_B);
+      expect(getCustomExercises()).toHaveLength(0);
+    });
+
+    it('both users can have independent exercises', () => {
+      setSession(USER_A);
+      addCustomExercise(makeInput({ name: 'A1' }));
+      addCustomExercise(makeInput({ name: 'A2' }));
+
+      setSession(USER_B);
+      addCustomExercise(makeInput({ name: 'B1' }));
+
+      expect(getCustomExercises()).toHaveLength(1);
+      expect(getCustomExercises()[0].name).toBe('B1');
+
+      // Switch back to A
+      setSession(USER_A);
+      expect(getCustomExercises()).toHaveLength(2);
+    });
+
+    it('deleting for User A does not affect User B', () => {
+      setSession(USER_A);
+      const a = addCustomExercise(makeInput({ name: 'Shared Name' }));
+
+      setSession(USER_B);
+      addCustomExercise(makeInput({ name: 'Shared Name' }));
+
+      // Delete from A
+      setSession(USER_A);
+      deleteCustomExercise(a.id);
+      expect(getCustomExercises()).toHaveLength(0);
+
+      // B still has it
+      setSession(USER_B);
+      expect(getCustomExercises()).toHaveLength(1);
+    });
+  });
+
+  // ── NEW: Migration tests ──
+
+  describe('migrateCustomExercises', () => {
+    it('migrates legacy unscoped data to user-scoped key', () => {
+      // Simulate legacy data (written before this fix)
+      const legacyData = [
+        { id: 'cus_old_1', name: { de: 'Alt 1', en: 'Old 1' }, aliases: { en: [], de: [] }, primaryMuscles: ['chest'], secondaryMuscles: [], equipment: ['barbell'], movement: 'push', type: 'strength', metrics: ['weight', 'reps'] },
+      ];
+      localStorage.setItem('trainq_custom_exercises_v1', JSON.stringify(legacyData));
+
+      setSession(USER_A);
+      migrateCustomExercises();
+
+      // Legacy key removed
+      expect(localStorage.getItem('trainq_custom_exercises_v1')).toBeNull();
+
+      // Data accessible via scoped storage
+      const exercises = getCustomExercises();
+      expect(exercises).toHaveLength(1);
+      expect(exercises[0].id).toBe('cus_old_1');
+      expect(exercises[0].name).toBe('Alt 1');
+    });
+
+    it('merges legacy data with existing scoped data without duplicates', () => {
+      const legacyData = [
+        { id: 'cus_shared', name: { de: 'Shared', en: 'Shared' }, aliases: { en: [], de: [] }, primaryMuscles: ['chest'], secondaryMuscles: [], equipment: ['barbell'], movement: 'push', type: 'strength', metrics: ['weight', 'reps'] },
+        { id: 'cus_legacy_only', name: { de: 'Legacy', en: 'Legacy' }, aliases: { en: [], de: [] }, primaryMuscles: ['back'], secondaryMuscles: [], equipment: ['cable'], movement: 'pull', type: 'strength', metrics: ['weight', 'reps'] },
+      ];
+      localStorage.setItem('trainq_custom_exercises_v1', JSON.stringify(legacyData));
+
+      // User already has one exercise scoped
+      setSession(USER_A);
+      addCustomExercise(makeInput({ name: 'Scoped Existing' }));
+
+      // Also put the shared ID in scoped to test dedup
+      const scoped = JSON.parse(getScopedItem('trainq_custom_exercises_v1')!);
+      scoped.push({ id: 'cus_shared', name: { de: 'Scoped Version', en: 'Scoped Version' }, aliases: { en: [], de: [] }, primaryMuscles: ['chest'], secondaryMuscles: [], equipment: ['barbell'], movement: 'push', type: 'strength', metrics: ['weight', 'reps'] });
+      setScopedItem('trainq_custom_exercises_v1', JSON.stringify(scoped));
+
+      migrateCustomExercises();
+
+      const exercises = getCustomExercises();
+      // Should have: Scoped Existing + cus_shared (scoped version wins) + cus_legacy_only
+      expect(exercises).toHaveLength(3);
+      // Scoped version of shared ID should be kept, not legacy
+      const shared = exercises.find(e => e.id === 'cus_shared');
+      expect(shared!.name).toBe('Scoped Version');
+    });
+
+    it('does nothing when no legacy data exists', () => {
+      setSession(USER_A);
+      addCustomExercise(makeInput({ name: 'Existing' }));
+      migrateCustomExercises();
+      expect(getCustomExercises()).toHaveLength(1);
+    });
+
+    it('cleans up empty legacy key', () => {
+      localStorage.setItem('trainq_custom_exercises_v1', '[]');
+      migrateCustomExercises();
+      expect(localStorage.getItem('trainq_custom_exercises_v1')).toBeNull();
+    });
+  });
+
+  // ── NEW: Persistence across logout/login ──
+
+  describe('persistence across logout/login', () => {
+    it('exercises survive session change and return', () => {
+      setSession(USER_A);
+      addCustomExercise(makeInput({ name: 'Persistent' }));
+
+      // Simulate logout — session cleared
+      localStorage.removeItem('trainq_active_session_v1');
+
+      // Simulate login as same user
+      setSession(USER_A);
+      const exercises = getCustomExercises();
+      expect(exercises).toHaveLength(1);
+      expect(exercises[0].name).toBe('Persistent');
     });
   });
 });

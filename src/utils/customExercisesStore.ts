@@ -13,6 +13,7 @@ import type {
   ExerciseImage,
   ExerciseMuscles,
 } from "../data/exerciseLibrary";
+import { getScopedItem, setScopedItem, removeScopedItem } from "./scopedStorage";
 
 const STORAGE_KEY = "trainq_custom_exercises_v1";
 
@@ -63,14 +64,52 @@ function safeParse(raw: string | null): StoredCustomExercise[] {
   }
 }
 
+/**
+ * Migrate legacy unscoped custom exercises to the current user's scoped key.
+ * Merges without duplicates (by ID), then removes the legacy key.
+ * Safe to call multiple times — no-op if legacy key is empty.
+ */
+export function migrateCustomExercises(): void {
+  if (typeof window === "undefined") return;
+
+  const legacy = window.localStorage.getItem(STORAGE_KEY);
+  if (!legacy) return;
+
+  const legacyItems = safeParse(legacy);
+  if (legacyItems.length === 0) {
+    // Legacy key exists but empty — just clean up
+    window.localStorage.removeItem(STORAGE_KEY);
+    return;
+  }
+
+  // Load existing scoped items (if any)
+  const scopedRaw = getScopedItem(STORAGE_KEY);
+  const scopedItems = safeParse(scopedRaw);
+
+  // Merge: scoped items win on ID conflict
+  const existingIds = new Set(scopedItems.map(e => e.id));
+  const merged = [...scopedItems];
+  for (const item of legacyItems) {
+    if (!existingIds.has(item.id)) {
+      merged.push(item);
+    }
+  }
+
+  // Save merged to scoped key
+  setScopedItem(STORAGE_KEY, JSON.stringify(merged));
+
+  // Remove legacy unscoped key
+  window.localStorage.removeItem(STORAGE_KEY);
+}
+
 function loadAll(): StoredCustomExercise[] {
   if (typeof window === "undefined") return [];
-  return safeParse(window.localStorage.getItem(STORAGE_KEY));
+  return safeParse(getScopedItem(STORAGE_KEY));
 }
 
 function saveAll(items: StoredCustomExercise[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  setScopedItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 function toExercise(stored: StoredCustomExercise): Exercise {
