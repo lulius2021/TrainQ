@@ -891,8 +891,10 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
               </div>
 
               {draft.exercises.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 rounded-3xl border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
-                  <span className="text-4xl mb-2 opacity-30">{isCardioLibrary ? "🏃" : "🏋️"}</span>
+                <div className="flex flex-col items-center justify-center py-10 rounded-2xl" style={{ backgroundColor: "var(--card-bg)" }}>
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                    {isCardioLibrary ? <Footprints size={24} /> : <Dumbbell size={24} />}
+                  </div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
                     Füge {isCardioLibrary ? "Einheiten" : "Übungen"} hinzu
                   </p>
@@ -902,115 +904,71 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   {draft.exercises.map((ex, exIdx) => (
                     <div
                       key={ex.id}
-                      className="rounded-3xl border overflow-hidden"
-                      style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                      className="rounded-2xl overflow-hidden"
+                      style={{ backgroundColor: "var(--card-bg)" }}
                     >
-                      {/* Exercise header */}
-                      <div
-                        className="flex items-center gap-2 px-4 py-3 border-b"
-                        style={{ borderColor: "var(--border-color)", background: `${selectedColor}08` }}
-                      >
-                        <div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white shrink-0"
-                          style={{ backgroundColor: selectedColor }}
-                        >
-                          {exIdx + 1}
+                      {/* Exercise Header — like live training */}
+                      <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+                        <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: "var(--input-bg)" }}>
+                          <img src="/logo-dark.png" alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/logo-dark.png"; }} />
                         </div>
                         <input
                           type="text"
                           value={ex.name}
                           onChange={(e) => handleUpdateExerciseName(ex.id, e.target.value)}
-                          className="flex-1 bg-transparent font-semibold text-sm outline-none py-0.5"
+                          className="flex-1 bg-transparent font-bold text-[15px] outline-none truncate"
                           placeholder="Übungsname"
                           style={{ color: "var(--text-color)" }}
                         />
-                        {/* Reorder + Delete */}
-                        <div className="flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleMoveExercise(ex.id, -1)}
-                            disabled={exIdx === 0}
-                            className="p-1 rounded-lg transition-colors disabled:opacity-20"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            <ChevronUp size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleMoveExercise(ex.id, 1)}
-                            disabled={exIdx === draft.exercises.length - 1}
-                            className="p-1 rounded-lg transition-colors disabled:opacity-20"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            <ChevronDown size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBlockExercise(ex.id)}
-                            className="p-1 rounded-lg transition-colors ml-1"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            <X size={16} />
-                          </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => handleMoveExercise(ex.id, -1)} disabled={exIdx === 0} className="p-1 rounded-lg disabled:opacity-20" style={{ color: "var(--text-muted)" }}><ChevronUp size={14} /></button>
+                          <button type="button" onClick={() => handleMoveExercise(ex.id, 1)} disabled={exIdx === draft.exercises.length - 1} className="p-1 rounded-lg disabled:opacity-20" style={{ color: "var(--text-muted)" }}><ChevronDown size={14} /></button>
+                          <button type="button" onClick={() => handleRemoveBlockExercise(ex.id)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--button-bg)" }}><X size={14} style={{ color: "var(--text-muted)" }} /></button>
                         </div>
                       </div>
 
-                      {/* Sets */}
-                      <div className="px-4 pt-3 pb-2 space-y-2">
-                        {/* Header row */}
-                        <div className="grid grid-cols-[18px,1fr,1fr,2fr,24px] gap-2 text-[10px] font-semibold uppercase tracking-wide px-1" style={{ color: "var(--text-muted)" }}>
-                          <span>#</span>
-                          <span>{repsPlaceholder}</span>
-                          <span>{weightPlaceholder}</span>
-                          <span>{notesPlaceholder}</span>
-                          <span />
-                        </div>
-
-                        {ex.sets.map((set, idx) => (
-                          <div key={set.id} className="grid grid-cols-[18px,1fr,1fr,2fr,24px] gap-2 items-center">
-                            <span className="text-[11px] font-bold text-center" style={{ color: "var(--text-muted)" }}>{idx + 1}</span>
-                            <input
-                              type="number" min={1} value={set.reps ?? ""}
-                              onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
-                              className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none text-center transition-colors"
-                              style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                              placeholder="—"
-                            />
-                            <input
-                              type="number" min={0} value={set.weight ?? ""}
-                              onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
-                              className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none text-center transition-colors"
-                              style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                              placeholder="—"
-                            />
-                            <input
-                              type="text" value={set.notes ?? ""}
-                              onChange={(e) => handleUpdateSetField(ex.id, set.id, "notes", e.target.value)}
-                              className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none transition-colors"
-                              style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                              placeholder="—"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSet(ex.id, set.id)}
-                              className="flex items-center justify-center w-6 h-6 rounded-full transition-colors"
-                              style={{ color: "var(--text-muted)" }}
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
+                      {/* Column Headers */}
+                      <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 px-4 py-1">
+                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>#</span>
+                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>KG</span>
+                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>WDH.</span>
+                        <span />
                       </div>
+
+                      {/* Sets — Live Training style */}
+                      {ex.sets.map((set, idx) => (
+                        <div key={set.id} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
+                          <span className="text-sm font-bold text-center" style={{ color: "var(--text-color)" }}>{idx + 1}</span>
+                          <input
+                            type="number" inputMode="decimal" step={0.5}
+                            value={set.weight || ""} placeholder="-"
+                            onChange={(e) => handleUpdateSetField(ex.id, set.id, "weight", e.target.value)}
+                            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                          />
+                          <input
+                            type="number" inputMode="numeric"
+                            value={set.reps || ""} placeholder="-"
+                            onChange={(e) => handleUpdateSetField(ex.id, set.id, "reps", e.target.value)}
+                            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                          />
+                          <button type="button" onClick={() => handleRemoveSet(ex.id, set.id)}
+                            className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--button-bg)" }}>
+                            <X size={12} style={{ color: "var(--text-muted)" }} />
+                          </button>
+                        </div>
+                      ))}
 
                       {/* Add set + Rest timer */}
-                      <div className="flex items-center justify-between px-4 pb-3 pt-1 gap-3">
+                      <div className="flex items-center justify-between px-4 py-2 gap-3">
                         <button
                           type="button"
                           onClick={() => handleAddSet(ex.id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1"
-                          style={{ backgroundColor: `${selectedColor}12`, color: selectedColor }}
+                          className="flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
+                          style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
                         >
-                          + {isCardioLibrary ? "Abschnitt" : "Satz"}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                         </button>
 
                         {/* Rest timer */}
@@ -1020,7 +978,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                             value={ex.restSeconds ?? 0}
                             onChange={(e) => handleUpdateRestSeconds(ex.id, Number(e.target.value))}
                             className="text-xs font-semibold outline-none bg-transparent appearance-none cursor-pointer pr-3"
-                            style={{ color: ex.restSeconds ? selectedColor : "var(--text-secondary)" }}
+                            style={{ color: ex.restSeconds ? "#007AFF" : "var(--text-secondary)" }}
                           >
                             {REST_OPTIONS.map(opt => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
