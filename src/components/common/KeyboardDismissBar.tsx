@@ -37,13 +37,9 @@ export function KeyboardDismissBar() {
   }, []);
 
   function checkAndShow() {
-    const isLiveTraining = !!document.querySelector('[data-live-training]');
-    if (!isLiveTraining) return;
-
     const active = document.activeElement as HTMLInputElement | null;
     if (!active) return;
 
-    // Only show for number inputs (numeric keyboard has no Done key)
     const isNumberInput = active.tagName === 'INPUT' && active.type === 'number';
     if (isNumberInput) {
       setVisible(true);
@@ -53,9 +49,6 @@ export function KeyboardDismissBar() {
   // Fallback: focus-based detection for when Capacitor plugin doesn't fire
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
-      const isLiveTraining = !!document.querySelector('[data-live-training]');
-      if (!isLiveTraining) return;
-
       const target = e.target as HTMLInputElement;
       if (!target?.tagName || target.tagName !== 'INPUT') return;
 
