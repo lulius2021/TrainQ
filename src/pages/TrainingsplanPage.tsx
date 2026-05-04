@@ -11,7 +11,7 @@ import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
 import PlanView from "../components/training/PlanView";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Eye, X, Dumbbell, Timer, Bike, Zap, Moon, ChevronUp, ChevronDown, Clock } from "lucide-react";
+import { Eye, X, Dumbbell, Timer, Bike, Zap, Moon, ChevronUp, ChevronDown, Clock, Footprints } from "lucide-react";
 import { TemplateIcon, TEMPLATE_ICON_IDS_GYM, TEMPLATE_ICON_IDS_CARDIO } from "../components/icons/AppIcons";
 import type { TemplateIconId } from "../components/icons/AppIcons";
 
@@ -2203,12 +2203,12 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
       >
         <div className="px-4 pb-6 space-y-2">
           {sportPicker && ([
-            { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: "🏋️" },
-            { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: "🏃" },
-            { key: "Radfahren", label: "Radfahren",  desc: "Rad, Indoor-Bike",             icon: "🚴" },
-            { key: "Custom",    label: "Custom",     desc: "Eigene Sportart",              icon: "⚡" },
-            { key: "Ruhetag",   label: "Ruhetag",    desc: "Kein Training",                icon: "😴" },
-          ] as { key: WeeklySportType; label: string; desc: string; icon: string }[]).map(({ key, label, desc, icon }) => (
+            { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: <Dumbbell size={20} /> },
+            { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: <Footprints size={20} /> },
+            { key: "Radfahren", label: "Radfahren",  desc: "Rad, Indoor-Bike",             icon: <Bike size={20} /> },
+            { key: "Custom",    label: "Custom",     desc: "Eigene Sportart",              icon: <Zap size={20} /> },
+            { key: "Ruhetag",   label: "Ruhetag",    desc: "Kein Training",                icon: <Moon size={20} /> },
+          ] as { key: WeeklySportType; label: string; desc: string; icon: React.ReactNode }[]).map(({ key, label, desc, icon }) => (
             <button
               key={key}
               type="button"
@@ -2222,11 +2222,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
               }}
               className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-transform"
               style={{
-                backgroundColor: sportPicker.current === key ? "rgba(0,122,255,0.1)" : "var(--border-color)",
-                border: sportPicker.current === key ? "1.5px solid rgba(0,122,255,0.4)" : "1.5px solid transparent",
+                backgroundColor: sportPicker.current === key ? "rgba(0,122,255,0.1)" : "var(--card-bg)",
+                border: sportPicker.current === key ? "1.5px solid rgba(0,122,255,0.4)" : "1px solid var(--border-color)",
               }}
             >
-              <span className="text-2xl">{icon}</span>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: sportPicker.current === key ? "rgba(0,122,255,0.15)" : "var(--button-bg)",
+                  color: sportPicker.current === key ? "#007AFF" : "var(--text-muted)",
+                }}
+              >
+                {icon}
+              </div>
               <div className="text-left">
                 <div className="text-sm font-bold" style={{ color: sportPicker.current === key ? "#007AFF" : "var(--text-color)" }}>{label}</div>
                 <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{desc}</div>
