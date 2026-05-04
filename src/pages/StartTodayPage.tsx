@@ -51,7 +51,7 @@ function sportColor(_type: TrainingType): { color: string; bg: string } {
 
 // ---- Helper: default sets for a new exercise ----
 function makeDefaultSets(count = 3): TemplateSet[] {
-    return Array.from({ length: count }, () => ({ reps: 10, weight: 0 }));
+    return Array.from({ length: count }, () => ({ reps: undefined, weight: undefined }));
 }
 
 // Sport options for template modal
@@ -123,7 +123,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const handlePickExercise = (exercise: Exercise) => {
         hapticButton();
         setExercises((prev) => [...prev, { exerciseId: exercise.id, name: exercise.name, sets: makeDefaultSets() }]);
-        setShowLibrary(false);
+        // Library stays open — user can pick multiple exercises
     };
 
     const handleAddCustomExercise = () => {
@@ -247,41 +247,69 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                             {exercises.map((ex, exIdx) => (
                                 <div
                                     key={exIdx}
-                                    className="rounded-2xl border p-4 space-y-3"
+                                    className="rounded-2xl border overflow-hidden"
                                     style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+                                    {/* Exercise Header */}
+                                    <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                                        <span className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>{ex.name}</span>
                                         <button
                                             onClick={() => handleRemoveExercise(exIdx)}
-                                            className="w-7 h-7 rounded-full flex items-center justify-center"
+                                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                                             style={{ backgroundColor: "var(--button-bg)" }}
                                         >
                                             <X size={14} style={{ color: "var(--danger, #FF3B30)" }} />
                                         </button>
                                     </div>
+
+                                    {/* Column Headers */}
+                                    <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 px-4 pb-1">
+                                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>#</span>
+                                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>KG</span>
+                                        <span className="text-[10px] font-semibold text-center" style={{ color: "var(--text-muted)" }}>WDH.</span>
+                                        <span />
+                                    </div>
+
+                                    {/* Sets — Live Training style */}
                                     {(ex.sets ?? []).map((s, sIdx) => (
-                                        <div key={sIdx} className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold w-14 shrink-0" style={{ color: "var(--text-secondary)" }}>Satz {sIdx + 1}</span>
-                                            <input type="number" inputMode="decimal" value={s.weight ?? 0}
+                                        <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-1">
+                                            <span className="text-sm font-bold text-center" style={{ color: "var(--text-color)" }}>{sIdx + 1}</span>
+                                            <input
+                                                type="number"
+                                                inputMode="decimal"
+                                                step={0.5}
+                                                value={s.weight || ""}
+                                                placeholder="-"
                                                 onChange={(e) => handleSetChange(exIdx, sIdx, "weight", e.target.value)}
-                                                className="w-20 px-2 py-2 rounded-lg border text-sm text-center"
-                                                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                                className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
                                             />
-                                            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>kg</span>
-                                            <input type="number" inputMode="numeric" value={s.reps ?? 0}
+                                            <input
+                                                type="number"
+                                                inputMode="numeric"
+                                                value={s.reps || ""}
+                                                placeholder="-"
                                                 onChange={(e) => handleSetChange(exIdx, sIdx, "reps", e.target.value)}
-                                                className="w-16 px-2 py-2 rounded-lg border text-sm text-center"
-                                                style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
+                                                className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
                                             />
-                                            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Wdh</span>
-                                            <button onClick={() => handleRemoveSet(exIdx, sIdx)} className="ml-auto w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--button-bg)" }}>
-                                                <X size={12} style={{ color: "var(--text-secondary)" }} />
+                                            <button
+                                                onClick={() => handleRemoveSet(exIdx, sIdx)}
+                                                className="w-8 h-8 rounded-full flex items-center justify-center"
+                                                style={{ backgroundColor: "var(--button-bg)" }}
+                                            >
+                                                <X size={12} style={{ color: "var(--text-muted)" }} />
                                             </button>
                                         </div>
                                     ))}
-                                    <button onClick={() => handleAddSet(exIdx)} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: activeSport.color }}>
-                                        <Plus size={14} /> Satz
+
+                                    {/* Add Set */}
+                                    <button
+                                        onClick={() => handleAddSet(exIdx)}
+                                        className="w-full py-2.5 flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors active:opacity-70"
+                                        style={{ color: "#007AFF" }}
+                                    >
+                                        <Plus size={15} /> Satz
                                     </button>
                                 </div>
                             ))}
