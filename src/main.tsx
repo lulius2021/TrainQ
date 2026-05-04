@@ -74,6 +74,11 @@ function setupKeyboardScrollFix() {
       }
     }
 
+    // Select all text in number inputs for quick editing
+    if (tag === "input" && (target as HTMLInputElement).type === "number") {
+      setTimeout(() => (target as HTMLInputElement).select(), 10);
+    }
+
     // Scroll focused input into view (all screens, but only for inputs at bottom of view)
     if (scrollTimer) clearTimeout(scrollTimer);
     scrollTimer = setTimeout(() => {
