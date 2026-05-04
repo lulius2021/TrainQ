@@ -177,7 +177,62 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                     const current = s.type || "n";
                     const idx = order.indexOf(current as any);
                     const next = order[(idx + 1) % order.length];
+                    // Init drops when switching to dropset
+                    if (next === "d" && !s.drops?.length) {
+                        return { ...s, type: next, drops: [] };
+                    }
+                    // Clear drops when switching away from dropset
+                    if (next !== "d") {
+                        return { ...s, type: next, drops: undefined };
+                    }
                     return { ...s, type: next };
+                });
+                return { ...ex, sets };
+            })
+        );
+    };
+
+    const handleAddDrop = (exIdx: number, setIdx: number) => {
+        hapticButton();
+        setExercises((prev) =>
+            prev.map((ex, i) => {
+                if (i !== exIdx) return ex;
+                const sets = (ex.sets ?? []).map((s, si) => {
+                    if (si !== setIdx) return s;
+                    return { ...s, drops: [...(s.drops ?? []), { reps: undefined, weight: undefined }] };
+                });
+                return { ...ex, sets };
+            })
+        );
+    };
+
+    const handleRemoveDrop = (exIdx: number, setIdx: number, dropIdx: number) => {
+        hapticDestructive();
+        setExercises((prev) =>
+            prev.map((ex, i) => {
+                if (i !== exIdx) return ex;
+                const sets = (ex.sets ?? []).map((s, si) => {
+                    if (si !== setIdx) return s;
+                    return { ...s, drops: (s.drops ?? []).filter((_, di) => di !== dropIdx) };
+                });
+                return { ...ex, sets };
+            })
+        );
+    };
+
+    const handleDropChange = (exIdx: number, setIdx: number, dropIdx: number, field: "reps" | "weight", value: string) => {
+        const num = value === "" ? 0 : parseFloat(value);
+        if (isNaN(num)) return;
+        setExercises((prev) =>
+            prev.map((ex, i) => {
+                if (i !== exIdx) return ex;
+                const sets = (ex.sets ?? []).map((s, si) => {
+                    if (si !== setIdx) return s;
+                    const drops = (s.drops ?? []).map((d, di) => {
+                        if (di !== dropIdx) return d;
+                        return { ...d, [field]: num };
+                    });
+                    return { ...s, drops };
                 });
                 return { ...ex, sets };
             })
@@ -317,7 +372,8 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                         const typeLabel = sType === "w" ? "W" : sType === "f" ? "F" : sType === "d" ? "D" : String(sIdx + 1);
                                         const typeColor = sType === "w" ? "#EAB308" : sType === "f" ? "#FF3B30" : sType === "d" ? "#007AFF" : "var(--text-color)";
                                         return (
-                                        <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
+                                        <React.Fragment key={sIdx}>
+                                        <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
                                             <button
                                                 type="button"
                                                 onClick={() => handleSetTypeCycle(exIdx, sIdx)}
@@ -353,6 +409,48 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                 <X size={12} style={{ color: "var(--text-muted)" }} />
                                             </button>
                                         </div>
+
+                                        {/* Dropset rows */}
+                                        {sType === "d" && (
+                                            <>
+                                                {(s.drops ?? []).map((drop, dIdx) => (
+                                                    <div key={`drop-${sIdx}-${dIdx}`} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
+                                                        <span className="text-xs font-bold text-center" style={{ color: "var(--text-muted)" }}>D{dIdx + 1}</span>
+                                                        <input
+                                                            type="number" inputMode="decimal" step={0.5}
+                                                            value={drop.weight || ""} placeholder="-"
+                                                            onChange={(e) => handleDropChange(exIdx, sIdx, dIdx, "weight", e.target.value)}
+                                                            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                        />
+                                                        <input
+                                                            type="number" inputMode="numeric"
+                                                            value={drop.reps || ""} placeholder="-"
+                                                            onChange={(e) => handleDropChange(exIdx, sIdx, dIdx, "reps", e.target.value)}
+                                                            className="h-9 w-full rounded-3xl text-center text-base font-bold outline-none placeholder-zinc-400"
+                                                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                        />
+                                                        <button
+                                                            onClick={() => handleRemoveDrop(exIdx, sIdx, dIdx)}
+                                                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                                                            style={{ backgroundColor: "var(--button-bg)" }}
+                                                        >
+                                                            <X size={12} style={{ color: "var(--text-muted)" }} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <div className="flex justify-center py-1.5">
+                                                    <button
+                                                        onClick={() => handleAddDrop(exIdx, sIdx)}
+                                                        className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold"
+                                                        style={{ backgroundColor: "var(--button-bg)", color: "var(--text-muted)" }}
+                                                    >
+                                                        <Plus size={12} /> DROP
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                        </React.Fragment>
                                         );
                                     })}
 

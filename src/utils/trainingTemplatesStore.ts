@@ -1,10 +1,16 @@
 import type { TrainingType } from "../types/training";
 import { getScopedItem, setScopedItem } from "./scopedStorage";
 
+export type TemplateDrop = {
+  reps?: number;
+  weight?: number;
+};
+
 export type TemplateSet = {
   reps?: number;
   weight?: number;
   type?: "n" | "w" | "f" | "d"; // normal, warmup, failure, dropset
+  drops?: TemplateDrop[];
 };
 
 export type TemplateExercise = {
