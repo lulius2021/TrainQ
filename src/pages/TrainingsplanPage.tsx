@@ -112,6 +112,7 @@ const SPORT_CYCLE: WeeklySportType[] = ["Gym", "Laufen", "Radfahren", "Custom", 
 
 interface TrainingsplanPageProps {
   onAddEvent?: (input: NewCalendarEvent) => void;
+  onBatchAddEvents?: (batch: NewCalendarEvent[], removeTemplateId?: string) => void;
 
   // optional: falls du Plan-Shift/Update später nutzt
   events?: CalendarEvent[];
@@ -1114,7 +1115,7 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
 
 // -------------------- Haupt-Komponente --------------------
 
-const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => {
+const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBatchAddEvents, events, onUpdateEvents }) => {
   // Fallback Theme Guard
   const { theme } = useTheme() || { theme: { colors: { text: '#fff', background: '#000', card: '#1c1c1e', border: '#27272a' } } };
   const { lang } = useI18n();
@@ -1259,11 +1260,14 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
   };
 
   const pushWeeklyToCalendar = () => {
-    if (!onAddEvent) {
-      if (import.meta.env.DEV) console.error("[Plan] onAddEvent is not defined!");
+    if (!onBatchAddEvents && !onAddEvent) {
+      if (import.meta.env.DEV) console.error("[Plan] No event handler defined!");
       return;
     }
     if (import.meta.env.DEV) console.log("[Plan] pushWeeklyToCalendar called, days:", weeklyDays.length, "start:", planStartISO, "weeks:", weeklyDurationWeeks);
+
+    // ✅ Vorherige templateId merken um alte Events zu ersetzen
+    const previousTemplateId = getScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID) || undefined;
 
     const templateId = makeTemplateId();
     try {
@@ -1275,6 +1279,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
 
     // Map calendar date to correct weekday (Mo=0 ... So=6)
     const startDayOfWeek = (startDate.getDay() + 6) % 7; // JS Sunday=0 → Monday-first: Mo=0, So=6
+
+    const newEvents: NewCalendarEvent[] = [];
 
     for (let i = 0; i < totalDays; i++) {
       const weekdayIdx = (startDayOfWeek + i) % 7;
@@ -1321,14 +1327,25 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
         },
       });
 
-      if (import.meta.env.DEV) console.log("[Plan] Adding event:", dateISO, title);
-      onAddEvent(newEvent);
+      newEvents.push(newEvent);
     }
+
+    if (import.meta.env.DEV) console.log(`[Plan] Pushing ${newEvents.length} events, removing old templateId=${previousTemplateId}`);
+
+    // ✅ Atomarer Update: alte Template-Events entfernen + neue hinzufügen in einem setEvents
+    if (onBatchAddEvents) {
+      onBatchAddEvents(newEvents, previousTemplateId);
+    } else if (onAddEvent) {
+      newEvents.forEach((e) => onAddEvent(e));
+    }
+
     if (import.meta.env.DEV) console.log("[Plan] Done — events pushed to calendar");
   };
 
   const pushRoutineToCalendar = () => {
-    if (!onAddEvent || routineBlocks.length === 0) return;
+    if ((!onBatchAddEvents && !onAddEvent) || routineBlocks.length === 0) return;
+
+    const previousTemplateId = getScopedItem(STORAGE_KEY_LAST_IMPORTED_TEMPLATE_ID) || undefined;
 
     const templateId = makeTemplateId();
     try {
@@ -1337,6 +1354,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
 
     const startDate = isoToDate(planStartISO);
     const totalDays = routineDurationWeeks * 7;
+    const newEvents: NewCalendarEvent[] = [];
 
     for (let i = 0; i < totalDays; i++) {
       const raw = routineBlocks[i % routineBlocks.length];
@@ -1380,7 +1398,13 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
         },
       });
 
-      onAddEvent(newEvent);
+      newEvents.push(newEvent);
+    }
+
+    if (onBatchAddEvents) {
+      onBatchAddEvents(newEvents, previousTemplateId);
+    } else if (onAddEvent) {
+      newEvents.forEach((e) => onAddEvent(e));
     }
   };
 

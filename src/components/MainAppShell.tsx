@@ -760,6 +760,14 @@ const MainAppShell: React.FC = () => {
         setEvents((prev) => [...prev, newEvent]);
     }, [createEventFromInput]);
 
+    const handleBatchAddEvents = useCallback((batch: NewCalendarEvent[], removeTemplateId?: string) => {
+        const created = batch.map((d) => createEventFromInput(d));
+        setEvents((prev) => {
+            const base = removeTemplateId ? prev.filter((e) => (e as any).templateId !== removeTemplateId) : prev;
+            return [...base, ...created];
+        });
+    }, [createEventFromInput]);
+
     const handleDeleteEvent = useCallback((id: string) => { setEvents((prev) => prev.filter((e) => e.id !== id)); }, []);
     const handleClearCalendar = useCallback(() => { setEvents([]); }, []);
 
@@ -880,7 +888,7 @@ const MainAppShell: React.FC = () => {
                                 {tab === "dashboard" && <Dashboard />}
                                 {tab === "calendar" && <CalendarPage />}
                                 {tab === "today" && <StartTodayPage events={events} onPlanTraining={() => { setActiveTab("calendar"); pushRoute("/"); setRoute("/"); }} />}
-                                {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} />}
+                                {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} onBatchAddEvents={handleBatchAddEvents} events={events} onUpdateEvents={setEvents} />}
                                 {tab === "profile" && (
                                     profileScreen === "settings" ? (
                                         <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenGoals={() => alert("Funktion folgt.")} />
