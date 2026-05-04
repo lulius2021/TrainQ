@@ -4,6 +4,7 @@ import { getScopedItem, setScopedItem } from "./scopedStorage";
 export type TemplateSet = {
   reps?: number;
   weight?: number;
+  type?: "n" | "w" | "f" | "d"; // normal, warmup, failure, dropset
 };
 
 export type TemplateExercise = {

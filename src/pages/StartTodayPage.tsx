@@ -142,7 +142,25 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const handleAddSet = (exIdx: number) => {
         hapticButton();
         setExercises((prev) =>
-            prev.map((ex, i) => i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: 10, weight: 0 }] } : ex)
+            prev.map((ex, i) => i === exIdx ? { ...ex, sets: [...(ex.sets ?? []), { reps: undefined, weight: undefined }] } : ex)
+        );
+    };
+
+    const handleSetTypeCycle = (exIdx: number, setIdx: number) => {
+        hapticSelect();
+        const order: Array<"n" | "w" | "f" | "d"> = ["n", "w", "f", "d"];
+        setExercises((prev) =>
+            prev.map((ex, i) => {
+                if (i !== exIdx) return ex;
+                const sets = (ex.sets ?? []).map((s, si) => {
+                    if (si !== setIdx) return s;
+                    const current = s.type || "n";
+                    const idx = order.indexOf(current as any);
+                    const next = order[(idx + 1) % order.length];
+                    return { ...s, type: next };
+                });
+                return { ...ex, sets };
+            })
         );
     };
 
@@ -274,9 +292,20 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                     </div>
 
                                     {/* Sets — identical to live training */}
-                                    {(ex.sets ?? []).map((s, sIdx) => (
+                                    {(ex.sets ?? []).map((s, sIdx) => {
+                                        const sType = s.type || "n";
+                                        const typeLabel = sType === "w" ? "W" : sType === "f" ? "F" : sType === "d" ? "D" : String(sIdx + 1);
+                                        const typeColor = sType === "w" ? "#007AFF" : sType === "f" ? "#FF3B30" : sType === "d" ? "#007AFF" : "var(--text-color)";
+                                        return (
                                         <div key={sIdx} className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center px-4 py-0.5">
-                                            <span className="text-sm font-bold text-center" style={{ color: "var(--text-color)" }}>{sIdx + 1}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetTypeCycle(exIdx, sIdx)}
+                                                className="text-sm font-bold text-center h-9 flex items-center justify-center cursor-pointer active:scale-90 transition-transform"
+                                                style={{ color: typeColor }}
+                                            >
+                                                {typeLabel}
+                                            </button>
                                             <input
                                                 type="number"
                                                 inputMode="decimal"
@@ -304,7 +333,8 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                 <X size={12} style={{ color: "var(--text-muted)" }} />
                                             </button>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
 
                                     {/* Add Set — like live training + button */}
                                     <div className="px-4 py-2">
