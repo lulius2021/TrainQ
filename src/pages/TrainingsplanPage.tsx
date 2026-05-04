@@ -1941,8 +1941,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
               </button>
               <button
                 onClick={() => {
-                  setWeeklyTemplateName(`Wochenplan (${new Date().toLocaleDateString(lang === "de" ? "de-DE" : "en-US")})`);
-                  setWeeklySaveDialogOpen(true);
+                  saveWeeklyTemplateAndCalendar(true);
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-2xl h-11 text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98]"
                 style={{ backgroundColor: "#007AFF" }}
@@ -2227,7 +2226,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent }) => 
               setWeeklyDays((prev) =>
                 prev.map((d) =>
                   d.id === updated.id
-                    ? { ...normalizeWeeklyDay(d as any, d.id), exercises: updated.exercises }
+                    ? { ...normalizeWeeklyDay(d as any, d.id), exercises: updated.exercises, label: updated.label || d.label, focus: updated.label || (d as any).focus }
                     : normalizeWeeklyDay(d as any, d.id)
                 )
               );
