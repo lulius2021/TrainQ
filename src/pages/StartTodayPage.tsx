@@ -610,25 +610,47 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             </div>
                                                         </div>
 
-                                                        {/* Time */}
+                                                        {/* Time (h + min) */}
                                                         <div>
                                                             <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>
                                                                 Zeit
                                                             </label>
-                                                            <div className="relative">
-                                                                <input
-                                                                    type="number" inputMode="numeric"
-                                                                    value={cardioTimeMin || ""}
-                                                                    placeholder="-"
-                                                                    onChange={(e) => {
-                                                                        const v = e.target.value === "" ? "" : parseFloat(e.target.value);
-                                                                        setCardioTimeMin(v);
-                                                                        if (v) setCardioPaceMinKm(""); // reset auto-calc target
-                                                                    }}
-                                                                    className="h-10 w-full rounded-2xl text-center text-base font-bold outline-none placeholder-zinc-400"
-                                                                    style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
-                                                                />
-                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                                                            <div className="flex gap-1 items-center">
+                                                                <div className="relative flex-1">
+                                                                    <input
+                                                                        type="number" inputMode="numeric"
+                                                                        value={typeof cardioTimeMin === "number" ? Math.floor(cardioTimeMin / 60) || "" : ""}
+                                                                        placeholder="-"
+                                                                        onChange={(e) => {
+                                                                            const h = e.target.value === "" ? 0 : parseInt(e.target.value);
+                                                                            const currentMin = typeof cardioTimeMin === "number" ? cardioTimeMin % 60 : 0;
+                                                                            const total = h * 60 + currentMin;
+                                                                            setCardioTimeMin(total || "");
+                                                                            if (total) setCardioPaceMinKm("");
+                                                                        }}
+                                                                        className="h-10 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                                    />
+                                                                    <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>h</span>
+                                                                </div>
+                                                                <span className="text-[12px] font-bold" style={{ color: "var(--text-muted)" }}>:</span>
+                                                                <div className="relative flex-1">
+                                                                    <input
+                                                                        type="number" inputMode="numeric"
+                                                                        value={typeof cardioTimeMin === "number" ? Math.round(cardioTimeMin % 60) || "" : ""}
+                                                                        placeholder="-"
+                                                                        onChange={(e) => {
+                                                                            const m = e.target.value === "" ? 0 : parseInt(e.target.value);
+                                                                            const currentH = typeof cardioTimeMin === "number" ? Math.floor(cardioTimeMin / 60) : 0;
+                                                                            const total = currentH * 60 + m;
+                                                                            setCardioTimeMin(total || "");
+                                                                            if (total) setCardioPaceMinKm("");
+                                                                        }}
+                                                                        className="h-10 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                                                                    />
+                                                                    <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>m</span>
+                                                                </div>
                                                             </div>
                                                         </div>
 
