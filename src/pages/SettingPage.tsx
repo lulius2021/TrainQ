@@ -258,6 +258,39 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
     // Language modal removed — app is German-only for now
     const { connected: garminConnected } = useGarminConnection();
 
+    // -- Strava --
+    const [stravaConnected, setStravaConnected] = useState(false);
+    const [stravaAthlete, setStravaAthlete] = useState<string | null>(null);
+    const [stravaLoading, setStravaLoading] = useState(false);
+
+    useEffect(() => {
+        import("../services/stravaService").then(({ stravaService }) => {
+            setStravaConnected(stravaService.isConnected());
+            setStravaAthlete(stravaService.getAthleteName());
+        }).catch(() => {});
+    }, []);
+
+    const handleStravaConnect = async () => {
+        const { stravaService } = await import("../services/stravaService");
+        setStravaLoading(true);
+        try {
+            await stravaService.connect();
+            setStravaConnected(true);
+            setStravaAthlete(stravaService.getAthleteName());
+        } catch (e: any) {
+            if (import.meta.env.DEV) console.error("[Strava] Connect failed:", e);
+        } finally {
+            setStravaLoading(false);
+        }
+    };
+
+    const handleStravaDisconnect = async () => {
+        const { stravaService } = await import("../services/stravaService");
+        stravaService.disconnect();
+        setStravaConnected(false);
+        setStravaAthlete(null);
+    };
+
     // -- Profile State --
     const [profileName, setProfileName] = useState("");
     const [profileWeight, setProfileWeight] = useState("");
@@ -500,18 +533,48 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                     />
                 </Section>
 
-                {/* SECTION: INTEGRATIONS (hidden while Garmin is behind feature flag) */}
-                {FEATURE_FLAGS.garmin && (
+                {/* SECTION: INTEGRATIONS */}
                 <Section title={t("settings.section.integrations", "Integrationen")}>
-                    <SettingsRow
-                        icon={Activity}
-                        iconColor="bg-emerald-500"
-                        label={t("settings.integrations.garmin")}
-                        value={garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
-                        onClick={() => setActiveModal('integrations')}
-                    />
+                    {/* Strava */}
+                    <div className="bg-[var(--card-bg)] border-b border-[var(--border-color)]">
+                        <div className="flex items-center justify-between p-4 h-14">
+                            <div className="flex items-center">
+                                <div className="w-8 h-8 rounded-2xl flex items-center justify-center mr-4 bg-[#FC4C02] shadow-lg">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="12,2 16,14 8,14" /><polygon points="8,14 6,20 12,14" opacity="0.6"/><polygon points="16,14 18,20 12,14" opacity="0.6"/></svg>
+                                </div>
+                                <div>
+                                    <span className="font-medium text-[17px] text-[var(--text-color)]">Strava</span>
+                                    {stravaConnected && stravaAthlete && (
+                                        <p className="text-[12px] text-[var(--text-secondary)]">{stravaAthlete}</p>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                onClick={stravaConnected ? handleStravaDisconnect : handleStravaConnect}
+                                disabled={stravaLoading}
+                                className="px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all active:scale-[0.95]"
+                                style={{
+                                    backgroundColor: stravaConnected ? "rgba(255,59,48,0.12)" : "rgba(252,76,2,0.12)",
+                                    color: stravaConnected ? "#FF3B30" : "#FC4C02",
+                                    opacity: stravaLoading ? 0.5 : 1,
+                                }}
+                            >
+                                {stravaLoading ? "..." : stravaConnected ? t("settings.integrations.disconnect", "Trennen") : t("settings.integrations.connect", "Verbinden")}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Garmin (feature-flagged) */}
+                    {FEATURE_FLAGS.garmin && (
+                        <SettingsRow
+                            icon={Activity}
+                            iconColor="bg-emerald-500"
+                            label={t("settings.integrations.garmin")}
+                            value={garminConnected ? t("settings.integrations.connected") : t("settings.integrations.notConnected")}
+                            onClick={() => setActiveModal('integrations')}
+                        />
+                    )}
                 </Section>
-                )}
 
                 {/* SECTION 5: DANGER ZONE — placed above Legal to avoid iOS scroll-tap misfire */}
                 <div className="space-y-3 mb-8">

@@ -34,7 +34,7 @@ import { parseISODateLocal } from "../utils/calendarGeneration";
 import { profileAccent } from "../utils/adaptiveScoring";
 import { useI18n } from "../i18n/useI18n";
 import { useLiveTrainingStore } from "../store/useLiveTrainingStore";
-import { getScopedItem } from "../utils/scopedStorage";
+import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
 import { getActiveUserId } from "../utils/session";
 import type { CalendarEvent, ExerciseType } from "../types";
 import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
@@ -277,6 +277,23 @@ export default function CalendarPage() {
         else if (dist < -50) handlePrev();
     };
 
+    // ── Mark training as completed externally (Garmin/Strava etc.) ──
+    const handleMarkCompleted = (event: LocalCalendarEvent) => {
+        const userId = getActiveUserId() || "user";
+        const rawCalendar = getScopedItem("trainq_calendar_events", userId);
+        if (!rawCalendar) return;
+        try {
+            const coreEvents: CoreEvent[] = JSON.parse(rawCalendar);
+            const updated = coreEvents.map((e) =>
+                e.id === event.id
+                    ? { ...e, trainingStatus: "completed" as const, completedAt: new Date().toISOString() }
+                    : e
+            );
+            setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            window.dispatchEvent(new Event("trainq:update_events"));
+        } catch { /* ignore */ }
+    };
+
     // ── Start Workout (from planned calendar event) ──
     const handleStartTraining = (event: LocalCalendarEvent) => {
         if (event.fromHistory || !event.workoutData?.exercises) return;
@@ -504,6 +521,7 @@ export default function CalendarPage() {
         const eventIsDeload = isInDeloadRange(event.date);
         const isCompleted = event.status === "completed";
         const isClickable = !event.fromHistory && !!event.workoutData?.exercises;
+        const isPlanned = event.status === "planned" && !event.fromHistory;
 
         const subtitle = (() => {
             if (isCompleted) {
@@ -517,61 +535,76 @@ export default function CalendarPage() {
         })();
 
         return (
-            <button
-                key={event.id}
-                onClick={() => { if (isClickable) handleStartTraining(event); }}
-                disabled={!isClickable && !isCompleted}
-                className="w-full rounded-2xl p-4 border flex items-center gap-4 text-left active:scale-[0.98] transition-all overflow-hidden relative"
-                style={{
-                    backgroundColor: "var(--card-bg)",
-                    borderColor: eventIsDeload ? "rgba(52,199,89,0.3)" : "var(--border-color)",
-                    borderLeftWidth: "3.5px",
-                    borderLeftColor: isCompleted ? "#34C759" : color,
-                    cursor: isClickable ? "pointer" : "default",
-                }}
-            >
-                {/* Sport Icon */}
-                <div
-                    className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-                    style={{
-                        backgroundColor: isCompleted ? "rgba(52,199,89,0.12)" : bg,
-                        color: isCompleted ? "#34C759" : color,
-                    }}
+            <div key={event.id} className="w-full rounded-2xl border overflow-hidden" style={{
+                backgroundColor: "var(--card-bg)",
+                borderColor: eventIsDeload ? "rgba(52,199,89,0.3)" : "var(--border-color)",
+                borderLeftWidth: "3.5px",
+                borderLeftColor: isCompleted ? "#34C759" : color,
+            }}>
+                <button
+                    onClick={() => { if (isClickable) handleStartTraining(event); }}
+                    disabled={!isClickable && !isCompleted}
+                    className="w-full p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+                    style={{ cursor: isClickable ? "pointer" : "default" }}
                 >
-                    {isCompleted ? <Check size={18} strokeWidth={2.5} /> : getEventIcon(event.type)}
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h4
-                            className="text-[15px] font-bold truncate"
-                            style={{
-                                color: "var(--text-color)",
-                                textDecoration: event.status === "skipped" ? "line-through" : "none",
-                            }}
-                        >
-                            {event.title}
-                        </h4>
-                        {eventIsDeload && <DeloadWeekBadge />}
-                    </div>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
-                        {subtitle}
-                    </p>
-                </div>
-
-                {/* Right: status badge or chevron */}
-                {isCompleted ? (
-                    <span
-                        className="text-[11px] font-bold px-2 py-1 rounded-full shrink-0"
-                        style={{ backgroundColor: "rgba(52,199,89,0.12)", color: "#34C759" }}
+                    {/* Sport Icon */}
+                    <div
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                        style={{
+                            backgroundColor: isCompleted ? "rgba(52,199,89,0.12)" : bg,
+                            color: isCompleted ? "#34C759" : color,
+                        }}
                     >
-                        Erledigt
-                    </span>
-                ) : isClickable ? (
-                    <ChevronRight size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
-                ) : null}
-            </button>
+                        {isCompleted ? <Check size={18} strokeWidth={2.5} /> : getEventIcon(event.type)}
+                    </div>
+
+                    {/* Text */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h4
+                                className="text-[15px] font-bold truncate"
+                                style={{
+                                    color: "var(--text-color)",
+                                    textDecoration: event.status === "skipped" ? "line-through" : "none",
+                                }}
+                            >
+                                {event.title}
+                            </h4>
+                            {eventIsDeload && <DeloadWeekBadge />}
+                        </div>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
+                            {subtitle}
+                        </p>
+                    </div>
+
+                    {/* Right: status badge or chevron */}
+                    {isCompleted ? (
+                        <span
+                            className="text-[11px] font-bold px-2 py-1 rounded-full shrink-0"
+                            style={{ backgroundColor: "rgba(52,199,89,0.12)", color: "#34C759" }}
+                        >
+                            {t("calendar.completed")}
+                        </span>
+                    ) : isClickable ? (
+                        <ChevronRight size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
+                    ) : null}
+                </button>
+
+                {/* Mark as completed button for planned trainings */}
+                {isPlanned && (
+                    <button
+                        onClick={() => handleMarkCompleted(event)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold active:scale-[0.97] transition-transform"
+                        style={{
+                            borderTop: "1px solid var(--border-color)",
+                            color: "#34C759",
+                        }}
+                    >
+                        <Check size={14} strokeWidth={2.5} />
+                        {t("calendar.markCompleted")}
+                    </button>
+                )}
+            </div>
         );
     };
 

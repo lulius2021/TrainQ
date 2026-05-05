@@ -251,6 +251,14 @@ export default function LiveTrainingPage({
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewIntensity, setReviewIntensity] = useState<"too_easy" | "right" | "too_hard">("right");
   const [reviewFeeling, setReviewFeeling] = useState<"exhausted" | "good" | "energized">("good");
+  const [syncToStrava, setSyncToStrava] = useState(true);
+  const [stravaAvailable, setStravaAvailable] = useState(false);
+
+  useEffect(() => {
+    import("../../services/stravaService").then(({ stravaService }) => {
+      setStravaAvailable(stravaService.isConnected());
+    }).catch(() => {});
+  }, []);
 
   // Save-as-Template Flow
   const [showSaveTemplatePrompt, setShowSaveTemplatePrompt] = useState(false);
@@ -1267,7 +1275,7 @@ export default function LiveTrainingPage({
     }
   };
 
-  const confirmFinish = () => {
+  const confirmFinish = async () => {
     if (!workout) return;
     const finalWorkout = {
       ...workout,
@@ -1280,6 +1288,23 @@ export default function LiveTrainingPage({
     clearLiveTrainingState();
     useLiveTrainingStore.getState().finishWorkout();
     hapticSuccess();
+
+    // Push to Strava if enabled
+    if (syncToStrava) {
+      try {
+        const { stravaService } = await import("../../services/stravaService");
+        const exerciseCount = (completed.exercises || []).length;
+        await stravaService.pushWorkout({
+          name: completed.title || reviewName || "Training",
+          startDate: completed.startedAt || new Date().toISOString(),
+          durationSeconds: completed.durationSec || 0,
+          description: `${exerciseCount} ${exerciseCount === 1 ? "Exercise" : "Exercises"} via TrainQ`,
+          sportType: isCardioWorkout ? "Run" : "WeightTraining",
+        });
+      } catch (e) {
+        if (import.meta.env.DEV) console.error("[Strava] Push failed:", e);
+      }
+    }
 
     setShowFinishReview(false);
 
@@ -1803,6 +1828,34 @@ export default function LiveTrainingPage({
                   ))}
                 </div>
               </div>
+
+              {/* Strava sync toggle */}
+              {stravaAvailable && (
+                <button
+                  type="button"
+                  onClick={() => setSyncToStrava(!syncToStrava)}
+                  className="flex items-center justify-between w-full px-4 py-3 rounded-2xl mb-2 transition-all active:scale-[0.98]"
+                  style={{ backgroundColor: "var(--bg-color)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#FC4C02" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><polygon points="12,2 16,14 8,14" /><polygon points="8,14 6,20 12,14" opacity="0.6"/><polygon points="16,14 18,20 12,14" opacity="0.6"/></svg>
+                    </div>
+                    <span className="text-[14px] font-semibold" style={{ color: "var(--text-color)" }}>
+                      {t("training.feedback.syncStrava", "Sync to Strava")}
+                    </span>
+                  </div>
+                  <div
+                    className="w-12 h-7 rounded-full relative transition-colors"
+                    style={{ backgroundColor: syncToStrava ? "#FC4C02" : "var(--border-color)" }}
+                  >
+                    <div
+                      className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform"
+                      style={{ transform: syncToStrava ? "translateX(22px)" : "translateX(2px)" }}
+                    />
+                  </div>
+                </button>
+              )}
 
               <div className="flex flex-col gap-3">
                 <button
