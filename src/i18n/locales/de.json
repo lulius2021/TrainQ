@@ -107,7 +107,7 @@
     "settings.integrations.garmin": "Garmin Connect",
     "settings.integrations.connected": "Verbunden",
     "settings.integrations.notConnected": "Nicht verbunden",
-    "settings.integrations.connect": "Garmin verbinden",
+    "settings.integrations.connect": "Verbinden",
     "settings.integrations.disconnect": "Trennen",
     "settings.integrations.syncNote": "Synchronisiere deine Trainings automatisch.",
     "settings.section.integrations": "Integrationen",

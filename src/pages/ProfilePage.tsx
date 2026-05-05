@@ -143,7 +143,6 @@ function toNumberOrNull(raw: string): number | null {
 
 // -------------------- Page --------------------
 
-import MonthlyRecapModal from "../components/profile/MonthlyRecapModal";
 
 // ... existing imports ...
 
@@ -953,8 +952,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
   // (unused legacy helpers removed — all styling uses CSS variables inline)
 
   // -------- Monthly Recap Logic --------
-  const [recapOpen, setRecapOpen] = useState(false);
-
   const { lastMonthYear, lastMonthIndex, lastMonthName, hasLastMonthWorkouts } = useMemo(() => {
     // Show recap only in the first 10 days after a month ends
     const now = new Date();
@@ -987,25 +984,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
       <div className="w-full min-h-full" style={{ backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}>
         <div className="mx-auto w-full max-w-5xl px-4 pb-40 space-y-6" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <section className="mt-2 space-y-4">
-            {/* ✅ Monthly Recap Trigger */}
-            {hasLastMonthWorkouts && (
-              <div
-                onClick={() => setRecapOpen(true)}
-                className="w-full rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-transform active:scale-[0.98]"
-                style={{
-                  background: "linear-gradient(90deg, rgba(0,122,255,0.15) 0%, rgba(0,0,0,0) 100%)",
-                  border: "1px solid rgba(0,122,255,0.3)"
-                }}
-              >
-                <div className="flex flex-col">
-                  <span className="text-[#007AFF] text-xs font-bold uppercase tracking-wider mb-0.5">{t("profile.highlights")}</span>
-                  <span className="font-semibold text-lg" style={{ color: "var(--text-color)" }}>{t("profile.monthReady", { month: lastMonthName, year: lastMonthYear })}</span>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-[#007AFF]/20 flex items-center justify-center text-[#007AFF]">
-                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-                </div>
-              </div>
-            )}
 
             {/* Profile card */}
             <AppCard variant="glass" className="flex flex-col gap-3">
@@ -1302,15 +1280,6 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
         </div>
       </div>
 
-      <SectionErrorBoundary name="MonthlyRecap">
-      <MonthlyRecapModal
-        isOpen={recapOpen}
-        onClose={() => setRecapOpen(false)}
-        year={lastMonthYear}
-        month={lastMonthIndex}
-        workouts={workouts}
-      />
-      </SectionErrorBoundary>
 
       {isHistoryOpen && (
         <WorkoutHistoryOverlay
