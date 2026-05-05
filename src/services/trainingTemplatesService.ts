@@ -108,6 +108,7 @@ export function upsertTrainingTemplate(userId: string, item: TrainingTemplate): 
   const idx = existing.findIndex((t) => t.id === normalized.id);
   const next = idx >= 0 ? [...existing.slice(0, idx), normalized, ...existing.slice(idx + 1)] : [normalized, ...existing];
   saveTrainingTemplates(userId, next);
+  import("./trainingSync").then(({ pushTrainingTemplate }) => pushTrainingTemplate(normalized)).catch(() => {});
   return normalized;
 }
 
@@ -115,4 +116,5 @@ export function deleteTrainingTemplate(userId: string, id: string): void {
   if (!userId || !id) return;
   const existing = loadTrainingTemplates(userId);
   saveTrainingTemplates(userId, existing.filter((t) => t.id !== id));
+  import("./trainingSync").then(({ pushTrainingTemplateDelete }) => pushTrainingTemplateDelete(id)).catch(() => {});
 }

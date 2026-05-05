@@ -4,16 +4,17 @@
 
 import React from "react";
 import {
-  Dumbbell, Zap, Target, Brain, Flame, Wind, Bike,
+  Zap, Target, Brain, Flame, Wind, Bike,
   Trophy, Briefcase, Sprout, Camera, MapPin, Bell,
   Lightbulb, TriangleAlert, Info, Rocket, Sparkles,
   Activity,
 } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
 
 // ─── Re-exports for convenience ───────────────────────────────────────────────
 
 export {
-  Dumbbell, Zap, Target, Brain, Flame, Wind, Bike,
+  IconDumbbellFill, Zap, Target, Brain, Flame, Wind, Bike,
   Trophy, Briefcase, Sprout, Camera, MapPin, Bell,
   Lightbulb, TriangleAlert, Info, Rocket, Sparkles,
   Activity,
@@ -295,7 +296,7 @@ type IconComponent = React.FC<{ size?: number; className?: string }>;
 
 const ICON_MAP: Record<TemplateIconId, IconComponent> = {
   bicep:    (p) => <BicepIcon    {...p} />,
-  dumbbell: (p) => <Dumbbell     size={p.size} className={p.className} />,
+  dumbbell: (p) => <IconDumbbellFill width={p.size} height={Math.round((p.size ?? 24) * 0.6)} className={p.className} />,
   flame:    (p) => <Flame        size={p.size} className={p.className} />,
   zap:      (p) => <Zap          size={p.size} className={p.className} />,
   target:   (p) => <Target       size={p.size} className={p.className} />,
@@ -318,5 +319,5 @@ export const TemplateIcon: React.FC<{
 }> = ({ iconId, size = 24, className }) => {
   const Comp = ICON_MAP[iconId as TemplateIconId];
   if (Comp) return <Comp size={size} className={className} />;
-  return <Dumbbell size={size} className={className} />;
+  return <IconDumbbellFill width={size} height={Math.round(size * 0.6)} className={className} />;
 };

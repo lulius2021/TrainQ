@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Clock, Plus, Dumbbell, Footprints, Bike, Sparkles, X } from 'lucide-react';
+import { Clock, Plus, Bike, Sparkles, X } from 'lucide-react';
+import { IconDumbbellFill } from '../../assets/icons/IconDumbbellFill';
+import { IconFigureRun } from '../../assets/icons/IconFigureRun';
+import { IconFigureStrengthtrainingFunctional } from '../../assets/icons/IconFigureStrengthtrainingFunctional';
 import ExerciseLibraryModal from './ExerciseLibraryModal';
 import { getScopedItem, setScopedItem } from '../../utils/scopedStorage';
 import { getActiveUserId } from '../../utils/session';
@@ -19,10 +22,10 @@ type SportType = 'gym' | 'run' | 'cycle' | 'custom';
 function usePlannerSports() {
     const { t } = useI18n();
     return [
-        { id: 'gym' as SportType,    label: t("training.planner.gym"),     icon: <Dumbbell size={20} />,   color: '#007AFF', bg: 'rgba(0,122,255,0.12)' },
-        { id: 'run' as SportType,    label: t("training.planner.running"), icon: <Footprints size={20} />, color: '#34C759', bg: 'rgba(52,199,89,0.12)' },
+        { id: 'gym' as SportType,    label: t("training.planner.gym"),     icon: <IconDumbbellFill width={20} height={12} />,   color: '#007AFF', bg: 'rgba(0,122,255,0.12)' },
+        { id: 'run' as SportType,    label: t("training.planner.running"), icon: <IconFigureRun width={20} height={20} />, color: '#34C759', bg: 'rgba(52,199,89,0.12)' },
         { id: 'cycle' as SportType,  label: t("training.planner.cycling"), icon: <Bike size={20} />,       color: '#FF9500', bg: 'rgba(255,149,0,0.12)' },
-        { id: 'custom' as SportType, label: t("training.planner.custom"),  icon: <Sparkles size={20} />,   color: '#AF52DE', bg: 'rgba(175,82,222,0.12)' },
+        { id: 'custom' as SportType, label: t("training.planner.custom"),  icon: <IconFigureStrengthtrainingFunctional width={20} height={25} />,   color: '#AF52DE', bg: 'rgba(175,82,222,0.12)' },
     ];
 }
 

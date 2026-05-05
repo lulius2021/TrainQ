@@ -7,6 +7,7 @@ import { migrateUserStorage, clearUserScopedData } from "../utils/scopedStorage"
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { authStorageAdapter } from "../lib/authStorageAdapter";
 import { pullAndMerge } from "../services/nutritionSync";
+import { pullAndMergeTrainingData, pushAllLocalData } from "../services/trainingSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import { hasActiveChallengeGrant } from "../utils/challengeStore";
@@ -72,7 +73,18 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     const u = session.user;
-    const isPro = u.app_metadata?.plan === "pro" || hasActiveChallengeGrant();
+    let isPro = u.app_metadata?.plan === "pro" || hasActiveChallengeGrant();
+
+    // ✅ Pro Whitelist check (Tester/Friends bypass)
+    if (!isPro) {
+      const client = getSupabaseClient();
+      if (client) {
+        try {
+          const { data } = await client.from("pro_whitelist").select("user_id").eq("user_id", u.id).maybeSingle();
+          if (data) isPro = true;
+        } catch { /* ignore — fallback to normal isPro */ }
+      }
+    }
 
     // ✅ Get onboarding status with fallback to cache
     let onboardingCompleted = false;
@@ -134,7 +146,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
-    pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge failed:", e); });
+    pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge nutrition failed:", e); });
+    pullAndMergeTrainingData().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge training failed:", e); });
   }, []);
 
   const ensureLocalUser = useCallback(() => {

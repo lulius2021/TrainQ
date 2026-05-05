@@ -8,10 +8,8 @@ import {
   ChevronRight,
   X,
   Clock,
-  Dumbbell,
   Battery,
   Play,
-  Footprints,
   Bike,
   Trophy,
   Zap,
@@ -21,6 +19,8 @@ import {
   Flame,
   // Users — removed (community widget handles it)
 } from 'lucide-react';
+import { IconFigureRun } from '../assets/icons/IconFigureRun';
+import { IconDumbbellFill } from '../assets/icons/IconDumbbellFill';
 import { hapticMedium } from '../native/haptics';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { parseISODateLocal } from '../utils/calendarGeneration';
@@ -90,10 +90,10 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
   })();
 
   const sportConfig = isRun
-    ? { icon: <Footprints size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.run") }
+    ? { icon: <IconFigureRun width={20} height={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.run") }
     : isCycle
     ? { icon: <Bike size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.ride") }
-    : { icon: <Dumbbell size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.strength") };
+    : { icon: <IconDumbbellFill width={20} height={12} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)", label: t("dashboard.lastActivity.strength") };
 
   return (
     <div
@@ -144,7 +144,7 @@ const LastActivityCard: React.FC<{ workout: WorkoutHistoryEntry }> = ({ workout 
         {/* Gym: Volume */}
         {!isCardio && workout.totalVolume > 0 && (
           <div className="flex items-center gap-1.5">
-            <Dumbbell size={14} style={{ color: "var(--text-secondary)" }} />
+            <IconDumbbellFill width={14} height={8} style={{ color: "var(--text-secondary)" }} />
             <span className="text-sm font-medium text-[var(--text-secondary)]">
               {formatNumber(workout.totalVolume)} kg
             </span>
@@ -563,8 +563,8 @@ const DashboardPage = () => {
         {/* QUICK START — 3 full-width rows */}
         <div className="space-y-2">
           {[
-            { label: t("dashboard.quickStart.gym"), sub: "Krafttraining", icon: <Dumbbell size={20} />, action: () => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym")) },
-            { label: t("dashboard.quickStart.running"), sub: "GPS-Tracking", icon: <Footprints size={20} />, action: () => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen")) },
+            { label: t("dashboard.quickStart.gym"), sub: "Krafttraining", icon: <IconDumbbellFill width={20} height={12} />, action: () => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym")) },
+            { label: t("dashboard.quickStart.running"), sub: "GPS-Tracking", icon: <IconFigureRun width={20} height={20} />, action: () => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen")) },
             { label: t("dashboard.quickStart.cycling"), sub: "GPS-Tracking", icon: <Bike size={20} />, action: () => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren")) },
           ].map((item, i) => (
             <button
@@ -626,7 +626,7 @@ const DashboardPage = () => {
             <h3 className="text-[13px] font-bold text-[var(--text-muted)] mb-3 pl-1 uppercase tracking-wider">{t("dashboard.lastTraining")}</h3>
             <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex items-center gap-4">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
-                {lastActivity.sport === "gym" ? <Dumbbell size={20} style={{ color: "#007AFF" }} /> : lastActivity.sport === "laufen" ? <Footprints size={20} style={{ color: "#007AFF" }} /> : <Bike size={20} style={{ color: "#007AFF" }} />}
+                {lastActivity.sport === "gym" ? <IconDumbbellFill width={20} height={12} style={{ color: "#007AFF" }} /> : lastActivity.sport === "laufen" ? <IconFigureRun width={20} height={20} style={{ color: "#007AFF" }} /> : <Bike size={20} style={{ color: "#007AFF" }} />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate" style={{ color: "var(--text-color)" }}>{lastActivity.title || lastActivity.sport}</div>

@@ -1,7 +1,9 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
-import { History, Footprints, Bike, Dumbbell, MapPin, Timer } from "lucide-react";
+import { History, Bike, MapPin, Timer } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
 import { AppButton } from "../ui/AppButton";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { formatPace, formatDistanceKm } from "../../utils/gpsUtils";
@@ -158,10 +160,10 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ op
                                     const mins = durationMinutes(w);
 
                                     const sportConfig = sport === "Laufen"
-                                        ? { icon: <Footprints size={16} />, color: "#34C759", bg: "rgba(52,199,89,0.1)" }
+                                        ? { icon: <IconFigureRun width={16} height={16} />, color: "#34C759", bg: "rgba(52,199,89,0.1)" }
                                         : sport === "Radfahren"
                                         ? { icon: <Bike size={16} />, color: "#FF9500", bg: "rgba(255,149,0,0.1)" }
-                                        : { icon: <Dumbbell size={16} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)" };
+                                        : { icon: <IconDumbbellFill width={16} height={10} />, color: "#007AFF", bg: "rgba(0,122,255,0.1)" };
 
                                     return (
                                         <div key={w.id} className="rounded-2xl p-4 border" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
@@ -193,7 +195,7 @@ export const WorkoutHistoryOverlay: React.FC<WorkoutHistoryOverlayProps> = ({ op
                                                     </>
                                                 ) : (
                                                     <span className="flex items-center gap-1.5">
-                                                        <Dumbbell size={14} /> {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
+                                                        <IconDumbbellFill width={14} height={8} /> {exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}
                                                     </span>
                                                 )}
                                                 {!isCardio && w.totalVolume > 0 && (

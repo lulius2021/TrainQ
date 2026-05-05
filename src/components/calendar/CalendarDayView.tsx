@@ -4,13 +4,14 @@ import { motion } from "framer-motion";
 import { isToday, format } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-    Dumbbell,
-    Footprints,
     Bike,
     Sparkles,
     Check,
     Calendar as CalendarIcon,
 } from "lucide-react";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureStrengthtrainingFunctional } from "../../assets/icons/IconFigureStrengthtrainingFunctional";
 import { useI18n } from "../../i18n/useI18n";
 import type { ExerciseType } from "../../types";
 
@@ -84,11 +85,11 @@ function dateToFractionalHour(value?: string | null): number | null {
 
 function getEventIcon(type: ExerciseType, size = 12) {
     switch (type) {
-        case "strength": return <Dumbbell size={size} />;
-        case "run":      return <Footprints size={size} />;
+        case "strength": return <IconDumbbellFill width={size} height={Math.round(size * 0.6)} />;
+        case "run":      return <IconFigureRun width={size} height={size} />;
         case "cycle":    return <Bike size={size} />;
-        case "custom":   return <Sparkles size={size} />;
-        default:         return <Dumbbell size={size} />;
+        case "custom":   return <IconFigureStrengthtrainingFunctional width={size} height={Math.round(size * 1.2)} />;
+        default:         return <IconDumbbellFill width={size} height={Math.round(size * 0.6)} />;
     }
 }
 

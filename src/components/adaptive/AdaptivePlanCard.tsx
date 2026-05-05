@@ -2,7 +2,8 @@
 import React from "react";
 import type { AdaptiveSuggestion } from "../../types/adaptive";
 import { useI18n } from "../../i18n/useI18n";
-import { Dumbbell, Zap, Target } from "lucide-react";
+import { Zap, Target } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
 
 interface AdaptivePlanCardProps {
   suggestion: AdaptiveSuggestion;
@@ -29,7 +30,7 @@ export const GRADIENTS: Record<string, { base: string; blob1: string; blob2: str
 function getSportIcon(profile: string): React.ReactNode {
   if (profile === "kompakt") return <Zap size={38} />;
   if (profile === "fokus") return <Target size={38} />;
-  return <Dumbbell size={38} />;
+  return <IconDumbbellFill width={38} height={23} />;
 }
 
 export default function AdaptivePlanCard({ suggestion }: AdaptivePlanCardProps) {

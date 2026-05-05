@@ -11,7 +11,9 @@ import { AppCard } from "../components/ui/AppCard";
 import { AppButton } from "../components/ui/AppButton";
 import PlanView from "../components/training/PlanView";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Eye, X, Dumbbell, Timer, Bike, Zap, Moon, ChevronUp, ChevronDown, Clock, Footprints } from "lucide-react";
+import { Eye, X, Timer, Bike, Zap, Moon, ChevronUp, ChevronDown, Clock } from "lucide-react";
+import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
+import { IconFigureRun } from "../assets/icons/IconFigureRun";
 import { TemplateIcon, TEMPLATE_ICON_IDS_GYM, TEMPLATE_ICON_IDS_CARDIO } from "../components/icons/AppIcons";
 import type { TemplateIconId } from "../components/icons/AppIcons";
 
@@ -89,7 +91,7 @@ type RoutineBlock = TrainingTemplate & {
   startTime?: string;
 };
 
-type ActiveTab = "weekly" | "routine";
+type ActiveTab = "weekly" | "routine" | "ai";
 type TrainingContainerKind = "weekly" | "routine";
 
 const SPORT_LABEL_DISPLAY: Record<WeeklySportType, string> = {
@@ -102,7 +104,7 @@ const SPORT_LABEL_DISPLAY: Record<WeeklySportType, string> = {
 
 const DAY_ABBR = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const SPORT_ICON_COMPONENTS: Record<WeeklySportType, React.ReactNode> = {
-  Gym:       <Dumbbell size={16} />,
+  Gym:       <IconDumbbellFill width={16} height={10} />,
   Laufen:    <Timer size={16} />,
   Radfahren: <Bike size={16} />,
   Custom:    <Zap size={16} />,
@@ -788,7 +790,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                   style={{ borderColor: "var(--border-color)", backgroundColor: "var(--button-bg)" }}
                 >
                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
-                    {isCardioLibrary ? <Footprints size={20} /> : <Dumbbell size={20} />}
+                    {isCardioLibrary ? <IconFigureRun width={20} height={20} /> : <IconDumbbellFill width={20} height={12} />}
                   </div>
                   <span className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
                     {isCardioLibrary ? "Einheiten" : "Übungen"} hinzufügen
@@ -973,7 +975,7 @@ const TrainingExercisesModal: React.FC<TrainingExercisesModalProps> = ({
                 style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
               >
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
-                  <Dumbbell size={18} />
+                  <IconDumbbellFill width={18} height={11} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] font-bold truncate" style={{ color: "var(--text-color)" }}>{tpl.title}</div>
@@ -1112,6 +1114,10 @@ const TrainingPreviewModal: React.FC<{ state: PreviewModalState; onClose: () => 
     </BottomSheet>
   );
 };
+
+// -------------------- KI Coach Chat (extracted) --------------------
+import AiCoachChat from "../components/training/AiCoachChat";
+
 
 // -------------------- Haupt-Komponente --------------------
 
@@ -1878,7 +1884,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                         style={{ backgroundColor: hasWorkout ? "rgba(0,122,255,0.12)" : "var(--border-color)", color: hasWorkout ? "#007AFF" : "var(--text-muted)" }}
                         onClick={() => setSportPicker({ kind: "weekly", id: day.id, current: day.sport as WeeklySportType })}
                       >
-                        {SPORT_ICON_COMPONENTS[day.sport as WeeklySportType] ?? <Dumbbell size={16} />}
+                        {SPORT_ICON_COMPONENTS[day.sport as WeeklySportType] ?? <IconDumbbellFill width={16} height={10} />}
                       </button>
 
                       {/* Focus name — editable inline */}
@@ -1918,7 +1924,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                           >
                             {hasWorkout ? `${day.exercises.length} Üb.` : "+ Übungen"}
                           </button>
-                          {!hasWorkout && (
+                          {!hasWorkout ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -1930,6 +1936,20 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                               style={{ backgroundColor: "var(--border-color)", color: "var(--text-secondary)" }}
                             >
                               Vorlage
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWeeklySaved(false);
+                                setWeeklyDays((prev) => prev.map((d: any) =>
+                                  d.id === day.id ? { ...d, exercises: [], focus: "" } : d
+                                ));
+                              }}
+                              className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <X size={14} />
                             </button>
                           )}
                         </div>
@@ -2007,7 +2027,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                       style={{ backgroundColor: "var(--border-color)" }}
                       onClick={() => setSportPicker({ kind: "routine", id: block.id, current: block.sport as WeeklySportType })}
                     >
-                      {SPORT_ICON_COMPONENTS[block.sport as WeeklySportType] ?? <Dumbbell size={16} />}
+                      {SPORT_ICON_COMPONENTS[block.sport as WeeklySportType] ?? <IconDumbbellFill width={16} height={10} />}
                     </button>
 
                     {/* Label — editable inline */}
@@ -2096,6 +2116,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
             </div>
           </section>
         )}
+
+        {/* KI Coach */}
+        {activeTab === "ai" && (
+          <AiCoachChat userId={userId} onPlanImported={() => setActiveTab("weekly")} />
+        )}
       </div>
 
       {/* Quick Template Picker — import template into a weekly day */}
@@ -2145,7 +2170,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                   setWeeklyDays((prev) =>
                     prev.map((d: any) =>
                       d.id === quickTemplatePicker.dayId
-                        ? { ...d, exercises: [...(d.exercises || []), ...newExercises] }
+                        ? { ...d, focus: (tpl as any).name || tpl.title || d.focus, label: (tpl as any).name || tpl.title || d.label, exercises: [...(d.exercises || []), ...newExercises] }
                         : d
                     )
                   );
@@ -2155,7 +2180,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                 style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
               >
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
-                  <Dumbbell size={18} />
+                  <IconDumbbellFill width={18} height={11} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] font-bold truncate" style={{ color: "var(--text-color)" }}>{tpl.title}</div>
@@ -2183,8 +2208,8 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
       >
         <div className="px-4 pb-6 space-y-2">
           {sportPicker && ([
-            { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: <Dumbbell size={20} /> },
-            { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: <Footprints size={20} /> },
+            { key: "Gym",       label: "Gym",        desc: "Krafttraining mit Geräten",   icon: <IconDumbbellFill width={20} height={12} /> },
+            { key: "Laufen",    label: "Laufen",     desc: "Cardio & Ausdauer",            icon: <IconFigureRun width={20} height={20} /> },
             { key: "Radfahren", label: "Radfahren",  desc: "Rad, Indoor-Bike",             icon: <Bike size={20} /> },
             { key: "Custom",    label: "Custom",     desc: "Eigene Sportart",              icon: <Zap size={20} /> },
             { key: "Ruhetag",   label: "Ruhetag",    desc: "Kein Training",                icon: <Moon size={20} /> },

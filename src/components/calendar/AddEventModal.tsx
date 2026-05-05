@@ -5,7 +5,10 @@ import { EVENT_CATEGORIES } from "../../constants/events";
 import ExerciseLibraryModal from "../training/ExerciseLibraryModal";
 import type { NewCalendarEvent, LiveExercise } from "../../types/training";
 import type { Exercise } from "../../data/exerciseLibrary";
-import { Dumbbell, Footprints, Bike, Star, Sparkles } from "lucide-react";
+import { Bike, Star, Sparkles } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
+import { IconFigureStrengthtrainingFunctional } from "../../assets/icons/IconFigureStrengthtrainingFunctional";
 import { RunnerIcon } from "../icons/AppIcons";
 import { useI18n } from "../../i18n/useI18n";
 
@@ -24,10 +27,10 @@ type TrainingCategory = 'gym' | 'running' | 'cycling' | 'custom';
 
 // Configuration for Sport Categories
 const SPORT_CATEGORIES = [
-    { id: 'gym', labelKey: 'addEvent.sport.gym', icon: Dumbbell, color: 'bg-blue-600', border: 'border-blue-500' },
-    { id: 'running', labelKey: 'addEvent.sport.running', icon: Footprints, color: 'bg-emerald-600', border: 'border-emerald-500' },
+    { id: 'gym', labelKey: 'addEvent.sport.gym', icon: IconDumbbellFill, color: 'bg-blue-600', border: 'border-blue-500' },
+    { id: 'running', labelKey: 'addEvent.sport.running', icon: IconFigureRun, color: 'bg-emerald-600', border: 'border-emerald-500' },
     { id: 'cycling', labelKey: 'addEvent.sport.cycling', icon: Bike, color: 'bg-violet-600', border: 'border-violet-500' },
-    { id: 'custom', labelKey: 'addEvent.sport.custom', icon: Star, color: 'bg-orange-600', border: 'border-orange-500' },
+    { id: 'custom', labelKey: 'addEvent.sport.custom', icon: IconFigureStrengthtrainingFunctional, color: 'bg-orange-600', border: 'border-orange-500' },
 ] as const;
 
 export const AddEventModal: React.FC<AddEventModalProps> = ({
@@ -353,7 +356,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                             <div key={ex.id || idx} className="flex justify-between items-center p-3.5 bg-[var(--button-bg)] rounded-2xl border border-[var(--border-color)] group">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center text-lg">
-                                                        {trainingCategory === 'gym' ? <Dumbbell size={18} /> : trainingCategory === 'running' ? <RunnerIcon size={18} /> : trainingCategory === 'cycling' ? <Bike size={18} /> : <Sparkles size={18} />}
+                                                        {trainingCategory === 'gym' ? <IconDumbbellFill width={18} height={11} /> : trainingCategory === 'running' ? <RunnerIcon size={18} /> : trainingCategory === 'cycling' ? <Bike size={18} /> : <Sparkles size={18} />}
                                                     </div>
                                                     <div>
                                                         <div className="text-[var(--text-color)] font-medium">{ex.name}</div>

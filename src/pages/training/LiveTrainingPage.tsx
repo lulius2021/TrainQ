@@ -1293,14 +1293,44 @@ export default function LiveTrainingPage({
     if (syncToStrava) {
       try {
         const { stravaService } = await import("../../services/stravaService");
-        const exerciseCount = (completed.exercises || []).length;
-        await stravaService.pushWorkout({
-          name: completed.title || reviewName || "Training",
-          startDate: completed.startedAt || new Date().toISOString(),
-          durationSeconds: completed.durationSec || 0,
-          description: `${exerciseCount} ${exerciseCount === 1 ? "Exercise" : "Exercises"} via TrainQ`,
-          sportType: isCardioWorkout ? "Run" : "WeightTraining",
-        });
+        const sport = completed.sport?.toLowerCase() || "gym";
+        if (stravaService.shouldExportSport(sport)) {
+          // Build detailed description
+          const lines: string[] = [];
+          for (const ex of (completed.exercises || [])) {
+            const sets = (ex.sets || []).filter((s: any) => s.reps > 0 || s.weight > 0);
+            if (!sets.length) continue;
+            const setStrs = sets.map((s: any) => `${s.reps || 0}x${s.weight || 0}kg`);
+            // Group identical sets: "3x10x80kg" instead of "10x80kg, 10x80kg, 10x80kg"
+            const grouped = new Map<string, number>();
+            for (const str of setStrs) grouped.set(str, (grouped.get(str) || 0) + 1);
+            const compact = [...grouped.entries()].map(([s, c]) => c > 1 ? `${c}x${s.replace("x", "×")}` : s.replace("x", "×")).join(", ");
+            lines.push(`${ex.name}: ${compact}`);
+          }
+          const durationMin = Math.round((completed.durationSec || 0) / 60);
+          const volume = (completed.exercises || []).reduce((sum: number, ex: any) =>
+            sum + (ex.sets || []).reduce((s: number, set: any) => s + ((set.weight || 0) * (set.reps || 0)), 0), 0);
+          const footer: string[] = [];
+          if (volume > 0) footer.push(`Volumen: ${(volume / 1000).toFixed(1)}t`);
+          if (durationMin > 0) footer.push(`Dauer: ${durationMin}min`);
+          if (completed.distanceKm) footer.push(`Distanz: ${completed.distanceKm.toFixed(1)}km`);
+          const description = [
+            ...lines,
+            "",
+            footer.join(" · "),
+            "via TrainQ",
+          ].join("\n").trim();
+
+          const sportMap: Record<string, string> = { gym: "WeightTraining", laufen: "Run", radfahren: "Ride" };
+          await stravaService.pushWorkout({
+            name: completed.title || reviewName || "Training",
+            startDate: completed.startedAt || new Date().toISOString(),
+            durationSeconds: completed.durationSec || 0,
+            description,
+            sportType: sportMap[sport] || "Workout",
+            distanceMeters: completed.distanceKm ? completed.distanceKm * 1000 : undefined,
+          });
+        }
       } catch (e) {
         if (import.meta.env.DEV) console.error("[Strava] Push failed:", e);
       }

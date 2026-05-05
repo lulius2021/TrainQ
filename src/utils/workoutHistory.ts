@@ -516,6 +516,10 @@ export function addWorkoutEntry(
 
   saveWorkoutHistory(next);
   syncWidgetData(); // update widget after workout saved
+
+  // Sync to Supabase (fire-and-forget)
+  import("../services/trainingSync").then(({ pushWorkoutEntry }) => pushWorkoutEntry(sanitized)).catch(() => {});
+
   return sanitized;
 }
 

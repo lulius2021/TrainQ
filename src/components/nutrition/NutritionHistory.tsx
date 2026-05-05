@@ -1,6 +1,7 @@
 // src/components/nutrition/NutritionHistory.tsx
 import React, { useState, useMemo } from "react";
-import { Flame, Dumbbell, TrendingUp } from "lucide-react";
+import { Flame, TrendingUp } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
 import type { NutritionGoals } from "../../types/nutrition";
 import { loadDiaryEntries } from "../../utils/nutritionStore";
 import { sumMacros } from "../../features/nutrition/macroCalculator";
@@ -139,7 +140,7 @@ const NutritionHistory: React.FC<NutritionHistoryProps> = ({ goals }) => {
           value={avgKcal.toLocaleString("de-DE")}
         />
         <StatCard
-          icon={<Dumbbell size={16} className="text-blue-400" />}
+          icon={<IconDumbbellFill width={16} height={10} className="text-blue-400" />}
           label="Avg Protein"
           value={`${avgProtein}g`}
         />

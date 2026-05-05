@@ -21,14 +21,15 @@ import { de } from "date-fns/locale";
 import {
     ChevronLeft,
     ChevronRight,
-    Dumbbell,
-    Footprints,
     Bike,
     Sparkles,
     Calendar as CalendarIcon,
     Check,
     Clock,
 } from "lucide-react";
+import { IconFigureRun } from "../assets/icons/IconFigureRun";
+import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
+import { IconFigureStrengthtrainingFunctional } from "../assets/icons/IconFigureStrengthtrainingFunctional";
 
 import { parseISODateLocal } from "../utils/calendarGeneration";
 import { profileAccent } from "../utils/adaptiveScoring";
@@ -99,11 +100,11 @@ function getEventDotColor(type: ExerciseType): string {
 
 function getEventIcon(type: ExerciseType) {
     switch (type) {
-        case "strength": return <Dumbbell size={18} />;
-        case "run":      return <Footprints size={18} />;
+        case "strength": return <IconDumbbellFill width={18} height={11} />;
+        case "run":      return <IconFigureRun width={18} height={18} />;
         case "cycle":    return <Bike size={18} />;
-        case "custom":   return <Sparkles size={18} />;
-        default:         return <Dumbbell size={18} />;
+        case "custom":   return <IconFigureStrengthtrainingFunctional width={18} height={22} />;
+        default:         return <IconDumbbellFill width={18} height={11} />;
     }
 }
 

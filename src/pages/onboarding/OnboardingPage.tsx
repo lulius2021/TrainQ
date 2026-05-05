@@ -6,6 +6,7 @@ import { getSupabaseClient } from "../../lib/supabaseClient";
 import { StepPersona } from "./steps/StepPersona";
 import { StepTime } from "./steps/StepTime";
 import { StepFitness } from "./steps/StepFitness";
+import { StepConnections } from "./steps/StepConnections";
 import { LoadingScreen } from "../../components/ui/LoadingScreen";
 
 interface OnboardingPageProps {
@@ -66,7 +67,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinished }) => {
 
       {step === 1 && <StepPersona onNext={next} />}
       {step === 2 && <StepTime onNext={next} onBack={back} />}
-      {step === 3 && <StepFitness onBack={back} onFinish={handleFinish} />}
+      {step === 3 && <StepFitness onBack={back} onFinish={next} />}
+      {step === 4 && <StepConnections onBack={back} onNext={handleFinish} />}
     </div>
   );
 };

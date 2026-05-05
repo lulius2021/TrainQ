@@ -263,6 +263,8 @@ function writeEventsToStorage(events: CalendarEvent[], userId?: string) {
     try {
         setScopedItem(STORAGE_KEY_EVENTS, JSON.stringify(events), userId);
         window.dispatchEvent(new Event("trainq:update_events"));
+        // Sync to Supabase (fire-and-forget)
+        import("../services/trainingSync").then(({ pushCalendarEventsBatch }) => pushCalendarEventsBatch(events)).catch(() => {});
     } catch { }
 }
 

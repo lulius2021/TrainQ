@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { X, Dumbbell, Footprints, Bike, Zap } from "lucide-react";
+import { X, Bike, Zap } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
 import type { DeloadPlan, DeloadRule } from "../../types/deload";
 import { getWeekStartISO, addDaysISO } from "../../utils/deload/schedule";
 import { loadWorkoutHistory } from "../../utils/workoutHistory";
@@ -146,7 +148,7 @@ export default function DeloadPlanModal({ open, onClose, onSave }: DeloadPlanMod
           <div className="space-y-2">
             {sports.gym && (
               <SportBlock
-                icon={<Dumbbell size={14} />}
+                icon={<IconDumbbellFill width={14} height={8} />}
                 title="Gym"
                 lines={[
                   `Gewicht: −${weightCut}%`,
@@ -158,7 +160,7 @@ export default function DeloadPlanModal({ open, onClose, onSave }: DeloadPlanMod
             )}
             {sports.run && (
               <SportBlock
-                icon={<Footprints size={14} />}
+                icon={<IconFigureRun width={14} height={14} />}
                 title="Laufen"
                 lines={[
                   "Wochenkilometer: −35% (×0.65)",

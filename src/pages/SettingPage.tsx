@@ -262,11 +262,13 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
     const [stravaConnected, setStravaConnected] = useState(false);
     const [stravaAthlete, setStravaAthlete] = useState<string | null>(null);
     const [stravaLoading, setStravaLoading] = useState(false);
+    const [stravaExportSports, setStravaExportSports] = useState<string[]>(["gym", "laufen", "radfahren"]);
 
     useEffect(() => {
         import("../services/stravaService").then(({ stravaService }) => {
             setStravaConnected(stravaService.isConnected());
             setStravaAthlete(stravaService.getAthleteName());
+            setStravaExportSports(stravaService.getExportSports());
         }).catch(() => {});
     }, []);
 
@@ -563,6 +565,37 @@ const SettingsPage: React.FC<Props> = ({ onBack, onClearCalendar, onOpenGoals, i
                             </button>
                         </div>
                     </div>
+
+                    {/* Strava export sports — always visible */}
+                    <div className="bg-[var(--card-bg)] border-b border-[var(--border-color)] px-4 py-3">
+                            <p className="text-[12px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-secondary)" }}>Export-Sportarten</p>
+                            <div className="flex gap-2">
+                                {(["gym", "laufen", "radfahren"] as const).map((sport) => {
+                                    const labels: Record<string, string> = { gym: "Gym", laufen: "Laufen", radfahren: "Radfahren" };
+                                    const active = stravaExportSports.includes(sport);
+                                    return (
+                                        <button
+                                            key={sport}
+                                            onClick={() => {
+                                                const next = active
+                                                    ? stravaExportSports.filter((s) => s !== sport)
+                                                    : [...stravaExportSports, sport];
+                                                setStravaExportSports(next);
+                                                import("../services/stravaService").then(({ stravaService }) => stravaService.setExportSports(next));
+                                            }}
+                                            className="flex-1 py-2 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+                                            style={{
+                                                backgroundColor: active ? "rgba(252,76,2,0.12)" : "var(--bg-color)",
+                                                color: active ? "#FC4C02" : "var(--text-secondary)",
+                                                border: active ? "1.5px solid #FC4C02" : "1px solid var(--border-color)",
+                                            }}
+                                        >
+                                            {labels[sport]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
 
                     {/* Garmin (feature-flagged) */}
                     {FEATURE_FLAGS.garmin && (

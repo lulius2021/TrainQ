@@ -4,7 +4,8 @@ import html2canvas from 'html2canvas';
 import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
 import { loadWorkoutHistory } from "../utils/workoutHistory";
 import { useAuth } from "../context/AuthContext";
-import { X, Share2, Download, Dumbbell, Flame, Check, Trophy, Zap, TrendingUp, Target } from "lucide-react";
+import { X, Share2, Download, Flame, Check, Trophy, Zap, TrendingUp, Target } from "lucide-react";
+import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
 import { hapticLight, hapticSuccess } from "../native/haptics";
 import { MotionDiv } from "../components/ui/Motion";
 import { useI18n } from "../i18n/useI18n";
@@ -126,7 +127,7 @@ const TemplateBeast = ({ workout, volume, durationMin, sets, isExport }: any) =>
       {/* Icon */}
       <div className="relative">
         <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full" />
-        <Dumbbell size={isExport ? 120 : 56} className="text-blue-500 relative z-10" />
+        <IconDumbbellFill width={isExport ? 120 : 56} height={isExport ? 72 : 34} className="text-blue-500 relative z-10" />
       </div>
 
       {/* Big Number */}
@@ -207,7 +208,7 @@ const TemplatePR = ({ workout, volume, isExport }: any) => {
       {/* Volume badge */}
       {volume > 0 && (
         <div className={`flex items-center justify-center gap-2 ${isExport ? 'mt-16' : 'mt-8'}`}>
-          <Dumbbell size={isExport ? 24 : 14} className="text-blue-400" />
+          <IconDumbbellFill width={isExport ? 24 : 14} height={isExport ? 14 : 8} className="text-blue-400" />
           <span className={`font-bold ${isExport ? 'text-3xl' : 'text-sm'}`} style={{ color: "var(--text-muted)" }}>
             {(volume / 1000).toFixed(1)}t Gesamtvolumen
           </span>
@@ -370,7 +371,7 @@ const TemplateSplitStats = ({ workout, durationMin, volume, sets, isExport }: an
       <div className={`grid grid-cols-2 ${isExport ? 'gap-6 mb-12' : 'gap-2 mb-4'}`}>
         {volume > 0 && (
           <div className={`rounded-2xl ${isExport ? 'p-8' : 'p-3'}`} style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))", border: "1px solid rgba(59,130,246,0.2)" }}>
-            <Dumbbell size={isExport ? 36 : 16} className="text-blue-500" />
+            <IconDumbbellFill width={isExport ? 36 : 16} height={isExport ? 22 : 10} className="text-blue-500" />
             <div className={`font-black text-blue-500 ${isExport ? 'text-5xl mt-4' : 'text-xl mt-1'}`}>{(volume / 1000).toFixed(1)}t</div>
             <div className={`font-semibold ${isExport ? 'text-xl mt-1' : 'text-[9px]'}`} style={{ color: "var(--text-muted)" }}>Volumen</div>
           </div>

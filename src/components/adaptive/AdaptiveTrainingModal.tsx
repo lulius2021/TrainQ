@@ -9,7 +9,9 @@ import type { AdaptiveAnswers, AdaptiveSuggestion, AdaptiveReason } from "../../
 import { buildAdaptiveSuggestions, profileAccent } from "../../utils/adaptiveScoring";
 import { buildUserAdaptiveContext } from "../../utils/adaptivePersonalization";
 import { BottomSheet } from "../common/BottomSheet";
-import { Clock, Zap, Brain, Dumbbell, CalendarPlus, Footprints, Bike } from "lucide-react";
+import { Clock, Zap, Brain, CalendarPlus, Bike } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
 
 const MotionDiv = motion.div as unknown as React.ComponentType<any>;
 
@@ -240,7 +242,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
         {step === "questions" && (() => {
           const questions: { id: string; icon: React.ReactNode; title: string; sub: string; key: keyof AdaptiveAnswers; options: [string, string][] }[] = [
             {
-              id: "q0", icon: <Dumbbell size={16} />, key: "sport" as keyof AdaptiveAnswers,
+              id: "q0", icon: <IconDumbbellFill width={16} height={10} />, key: "sport" as keyof AdaptiveAnswers,
               title: t("adaptive.sport.question"),
               sub: t("adaptive.sport.sub"),
               options: [
@@ -281,7 +283,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
               ],
             },
             {
-              id: "q4", icon: <Dumbbell size={16} />, key: "yesterdayEffort",
+              id: "q4", icon: <IconDumbbellFill width={16} height={10} />, key: "yesterdayEffort",
               title: t("adaptive.survey.effortTitle"),
               sub: t("adaptive.survey.effortSub"),
               options: [

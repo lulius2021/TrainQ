@@ -8,7 +8,8 @@ import {
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
 import { WorkoutHistoryOverlay } from "../components/profile/WorkoutHistoryOverlay";
-import { History, Settings, BarChart3, Medal, Dumbbell, CalendarDays, Clock, TrendingUp } from "lucide-react";
+import { History, Settings, BarChart3, Medal, CalendarDays, Clock, TrendingUp } from "lucide-react";
+import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
 
 import {
   readOnboardingDataFromStorage,
@@ -390,7 +391,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
         {allStats.topExercises.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Dumbbell size={14} style={{ color: "#007AFF" }} />
+              <IconDumbbellFill width={14} height={8} style={{ color: "#007AFF" }} />
               <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.stats.topExercises")}</h3>
             </div>
             <div className="space-y-2.5">

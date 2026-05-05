@@ -1,8 +1,11 @@
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
-    Dumbbell, Footprints, Bike, Star, AlertTriangle,
+    Bike, Star, AlertTriangle,
     ChevronRight, Plus, Play, Trash2, X, MapPin, Sparkles
 } from "lucide-react";
+import { IconFigureRun } from "../assets/icons/IconFigureRun";
+import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
+import { IconFigureStrengthtrainingFunctional } from "../assets/icons/IconFigureStrengthtrainingFunctional";
 import { BottomSheet } from "../components/common/BottomSheet";
 import { useModalStore } from "../store/useModalStore";
 import type { CalendarEvent, TrainingType } from "../types/training";
@@ -59,10 +62,10 @@ function formatSportLabel(type: TrainingType): string {
 }
 
 function sportIcon(type: TrainingType) {
-    if (type === "laufen") return <Footprints size={20} />;
+    if (type === "laufen") return <IconFigureRun width={20} height={20} />;
     if (type === "radfahren") return <Bike size={20} />;
-    if (type === "custom") return <Star size={20} />;
-    return <Dumbbell size={20} />;
+    if (type === "custom") return <IconFigureStrengthtrainingFunctional width={20} height={25} />;
+    return <IconDumbbellFill width={20} height={12} />;
 }
 
 function sportColor(_type: TrainingType): { color: string; bg: string } {
@@ -76,10 +79,10 @@ function makeDefaultSets(count = 3): TemplateSet[] {
 
 // Sport options for template modal
 const TEMPLATE_SPORTS: { id: TrainingType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-    { id: "gym",      label: "Gym",      icon: <Dumbbell size={20} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "laufen",   label: "Laufen",   icon: <Footprints size={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "gym",      label: "Gym",      icon: <IconDumbbellFill width={20} height={12} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "laufen",   label: "Laufen",   icon: <IconFigureRun width={20} height={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
     { id: "radfahren",label: "Rad",      icon: <Bike size={20} />,       color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "custom",   label: "Custom",   icon: <Sparkles size={20} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    { id: "custom",   label: "Custom",   icon: <IconFigureStrengthtrainingFunctional width={20} height={25} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
 ];
 
 // ---- Create Template Modal (BottomSheet editor) ----
@@ -877,7 +880,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
                                 style={{ backgroundColor: "var(--button-bg)" }}
                             >
-                                <Dumbbell size={18} style={{ color: "var(--text-secondary)" }} />
+                                <IconDumbbellFill width={18} height={11} style={{ color: "var(--text-secondary)" }} />
                             </div>
                             <p className="text-[13px] font-semibold" style={{ color: "var(--text-secondary)" }}>
                                 {t("today.empty.title")}
@@ -910,7 +913,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
                                 style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                             >
-                                <Dumbbell size={26} />
+                                <IconDumbbellFill width={26} height={16} />
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.gym")}</p>
@@ -929,7 +932,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
                                 style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                             >
-                                <Footprints size={26} />
+                                <IconFigureRun width={26} height={26} />
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.running")}</p>

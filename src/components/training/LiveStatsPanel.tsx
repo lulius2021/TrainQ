@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { ChevronRight, Dumbbell, Zap } from "lucide-react";
+import { ChevronRight, Zap } from "lucide-react";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
 import type { LiveWorkout } from "../../types/training"; // Adjust import path if needed
 import { useTheme } from "../../context/ThemeContext";
 
@@ -50,7 +51,7 @@ export const LiveStatsPanel: React.FC<Props> = ({ workout, onOpenOverlay }) => {
                         <span className="tabular-nums" style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{stats.completedSets} Sätze</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-emerald-400">
-                        <Dumbbell size={14} className="fill-emerald-400/20" />
+                        <IconDumbbellFill width={14} height={8} className="fill-emerald-400/20" />
                         <span className="tabular-nums">{(stats.totalVolume / 1000).toFixed(3)}t</span>
                     </div>
                 </div>

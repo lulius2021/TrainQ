@@ -6,7 +6,7 @@ import { App } from "@capacitor/app";
 
 const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID;
 const STRAVA_CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET;
-const STRAVA_REDIRECT_URI = "trainq://strava-callback";
+const STRAVA_REDIRECT_URI = "https://ilfsxckixlsyanuovfum.supabase.co/functions/v1/strava-callback";
 
 const STORAGE_KEYS = {
   accessToken: "trainq_strava_access_token",
@@ -128,10 +128,10 @@ export const stravaService = {
         listenerHandle?.remove();
       };
 
-      // Listen for deep link callback
+      // Listen for deep link callback (both Universal Link and custom scheme)
       const listenerHandle = App.addListener("appUrlOpen", async ({ url }) => {
         if (resolved) return;
-        if (!url.startsWith(STRAVA_REDIRECT_URI)) return;
+        if (!url.includes("strava-callback")) return;
 
         resolved = true;
         cleanup();
@@ -186,12 +186,32 @@ export const stravaService = {
   /** Push a completed workout to Strava */
   async pushWorkout(params: {
     name: string;
-    startDate: string; // ISO
+    startDate: string;
     durationSeconds: number;
     description?: string;
     sportType?: string;
+    distanceMeters?: number;
   }): Promise<{ id: number }> {
     const token = await this.getValidToken();
+
+    const typeMap: Record<string, string> = {
+      WeightTraining: "WeightTraining",
+      Run: "Run",
+      Ride: "Ride",
+      Workout: "Workout",
+    };
+
+    const body: Record<string, any> = {
+      name: params.name,
+      sport_type: params.sportType || "WeightTraining",
+      type: typeMap[params.sportType || "WeightTraining"] || "Workout",
+      start_date_local: params.startDate,
+      elapsed_time: params.durationSeconds,
+      description: params.description || "",
+    };
+    if (params.distanceMeters && params.distanceMeters > 0) {
+      body.distance = params.distanceMeters;
+    }
 
     const res = await fetch("https://www.strava.com/api/v3/activities", {
       method: "POST",
@@ -199,14 +219,7 @@ export const stravaService = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name: params.name,
-        sport_type: params.sportType || "WeightTraining",
-        start_date_local: params.startDate,
-        elapsed_time: params.durationSeconds,
-        description: params.description || "",
-        type: "WeightTraining",
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -215,6 +228,27 @@ export const stravaService = {
     }
 
     return res.json();
+  },
+
+  /** Check if a sport should be exported to Strava */
+  shouldExportSport(sport: string): boolean {
+    const raw = localStorage.getItem("trainq_pref_strava_sports");
+    if (!raw) return true; // default: export all
+    try {
+      const allowed: string[] = JSON.parse(raw);
+      return allowed.includes(sport.toLowerCase());
+    } catch { return true; }
+  },
+
+  /** Get/Set which sports to export */
+  getExportSports(): string[] {
+    const raw = localStorage.getItem("trainq_pref_strava_sports");
+    if (!raw) return ["gym", "laufen", "radfahren"];
+    try { return JSON.parse(raw); } catch { return ["gym", "laufen", "radfahren"]; }
+  },
+
+  setExportSports(sports: string[]): void {
+    localStorage.setItem("trainq_pref_strava_sports", JSON.stringify(sports));
   },
 
   /** Disconnect Strava */

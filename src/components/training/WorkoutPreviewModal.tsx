@@ -1,6 +1,8 @@
 
 import React, { useRef, useState } from 'react';
-import { Play, Clock, X, Dumbbell, Footprints, Bike, Trash2 } from 'lucide-react';
+import { Play, Clock, X, Bike, Trash2 } from 'lucide-react';
+import { IconDumbbellFill } from '../../assets/icons/IconDumbbellFill';
+import { IconFigureRun } from '../../assets/icons/IconFigureRun';
 import type { CalendarEvent } from '../../types';
 import { useLiveTrainingStore } from '../../store/useLiveTrainingStore';
 import { persistActiveLiveWorkout } from '../../utils/trainingHistory';
@@ -32,10 +34,10 @@ const WorkoutPreviewModal = ({ event, onClose, onStart }: WorkoutPreviewModalPro
     // Helper to get icon
     const getIcon = () => {
         switch (event.type) {
-            case 'run': return <Footprints className="text-white" size={24} />;
+            case 'run': return <IconFigureRun className="text-white" width={24} height={24} />;
             case 'cycle': return <Bike className="text-white" size={24} />;
-            case 'strength': return <Dumbbell className="text-white" size={24} />;
-            default: return <Dumbbell className="text-white" size={24} />;
+            case 'strength': return <IconDumbbellFill className="text-white" width={24} height={14} />;
+            default: return <IconDumbbellFill className="text-white" width={24} height={14} />;
         }
     };
 
