@@ -186,7 +186,8 @@ function uid(): string {
 function toNumberOrUndefined(v: unknown): number | undefined {
   if (v == null) return undefined;
   const n = typeof v === "number" ? v : Number(String(v).replace(",", ".").trim());
-  return Number.isFinite(n) ? n : undefined;
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }
 
 export default function LiveTrainingPage({
@@ -445,10 +446,16 @@ export default function LiveTrainingPage({
         : "";
 
     const cardioDistance = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.weight === "number" ? sAcc + s.weight : sAcc), 0);
+      return acc + (ex.sets || []).reduce(
+        (sAcc, s) => (typeof s.weight === "number" && s.weight > 0 ? sAcc + s.weight : sAcc),
+        0,
+      );
     }, 0);
     const cardioMinutes = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.reps === "number" ? sAcc + s.reps : sAcc), 0);
+      return acc + (ex.sets || []).reduce(
+        (sAcc, s) => (typeof s.reps === "number" && s.reps > 0 ? sAcc + s.reps : sAcc),
+        0,
+      );
     }, 0);
 
   const overlaySubtitle = isCardioWorkout

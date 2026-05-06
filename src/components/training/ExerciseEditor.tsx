@@ -10,7 +10,8 @@ function parseOptionalNumber(v: string): number | undefined {
     const t = String(v ?? "").trim();
     if (!t) return undefined;
     const n = Number(t.replace(",", "."));
-    return Number.isFinite(n) ? n : undefined;
+    if (!Number.isFinite(n) || n < 0) return undefined;
+    return n;
 }
 function fmtPlaceholderNumber(v: unknown, fallback = ""): string {
     return typeof v === "number" && Number.isFinite(v) ? String(v) : fallback;
@@ -87,6 +88,7 @@ export default function ExerciseEditor({
                 <label className="text-sm font-medium text-gray-400">{repsUnit}</label>
                 <input
                   type="number"
+                  min={0}
                   value={typeof set.reps === "number" ? set.reps : ""}
                   placeholder={fmtPlaceholderNumber(last?.reps)}
                   onChange={(e) => onSetChange(set.id, { reps: parseOptionalNumber(e.target.value) })}
@@ -98,6 +100,7 @@ export default function ExerciseEditor({
                 <label className="text-sm font-medium text-gray-400">{weightUnit}</label>
                  <input
                   type="number"
+                  min={0}
                   inputMode="decimal"
                   step={isCardio ? 0.1 : 0.5}
                   value={typeof set.weight === "number" ? set.weight : ""}
