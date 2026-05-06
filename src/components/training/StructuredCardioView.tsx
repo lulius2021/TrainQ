@@ -253,10 +253,15 @@ export default function StructuredCardioView({
   const [resting, setResting] = useState(false);
   const [restRemaining, setRestRemaining] = useState(0);
   const restStartRef = useRef<number | null>(null);
+  // Capture the rest duration at the moment rest starts so the countdown effect
+  // doesn't read from a potentially-changed seg.restSecondsAfter.
+  const restDurationRef = useRef(0);
 
   // Auto-advance countdown (3s before moving to next segment)
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
-  const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // When user explicitly cancels auto-advance, suppress re-triggering until
+  // the segment actually advances (i.e. segTargetReached resets).
+  const autoAdvanceSuppressedRef = useRef(false);
 
   const phaseElapsedSec = (Date.now() - segPhaseStartRef.current.time) / 1000;
   const segGpsKm = gps.distanceKm - segPhaseStartRef.current.gpsKm;
@@ -269,23 +274,31 @@ export default function StructuredCardioView({
 
   const advanceSegment = useCallback(() => {
     if (!seg) return;
-    onCompleteSet(seg.exerciseId, seg.setId);
+    autoAdvanceSuppressedRef.current = false;
     setAutoCountdown(null);
-    if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
 
     // Start rest timer if this segment has rest after it
     if (seg.restSecondsAfter && seg.restSecondsAfter > 0) {
+      restDurationRef.current = seg.restSecondsAfter;
       setResting(true);
       setRestRemaining(seg.restSecondsAfter);
       restStartRef.current = Date.now();
     }
+
+    onCompleteSet(seg.exerciseId, seg.setId);
   }, [seg, onCompleteSet]);
 
-  // Auto-advance: start 3s countdown when target reached
+  // Auto-advance: start 3s countdown when target reached.
+  // Guard with suppression ref so cancelling doesn't re-trigger immediately.
   useEffect(() => {
-    if (!segTargetReached || resting || autoCountdown !== null) return;
+    if (!segTargetReached || resting || autoCountdown !== null || autoAdvanceSuppressedRef.current) return;
     setAutoCountdown(3);
   }, [segTargetReached, resting, autoCountdown]);
+
+  // When segment index changes, unsuppress so a fresh segment can auto-advance.
+  useEffect(() => {
+    autoAdvanceSuppressedRef.current = false;
+  }, [currentSegIdx]);
 
   // Countdown tick
   useEffect(() => {
@@ -298,13 +311,14 @@ export default function StructuredCardioView({
     return () => clearTimeout(t);
   }, [autoCountdown, advanceSegment]);
 
-  // Rest countdown tick
+  // Rest countdown tick — only depends on `resting` so we don't create
+  // multiple overlapping intervals when restRemaining state updates.
   useEffect(() => {
     if (!resting) return;
     const t = setInterval(() => {
       if (!restStartRef.current) return;
       const elapsed = (Date.now() - restStartRef.current) / 1000;
-      const rem = (seg?.restSecondsAfter ?? restRemaining) - elapsed;
+      const rem = restDurationRef.current - elapsed;
       if (rem <= 0) {
         setResting(false);
         setRestRemaining(0);
@@ -315,7 +329,7 @@ export default function StructuredCardioView({
       }
     }, 500);
     return () => clearInterval(t);
-  }, [resting, seg?.restSecondsAfter, restRemaining]);
+  }, [resting]);
 
   // Countdown timer displays
   const segTimeRemainingStr = seg?.targetMinutes != null
@@ -499,7 +513,7 @@ export default function StructuredCardioView({
             <button type="button" onClick={advanceSegment} className="text-xs bg-green-500/30 text-green-300 rounded-lg px-3 py-1.5 font-semibold">
               Jetzt
             </button>
-            <button type="button" onClick={() => { setAutoCountdown(null); if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current); }} className="text-xs text-white/40 underline">
+            <button type="button" onClick={() => { autoAdvanceSuppressedRef.current = true; setAutoCountdown(null); }} className="text-xs text-white/40 underline">
               Abbruch
             </button>
           </div>
