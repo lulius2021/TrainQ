@@ -921,27 +921,41 @@ export default function LiveTrainingPage({
   }
 
   const elapsedText = overlayData?.elapsedText ?? "0:00";
-  const isCardioLibrary = isCardioWorkout;
   const exercises = overlayData?.exercises ?? [];
 
-  // ✅ STABIL: Reserve space für fixed Header + optional Restbar
-  // Header liegt jetzt etwas höher -> daher Reserve leicht reduziert.
+  // ── CARDIO: full-screen GPS dashboard ────────────────────────────────────
+  if (isCardioWorkout) {
+    return (
+      <LiveTrainingErrorBoundary onExit={onExit}>
+        <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#061226] text-white">
+          <CardioGPSView
+            gps={gps}
+            elapsedText={elapsedText}
+            sport={workout.sport as "Laufen" | "Radfahren"}
+            workoutTitle={workout.title}
+            onFinish={finishTraining}
+            onMinimize={minimize}
+            onAbort={abortAndExit}
+          />
+        </div>
+      </LiveTrainingErrorBoundary>
+    );
+  }
+
+  // ── GYM: original layout ──────────────────────────────────────────────────
+
+  // Reserve space für fixed Header + optional Restbar
   const mainPadTop = activeRest
     ? "calc(max(env(safe-area-inset-top), 10px) + 124px)"
     : "calc(max(env(safe-area-inset-top), 10px) + 70px)";
 
-  // Footer-Höhe inkl. Stats + Buttons, damit nichts überlappt.
   const footerHeightPx = 140;
   const mainPadBottom = `calc(max(env(safe-area-inset-bottom), 0px) + ${footerHeightPx}px)`;
-
-  const overlaySubtitle = overlayData?.overlaySubtitle ?? "";
-  const overlayPrimaryText = overlayData?.overlayPrimaryText ?? "";
-  const overlayRightTopText = overlayData?.overlayRightTopText;
 
   return (
     <LiveTrainingErrorBoundary onExit={onExit}>
       <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#061226] text-white">
-        {/* ✅ FIXED HEADER */}
+        {/* FIXED HEADER */}
         <div className="fixed inset-x-0 top-0 z-50 px-3 pt-[max(env(safe-area-inset-top),10px)]">
           <div className="mx-auto max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-lg">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -968,38 +982,20 @@ export default function LiveTrainingPage({
           )}
         </div>
 
-        {/* ✅ ONLY ÜBUNGEN SCROLLEN */}
+        {/* SCROLLABLE ÜBUNGEN */}
         <main
           ref={mainRef}
           className="flex-1 min-h-0 overflow-y-auto px-4"
           style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           <div className="py-4">
-            {/* GPS panel for cardio workouts */}
-            {isCardioWorkout && (
-              <div className="mb-4">
-                <CardioGPSView
-                  gps={gps}
-                  elapsedText={elapsedText}
-                  sport={workout.sport as "Laufen" | "Radfahren"}
-                />
-              </div>
-            )}
-
             {exercises.length === 0 ? (
               <>
-                {!isCardioWorkout && (
-                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
-                    Noch keine Übungen. Füge unten eine hinzu.
-                  </div>
-                )}
-                {isCardioWorkout && (
-                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-sm text-gray-400">
-                    Optional: Füge Intervalle oder Abschnitte hinzu.
-                  </div>
-                )}
+                <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
+                  Noch keine Übungen. Füge unten eine hinzu.
+                </div>
                 <button type="button" onClick={() => setLibraryOpen(true)} className="mt-4 w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
-                  + {isCardioWorkout ? "Intervall hinzufügen" : "Übung hinzufügen"}
+                  + Übung hinzufügen
                 </button>
               </>
             ) : (
@@ -1009,39 +1005,35 @@ export default function LiveTrainingPage({
                     <ExerciseEditor
                       exercise={ex}
                       history={historyByExerciseLocalId.get(ex.id) ?? null}
-                      isCardio={isCardioWorkout}
+                      isCardio={false}
                       onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
                       onRemove={() => removeExercise(ex.id)}
                       onAddSet={() => addSet(ex.id)}
                       onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
                       onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
                       onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
-                      onWeightFocus={(setId: string, currentWeight?: unknown) => { if (!isCardioWorkout) setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
+                      onWeightFocus={(setId: string, currentWeight?: unknown) => { setFocusedWeightField({ exerciseId: ex.id, setId, currentWeight: toNumberOrUndefined(currentWeight) }); }}
                       onMoveUp={exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
                       onMoveDown={exIdx < exercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
                     />
                   </div>
                 ))}
                 <button type="button" onClick={() => setLibraryOpen(true)} className="w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
-                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                  + Übung hinzufügen
                 </button>
               </div>
             )}
           </div>
         </main>
 
-        {/* ✅ FIXED FOOTER */}
+        {/* FIXED FOOTER */}
         <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3">
           <div className="mx-auto w-full max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-3 py-3 shadow-lg">
             <div className="mb-2 flex items-center justify-center gap-4 text-sm text-gray-300">
-              {!isCardioWorkout && ( <> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
-              {isCardioWorkout && gps.distanceKm > 0 && (
-                <><span>{gps.distanceKm.toFixed(2)} km</span><span>•</span></>
-              )}
-              {isCardioWorkout && gps.paceMinPerKm && (
-                <><span>{gps.paceMinPerKm} /km</span><span>•</span></>
-              )}
-              {!isCardioWorkout && <><span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span><span>•</span></>}
+              <span>Volumen: {totalVolume.toFixed(1)} kg</span>
+              <span>•</span>
+              <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
+              <span>•</span>
               <span>Zeit: {elapsedText}</span>
             </div>
             <div className="flex gap-3">
