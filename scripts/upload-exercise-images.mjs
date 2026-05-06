@@ -1,23 +1,26 @@
 /**
- * One-time script: uploads all exercise PNGs from public/exercises/
+ * One-time script: uploads all exercise PNGs from scripts/exercise-images/
  * to Supabase Storage bucket "exercises".
  *
  * Prerequisites:
  *   1. Add SUPABASE_SERVICE_ROLE_KEY to your local .env or export it in the shell
+ *      export SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
  *   2. Run from the project root: node scripts/upload-exercise-images.mjs
  *
- * After a successful run:
- *   - Delete the public/exercises/ directory (images are now served via CDN)
- *   - Commit the deletion
+ * After a successful run the images are served from:
+ *   https://ilfsxckixlsyanuovfum.supabase.co/storage/v1/object/public/exercises/<filename>
+ *
+ * Set this in .env (and on every deployment target):
+ *   VITE_EXERCISES_CDN_URL=https://ilfsxckixlsyanuovfum.supabase.co/storage/v1/object/public/exercises
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { readdir, readFile } from "node:fs/promises";
-import { join, basename, extname } from "node:path";
+import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const EXERCISES_DIR = join(__dirname, "../public/exercises");
+const EXERCISES_DIR = join(__dirname, "exercise-images");
 const BUCKET = "exercises";
 
 const SUPABASE_URL = "https://ilfsxckixlsyanuovfum.supabase.co";
@@ -36,7 +39,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-const MIME: Record<string, string> = {
+const MIME = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".jpg": "image/jpeg",
@@ -60,7 +63,7 @@ async function main() {
 
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(file, data, { contentType, upsert: true });
+      .upload(file, data, { contentType, upsert: true, cacheControl: "31536000" });
 
     if (error) {
       console.error(`  ✗ ${file}: ${error.message}`);
@@ -75,10 +78,9 @@ async function main() {
 
   if (fail === 0) {
     console.log(
-      "\nAll images uploaded successfully!\n" +
-        "Next steps:\n" +
-        "  1. Delete public/exercises/ from the repository\n" +
-        "  2. git add -A && git commit -m 'chore: remove bundled exercise images (now on CDN)'\n"
+      "\nAll images uploaded.\n" +
+        "Public URLs:\n" +
+        "  https://ilfsxckixlsyanuovfum.supabase.co/storage/v1/object/public/exercises/<filename>\n"
     );
   }
 }

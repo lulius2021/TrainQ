@@ -15,12 +15,15 @@ function slugifyName(input: string): string {
 }
 
 // CDN base URL for exercise images (Supabase Storage public bucket).
-// Falls back to local /exercises/ path for dev without the env var set.
+// Images are uploaded once via scripts/upload-exercise-images.mjs and served from there.
+// VITE_EXERCISES_CDN_URL can override the default if you self-host the images.
+const DEFAULT_CDN =
+  "https://ilfsxckixlsyanuovfum.supabase.co/storage/v1/object/public/exercises";
 const CDN_BASE =
   (typeof import.meta !== "undefined" &&
     (import.meta as Record<string, unknown>).env &&
     (import.meta.env as Record<string, string>).VITE_EXERCISES_CDN_URL) ||
-  "/exercises";
+  DEFAULT_CDN;
 
 const IMAGE_EXTS = ["webp", "png", "jpg", "jpeg"] as const;
 
