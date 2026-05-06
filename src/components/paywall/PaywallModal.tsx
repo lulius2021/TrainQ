@@ -140,7 +140,14 @@ export default function PaywallModal(props: Props) {
         }
 
         await purchaseSubscription(plan);
-        const isNowPro = await refreshProStatus();
+
+        // refreshProStatus can fail (network) but the purchase already went through — treat that as sync_pending.
+        let isNowPro = false;
+        try {
+          isNowPro = await refreshProStatus();
+        } catch {
+          // status check failed — the purchase succeeded, so show sync_pending
+        }
 
         if (!mountedRef.current) return;
         if (isNowPro) {

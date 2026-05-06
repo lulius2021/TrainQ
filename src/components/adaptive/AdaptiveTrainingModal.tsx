@@ -83,7 +83,7 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
               ].map(q => (
                 <div key={q.id} className="rounded-xl p-4 bg-white/5 border border-white/10">
                   <h3 className="text-base font-semibold mb-3">{q.title}</h3>
-                  <div className={`grid gap-3 grid-cols-2 ${q.options.length > 2 ? 'sm:grid-cols-' + q.options.length : ''}`}>
+                  <div className="grid gap-3 grid-cols-3">
                     {q.options.map(([value, label]) => (
                       <button key={value} type="button" onClick={() => setAnswers(p => ({ ...p, [q.key]: value }))} className={`w-full p-3 rounded-lg text-sm font-semibold transition ${answers[q.key as keyof AdaptiveAnswers] === value ? 'bg-[#2563EB] text-white' : 'bg-white/5 hover:bg-white/10'}`}>{label}</button>
                     ))}

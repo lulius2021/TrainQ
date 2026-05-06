@@ -1305,7 +1305,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
           if (existing) {
             const index = nextStoredTemplates.findIndex((t) => t.id === existing.id);
-            nextStoredTemplates[index] = updated;
+            if (index !== -1) {
+              nextStoredTemplates[index] = updated;
+            } else {
+              nextStoredTemplates.push(updated);
+            }
           } else {
             nextStoredTemplates.push(updated);
           }
@@ -1495,7 +1499,11 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
 
           if (existing) {
             const index = nextStoredTemplates.findIndex((t) => t.id === existing.id);
-            nextStoredTemplates[index] = updated;
+            if (index !== -1) {
+              nextStoredTemplates[index] = updated;
+            } else {
+              nextStoredTemplates.push(updated);
+            }
           } else {
             nextStoredTemplates.push(updated);
           }

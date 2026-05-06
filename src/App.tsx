@@ -842,7 +842,7 @@ const MainAppShell: React.FC = () => {
         new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: normalized } })
       );
     },
-    [activeLiveEventId]
+    [activeLiveEventId, userId]
   );
 
   const abortFromMiniBar = useCallback(() => {

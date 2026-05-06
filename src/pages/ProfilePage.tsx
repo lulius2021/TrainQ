@@ -279,14 +279,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
 
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result || ""));
-      r.onerror = () => reject(new Error("FileReader error"));
-      r.readAsDataURL(file);
-    });
-
-    setAvatarDataUrl(dataUrl);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ""));
+        r.onerror = () => reject(new Error("FileReader error"));
+        r.readAsDataURL(file);
+      });
+      setAvatarDataUrl(dataUrl);
+    } catch {
+      // file read failed — silently ignore, avatar stays unchanged
+    }
   }, []);
 
   const saveProfileEdits = useCallback(() => {
