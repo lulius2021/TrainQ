@@ -166,7 +166,12 @@ export function canUseAdaptiveProfile(state: EntitlementsState, profile: Adaptiv
   // A ist immer free
   if (!isBCProfile(profile)) return true;
 
-  return clampInt(state.adaptiveBCUsedThisMonth, 0) < FREE_LIMITS.adaptiveBCPerMonth;
+  // Check the month key — if it doesn't match the current month, the stored
+  // counter is from last month and effectively zero. (canUsePlanShift /
+  // canUseCalendar7Days already handle this; here it was missing.)
+  const currentMonth = getMonthKey();
+  const used = state.adaptiveMonthKey === currentMonth ? clampInt(state.adaptiveBCUsedThisMonth, 0) : 0;
+  return used < FREE_LIMITS.adaptiveBCPerMonth;
 }
 
 export function consumeAdaptiveProfile(state: EntitlementsState, profile: AdaptiveSuggestion["profile"]): EntitlementsState {
@@ -228,7 +233,9 @@ export function consumeCalendar7Days(state: EntitlementsState): EntitlementsStat
 
 export function canUseAdaptiveTraining(state: EntitlementsState): boolean {
   if (state.isPro) return true;
-  return clampInt(state.adaptiveBCUsedThisMonth, 0) < FREE_LIMITS.adaptiveBCPerMonth;
+  const currentMonth = getMonthKey();
+  const used = state.adaptiveMonthKey === currentMonth ? clampInt(state.adaptiveBCUsedThisMonth, 0) : 0;
+  return used < FREE_LIMITS.adaptiveBCPerMonth;
 }
 
 export function consumeAdaptiveTraining(state: EntitlementsState): EntitlementsState {

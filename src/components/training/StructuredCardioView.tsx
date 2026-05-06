@@ -50,8 +50,11 @@ function buildSegments(exercises: LiveExercise[]): Segment[] {
 }
 
 function formatPaceDisplay(minPerKm: number): string {
-  const min = Math.floor(minPerKm);
-  const sec = Math.round((minPerKm - min) * 60);
+  // Round total seconds first to avoid the "X:60" overflow at boundaries
+  // (e.g. 4.999 → floor=4, round((0.999)*60)=60 → "4:60").
+  const totalSec = Math.round(minPerKm * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 

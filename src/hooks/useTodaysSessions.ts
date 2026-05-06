@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CalendarEvent, TrainingType } from "../types/training";
 
 export type TodaySessionSource = "calendar" | "quickstart";
@@ -47,7 +47,25 @@ function parseTimeToMinutes(hhmm?: string): number {
 }
 
 export function useTodaysSessions(events: CalendarEvent[]) {
-  const todayISO = useMemo(() => toLocalISODate(new Date()), []);
+  // Track "today" reactively. A useMemo([]) here would freeze on first render
+  // and silently return yesterday's date if the user keeps the app open
+  // across midnight (e.g. a late workout). Refresh on window focus and once
+  // per minute so the page stays correct after a date rollover.
+  const [todayISO, setTodayISO] = useState<string>(() => toLocalISODate(new Date()));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tick = () => {
+      const next = toLocalISODate(new Date());
+      setTodayISO((curr) => (curr === next ? curr : next));
+    };
+    window.addEventListener("focus", tick);
+    const id = window.setInterval(tick, 60_000);
+    return () => {
+      window.removeEventListener("focus", tick);
+      window.clearInterval(id);
+    };
+  }, []);
 
   const sessions = useMemo<TodaySession[]>(() => {
     return events

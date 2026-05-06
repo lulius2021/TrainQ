@@ -128,10 +128,15 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     }
   }, []);
 
+  // Tick effect runs once per (running, total) — NOT per `left` change.
+  // Earlier we re-created the interval every second because `left` was in
+  // the deps; the resulting clear+restart drifted timing measurably over a
+  // long rest. Now we keep a single interval alive while running, and use
+  // setLeft's functional updater to drive the countdown.
   useEffect(() => {
     if (typeof window === "undefined") return;
     clearTick();
-    if (!running || left <= 0) return;
+    if (!running) return;
     tickIdRef.current = window.setInterval(() => {
       setLeft((v) => {
         if (v <= 1) {
@@ -142,7 +147,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
       });
     }, 1000);
     return () => clearTick();
-  }, [running, total, left, clearTick]);
+  }, [running, total, clearTick]);
 
   useEffect(() => {
     if (!running || left !== 0 || doneCalledRef.current) return;

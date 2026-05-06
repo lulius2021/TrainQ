@@ -43,9 +43,11 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 function formatPace(speedMs: number): string | null {
   if (speedMs < 0.3) return null; // stopped / too slow
-  const paceSecPerKm = 1000 / speedMs;
-  const min = Math.floor(paceSecPerKm / 60);
-  const sec = Math.round(paceSecPerKm % 60);
+  // Round total seconds first; doing minutes + (seconds % 60 rounded)
+  // separately can overflow to ":60" at exact half-second pace boundaries.
+  const totalSec = Math.round(1000 / speedMs);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
@@ -196,15 +198,25 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
       error: null,
     });
 
+    // Per-effect-run cancellation. Needed because Geolocation.watchPosition is
+    // async — without this flag, the watch can be started AFTER the cleanup
+    // already ran (StrictMode double-mount, fast prop changes), leaving an
+    // orphaned native watcher that never gets cleared.
+    let cancelled = false;
+    let localWatchId: string | number | null = null;
+
     if (isNative) {
       import("@capacitor/geolocation").then(async ({ Geolocation }) => {
+        if (cancelled) return;
+
         let perm: Awaited<ReturnType<typeof Geolocation.requestPermissions>>;
         try {
           perm = await Geolocation.requestPermissions({ permissions: ["location"] });
         } catch {
-          setData(s => ({ ...s, status: "error", error: "GPS-Berechtigung konnte nicht angefragt werden." }));
+          if (!cancelled) setData(s => ({ ...s, status: "error", error: "GPS-Berechtigung konnte nicht angefragt werden." }));
           return;
         }
+        if (cancelled) return;
 
         if (perm.location === "denied") {
           setData(s => ({
@@ -221,6 +233,7 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
           const id = await Geolocation.watchPosition(
             { enableHighAccuracy: true, timeout: 15000 },
             (pos, err) => {
+              if (cancelled) return;
               if (err) {
                 console.warn("[GPS] watchPosition error", err);
                 return;
@@ -237,15 +250,21 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
               }
             },
           );
+          if (cancelled) {
+            // Cleanup already ran; clear the watch we just registered.
+            try { Geolocation.clearWatch({ id }); } catch {}
+            return;
+          }
+          localWatchId = id;
           watchIdRef.current = id;
         } catch (e: any) {
-          setData(s => ({ ...s, status: "error", error: "GPS konnte nicht gestartet werden." }));
+          if (!cancelled) setData(s => ({ ...s, status: "error", error: "GPS konnte nicht gestartet werden." }));
         }
       }).catch(() => {
-        setData(s => ({ ...s, status: "error", error: "GPS-Plugin nicht verfügbar." }));
+        if (!cancelled) setData(s => ({ ...s, status: "error", error: "GPS-Plugin nicht verfügbar." }));
       });
     } else {
-      // Web / browser fallback
+      // Web / browser fallback (synchronous — no race possible)
       if (!("geolocation" in navigator)) {
         setData(s => ({ ...s, status: "error", error: "GPS nicht verfügbar in diesem Browser." }));
         return;
@@ -255,6 +274,7 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
 
       const id = navigator.geolocation.watchPosition(
         (pos) => {
+          if (cancelled) return;
           handlePosition({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
@@ -265,6 +285,7 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
           });
         },
         (err) => {
+          if (cancelled) return;
           if (err.code === 1 /* PERMISSION_DENIED */) {
             setData(s => ({ ...s, status: "denied", error: "GPS verweigert. Bitte im Browser aktivieren." }));
           } else {
@@ -273,10 +294,28 @@ export function useGPSTracking(enabled: boolean): GPSTrackingData {
         },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
       );
+      localWatchId = id;
       watchIdRef.current = id;
     }
 
-    return () => stop();
+    return () => {
+      cancelled = true;
+      // Prefer the local id (always set synchronously where available), fall
+      // back to the ref. This handles the case where the watch was registered
+      // from this effect-run but not yet committed to the ref.
+      if (localWatchId != null) {
+        if (isNative) {
+          import("@capacitor/geolocation").then(({ Geolocation }) => {
+            Geolocation.clearWatch({ id: localWatchId as string });
+          }).catch(() => {});
+        } else {
+          navigator.geolocation.clearWatch(localWatchId as number);
+        }
+        if (watchIdRef.current === localWatchId) watchIdRef.current = null;
+      } else {
+        stop();
+      }
+    };
   }, [enabled, isNative, handlePosition, stop]);
 
   return data;

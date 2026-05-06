@@ -3,6 +3,7 @@
 // All drawing is done on a 1080×1080 offscreen canvas.
 
 import type { WorkoutHistoryEntry } from "./workoutHistory";
+import { formatPaceMmSs } from "./timeFormat";
 
 // ─── Theme definitions ────────────────────────────────────────────────────────
 
@@ -96,11 +97,7 @@ function formatDuration(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function formatPace(paceSecPerKm: number): string {
-  const m = Math.floor(paceSecPerKm / 60);
-  const s = Math.round(paceSecPerKm % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+const formatPace = formatPaceMmSs;
 
 function formatDate(iso?: string): string {
   if (!iso) return "";

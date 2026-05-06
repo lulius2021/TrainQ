@@ -296,6 +296,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   }, [profileBio, profileName]);
 
   const onPickAvatar = useCallback(() => fileRef.current?.click(), []);
+
+  // Token-based concurrency guard: if the user picks a second avatar before
+  // the first FileReader completes, only the most recent selection wins.
+  // (The old code returned a cleanup function from useCallback — that
+  // return value is never invoked, so the cancellation was a no-op.)
+  const avatarReadTokenRef = useRef(0);
   const onAvatarSelected = useCallback(async (file?: File | null, inputEl?: HTMLInputElement | null) => {
     // Reset the file input so the same file can be re-selected later
     if (inputEl) inputEl.value = "";
@@ -309,7 +315,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       return;
     }
 
-    let cancelled = false;
+    const myToken = ++avatarReadTokenRef.current;
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
@@ -317,11 +323,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         r.onerror = () => reject(new Error("FileReader error"));
         r.readAsDataURL(file);
       });
-      if (!cancelled) setAvatarDataUrl(dataUrl);
+      // Only commit if no newer selection has started since.
+      if (avatarReadTokenRef.current === myToken) {
+        setAvatarDataUrl(dataUrl);
+      }
     } catch {
       // file read failed — silently ignore, avatar stays unchanged
     }
-    return () => { cancelled = true; };
   }, [t]);
 
   const saveProfileEdits = useCallback(() => {

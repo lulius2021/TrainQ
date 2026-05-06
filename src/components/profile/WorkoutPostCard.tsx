@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { getWorkoutImageObjectURL, saveWorkoutImage } from "../../utils/workoutImageStore";
 import { getOrGenerateWorkoutImage } from "../../utils/routeExport";
+import { formatPaceMmSs } from "../../utils/timeFormat";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,11 +20,7 @@ function formatDuration(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function formatPace(paceSecPerKm: number): string {
-  const m = Math.floor(paceSecPerKm / 60);
-  const s = Math.round(paceSecPerKm % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+const formatPace = formatPaceMmSs;
 
 function formatRelativeTime(iso?: string): string {
   if (!iso) return "";

@@ -231,8 +231,17 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const setUserPro = useCallback(async (isPro: boolean) => {
-    // Optimistically update local state so Pro features unlock immediately after purchase.
-    setUser((prev) => (prev ? { ...prev, isPro } : prev));
+    // Optimistically update local state AND the session-store so Pro features
+    // unlock immediately. Without the setActiveSession call the entitlements
+    // hook keeps reading the old free flag until the next onAuthStateChange
+    // round-trip from Supabase, which can take several seconds and looks
+    // broken right after a successful purchase.
+    setUser((prev) => {
+      if (prev) {
+        setActiveSession({ userId: prev.id, isPro, email: prev.email });
+      }
+      return prev ? { ...prev, isPro } : prev;
+    });
 
     // Persist to Supabase user_metadata (best-effort; auth state change will also update).
     const client = getSupabaseClient();

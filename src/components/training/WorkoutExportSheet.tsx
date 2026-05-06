@@ -11,6 +11,7 @@ import {
   generateWorkoutImage,
   shareOrDownloadImage,
 } from "../../utils/routeExport";
+import { formatPaceMmSs } from "../../utils/timeFormat";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,9 +24,7 @@ function formatDurationLabel(sec: number): string {
 }
 
 function formatPaceLabel(paceSecPerKm: number): string {
-  const m = Math.floor(paceSecPerKm / 60);
-  const s = Math.round(paceSecPerKm % 60);
-  return `${m}:${String(s).padStart(2, "0")} /km`;
+  return `${formatPaceMmSs(paceSecPerKm)} /km`;
 }
 
 function formatDateLabel(iso?: string): string {
