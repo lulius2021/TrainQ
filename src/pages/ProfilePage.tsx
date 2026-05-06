@@ -278,6 +278,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   const onAvatarSelected = useCallback(async (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
+    // Cap raw image at 3 MB; data URLs are ~33% larger and localStorage
+    // quota is typically 5–10 MB total.
+    const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
+    if (file.size > MAX_AVATAR_BYTES) {
+      window.alert(t("profile.avatarTooLarge") || "Bild ist zu groß (max. 3 MB).");
+      return;
+    }
 
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -290,7 +297,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     } catch {
       // file read failed — silently ignore, avatar stays unchanged
     }
-  }, []);
+  }, [t]);
 
   const saveProfileEdits = useCallback(() => {
     const current = readOnboardingDataFromStorage();

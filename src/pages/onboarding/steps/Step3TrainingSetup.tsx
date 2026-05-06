@@ -25,7 +25,7 @@ function toNumberOrNull(raw: string): number | null {
 }
 
 function clampInt(n: number | null, min: number, max: number): number | null {
-  if (n == null) return null;
+  if (n == null || !Number.isFinite(n)) return null;
   const v = Math.round(n);
   return Math.min(max, Math.max(min, v));
 }
@@ -39,8 +39,14 @@ function normalizeLocations(list: TrainingLocation[]): TrainingLocation[] {
 function sanitizeTraining(input?: Partial<TrainingSetupData> | null): TrainingSetupData {
   const t = (input ?? {}) as Partial<TrainingSetupData>;
 
-  const hoursPerWeek = typeof t.hoursPerWeek === "number" ? clampInt(t.hoursPerWeek, 1, 40) : null;
-  const sessionsPerWeek = typeof t.sessionsPerWeek === "number" ? clampInt(t.sessionsPerWeek, 1, 14) : null;
+  const hoursPerWeek =
+    typeof t.hoursPerWeek === "number" && Number.isFinite(t.hoursPerWeek)
+      ? clampInt(t.hoursPerWeek, 1, 40)
+      : null;
+  const sessionsPerWeek =
+    typeof t.sessionsPerWeek === "number" && Number.isFinite(t.sessionsPerWeek)
+      ? clampInt(t.sessionsPerWeek, 1, 14)
+      : null;
 
   const locationsRaw = Array.isArray(t.locations) ? (t.locations as TrainingLocation[]) : [];
   const locations = normalizeLocations(locationsRaw);
