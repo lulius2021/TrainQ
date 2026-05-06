@@ -23,12 +23,21 @@ const LiveActivity = registerPlugin<TrainQLiveActivityPlugin>("TrainQLiveActivit
 
 const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 
+// Warn at most once per (op) per session to avoid log spam if Live Activity
+// is permanently unavailable (e.g. user disabled it in iOS settings).
+const warnedOps = new Set<string>();
+function warnOnce(op: string, error: unknown): void {
+  if (warnedOps.has(op)) return;
+  warnedOps.add(op);
+  console.warn(`[LiveActivity] ${op} failed:`, error);
+}
+
 export async function setLiveTrainingState(payload: LiveActivityPayload): Promise<void> {
   if (!isNativeIOS) return;
   try {
     await LiveActivity.setLiveTrainingState(payload);
   } catch (e) {
-    console.warn("[LiveActivity] setLiveTrainingState failed:", e);
+    warnOnce("setLiveTrainingState", e);
   }
 }
 
@@ -37,7 +46,7 @@ export async function clearLiveTrainingState(): Promise<void> {
   try {
     await LiveActivity.clearLiveTrainingState();
   } catch (e) {
-    console.warn("[LiveActivity] clearLiveTrainingState failed:", e);
+    warnOnce("clearLiveTrainingState", e);
   }
 }
 
@@ -46,7 +55,7 @@ export async function refreshLiveActivity(): Promise<void> {
   try {
     await LiveActivity.refresh();
   } catch (e) {
-    console.warn("[LiveActivity] refresh failed:", e);
+    warnOnce("refresh", e);
   }
 }
 
@@ -55,7 +64,7 @@ export async function debugStartLiveActivity(): Promise<{ ok?: boolean; id?: str
   try {
     return await LiveActivity.debugStart();
   } catch (e) {
-    console.warn("[LiveActivity] debugStart failed:", e);
+    warnOnce("debugStart", e);
     return;
   }
 }
@@ -65,7 +74,7 @@ export async function debugEndLiveActivity(): Promise<{ ok?: boolean } | undefin
   try {
     return await LiveActivity.debugEnd();
   } catch (e) {
-    console.warn("[LiveActivity] debugEnd failed:", e);
+    warnOnce("debugEnd", e);
     return;
   }
 }

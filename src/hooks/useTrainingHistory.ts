@@ -237,6 +237,7 @@ function aggregateSessions(sessions: TrainingSession[]): TrainingHistoryResult {
 
   for (const s of sessions) {
     const d = parseDateFromIso(s.date);
+    if (Number.isNaN(d.getTime())) continue;
     const monday = startOfWeekMonday(d);
     const weekKey = getWeekKeyMonday(d);
     const startOfWeekIso = formatIsoDate(monday);
