@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ ok: false, error: msg }), { status: 500, headers: corsHeaders });
+    console.error("challenge-claim error:", e);
+    return new Response(JSON.stringify({ ok: false, error: "Request failed" }), { status: 500, headers: corsHeaders });
   }
 });

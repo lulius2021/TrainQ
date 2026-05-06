@@ -13,9 +13,15 @@ Deno.serve(async (req) => {
     const user = await getUserFromAuth(auth);
     const { participation_id, progress_current } = await req.json();
 
-    if (!isUuid(participation_id) || typeof progress_current !== "number" || !Number.isFinite(progress_current)) {
+    if (
+      !isUuid(participation_id) ||
+      typeof progress_current !== "number" ||
+      !Number.isFinite(progress_current) ||
+      progress_current < 0 ||
+      progress_current > 999_999_999
+    ) {
       return new Response(
-        JSON.stringify({ ok: false, error: "valid participation_id (uuid) and numeric progress_current required" }),
+        JSON.stringify({ ok: false, error: "valid participation_id (uuid) and numeric progress_current (0–999999999) required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -34,7 +40,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ ok: false, error: msg }), { status: 500, headers: corsHeaders });
+    console.error("challenge-progress error:", e);
+    return new Response(JSON.stringify({ ok: false, error: "Request failed" }), { status: 500, headers: corsHeaders });
   }
 });
