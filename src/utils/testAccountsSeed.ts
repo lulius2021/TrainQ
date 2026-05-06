@@ -4,10 +4,13 @@
 // ✅ Exports für AuthContext.tsx: findUserByEmail, getAllUsers, updateUser, TrainQUser
 // ✅ Zusätzlich: seedTestAccountsOnce() Alias, passend zu App.tsx
 
+// NOTE: passwords are intentionally NOT stored here. Authentication runs
+// through Supabase; this file only seeds local user records (display name,
+// Pro flag) for dev/TestFlight previews. Hardcoded test credentials live
+// in LoginPage's dev-only prefill picker, never in localStorage.
 export type TrainQUser = {
   id: string;
   email: string;
-  password: string;
   displayName?: string;
   isPro: boolean;
   createdAt: string;
@@ -78,7 +81,6 @@ export function updateUser(userId: string, patch: Partial<TrainQUser>): TrainQUs
     ...patch,
     id: current.id,
     email: normalizeEmail(patch.email ?? current.email),
-    password: String(patch.password ?? current.password),
     isPro: patch.isPro === true ? true : patch.isPro === false ? false : current.isPro,
     createdAt: String(current.createdAt || nowISO()),
   };
@@ -105,7 +107,6 @@ export function ensureTestAccountsSeeded(): void {
     const existingEmails = new Set(existing.map((u) => normalizeEmail(u.email)));
 
     const toAdd: TrainQUser[] = [];
-    const pw = "trainq1234";
 
     for (let i = 1; i <= 10; i++) {
       const email = `pro${String(i).padStart(2, "0")}@testflight.trainq`;
@@ -114,7 +115,6 @@ export function ensureTestAccountsSeeded(): void {
       toAdd.push({
         id: makeId("pro", i),
         email: normalizeEmail(email),
-        password: pw,
         displayName: `Pro ${String(i).padStart(2, "0")}`,
         isPro: true,
         createdAt: nowISO(),
@@ -128,7 +128,6 @@ export function ensureTestAccountsSeeded(): void {
       toAdd.push({
         id: makeId("free", i),
         email: normalizeEmail(email),
-        password: pw,
         displayName: `Free ${String(i).padStart(2, "0")}`,
         isPro: false,
         createdAt: nowISO(),

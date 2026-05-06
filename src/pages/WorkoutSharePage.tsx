@@ -43,6 +43,11 @@ export default function WorkoutSharePage({ workoutId, onDone }: Props) {
     return () => off();
   }, [workoutId]);
 
+  // The preview <div> is rendered behind a `{stats && (...)}` conditional, so
+  // on the first render `previewRef.current` is null and the effect bails
+  // out. With an empty deps array it would never run again — the
+  // ResizeObserver was effectively never attached and previewScale stayed
+  // frozen at the initial 0.25. Re-run when `stats` flips truthy.
   useEffect(() => {
     if (!previewRef.current) return;
     const el = previewRef.current;
@@ -58,7 +63,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: Props) {
     const ro = new ResizeObserver(resize);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [workout]); // workout drives `stats`; re-attach when the conditional DIV mounts
 
   const stats = useMemo(() => (workout ? computeWorkoutShareStats(workout) : null), [workout]);
   const storyModel = useMemo(() => (workout ? mapWorkoutToShareModel(workout, lang) : null), [workout, lang]);

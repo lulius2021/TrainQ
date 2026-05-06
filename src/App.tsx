@@ -51,7 +51,7 @@ import type { CalendarEvent, NewCalendarEvent, UpcomingTraining } from "./types/
 import type { DeloadPlan, DeloadRule } from "./types/deload";
 
 // Live Workout API (für Mini-Bar)
-import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout } from "./utils/trainingHistory";
+import { abortLiveWorkout, getActiveLiveWorkout, persistActiveLiveWorkout, onActiveWorkoutChanged } from "./utils/trainingHistory";
 
 // AUTO-SEED FIX
 import { resolveLiveSeed, writeLiveSeedForEventOrKey } from "./utils/liveTrainingSeed";
@@ -364,14 +364,22 @@ const LiveTrainingMiniBar: React.FC<{
   const { t } = useI18n();
   const [active, setActive] = useState(() => getActiveLiveWorkout());
 
+  // Subscribe to the active-workout event so we never re-read storage on a
+  // timer. We still keep a 1 s tick *only* to refresh the elapsed-time
+  // display (the workout reference itself doesn't change every second).
   useEffect(() => {
     if (!visible) return;
-
-    const t = window.setInterval(() => {
-      setActive(getActiveLiveWorkout());
-    }, 1000);
-
-    return () => window.clearInterval(t);
+    const refresh = () => setActive(getActiveLiveWorkout());
+    refresh();
+    const off = onActiveWorkoutChanged(refresh);
+    // The MiniBar shows live elapsed time which depends on Date.now(), so
+    // we need a paint tick — but it's only a setState({...active}) wrapper,
+    // no storage read.
+    const tick = window.setInterval(() => setActive((a) => (a ? { ...a } : a)), 1000);
+    return () => {
+      off();
+      window.clearInterval(tick);
+    };
   }, [visible]);
 
   if (!visible) return null;
@@ -608,12 +616,16 @@ const MainAppShell: React.FC = () => {
     return !!a?.isActive && a?.isMinimized === true;
   });
 
+  // Subscribe to the active-workout event stream instead of polling
+  // localStorage every 500 ms. The event fires from persistActiveLiveWorkout
+  // and clearActiveLiveWorkout (and bridges cross-tab "storage" events too).
   useEffect(() => {
-    const t = window.setInterval(() => {
+    const refresh = () => {
       const a: any = getActiveLiveWorkout();
       setHasActiveWorkout(!!a?.isActive && a?.isMinimized === true);
-    }, 500);
-    return () => window.clearInterval(t);
+    };
+    refresh();
+    return onActiveWorkoutChanged(refresh);
   }, []);
 
   const showMiniBar = route !== "/live-training" && hasActiveWorkout;

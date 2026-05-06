@@ -9,7 +9,7 @@ import {
   clearWorkoutHistory,
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
-import { clearAllWorkoutImages } from "../utils/workoutImageStore";
+import { deleteWorkoutImage } from "../utils/workoutImageStore";
 
 import {
   readOnboardingDataFromStorage,
@@ -467,11 +467,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       "Trainingsverlauf wirklich löschen?\n\nAlle gemachten Trainings werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden."
     );
     if (!ok) return;
+    // Capture the workout IDs BEFORE clearing the history so we know which
+    // IDB-stored post-images to delete. Using clearAllWorkoutImages() would
+    // wipe other accounts' images too if they share this device.
+    const idsToDeleteImages = workouts.map((w) => w.id).filter(Boolean);
     clearWorkoutHistory();
-    void clearAllWorkoutImages();
+    for (const id of idsToDeleteImages) {
+      void deleteWorkoutImage(id);
+    }
     setWorkouts([]);
     alert("Trainingsverlauf wurde gelöscht.");
-  }, []);
+  }, [workouts]);
 
   // -------------------- Theme-safe style helpers --------------------
 

@@ -91,9 +91,42 @@ type Props = {
 export default function WorkoutPostCard({ entry, userName, avatarDataUrl, onExport }: Props) {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
   const objectUrlRef = useRef<string | null>(null);
+  const cardRef = useRef<HTMLElement | null>(null);
+
+  // Lazy-load: only kick off the IDB read / image generation when the card
+  // actually scrolls into (or near) the viewport. With 30 cards mounted at
+  // once, eager loading would fire 30 IDB reads + 30 PNG decodes
+  // simultaneously and freeze the profile page on first open.
+  useEffect(() => {
+    if (shouldLoad) return;
+    if (typeof IntersectionObserver === "undefined") {
+      // Fallback for old browsers — load immediately.
+      setShouldLoad(true);
+      return;
+    }
+    const el = cardRef.current;
+    if (!el) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setShouldLoad(true);
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: "200px" }, // start a touch before the card enters view
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shouldLoad]);
 
   useEffect(() => {
+    if (!shouldLoad) return;
     let cancelled = false;
     setImgError(false);
 
@@ -139,7 +172,7 @@ export default function WorkoutPostCard({ entry, userName, avatarDataUrl, onExpo
         objectUrlRef.current = null;
       }
     };
-  }, [entry.id, userName]);
+  }, [shouldLoad, entry.id, userName]);
 
   // ── Stats per sport ────────────────────────────────────────────────────────
   const sport = (entry.sport ?? "").toLowerCase();
@@ -167,7 +200,7 @@ export default function WorkoutPostCard({ entry, userName, avatarDataUrl, onExpo
   }
 
   return (
-    <article className="rounded-2xl overflow-hidden bg-white/5 border border-white/10">
+    <article ref={cardRef} className="rounded-2xl overflow-hidden bg-white/5 border border-white/10">
       {/* Header */}
       <header className="flex items-center justify-between px-4 pt-3 pb-3">
         <div className="flex items-center gap-3 min-w-0">

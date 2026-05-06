@@ -437,12 +437,19 @@ export default function LiveTrainingPage({
       .map(([m]) => m);
   }, [workout, workout?.exercises]);
 
-  const overlayData = useMemo(() => {
-    if (!workout) return null;
-
+  // Lightweight per-second formatting — its own memo so the heavy
+  // workoutStructure compute below can stay stable while elapsedSec ticks.
+  const elapsedText = useMemo(() => {
     const t = formatTimeParts(elapsedSec);
-    const showHours = t.h > 0;
-    const elapsedText = showHours ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
+    return t.h > 0 ? `${t.h}:${t.mm}:${t.ss}` : `${Number(t.mm)}:${t.ss}`;
+  }, [elapsedSec]);
+
+  // Heavy structural compute: indexing exercises/sets, cardio totals, mode
+  // mapping, etc. Only re-runs when the workout itself changes — NOT every
+  // second (the previous combined memo had elapsedSec in deps so it ran an
+  // 80-line reduction on every tick of a long live workout).
+  const workoutStructure = useMemo(() => {
+    if (!workout) return null;
     const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
 
     const overlayMode =
@@ -467,58 +474,72 @@ export default function LiveTrainingPage({
         ? `${setWeight}kg`
         : "";
 
-    const cardioDistance = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce(
-        (sAcc, s) => (typeof s.weight === "number" && s.weight > 0 ? sAcc + s.weight : sAcc),
-        0,
-      );
-    }, 0);
-    const cardioMinutes = exercises.reduce((acc, ex) => {
-      return acc + (ex.sets || []).reduce(
-        (sAcc, s) => (typeof s.reps === "number" && s.reps > 0 ? sAcc + s.reps : sAcc),
-        0,
-      );
-    }, 0);
+    // Cardio totals only matter when sport is cardio, but cheap to compute either way.
+    const cardioDistance = exercises.reduce((acc, ex) =>
+      acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.weight === "number" && s.weight > 0 ? sAcc + s.weight : sAcc), 0), 0);
+    const cardioMinutes = exercises.reduce((acc, ex) =>
+      acc + (ex.sets || []).reduce((sAcc, s) => (typeof s.reps === "number" && s.reps > 0 ? sAcc + s.reps : sAcc), 0), 0);
 
-  const overlaySubtitle = isCardioWorkout
-    ? activeExercise
-      ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
-      : "Einheit 0/0"
-    : activeSet
-    ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
-    : activeExercise
-    ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
-    : "Übung 0/0";
+    const overlaySubtitle = isCardioWorkout
+      ? activeExercise
+        ? `Einheit ${activeExerciseIndex + 1}/${exercises.length}`
+        : "Einheit 0/0"
+      : activeSet
+      ? `Satz ${activeSetIndex + 1} von ${activeSets.length}`
+      : activeExercise
+      ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+      : "Übung 0/0";
 
-    const gpsOrManualKm = gps.distanceKm > 0 ? gps.distanceKm : cardioDistance;
+    return {
+      exercises,
+      overlayMode,
+      overlaySubtitle,
+      cardioDistance,
+      cardioMinutes,
+      activeExercise,
+      activeSet,
+      activeSets,
+      activeExerciseIndex,
+      activeSetIndex,
+      setDetail,
+    };
+  }, [workout, isCardioWorkout]);
+
+  // Time-and-rest dependent assembly. This DOES re-run on every elapsedSec
+  // tick / rest tick / GPS update, but it's just a few string concats.
+  const overlayData = useMemo(() => {
+    if (!workoutStructure) return null;
+    const s = workoutStructure;
+
+    const gpsOrManualKm = gps.distanceKm > 0 ? gps.distanceKm : s.cardioDistance;
     const overlayPrimaryText = isCardioWorkout
       ? gpsOrManualKm > 0
         ? `${gpsOrManualKm.toFixed(2)} km in ${elapsedText}`
-        : cardioMinutes > 0
-        ? `${elapsedText} • ${cardioMinutes} min`
+        : s.cardioMinutes > 0
+        ? `${elapsedText} • ${s.cardioMinutes} min`
         : `${elapsedText}`
       : restRemainingSec != null && restRemainingSec > 0
       ? `Pause ${formatMmSs(restRemainingSec)}`
-      : activeSet
-      ? `Satz ${activeSetIndex + 1}/${activeSets.length}${setDetail ? ` • ${setDetail}` : ""}`
-      : activeExercise
-      ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
+      : s.activeSet
+      ? `Satz ${s.activeSetIndex + 1}/${s.activeSets.length}${s.setDetail ? ` • ${s.setDetail}` : ""}`
+      : s.activeExercise
+      ? `Übung ${s.activeExerciseIndex + 1}/${s.exercises.length}`
       : "Workout läuft";
 
     const overlayRightTopText = restRemainingSec != null && restRemainingSec > 0 ? `${restRemainingSec} Sek.` : undefined;
 
     return {
       elapsedText,
-      exercises,
-      overlayMode,
-      overlaySubtitle,
+      exercises: s.exercises,
+      overlayMode: s.overlayMode,
+      overlaySubtitle: s.overlaySubtitle,
       overlayPrimaryText,
       overlayRightTopText,
-      cardioDistance,
-      activeExercise,
-      activeSet,
+      cardioDistance: s.cardioDistance,
+      activeExercise: s.activeExercise,
+      activeSet: s.activeSet,
     };
-  }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]);
+  }, [workoutStructure, elapsedText, restRemainingSec, isCardioWorkout, gps.distanceKm]);
 
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
   useEffect(() => {
@@ -945,7 +966,8 @@ export default function LiveTrainingPage({
     );
   }
 
-  const elapsedText = overlayData?.elapsedText ?? "0:00";
+  // `elapsedText` is the per-second-formatted memo above; use overlayData
+  // only for the supporting `exercises` reference.
   const exercises = overlayData?.exercises ?? [];
 
   // ── CARDIO: full-screen GPS dashboard ────────────────────────────────────

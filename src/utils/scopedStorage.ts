@@ -76,12 +76,51 @@ export function migrateUserStorage(userId: string): void {
     "trainq_units",
     "trainq_platecalc_available_v1",
     "trainq_platecalc_bar_v1",
+    "trainq_custom_exercises_v1",
+    "trainq_exercise_alias_overrides_v1",
   ];
 
   keys.forEach((k) => migrateLegacyKey(k, userId));
 }
 
 export function clearUserScopedData(userId: string): void {
+  // IDB-backed stores need their own cleanup paths. Imported lazily to avoid
+  // pulling IDB code into modules that don't use it and to dodge module-init
+  // order issues.
+  //
+  // For exerciseImageStore: keys are prefixed with userId, so a prefix scan
+  // works directly (clearExerciseImagesForUser).
+  //
+  // For workoutImageStore: images are keyed by workout-id, not user. We must
+  // first read the user's workout history to know which IDs to delete BEFORE
+  // we clear the localStorage entry below.
+  let workoutIdsForUser: string[] = [];
+  try {
+    const raw = getScopedItem("trainq_workout_history_v1", userId);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        workoutIdsForUser = parsed
+          .map((w: any) => (typeof w?.id === "string" ? w.id.trim() : ""))
+          .filter(Boolean);
+      }
+    }
+  } catch {
+    // ignore — best-effort
+  }
+
+  void import("./exerciseImageStore")
+    .then((m) => m.clearExerciseImagesForUser(userId))
+    .catch(() => {});
+
+  if (workoutIdsForUser.length > 0) {
+    void import("./workoutImageStore").then((m) => {
+      for (const id of workoutIdsForUser) {
+        void m.deleteWorkoutImage(id);
+      }
+    }).catch(() => {});
+  }
+
   const keys = [
     "trainq_calendar_events",
     "trainq_calendar_view",
@@ -115,6 +154,8 @@ export function clearUserScopedData(userId: string): void {
     "trainq_units",
     "trainq_platecalc_available_v1",
     "trainq_platecalc_bar_v1",
+    "trainq_custom_exercises_v1",
+    "trainq_exercise_alias_overrides_v1",
   ];
 
   keys.forEach((k) => removeScopedItem(k, userId));

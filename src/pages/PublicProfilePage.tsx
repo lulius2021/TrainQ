@@ -2,35 +2,21 @@
 import React, { useMemo } from "react";
 import { shortenId } from "../utils/shareProfile";
 import { loadWorkoutHistory } from "../utils/workoutHistory";
+import { getAllUsers } from "../utils/testAccountsSeed";
 
 type Props = {
   userId: string | null;
   onBack?: () => void;
 };
 
-type StoredUser = {
-  id: string;
-  displayName?: string;
-  email?: string;
-  avatarDataUrl?: string;
-};
-
-function readLocalUsers(): StoredUser[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem("trainq_auth_users_v1");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function PublicProfilePage({ userId, onBack }: Props) {
+  // Previously this read from "trainq_auth_users_v1" — a key that no part of
+  // the codebase ever writes, so every public-profile URL rendered "not
+  // found". Switch to the actual seeded user list (testAccountsSeed writes
+  // "trainq_users_v1").
   const user = useMemo(() => {
     if (!userId) return null;
-    return readLocalUsers().find((u) => u.id === userId) ?? null;
+    return getAllUsers().find((u) => u.id === userId) ?? null;
   }, [userId]);
 
   const initials = useMemo(() => {
@@ -69,13 +55,12 @@ export default function PublicProfilePage({ userId, onBack }: Props) {
       {user && (
         <div className="rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl p-6 flex items-center gap-6">
           <div className="h-24 w-24 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-brand-primary/50 to-white/10 border-2 border-white/20">
-            {user.avatarDataUrl ? (
-              <img src={user.avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
-            ) : (
-              <div className="text-4xl font-bold text-white">
-                {initials}
-              </div>
-            )}
+            {/* Avatars live in each user's own scoped onboarding storage; we
+                can't safely cross-read another account's avatar from this
+                view, so we always show initials for public profiles. */}
+            <div className="text-4xl font-bold text-white">
+              {initials}
+            </div>
           </div>
 
           <div className="min-w-0">

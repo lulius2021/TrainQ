@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/useI18n";
 import type {
   UpcomingTraining,
@@ -572,26 +572,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
-  const closePreview = () => {
+
+  // Memoize the props passed to <TrainingPreviewSheet> so that modal can be
+  // wrapped in React.memo and skip re-renders when unrelated dashboard state
+  // changes (e.g. tab swipes, polling refreshes).
+  const closePreview = useCallback(() => {
     setIsPreviewOpen(false);
     setPreviewEvent(null);
-  };
-  const openPreviewForEvent = (event: CalendarEvent) => {
+  }, []);
+  const openPreviewForEvent = useCallback((event: CalendarEvent) => {
     setPreviewEvent(event);
     setIsPreviewOpen(true);
-  };
+  }, []);
 
-  const handlePreviewSave = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+  const handlePreviewSave = useCallback((nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
     onUpdateEvents?.((prev) => prev.map((ev) => (ev.id === nextEvent.id ? { ...ev, ...nextEvent } : ev)));
     writeLiveSeedForEventOrKey({ eventId: nextEvent.id, dateISO: nextEvent.date, title: nextEvent.title, seed });
     setPreviewEvent(nextEvent);
-  };
+  }, [onUpdateEvents]);
 
-  const handlePreviewStart = (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
+  const handlePreviewStart = useCallback((nextEvent: CalendarEvent, seed: LiveTrainingSeed) => {
     writeGlobalLiveSeed(seed);
     closePreview();
     navigateToLiveTraining(nextEvent.id);
-  };
+  }, [closePreview]);
 
 
   const startPrimaryTraining = () => {

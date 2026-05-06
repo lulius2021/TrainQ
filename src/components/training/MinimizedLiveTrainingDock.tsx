@@ -7,6 +7,7 @@ import {
   persistActiveLiveWorkout,
   completeLiveWorkout,
   abortLiveWorkout,
+  onActiveWorkoutChanged,
 } from "../../utils/trainingHistory";
 
 type Props = {
@@ -60,26 +61,18 @@ export default function MinimizedLiveTrainingDock({
   const tickRef = useRef<number | null>(null);
 
   // Quelle: Active workout aus trainingHistory (LocalStorage)
+  // Subscribe to the active-workout event stream. Replaces the previous
+  // 800 ms polling — that read storage 75 times/min even when no workout
+  // existed. The event helper bridges cross-tab "storage" events too.
   useEffect(() => {
     const read = () => {
       const w = getActiveLiveWorkout() as LiveWorkout | null;
-      // Nur anzeigen wenn wirklich aktiv + minimiert
       if (w && w.isActive && w.isMinimized) setActive(w);
       else setActive(null);
     };
 
     read();
-
-    // Storage-Events (z.B. mehrere Tabs) + Poll als robustes Fallback
-    const onStorage = () => read();
-    window.addEventListener("storage", onStorage);
-
-    const pollId = window.setInterval(read, 800);
-
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.clearInterval(pollId);
-    };
+    return onActiveWorkoutChanged(read);
   }, []);
 
   // Elapsed timer nur wenn sichtbar

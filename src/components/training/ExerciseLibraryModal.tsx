@@ -255,7 +255,37 @@ export default function ExerciseLibraryModal({ open, title, isCardioLibrary = fa
   const closeCreate = () => { setShowCreate(false); setCreateError(null); clearCreateImage(); };
   const toggleMetric = (metric: Metric) => setCreateMetrics((prev) => prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]);
   const handleCreateImageSelect = (file: File | null) => { if (!file) return; if (createImagePreview) URL.revokeObjectURL(createImagePreview); setCreateImageFile(file); setCreateImagePreview(URL.createObjectURL(file)); };
-  const handleCreate = async () => { const name = createName.trim(); if (!name) { setCreateError(t("training.exerciseLibrary.createEmptyName")); return; } const matched = findExerciseByToken(name); if (matched) { addAliasOverride(matched.id, lang, name); refreshExerciseLibrary(); onPick({ ...matched, name: getExerciseDisplayName(matched, lang) }); closeCreate(); return; } const movement = inferMovement(createMuscle); const metrics = createMetrics.length ? createMetrics : DEFAULT_METRICS_BY_TYPE[createType]; let image: ExerciseImage | undefined; if (createImageFile) { try { image = { kind: "user", ...(await saveExerciseImage(createImageFile)) }; } catch { setCreateError(t("training.exerciseLibrary.imageSaveError")); return; } } const created = addCustomExercise({ name, lang, primaryMuscles: [createMuscle], equipment: [createEquipment], movement, type: createType, metrics, image, }); refreshExerciseLibrary(); onPick({ ...created, name: getExerciseDisplayName(created, lang) }); closeCreate(); };
+  const handleCreate = async () => {
+    const name = createName.trim();
+    if (!name) { setCreateError(t("training.exerciseLibrary.createEmptyName")); return; }
+    const matched = findExerciseByToken(name);
+    if (matched) {
+      addAliasOverride(matched.id, lang, name);
+      refreshExerciseLibrary();
+      onPick({ ...matched, name: getExerciseDisplayName(matched, lang) });
+      closeCreate();
+      return;
+    }
+    const movement = inferMovement(createMuscle);
+    const metrics = createMetrics.length ? createMetrics : DEFAULT_METRICS_BY_TYPE[createType];
+    let image: ExerciseImage | undefined;
+    if (createImageFile) {
+      try { image = { kind: "user", ...(await saveExerciseImage(createImageFile)) }; }
+      catch { setCreateError(t("training.exerciseLibrary.imageSaveError")); return; }
+    }
+    let created;
+    try {
+      created = addCustomExercise({ name, lang, primaryMuscles: [createMuscle], equipment: [createEquipment], movement, type: createType, metrics, image });
+    } catch (e) {
+      // Likely localStorage quota exceeded; surface to user instead of
+      // hanging the modal with no feedback.
+      setCreateError(t("training.exerciseLibrary.imageSaveError"));
+      return;
+    }
+    refreshExerciseLibrary();
+    onPick({ ...created, name: getExerciseDisplayName(created, lang) });
+    closeCreate();
+  };
   const openDetails = (exercise: Exercise) => { setSelectedExercise(exercise); setDetailsOpen(true); };
   const closeDetails = () => { setDetailsOpen(false); setSelectedExercise(null); };
   const handleAddExercise = (exercise: Exercise) => { const isAdded = existingSet.has(exercise.id) || localAddedIds.has(exercise.id); if (isAdded) return; onPick({ ...exercise, name: getExerciseDisplayName(exercise, lang) }); setLocalAddedIds((prev) => new Set([...prev, exercise.id])); };

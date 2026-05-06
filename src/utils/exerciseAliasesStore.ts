@@ -1,6 +1,7 @@
 // src/utils/exerciseAliasesStore.ts
 
 import type { ExerciseAliases } from "../data/exerciseLibrary";
+import { getScopedItem, setScopedItem } from "./scopedStorage";
 
 const STORAGE_KEY = "trainq_exercise_alias_overrides_v1";
 
@@ -28,7 +29,7 @@ function safeParse(raw: string | null): AliasOverrides {
 
 export function getAliasOverrides(): AliasOverrides {
   if (typeof window === "undefined") return {};
-  return safeParse(window.localStorage.getItem(STORAGE_KEY));
+  return safeParse(getScopedItem(STORAGE_KEY));
 }
 
 export function addAliasOverride(exerciseId: string, lang: "en" | "de", alias: string): AliasOverrides {
@@ -45,7 +46,7 @@ export function addAliasOverride(exerciseId: string, lang: "en" | "de", alias: s
   }
   overrides[exerciseId] = { ...entry, [lang]: nextList };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+    setScopedItem(STORAGE_KEY, JSON.stringify(overrides));
   } catch (e) {
     console.warn("[exerciseAliases] save failed (likely quota):", e);
   }

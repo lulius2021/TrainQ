@@ -13,6 +13,7 @@ import type {
   ExerciseImage,
   ExerciseMuscles,
 } from "../data/exerciseLibrary";
+import { getScopedItem, setScopedItem } from "./scopedStorage";
 
 const STORAGE_KEY = "trainq_custom_exercises_v1";
 
@@ -65,12 +66,19 @@ function safeParse(raw: string | null): StoredCustomExercise[] {
 
 function loadAll(): StoredCustomExercise[] {
   if (typeof window === "undefined") return [];
-  return safeParse(window.localStorage.getItem(STORAGE_KEY));
+  return safeParse(getScopedItem(STORAGE_KEY));
 }
 
 function saveAll(items: StoredCustomExercise[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  try {
+    setScopedItem(STORAGE_KEY, JSON.stringify(items));
+  } catch (e) {
+    // localStorage quota or iOS private mode: surface a typed error so the
+    // calling UI can show a meaningful message instead of crashing the modal.
+    console.warn("[customExercises] save failed (likely quota):", e);
+    throw e;
+  }
 }
 
 function toExercise(stored: StoredCustomExercise): Exercise {

@@ -28,6 +28,38 @@ const LS_ACTIVE = "trainq_active_live_workout_v1";
 const LS_CORE_HISTORY = "trainq_training_history_store_v1"; // optional/back-compat store
 const CORE_VERSION = 1;
 
+/**
+ * Fires whenever the active live-workout snapshot in storage changes
+ * (start / persist / abort / complete / clear). Lets consumers like the
+ * MiniBar and the minimized Dock subscribe instead of polling localStorage
+ * every 500–1000 ms.
+ */
+export const ACTIVE_WORKOUT_CHANGED_EVENT = "trainq:active_workout_changed";
+
+function emitActiveWorkoutChanged(): void {
+  if (!hasWindow()) return;
+  try {
+    window.dispatchEvent(new Event(ACTIVE_WORKOUT_CHANGED_EVENT));
+  } catch {
+    // ignore
+  }
+}
+
+export function onActiveWorkoutChanged(cb: () => void): () => void {
+  if (!hasWindow()) return () => {};
+  const handler = () => cb();
+  window.addEventListener(ACTIVE_WORKOUT_CHANGED_EVENT, handler);
+  // Other tabs raise "storage" events, so bridge those into the same callback.
+  const onStorage = (e: StorageEvent) => {
+    if (!e.key || e.key.startsWith(LS_ACTIVE)) cb();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(ACTIVE_WORKOUT_CHANGED_EVENT, handler);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
 // ------------------------ small helpers ------------------------
 
 function hasWindow(): boolean {
@@ -256,6 +288,7 @@ export function persistActiveLiveWorkout(workout: LiveWorkout): void {
 
   try {
     setScopedItem(LS_ACTIVE, raw);
+    emitActiveWorkoutChanged();
   } catch {
     // ignore
   }
@@ -265,6 +298,7 @@ export function clearActiveLiveWorkout(): void {
   if (!hasWindow()) return;
   try {
     removeScopedItem(LS_ACTIVE);
+    emitActiveWorkoutChanged();
   } catch {
     // ignore
   }

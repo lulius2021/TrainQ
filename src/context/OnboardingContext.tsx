@@ -8,9 +8,10 @@
 // IMPORTANT FIX:
 // - Verhindert Event/Sync-Feedback-Loop innerhalb derselben Session (emit -> sync -> setData -> persist -> emit ...)
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { OnboardingData } from "../types/onboarding";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
+import { onSessionChanged, getActiveUserId } from "../utils/session";
 
 const STORAGE_KEY_ONBOARDING_DATA = "trainq_onboarding_data_v1";
 const ONBOARDING_CHANGED_EVENT = "trainq:onboarding_changed";
@@ -161,32 +162,66 @@ export function useOnboarding(): OnboardingContextValue {
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<OnboardingData>(() => readOnboardingDataFromStorage());
 
+  // Track which user the current React state belongs to. If a session change
+  // arrives, we must re-read storage for the new user BEFORE the persist
+  // effect can write the old user's state into the new user's scope.
+  const activeUserIdRef = useRef<string | null>(getActiveUserId());
+
   // ✅ persist + broadcast
+  // Skips when we know the React state still belongs to a previous user that
+  // we haven't re-synced from storage yet — without this guard, swapping
+  // accounts and editing a single field would write user A's data into user
+  // B's scope.
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const currentUid = getActiveUserId();
+    if (activeUserIdRef.current !== currentUid) {
+      // Session changed but data still belongs to the old user. Don't persist.
+      return;
+    }
     writeOnboardingDataToStorage(data);
   }, [data]);
 
   // ✅ Sync, wenn andere Teile der App (z.B. Settings/Profile) in den Storage schreiben
+  // ✅ AND when the active user changes (login/logout switches user scope)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const sync = () => {
       const raw = getScopedItem(STORAGE_KEY_ONBOARDING_DATA);
-      if (!raw) return;
+      if (!raw) {
+        // After logout the scoped key may genuinely be empty for the new user
+        // (or anon). Reset to defaults so we don't keep showing the previous
+        // user's data while writing into the new user's scope.
+        const defaults = getDefaultOnboardingData();
+        setData((prev) => {
+          const prevRaw = safeStringify(prev);
+          const nextRaw = safeStringify(defaults);
+          return prevRaw === nextRaw ? prev : defaults;
+        });
+        activeUserIdRef.current = getActiveUserId();
+        return;
+      }
 
       setData((prev) => {
         const prevRaw = safeStringify(prev);
-        if (prevRaw === raw) return prev;
+        if (prevRaw === raw) {
+          activeUserIdRef.current = getActiveUserId();
+          return prev;
+        }
 
         const parsed = safeParse<Partial<OnboardingData>>(raw, {});
+        activeUserIdRef.current = getActiveUserId();
         return normalizeOnboardingData(parsed);
       });
     };
 
+    const offSession = onSessionChanged(sync);
     window.addEventListener(ONBOARDING_CHANGED_EVENT, sync);
     window.addEventListener("storage", sync);
 
     return () => {
+      offSession();
       window.removeEventListener(ONBOARDING_CHANGED_EVENT, sync);
       window.removeEventListener("storage", sync);
     };

@@ -100,6 +100,13 @@ function playBoxingBellDouble() {
 export default function RestTimerBar({ seconds, running, onDone }: Props) {
   const { t } = useI18n();
   const total = useMemo(() => clampSeconds(seconds), [seconds]);
+
+  // Time-based countdown: store the wall-clock timestamp when the timer
+  // should hit 0, then compute `left` from Date.now() on each tick. This is
+  // robust against backgrounded setInterval pauses on iOS — when the WebView
+  // resumes, the next tick shows the correct value rather than drifting by
+  // however many ticks were missed.
+  const [endsAtMs, setEndsAtMs] = useState<number>(() => Date.now() + total * 1000);
   const [left, setLeft] = useState<number>(total);
 
   const tickIdRef = useRef<number | null>(null);
@@ -109,7 +116,9 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     onDoneRef.current = onDone;
   }, [onDone]);
 
+  // Reset target end time whenever a new rest period starts.
   useEffect(() => {
+    setEndsAtMs(Date.now() + total * 1000);
     setLeft(total);
   }, [total]);
 
@@ -128,26 +137,19 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     }
   }, []);
 
-  // Tick effect runs once per (running, total) — NOT per `left` change.
-  // Earlier we re-created the interval every second because `left` was in
-  // the deps; the resulting clear+restart drifted timing measurably over a
-  // long rest. Now we keep a single interval alive while running, and use
-  // setLeft's functional updater to drive the countdown.
   useEffect(() => {
     if (typeof window === "undefined") return;
     clearTick();
     if (!running) return;
-    tickIdRef.current = window.setInterval(() => {
-      setLeft((v) => {
-        if (v <= 1) {
-          clearTick();
-          return 0;
-        }
-        return v - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000));
+      setLeft(remaining);
+      if (remaining <= 0) clearTick();
+    };
+    tick();
+    tickIdRef.current = window.setInterval(tick, 250);
     return () => clearTick();
-  }, [running, total, clearTick]);
+  }, [running, endsAtMs, clearTick]);
 
   useEffect(() => {
     if (!running || left !== 0 || doneCalledRef.current) return;
@@ -164,7 +166,12 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
 
   const adjustLeft = useCallback(async (delta: number) => {
     await ensureAudioUnlocked();
-    setLeft((v) => Math.max(0, Math.min(v + delta, 300)));
+    // Adjust the target end time so the time-based tick recomputes correctly.
+    setEndsAtMs((prev) => {
+      const remainingNow = Math.max(0, (prev - Date.now()) / 1000);
+      const nextRemaining = Math.max(0, Math.min(300, remainingNow + delta));
+      return Date.now() + nextRemaining * 1000;
+    });
     doneCalledRef.current = false;
   }, []);
 
@@ -192,6 +199,7 @@ export default function RestTimerBar({ seconds, running, onDone }: Props) {
     await ensureAudioUnlocked();
     skippedRef.current = true;
     doneCalledRef.current = false;
+    setEndsAtMs(Date.now()); // tick will compute 0 and trigger onDone
     setLeft(0);
   }, []);
 

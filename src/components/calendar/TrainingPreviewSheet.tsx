@@ -174,7 +174,7 @@ function countSeed(seed: LiveTrainingSeed | null): { exercises: number; sets: nu
   return { exercises, sets };
 }
 
-export default function TrainingPreviewSheet({ open, event, onClose, onSave, onStart }: Props) {
+function TrainingPreviewSheetImpl({ open, event, onClose, onSave, onStart }: Props) {
   const { t } = useI18n();
   const dragControls = useDragControls();
   const [isEditing, setIsEditing] = useState(false);
@@ -624,3 +624,9 @@ export default function TrainingPreviewSheet({ open, event, onClose, onSave, onS
     </AnimatePresence>
   );
 }
+
+// Wrapped in React.memo so the host (e.g. Dashboard) can pass useCallback'd
+// handlers + a stable `event` reference and skip re-renders triggered by
+// unrelated parent state changes.
+const TrainingPreviewSheet = React.memo(TrainingPreviewSheetImpl);
+export default TrainingPreviewSheet;
