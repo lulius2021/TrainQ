@@ -373,6 +373,42 @@ export async function generateWorkoutImage(
 
 // ─── Share / download ─────────────────────────────────────────────────────────
 
+// Module-level dedup + serialization for image generation.
+// Prevents two issues:
+//   1. UI freeze when many WorkoutPostCard instances all generate at once.
+//      Canvas drawing + toBlob() PNG encoding is synchronous-ish and blocks
+//      the main thread; serializing keeps the UI responsive between cards.
+//   2. Duplicate generation when the auto-save (LiveTrainingPage) and lazy
+//      generation (WorkoutPostCard) both fire for the same workout id.
+const inFlightImages = new Map<string, Promise<Blob>>();
+let imageChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Generates the workout image, but:
+ *  - dedupes concurrent requests by entry.id + theme (returns the same promise)
+ *  - serializes work so multiple cards don't all encode PNGs in parallel
+ */
+export function getOrGenerateWorkoutImage(
+  entry: WorkoutHistoryEntry,
+  theme: ExportTheme,
+  userName?: string,
+): Promise<Blob> {
+  const key = `${entry.id}__${theme}`;
+  const existing = inFlightImages.get(key);
+  if (existing) return existing;
+
+  const p = imageChain.then(() => generateWorkoutImage(entry, theme, userName));
+  inFlightImages.set(key, p);
+  // Keep the chain alive even if one task fails so later tasks still run.
+  imageChain = p.catch(() => {});
+  // Free the dedup slot once resolved/rejected so a later request can kick
+  // off a fresh generation if needed.
+  p.finally(() => {
+    if (inFlightImages.get(key) === p) inFlightImages.delete(key);
+  });
+  return p;
+}
+
 /**
  * Tries Web Share API first (native sheet on iOS/Android).
  * Falls back to a direct PNG download if sharing is unavailable.

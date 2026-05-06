@@ -52,7 +52,7 @@ import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload 
 import { useGPSTracking } from "../../hooks/useGPSTracking";
 import CardioGPSView from "../../components/training/CardioGPSView";
 import StructuredCardioView from "../../components/training/StructuredCardioView";
-import { generateWorkoutImage } from "../../utils/routeExport";
+import { getOrGenerateWorkoutImage } from "../../utils/routeExport";
 import { saveWorkoutImage } from "../../utils/workoutImageStore";
 
 type LiveTrainingPageProps = {
@@ -851,9 +851,12 @@ export default function LiveTrainingPage({
 
       // Generate and persist the "post image" (default dark theme) in the
       // background. We don't await — the user shouldn't wait on an image.
+      // Uses the shared deduped queue so a follow-up render of the same
+      // workout in WorkoutPostCard reuses this generation instead of
+      // double-encoding.
       void (async () => {
         try {
-          const blob = await generateWorkoutImage(completed, "dark");
+          const blob = await getOrGenerateWorkoutImage(completed, "dark");
           await saveWorkoutImage(completed.id, blob);
         } catch (err) {
           console.warn("[LiveTraining] post image generation failed", err);

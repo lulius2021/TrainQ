@@ -7,7 +7,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { WorkoutHistoryEntry } from "../../utils/workoutHistory";
 import { getWorkoutImageObjectURL, saveWorkoutImage } from "../../utils/workoutImageStore";
-import { generateWorkoutImage } from "../../utils/routeExport";
+import { getOrGenerateWorkoutImage } from "../../utils/routeExport";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,9 +113,12 @@ export default function WorkoutPostCard({ entry, userName, avatarDataUrl, onExpo
         return;
       }
 
-      // 2) Not found → generate on-the-fly with the default dark theme
+      // 2) Not found → generate on-the-fly with the default dark theme.
+      //    Uses a deduped + serialized queue so we don't freeze the UI when
+      //    many cards request at once, and we don't double-generate when the
+      //    background auto-save is already in flight for this id.
       try {
-        const blob = await generateWorkoutImage(entry, "dark", userName);
+        const blob = await getOrGenerateWorkoutImage(entry, "dark", userName);
         if (cancelled) return;
         await saveWorkoutImage(entry.id, blob);
         const url = URL.createObjectURL(blob);
