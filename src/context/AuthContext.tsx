@@ -119,9 +119,20 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       SocialLogin.initialize({ apple: {} }).catch(() => console.warn("SocialLogin init failed"));
     }
 
+    // Refresh session when app comes back to foreground (works in Capacitor WebView via visibilitychange)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && client && mountedRef.current) {
+        client.auth.getSession().then(({ data }) => {
+          if (mountedRef.current) syncSessionToUser(data.session);
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       mountedRef.current = false;
       listener?.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [syncSessionToUser]);
 

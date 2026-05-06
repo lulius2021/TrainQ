@@ -113,6 +113,7 @@ export function computeVolumeByWeek(workouts: WorkoutHistoryEntry[], includeWarm
   const map = new Map<string, number>();
   for (const w of workouts) {
     const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) continue;
     const weekKey = dateKey(startOfWeekMonday(d));
     let sum = 0;
     for (const ex of w.exercises || []) {
@@ -148,7 +149,9 @@ export function computeBestE1RMByDay(
 ): DailyValue[] {
   const map = new Map<string, number>();
   for (const w of workouts) {
-    const day = dateKey(parseISODate(w.endedAt || w.startedAt));
+    const parsed = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(parsed.getTime())) continue;
+    const day = dateKey(parsed);
     let best = map.get(day) ?? 0;
     for (const ex of w.exercises || []) {
       if (ex.name !== exerciseName) continue;
@@ -274,9 +277,11 @@ export function computeLoadByWeek(workouts: WorkoutHistoryEntry[]): WeeklyValue[
   for (const w of workouts) {
     const sessionRpe = Number((w as any).sessionRpe ?? 0);
     if (!Number.isFinite(sessionRpe) || sessionRpe <= 0) continue;
+    const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) continue;
     const minutes = Math.max(0, Math.round((w.durationSec ?? 0) / 60));
     const load = minutes * sessionRpe;
-    const weekKey = dateKey(startOfWeekMonday(parseISODate(w.endedAt || w.startedAt)));
+    const weekKey = dateKey(startOfWeekMonday(d));
     map.set(weekKey, (map.get(weekKey) ?? 0) + load);
   }
 
