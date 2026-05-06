@@ -444,12 +444,13 @@ function drawExercisesPanel(
     const ry = startY + i * rowH;
 
     // Index circle
+    ctx.save();
     ctx.beginPath();
     ctx.arc(x + 32, ry + rowH / 2, 18, 0, Math.PI * 2);
     ctx.fillStyle = theme.routeColor;
     ctx.globalAlpha = 0.18;
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.restore();
 
     ctx.font = `600 24px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
     ctx.fillStyle = theme.routeColor;
@@ -502,12 +503,13 @@ function drawSportHero(
 ) {
   ctx.textAlign = "center";
 
+  ctx.save();
   ctx.font = `200px -apple-system, 'Apple Color Emoji', 'Helvetica Neue', Arial, sans-serif`;
   ctx.textBaseline = "middle";
   ctx.fillStyle = theme.textPrimary;
   ctx.globalAlpha = 0.85;
   ctx.fillText(icon, cx, cy - 40);
-  ctx.globalAlpha = 1;
+  ctx.restore();
 
   ctx.font = `600 44px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
   ctx.fillStyle = theme.textPrimary;

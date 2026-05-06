@@ -37,6 +37,15 @@ function formatDateLabel(iso?: string): string {
 
 // ─── Live preview card ────────────────────────────────────────────────────────
 
+function PreviewStat({ value, label, textPrimary, textMuted }: { value: string; label: string; textPrimary: string; textMuted: string }) {
+  return (
+    <div className="flex-1 flex flex-col items-center">
+      <span className="text-lg font-bold tabular-nums leading-none" style={{ color: textPrimary }}>{value}</span>
+      <span className="text-[9px] mt-0.5" style={{ color: textMuted }}>{label}</span>
+    </div>
+  );
+}
+
 function PreviewCard({
   entry,
   theme,
@@ -48,11 +57,41 @@ function PreviewCard({
 }) {
   const hasRoute = Array.isArray(entry.gpsTrack) && entry.gpsTrack.length >= 2;
   const sport = (entry.sport ?? "").toLowerCase();
-  const sportIcon = sport === "laufen" ? "🏃" : sport === "radfahren" ? "🚴" : "💪";
-  const sportLabel = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : (entry.sport ?? "Training");
+  const isGym = sport === "gym";
+  const isCardio = sport === "laufen" || sport === "radfahren";
+  const icon = sport === "laufen" ? "🏃" : sport === "radfahren" ? "🚴" : isGym ? "💪" : "🎯";
+  const label = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : isGym ? "Gym" : (entry.sport ?? "Training");
   const dateStr = formatDateLabel(entry.endedAt ?? entry.startedAt);
-
   const isTransparent = theme.id === "transparent";
+
+  // Sport-aware stats (mirror canvas export logic)
+  const stats: Array<{ value: string; label: string }> = [];
+  if (isCardio) {
+    if (entry.distanceKm != null && entry.distanceKm > 0) stats.push({ value: entry.distanceKm.toFixed(2), label: "km" });
+    if (entry.durationSec > 0) stats.push({ value: formatDurationLabel(entry.durationSec), label: "Zeit" });
+    if (entry.paceSecPerKm != null && entry.paceSecPerKm > 0) stats.push({ value: formatPaceLabel(entry.paceSecPerKm), label: "min/km" });
+  } else if (isGym) {
+    if (entry.totalVolume > 0) stats.push({ value: entry.totalVolume >= 1000 ? `${(entry.totalVolume / 1000).toFixed(1)}t` : `${Math.round(entry.totalVolume)}kg`, label: "Volumen" });
+    const sets = (entry.exercises ?? []).reduce((a, ex) => a + (ex.sets?.length ?? 0), 0);
+    if (sets > 0) stats.push({ value: String(sets), label: sets === 1 ? "Satz" : "Sätze" });
+    if (entry.durationSec > 0) stats.push({ value: formatDurationLabel(entry.durationSec), label: "Zeit" });
+  } else {
+    if (entry.durationSec > 0) stats.push({ value: formatDurationLabel(entry.durationSec), label: "Zeit" });
+    const exCount = (entry.exercises ?? []).length;
+    if (exCount > 0) stats.push({ value: String(exCount), label: exCount === 1 ? "Übung" : "Übungen" });
+  }
+
+  // Top exercises for Gym hero panel
+  const topExercises = isGym
+    ? (entry.exercises ?? [])
+        .map((ex) => {
+          const sets = ex.sets ?? [];
+          const vol = sets.reduce((a, s) => a + (Number(s.reps) || 0) * (Number(s.weight) || 0), 0);
+          return { name: ex.name || "Übung", sets: sets.length, vol };
+        })
+        .sort((a, b) => b.vol - a.vol)
+        .slice(0, 4)
+    : [];
 
   return (
     <div
@@ -63,40 +102,41 @@ function PreviewCard({
           : theme.previewBg,
       }}
     >
-      {/* Actual card layer (transparent bg is supported via CSS mix-blend) */}
-      <div
-        className="absolute inset-0 flex flex-col"
-        style={{ background: isTransparent ? "transparent" : undefined }}
-      >
+      <div className="absolute inset-0 flex flex-col" style={{ background: isTransparent ? "transparent" : undefined }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-1 shrink-0">
-          <span className="text-sm font-bold" style={{ color: theme.textPrimary }}>
-            {sportIcon} {sportLabel}
-          </span>
-          <span className="text-xs" style={{ color: theme.textMuted }}>
-            {dateStr}
-          </span>
+          <span className="text-sm font-bold" style={{ color: theme.textPrimary }}>{icon} {label}</span>
+          <span className="text-xs" style={{ color: theme.textMuted }}>{dateStr}</span>
         </div>
 
-        {/* Route area */}
-        <div className="flex-1 px-3 py-2">
-          {hasRoute ? (
-            <div
-              className="w-full h-full rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ background: isTransparent ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.15)" }}
-            >
-              <RouteSVG points={entry.gpsTrack!} height={180} showLiveDot={false} />
-            </div>
-          ) : (
-            <div
-              className="w-full h-full rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(59,130,246,0.08)", border: "1px dashed rgba(59,130,246,0.2)" }}
-            >
-              <span className="text-xs" style={{ color: theme.textMuted }}>
-                Keine GPS-Route
-              </span>
-            </div>
-          )}
+        {/* Hero area */}
+        <div className="flex-1 px-3 py-2 min-h-0">
+          <div
+            className="w-full h-full rounded-xl overflow-hidden flex flex-col items-center justify-center"
+            style={{ background: isTransparent ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.15)" }}
+          >
+            {hasRoute ? (
+              <RouteSVG points={entry.gpsTrack!} height={170} showLiveDot={false} />
+            ) : isGym && topExercises.length > 0 ? (
+              <div className="w-full px-3 py-2 space-y-1.5">
+                {topExercises.map((ex, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold w-4 text-center shrink-0" style={{ color: theme.routeColor }}>
+                      {i + 1}
+                    </span>
+                    <span className="text-xs font-semibold truncate flex-1" style={{ color: theme.textPrimary }}>
+                      {ex.name}
+                    </span>
+                    <span className="text-[10px] shrink-0" style={{ color: theme.textMuted }}>
+                      {ex.sets}×
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-4xl">{icon}</span>
+            )}
+          </div>
         </div>
 
         {/* Divider */}
@@ -104,29 +144,11 @@ function PreviewCard({
 
         {/* Stats row */}
         <div className="flex px-4 py-3 shrink-0">
-          {entry.distanceKm != null && entry.distanceKm > 0 && (
-            <div className="flex-1 flex flex-col items-center">
-              <span className="text-xl font-bold tabular-nums" style={{ color: theme.textPrimary }}>
-                {entry.distanceKm.toFixed(2)}
-              </span>
-              <span className="text-[10px]" style={{ color: theme.textMuted }}>km</span>
-            </div>
-          )}
-          {entry.durationSec > 0 && (
-            <div className="flex-1 flex flex-col items-center">
-              <span className="text-xl font-bold tabular-nums" style={{ color: theme.textPrimary }}>
-                {formatDurationLabel(entry.durationSec)}
-              </span>
-              <span className="text-[10px]" style={{ color: theme.textMuted }}>Zeit</span>
-            </div>
-          )}
-          {entry.paceSecPerKm != null && entry.paceSecPerKm > 0 && (
-            <div className="flex-1 flex flex-col items-center">
-              <span className="text-xl font-bold tabular-nums" style={{ color: theme.textPrimary }}>
-                {formatPaceLabel(entry.paceSecPerKm)}
-              </span>
-              <span className="text-[10px]" style={{ color: theme.textMuted }}>Pace</span>
-            </div>
+          {stats.map((s) => (
+            <PreviewStat key={s.label} value={s.value} label={s.label} textPrimary={theme.textPrimary} textMuted={theme.textMuted} />
+          ))}
+          {stats.length === 0 && (
+            <div className="flex-1 text-center text-xs" style={{ color: theme.textMuted }}>—</div>
           )}
         </div>
 

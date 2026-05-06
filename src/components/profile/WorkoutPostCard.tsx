@@ -118,8 +118,12 @@ export default function WorkoutPostCard({ entry, userName, avatarDataUrl, onExpo
         const blob = await generateWorkoutImage(entry, "dark", userName);
         if (cancelled) return;
         await saveWorkoutImage(entry.id, blob);
-        if (cancelled) return;
         const url = URL.createObjectURL(blob);
+        // Check cancelled AFTER creating the URL so we can revoke it if needed.
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
         objectUrlRef.current = url;
         setImgUrl(url);
       } catch (e) {
