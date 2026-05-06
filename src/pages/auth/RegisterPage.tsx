@@ -27,6 +27,17 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
     setError(null);
     setRepeatError(null);
 
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      setError(t("auth.register.emptyEmail") || "Bitte E-Mail eingeben.");
+      return;
+    }
+    if (!emailRegex.test(trimmedEmail)) {
+      setError(t("auth.register.invalidEmail") || "Ungültige E-Mail-Adresse.");
+      return;
+    }
+
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(
         t("auth.register.passwordTooShort") ||
@@ -42,7 +53,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
 
     setBusy(true);
     try {
-      const res = await register(email.trim(), password);
+      const res = await register(trimmedEmail, password);
       if (res && !res.ok) {
         setError(res.error || t("auth.register.error"));
       } else {

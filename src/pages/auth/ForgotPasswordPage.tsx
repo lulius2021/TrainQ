@@ -28,6 +28,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
       setError(t("auth.forgot.emptyEmail") || "Bitte E-Mail eingeben.");
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setError(t("auth.forgot.invalidEmail") || "Ungültige E-Mail-Adresse.");
+      return;
+    }
 
     setSubmitting(true);
     try {
