@@ -688,6 +688,17 @@ export default function SettingPage({
       if (!res.ok) throw new Error(`garmin-auth-init returned ${res.status}`);
       const { authorizeUrl } = await res.json();
       if (!authorizeUrl) throw new Error("Missing authorizeUrl");
+      // Guard against javascript:/data: URLs in case the edge response is
+      // ever tampered with (XSS via window.location.href).
+      let parsed: URL;
+      try {
+        parsed = new URL(authorizeUrl);
+      } catch {
+        throw new Error("Invalid authorizeUrl");
+      }
+      if (parsed.protocol !== "https:" || !parsed.hostname.endsWith("garmin.com")) {
+        throw new Error("authorizeUrl is not a Garmin https URL");
+      }
       if (Capacitor.isNativePlatform()) {
         // iOS/Android: open in system browser so the user returns via deep link.
         window.open(authorizeUrl, "_blank");

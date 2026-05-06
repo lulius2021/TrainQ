@@ -439,7 +439,14 @@ const MainAppShell: React.FC = () => {
     if (typeof window === "undefined") return null;
     const path = window.location.pathname;
     if (!path.startsWith("/u/")) return null;
-    return decodeURIComponent(path.replace("/u/", "").trim()) || null;
+    const raw = path.replace("/u/", "").trim();
+    if (!raw) return null;
+    try {
+      const decoded = decodeURIComponent(raw).trim();
+      return decoded && decoded !== "null" && decoded !== "undefined" ? decoded : null;
+    } catch {
+      return null;
+    }
   });
 
   const [profileScreen, setProfileScreen] = useState<ProfileScreen>("profile");
