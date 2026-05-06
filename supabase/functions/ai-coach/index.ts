@@ -19,7 +19,7 @@ function checkRateLimit(userId: string): boolean {
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-3-5-haiku-20241022";
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = 4096;
 
 type AICoachAction =
   | "workout_recommendation"
