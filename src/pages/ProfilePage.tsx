@@ -1,6 +1,7 @@
 // src/pages/ProfilePage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RouteSVG from "../components/training/RouteSVG";
+import WorkoutExportSheet from "../components/training/WorkoutExportSheet";
 
 import {
   loadWorkoutHistory,
@@ -409,21 +410,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     logout();
   }, [logout]);
 
-  const handleShareImage = useCallback(
-    (w: WorkoutHistoryEntry) => {
-      if (!w?.id) return;
-      if (typeof onOpenWorkoutShare === "function") {
-        onOpenWorkoutShare(w.id, "profile");
-        return;
-      }
-      window.dispatchEvent(
-        new CustomEvent("trainq:navigate", {
-          detail: { path: "/workout-share", workoutId: w.id, returnTo: "profile" },
-        })
-      );
-    },
-    [onOpenWorkoutShare]
-  );
+  // -------- Export sheet state --------
+  const [exportEntry, setExportEntry] = useState<WorkoutHistoryEntry | null>(null);
+
+  const handleShareImage = useCallback((w: WorkoutHistoryEntry) => {
+    setExportEntry(w);
+  }, []);
 
   const handleCopyUserId = useCallback(async () => {
     const id = user?.id ?? "";
@@ -790,6 +782,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             </div>
           </div>
         </div>
+      )}
+
+      {/* Workout export sheet */}
+      {exportEntry && (
+        <WorkoutExportSheet
+          entry={exportEntry}
+          userName={profileName || undefined}
+          onClose={() => setExportEntry(null)}
+        />
       )}
     </>
   );
