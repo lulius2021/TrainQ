@@ -1,7 +1,7 @@
 // src/pages/ProfilePage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import RouteSVG from "../components/training/RouteSVG";
 import WorkoutExportSheet from "../components/training/WorkoutExportSheet";
+import WorkoutPostCard from "../components/profile/WorkoutPostCard";
 
 import {
   loadWorkoutHistory,
@@ -9,6 +9,7 @@ import {
   clearWorkoutHistory,
   type WorkoutHistoryEntry,
 } from "../utils/workoutHistory";
+import { clearAllWorkoutImages } from "../utils/workoutImageStore";
 
 import {
   readOnboardingDataFromStorage,
@@ -459,6 +460,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
     );
     if (!ok) return;
     clearWorkoutHistory();
+    void clearAllWorkoutImages();
     setWorkouts([]);
     alert("Trainingsverlauf wurde gelöscht.");
   }, []);
@@ -610,65 +612,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
               )}
 
               {workouts.length > 0 && (
-                <div className="space-y-3">
-                  {workouts.slice(0, 30).map((w) => {
-                    const sport = normalizeSport(w.sport);
-                    const isCardio = sport === "Laufen" || sport === "Radfahren";
-                    const exCount = (w.exercises ?? []).length;
-                    const date = toLocalDateLabel(w.endedAt ?? w.startedAt);
-                    const mins = durationMinutes(w);
-                    const hasRoute = isCardio && Array.isArray(w.gpsTrack) && w.gpsTrack.length >= 2;
-
-                    // Format pace: paceSecPerKm → "5:30 /km"
-                    const paceLabel = (() => {
-                      if (!isCardio || !w.paceSecPerKm) return null;
-                      const min = Math.floor(w.paceSecPerKm / 60);
-                      const sec = Math.round(w.paceSecPerKm % 60);
-                      return `${min}:${String(sec).padStart(2, "0")} /km`;
-                    })();
-
-                    return (
-                      <div key={w.id} className="rounded-xl overflow-hidden bg-white/5 border border-white/10">
-                        {/* GPS route trace for Laufen/Radfahren */}
-                        {hasRoute && (
-                          <div className="bg-[#061226] border-b border-white/8 px-3 pt-3 pb-1">
-                            <RouteSVG points={w.gpsTrack!} height={110} showLiveDot={false} />
-                          </div>
-                        )}
-
-                        <div className="p-3">
-                          <p className="text-sm text-gray-400">{date} • {mins} min</p>
-                          <h4 className="mt-1 text-base font-semibold truncate text-white">{w.title ?? "Training"}</h4>
-
-                          {/* Cardio metrics row */}
-                          {isCardio && (
-                            <div className="mt-1 flex items-center gap-3 text-sm text-blue-300">
-                              {w.distanceKm != null && (
-                                <span>{w.distanceKm.toFixed(2)} km</span>
-                              )}
-                              {paceLabel && (
-                                <span className="text-white/40">•</span>
-                              )}
-                              {paceLabel && <span>{paceLabel}</span>}
-                            </div>
-                          )}
-
-                          {!isCardio && (
-                            <p className="mt-1 text-sm text-gray-300">{exCount > 0 ? `${exCount} Übung${exCount === 1 ? "" : "en"}` : "—"}</p>
-                          )}
-
-                          <div className="mt-3 flex items-center gap-2">
-                            <button type="button" onClick={() => handleShareImage(w)} className="rounded-full px-3 py-1.5 text-sm font-medium bg-white/10 border border-white/10 text-white hover:bg-white/20" aria-label={t("profile.shareWorkout")} title={t("profile.shareWorkout")}>
-                              <span className="inline-flex items-center gap-1.5">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M12 3v10m0 0 3-3m-3 3-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                                Export
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-4">
+                  {workouts.slice(0, 30).map((w) => (
+                    <WorkoutPostCard
+                      key={w.id}
+                      entry={w}
+                      userName={profileName}
+                      avatarDataUrl={avatarDataUrl}
+                      onExport={handleShareImage}
+                    />
+                  ))}
                 </div>
               )}
             </div>

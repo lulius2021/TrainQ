@@ -230,8 +230,16 @@ export async function generateWorkoutImage(
   }
 
   const sport = (entry.sport ?? "").toLowerCase();
-  const sportIcon = sport === "laufen" ? "🏃" : sport === "radfahren" ? "🚴" : "💪";
-  const sportLabel = sport === "laufen" ? "Laufen" : sport === "radfahren" ? "Radfahren" : (entry.sport ?? "Training");
+  const isCardio = sport === "laufen" || sport === "radfahren";
+  const isGym = sport === "gym";
+  const sportIcon = sport === "laufen" ? "🏃" : sport === "radfahren" ? "🚴" : isGym ? "💪" : "🎯";
+  const sportLabel = sport === "laufen"
+    ? "Laufen"
+    : sport === "radfahren"
+    ? "Radfahren"
+    : isGym
+    ? "Gym"
+    : (entry.sport ?? "Training");
 
   const hasRoute = Array.isArray(entry.gpsTrack) && entry.gpsTrack.length >= 2;
   const HEADER_H = 140;
@@ -239,16 +247,21 @@ export async function generateWorkoutImage(
   const routeAreaY = HEADER_H;
   const routeAreaH = H - HEADER_H - FOOTER_H;
 
-  // ── Route area background panel ──────────────────────────────────────────────
-  if (hasRoute) {
-    ctx.fillStyle = t.canvasBg
-      ? "rgba(0,0,0,0.12)"
-      : "rgba(0,0,0,0.04)";
-    if (theme === "light") ctx.fillStyle = "rgba(255,255,255,0.6)";
-    roundRect(ctx, PAD / 2, routeAreaY + 8, W - PAD, routeAreaH - 16, 32);
-    ctx.fill();
+  // ── Hero panel background ───────────────────────────────────────────────────
+  ctx.fillStyle = t.canvasBg
+    ? "rgba(0,0,0,0.12)"
+    : "rgba(0,0,0,0.04)";
+  if (theme === "light") ctx.fillStyle = "rgba(255,255,255,0.6)";
+  roundRect(ctx, PAD / 2, routeAreaY + 8, W - PAD, routeAreaH - 16, 32);
+  ctx.fill();
 
+  // ── Hero content (route OR exercises OR sport visual) ──────────────────────
+  if (hasRoute) {
     drawRoute(ctx, entry.gpsTrack!, PAD * 1.5, routeAreaY + 24, W - PAD * 3, routeAreaH - 48, t);
+  } else if (isGym && (entry.exercises?.length ?? 0) > 0) {
+    drawExercisesPanel(ctx, entry, t, PAD * 1.5, routeAreaY + 40, W - PAD * 3, routeAreaH - 80);
+  } else {
+    drawSportHero(ctx, sportIcon, entry.title ?? sportLabel, t, W / 2, routeAreaY + routeAreaH / 2);
   }
 
   // ── Top bar: sport + date ────────────────────────────────────────────────────
@@ -275,20 +288,34 @@ export async function generateWorkoutImage(
   ctx.lineTo(W - PAD, divY);
   ctx.stroke();
 
-  // ── Stats section ─────────────────────────────────────────────────────────────
-  // Stat items depend on sport
+  // ── Stats section (sport-aware) ─────────────────────────────────────────────
   const stats: Array<{ value: string; label: string }> = [];
 
-  if (entry.distanceKm != null && entry.distanceKm > 0) {
-    stats.push({ value: entry.distanceKm.toFixed(2), label: "km" });
-  }
-
-  if (entry.durationSec > 0) {
-    stats.push({ value: formatDuration(entry.durationSec), label: "Zeit" });
-  }
-
-  if (entry.paceSecPerKm != null && entry.paceSecPerKm > 0) {
-    stats.push({ value: formatPace(entry.paceSecPerKm), label: "min/km" });
+  if (isCardio) {
+    if (entry.distanceKm != null && entry.distanceKm > 0) {
+      stats.push({ value: entry.distanceKm.toFixed(2), label: "km" });
+    }
+    if (entry.durationSec > 0) {
+      stats.push({ value: formatDuration(entry.durationSec), label: "Zeit" });
+    }
+    if (entry.paceSecPerKm != null && entry.paceSecPerKm > 0) {
+      stats.push({ value: formatPace(entry.paceSecPerKm), label: "min/km" });
+    }
+  } else if (isGym) {
+    if (entry.totalVolume > 0) {
+      stats.push({ value: formatKg(entry.totalVolume), label: "Volumen" });
+    }
+    const setCount = (entry.exercises ?? []).reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
+    if (setCount > 0) stats.push({ value: String(setCount), label: setCount === 1 ? "Satz" : "Sätze" });
+    if (entry.durationSec > 0) {
+      stats.push({ value: formatDuration(entry.durationSec), label: "Zeit" });
+    }
+  } else {
+    if (entry.durationSec > 0) {
+      stats.push({ value: formatDuration(entry.durationSec), label: "Zeit" });
+    }
+    const exCount = (entry.exercises ?? []).length;
+    if (exCount > 0) stats.push({ value: String(exCount), label: exCount === 1 ? "Übung" : "Übungen" });
   }
 
   if (stats.length === 0) {
@@ -373,6 +400,137 @@ export async function shareOrDownloadImage(blob: Blob, filename: string): Promis
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   return "downloaded";
+}
+
+// ─── Hero variants for non-cardio sports ──────────────────────────────────────
+
+function drawExercisesPanel(
+  ctx: CanvasRenderingContext2D,
+  entry: WorkoutHistoryEntry,
+  theme: ThemeDef,
+  x: number, y: number, w: number, h: number,
+) {
+  const exercises = entry.exercises ?? [];
+  if (exercises.length === 0) return;
+
+  // Section title
+  ctx.font = `600 32px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+  ctx.fillStyle = theme.textMuted;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("Übungen", x + 8, y);
+
+  // Top exercises by volume — show up to 5
+  const ranked = exercises
+    .map((ex) => {
+      const sets = ex.sets ?? [];
+      const volume = sets.reduce(
+        (a, s) => a + (Number(s.reps) || 0) * (Number(s.weight) || 0),
+        0,
+      );
+      const bestSet = sets.reduce<typeof sets[number] | null>((best, s) => {
+        const v = (Number(s.reps) || 0) * (Number(s.weight) || 0);
+        const bv = best ? (Number(best.reps) || 0) * (Number(best.weight) || 0) : -1;
+        return v > bv ? s : best;
+      }, null);
+      return { name: ex.name || "Übung", volume, sets: sets.length, best: bestSet };
+    })
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 5);
+
+  const startY = y + 56;
+  const rowH = Math.min(72, (h - 80) / Math.max(1, ranked.length));
+  ranked.forEach((r, i) => {
+    const ry = startY + i * rowH;
+
+    // Index circle
+    ctx.beginPath();
+    ctx.arc(x + 32, ry + rowH / 2, 18, 0, Math.PI * 2);
+    ctx.fillStyle = theme.routeColor;
+    ctx.globalAlpha = 0.18;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.font = `600 24px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+    ctx.fillStyle = theme.routeColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(i + 1), x + 32, ry + rowH / 2 + 1);
+
+    // Name (truncate to fit)
+    ctx.font = `600 30px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+    ctx.fillStyle = theme.textPrimary;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(truncate(ctx, r.name, w - 380), x + 64, ry + rowH / 2 - 8);
+
+    // Detail
+    const detail = r.best && (Number(r.best.weight) || 0) > 0 && (Number(r.best.reps) || 0) > 0
+      ? `${r.sets}× • Best ${Number(r.best.weight)}kg × ${Number(r.best.reps)}`
+      : r.sets > 0
+      ? `${r.sets} Satz${r.sets === 1 ? "" : "z"}`
+      : "—";
+    ctx.font = `400 22px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+    ctx.fillStyle = theme.textMuted;
+    ctx.fillText(detail, x + 64, ry + rowH / 2 + 18);
+
+    // Volume on right
+    if (r.volume > 0) {
+      ctx.font = `600 26px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+      ctx.fillStyle = theme.textPrimary;
+      ctx.textAlign = "right";
+      ctx.fillText(`${formatKg(Math.round(r.volume))}`, x + w - 16, ry + rowH / 2);
+    }
+  });
+
+  // "+N weitere"
+  if (exercises.length > ranked.length) {
+    ctx.font = `400 22px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+    ctx.fillStyle = theme.textMuted;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`+ ${exercises.length - ranked.length} weitere`, x + w / 2, y + h - 4);
+  }
+}
+
+function drawSportHero(
+  ctx: CanvasRenderingContext2D,
+  icon: string,
+  title: string,
+  theme: ThemeDef,
+  cx: number, cy: number,
+) {
+  ctx.textAlign = "center";
+
+  ctx.font = `200px -apple-system, 'Apple Color Emoji', 'Helvetica Neue', Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = theme.textPrimary;
+  ctx.globalAlpha = 0.85;
+  ctx.fillText(icon, cx, cy - 40);
+  ctx.globalAlpha = 1;
+
+  ctx.font = `600 44px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+  ctx.fillStyle = theme.textPrimary;
+  ctx.textBaseline = "top";
+  ctx.fillText(truncate(ctx, title, 800), cx, cy + 100);
+}
+
+function truncate(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (!text) return "";
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    const candidate = text.slice(0, mid) + "…";
+    if (ctx.measureText(candidate).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + "…";
+}
+
+function formatKg(v: number): string {
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}t`;
+  return `${Math.round(v)}kg`;
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────

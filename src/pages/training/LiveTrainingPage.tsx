@@ -52,6 +52,8 @@ import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload 
 import { useGPSTracking } from "../../hooks/useGPSTracking";
 import CardioGPSView from "../../components/training/CardioGPSView";
 import StructuredCardioView from "../../components/training/StructuredCardioView";
+import { generateWorkoutImage } from "../../utils/routeExport";
+import { saveWorkoutImage } from "../../utils/workoutImageStore";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -846,6 +848,18 @@ export default function LiveTrainingPage({
         ? { ...workout, gpsDistanceKm: gpsDistanceRef.current, gpsTrack: gps.trackPoints }
         : workout;
       const completed = completeLiveWorkout(workoutWithGps as any);
+
+      // Generate and persist the "post image" (default dark theme) in the
+      // background. We don't await — the user shouldn't wait on an image.
+      void (async () => {
+        try {
+          const blob = await generateWorkoutImage(completed, "dark");
+          await saveWorkoutImage(completed.id, blob);
+        } catch (err) {
+          console.warn("[LiveTraining] post image generation failed", err);
+        }
+      })();
+
       markCalendarEvent("completed", completed.id);
       clearLiveTrainingState();
       if (typeof onShareWorkout === "function") {
