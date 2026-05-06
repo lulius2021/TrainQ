@@ -225,6 +225,9 @@ export default function LiveTrainingPage({
   const [pendingScrollToExerciseId, setPendingScrollToExerciseId] = useState<string | null>(null);
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const mainRef = useRef<HTMLDivElement | null>(null);
+  // Stable ref for initialWorkout so the init effect doesn't re-run when the
+  // parent passes a new object reference on every render.
+  const initialWorkoutRef = useRef(initialWorkout);
 
   const { keyboardHeight, isOpen: keyboardOpen } = useKeyboardHeight();
   const [focusedWeightField, setFocusedWeightField] = useState<{
@@ -270,7 +273,7 @@ export default function LiveTrainingPage({
       });
 
       if (isReallyActive && matchesEvent) {
-        const merged = { ...active, ...(initialWorkout as any) } as LiveWorkout;
+        const merged = { ...active, ...(initialWorkoutRef.current as any) } as LiveWorkout;
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
@@ -294,7 +297,7 @@ export default function LiveTrainingPage({
           initialExercises: seedToInitialExercises(seedToUse),
         });
 
-        const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
+        const merged = { ...w, ...(initialWorkoutRef.current as any) } as LiveWorkout;
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
@@ -321,7 +324,7 @@ export default function LiveTrainingPage({
           initialExercises: seedToInitialExercises(seedToUse),
         });
 
-        const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
+        const merged = { ...w, ...(initialWorkoutRef.current as any) } as LiveWorkout;
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
@@ -340,7 +343,7 @@ export default function LiveTrainingPage({
         initialExercises: [],
       });
 
-      const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
+      const merged = { ...w, ...(initialWorkoutRef.current as any) } as LiveWorkout;
       setAndMark(merged);
 
       const started = new Date(merged.startedAt).getTime();
@@ -359,7 +362,8 @@ export default function LiveTrainingPage({
     (event as any)?.trainingType,
     (event as any)?.sport,
     event?.adaptiveSuggestion,
-    initialWorkout,
+    // initialWorkout intentionally omitted: captured via initialWorkoutRef to
+    // prevent re-runs when the parent passes a new object reference each render.
   ]);
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
@@ -540,10 +544,18 @@ export default function LiveTrainingPage({
   }, [activeRest]);
 
   // ✅ Persist Active Workout bei jeder Änderung (nur solange aktiv)
+  // Debounced to avoid hammering localStorage on rapid state changes (e.g. typing).
+  // Wrapped in try/catch: localStorage can throw on iOS private mode or when full.
   useEffect(() => {
-    if (!workout) return;
-    if (!workout.isActive) return;
-    persistActiveLiveWorkout(workout);
+    if (!workout?.isActive) return;
+    const id = window.setTimeout(() => {
+      try {
+        persistActiveLiveWorkout(workout);
+      } catch (e) {
+        console.warn("[LiveTraining] persistActiveLiveWorkout failed", e);
+      }
+    }, 300);
+    return () => window.clearTimeout(id);
   }, [workout]);
 
   // ✅ Scroll Effect
@@ -608,12 +620,13 @@ export default function LiveTrainingPage({
 
   const moveExercise = (exerciseId: string, direction: "up" | "down") => {
     if (!workout) return;
-    const idx = workout.exercises.findIndex((e) => e.id === exerciseId);
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    const idx = exercises.findIndex((e) => e.id === exerciseId);
     if (idx === -1) return;
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= workout.exercises.length) return;
+    if (newIdx < 0 || newIdx >= exercises.length) return;
 
-    const newExercises = [...workout.exercises];
+    const newExercises = [...exercises];
     [newExercises[idx], newExercises[newIdx]] = [newExercises[newIdx], newExercises[idx]];
     setWorkout((prev) => (prev ? { ...prev, exercises: newExercises } : prev));
   };
@@ -707,41 +720,45 @@ export default function LiveTrainingPage({
   const toggleSetCompleted = (exerciseId: string, setId: string) => {
     if (!workout) return;
 
+    // Compute rest side-effect outside the setWorkout updater to avoid calling
+    // setState inside another setState updater (React antipattern in Concurrent Mode).
+    const exercise = (Array.isArray(workout.exercises) ? workout.exercises : []).find(
+      (e) => e.id === exerciseId
+    );
+    const set = (Array.isArray(exercise?.sets) ? exercise!.sets : []).find((s) => s.id === setId);
+    if (!exercise || !set) return;
+
+    const nextCompleted = !set.completed;
+    const rest = normalizeRestSeconds((exercise as any).restSeconds);
+
     setWorkout((prev) => {
       if (!prev) return prev;
       const prevExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
-
       const nextExercises = prevExercises.map((e) => {
         if (e.id !== exerciseId) return e;
-
         const sets = Array.isArray(e.sets) ? e.sets : [];
         const nextSets = sets.map((s) => {
           if (s.id !== setId) return s;
-
-          const nextCompleted = !s.completed;
-          const rest = normalizeRestSeconds((e as any).restSeconds);
-
-          if (nextCompleted && typeof rest === "number") {
-            setActiveRest({ exerciseId, setId, restSeconds: rest });
-          } else if (!nextCompleted) {
-            setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
-          }
-
           return { ...s, completed: nextCompleted, completedAt: nextCompleted ? nowISO() : undefined };
         });
-
         return { ...e, sets: nextSets } as LiveExercise;
       });
-
       return { ...prev, exercises: nextExercises };
     });
+
+    if (nextCompleted && typeof rest === "number") {
+      setActiveRest({ exerciseId, setId, restSeconds: rest });
+    } else if (!nextCompleted) {
+      setActiveRest((r) => (r?.exerciseId === exerciseId && r.setId === setId ? null : r));
+    }
   };
 
   // -------- Grey values (Übungs-History) --------
   const historyByExerciseLocalId = useMemo(() => {
     if (!workout) return new Map<string, ReturnType<typeof getLastSetsForExercise> | null>();
     const map = new Map<string, ReturnType<typeof getLastSetsForExercise> | null>();
-    for (const ex of workout.exercises) map.set(ex.id, getLastSetsForExercise(ex));
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    for (const ex of exercises) map.set(ex.id, getLastSetsForExercise(ex));
     return map;
   }, [workout?.exercises]);
 
