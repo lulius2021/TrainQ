@@ -833,9 +833,9 @@ export default function LiveTrainingPage({
   const finishTraining = () => {
     if (!workout) return;
     try {
-      // Attach GPS distance so completeLiveWorkout() prefers it over manual entry
+      // Attach GPS distance + track so completeLiveWorkout() saves them
       const workoutWithGps = isCardioWorkout && gpsDistanceRef.current > 0
-        ? { ...workout, gpsDistanceKm: gpsDistanceRef.current }
+        ? { ...workout, gpsDistanceKm: gpsDistanceRef.current, gpsTrack: gps.trackPoints }
         : workout;
       const completed = completeLiveWorkout(workoutWithGps as any);
       markCalendarEvent("completed", completed.id);

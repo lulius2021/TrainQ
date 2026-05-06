@@ -388,6 +388,8 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
     computeTotalVolumeKg(workout.exercises || []);
   }
 
+  const gpsTrack = (workout as any).gpsTrack;
+
   const entry = addWorkoutEntry({
     calendarEventId: workout.calendarEventId,
     title: workout.title || "Training",
@@ -399,7 +401,8 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
     exercises: whExercises,
     distanceKm,
     paceSecPerKm,
-  });
+    gpsTrack,
+  } as any);
 
   updateExerciseHistoryFromWorkout(workout, endedAt);
 

@@ -61,6 +61,9 @@ export type WorkoutHistoryEntry = {
    * Cardio/Custom: 0 (bewusst, sonst irreführend)
    */
   totalVolume: number;
+
+  /** GPS track for Laufen/Radfahren — stored as minimal lat/lng pairs */
+  gpsTrack?: Array<{ lat: number; lng: number }>;
 };
 
 const STORAGE_KEY = "trainq_workout_history_v1";
@@ -322,6 +325,15 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
   // ✅ Gym-only volume, sonst 0 (sonst irreführend bei Cardio)
   const totalVolume = isGymSport(sport) ? computeTotalVolume(exercises) : 0;
 
+  // ✅ GPS track (Laufen/Radfahren only) — keep minimal lat/lng pairs
+  let gpsTrack: Array<{ lat: number; lng: number }> | undefined;
+  if (isCardioSport(sport) && Array.isArray(raw.gpsTrack) && raw.gpsTrack.length >= 2) {
+    const sanitizedTrack = (raw.gpsTrack as any[])
+      .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => ({ lat: p.lat as number, lng: p.lng as number }));
+    if (sanitizedTrack.length >= 2) gpsTrack = sanitizedTrack;
+  }
+
   return {
     id,
     calendarEventId,
@@ -336,6 +348,7 @@ function sanitizeEntry(raw: any): WorkoutHistoryEntry | null {
     distanceKm,
     paceSecPerKm,
     totalVolume,
+    gpsTrack,
   };
 }
 
