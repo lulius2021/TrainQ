@@ -51,6 +51,7 @@ import { formatMmSs } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
 import { useGPSTracking } from "../../hooks/useGPSTracking";
 import CardioGPSView from "../../components/training/CardioGPSView";
+import StructuredCardioView from "../../components/training/StructuredCardioView";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -370,6 +371,13 @@ export default function LiveTrainingPage({
   ]);
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
+
+  // Structured = has planned intervals with distance or time targets
+  const isStructuredCardio = isCardioWorkout &&
+    (workout?.exercises ?? []).length > 0 &&
+    (workout?.exercises ?? []).some((ex) =>
+      (ex.sets ?? []).some((s) => (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0)
+    );
 
   // GPS tracking — only active for cardio workouts
   const gps = useGPSTracking(!!workout?.isActive && isCardioWorkout);
@@ -928,15 +936,27 @@ export default function LiveTrainingPage({
     return (
       <LiveTrainingErrorBoundary onExit={onExit}>
         <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#061226] text-white">
-          <CardioGPSView
-            gps={gps}
-            elapsedText={elapsedText}
-            sport={workout.sport as "Laufen" | "Radfahren"}
-            workoutTitle={workout.title}
-            onFinish={finishTraining}
-            onMinimize={minimize}
-            onAbort={abortAndExit}
-          />
+          {isStructuredCardio ? (
+            <StructuredCardioView
+              workout={workout}
+              gps={gps}
+              elapsedSec={elapsedSec}
+              onFinish={finishTraining}
+              onMinimize={minimize}
+              onAbort={abortAndExit}
+              onCompleteSet={toggleSetCompleted}
+            />
+          ) : (
+            <CardioGPSView
+              gps={gps}
+              elapsedText={elapsedText}
+              sport={workout.sport as "Laufen" | "Radfahren"}
+              workoutTitle={workout.title}
+              onFinish={finishTraining}
+              onMinimize={minimize}
+              onAbort={abortAndExit}
+            />
+          )}
         </div>
       </LiveTrainingErrorBoundary>
     );
