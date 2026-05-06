@@ -188,6 +188,26 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
+function validatePlan(plan: any): boolean {
+  if (!plan || typeof plan !== "object") return false;
+  if (!Array.isArray(plan.days) || plan.days.length === 0 || plan.days.length > 7) return false;
+  if (typeof plan.planName !== "string" || !plan.planName.trim()) return false;
+  if (typeof plan.durationWeeks !== "number" || plan.durationWeeks < 1 || plan.durationWeeks > 52) return false;
+  for (const day of plan.days) {
+    if (typeof day.dayIndex !== "number" || day.dayIndex < 0 || day.dayIndex > 6) return false;
+    if (!Array.isArray(day.exercises)) return false;
+    for (const ex of day.exercises) {
+      if (typeof ex.name !== "string" || !ex.name.trim()) return false;
+      if (!Array.isArray(ex.sets)) return false;
+      for (const s of ex.sets) {
+        if (typeof s.reps !== "number" || s.reps < 0 || s.reps > 200) return false;
+        if (typeof s.weight !== "number" || s.weight < 0 || s.weight > 1000) return false;
+      }
+    }
+  }
+  return true;
+}
+
 // ── Sub-Components ──
 
 const ProGateOverlay: React.FC<{ t: (key: string, fallback?: string) => string }> = ({ t }) => (
@@ -400,12 +420,8 @@ interface AiCoachChatProps {
   onPlanImported: () => void;
 }
 
-const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => {
+const AiCoachChatInner: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => {
   const { t, lang } = useI18n();
-  const isPro = getActiveIsPro();
-
-  // Pro gate
-  if (!isPro) return <ProGateOverlay t={t} />;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -416,6 +432,7 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
   const [coachProfile] = useState<CoachProfile | null>(() => loadCoachProfile());
+  const lastSendRef = React.useRef<number>(0);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -424,16 +441,27 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
 
   // Keyboard
   useEffect(() => {
-    let showH: any, hideH: any;
+    let cleanedUp = false;
+    const handles: Array<{ remove: () => void }> = [];
     import("@capacitor/keyboard").then(({ Keyboard }) => {
-      showH = Keyboard.addListener("keyboardWillShow", (info) => { setKbHeight(info.keyboardHeight); scrollToBottom(); });
-      hideH = Keyboard.addListener("keyboardWillHide", () => setKbHeight(0));
+      if (cleanedUp) return;
+      Keyboard.addListener("keyboardWillShow", (info: { keyboardHeight: number }) => {
+        setKbHeight(info.keyboardHeight);
+        scrollToBottom();
+      }).then((h: { remove: () => void }) => { if (cleanedUp) h.remove(); else handles.push(h); });
+      Keyboard.addListener("keyboardWillHide", () => setKbHeight(0))
+        .then((h: { remove: () => void }) => { if (cleanedUp) h.remove(); else handles.push(h); });
     }).catch(() => {});
-    return () => { showH?.then?.((h: any) => h.remove()); hideH?.then?.((h: any) => h.remove()); };
+    return () => {
+      cleanedUp = true;
+      handles.forEach((h) => h.remove());
+    };
   }, []);
 
   const scrollToBottom = () => {
-    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current?.scrollHeight || 0, behavior: "smooth" }), 50);
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }, 50);
   };
 
   const resizeTextarea = () => {
@@ -581,11 +609,9 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
 
     const totalWorkouts = plan.days.length * durationWeeks;
     const successMsg: ChatMessage = { role: "assistant", content: t("training.plan.aiPlanImported", { weeks: durationWeeks, workouts: totalWorkouts }) };
-    setMessages((prev) => {
-      const next = [...prev, successMsg];
-      persistence.saveChat(next, true);
-      return next;
-    });
+    const nextMsgs = [...messages, successMsg];
+    setMessages(nextMsgs);
+    persistence.saveChat(nextMsgs, true);
     scrollToBottom();
     setTimeout(() => onPlanImported(), 2000);
   }, [userId, onPlanImported, persistence.saveChat, t, messages, coachProfile]);
@@ -620,6 +646,11 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
     const text = input.trim();
     if (!text || loading || imported) return;
 
+    // Client-side rate limit: min 2s between sends
+    const now = Date.now();
+    if (now - lastSendRef.current < 2000) return;
+    lastSendRef.current = now;
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) {
@@ -627,7 +658,7 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
       return;
     }
 
-    const userMsg: ChatMessage = { role: "user", content: text };
+    const userMsg: ChatMessage = { role: "user", content: text.slice(0, 500) };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setInput("");
@@ -636,36 +667,40 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
     scrollToBottom();
 
     try {
-      const fnUrl = `${supabaseUrl}/functions/v1/groq-chat`;
-      const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+      const fnUrl = `${supabaseUrl}/functions/v1/ai-coach`;
       const systemPrompt = buildSystemPrompt(coachProfile);
       const apiMessages = nextMessages.map((m) => ({ role: m.role, content: m.content }));
 
-      let reply = "";
-      for (const model of models) {
-        const res = await fetch(fnUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "apikey": supabaseKey },
-          body: JSON.stringify({ model, max_tokens: 4096, system: systemPrompt, messages: apiMessages }),
-        });
-        if (res.status === 429) {
-          if (import.meta.env.DEV) console.warn(`[AI Coach] ${model} rate limited, trying fallback...`);
-          continue; // try next model
-        }
-        if (!res.ok) {
-          const errBody = await res.text().catch(() => "");
-          throw new Error(`${res.status}: ${errBody.slice(0, 100)}`);
-        }
-        const data = await res.json();
-        reply = data?.choices?.[0]?.message?.content || "";
-        break;
+      // Get user JWT for authenticated edge function call
+      const sb = getSupabaseClient();
+      const { data: sessionData } = await sb!.auth.getSession();
+      const jwt = sessionData?.session?.access_token;
+
+      const res = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseKey,
+          ...(jwt ? { "Authorization": `Bearer ${jwt}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "chat",
+          userContext: {},
+          payload: { messages: apiMessages, system: systemPrompt },
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        throw new Error(`${res.status}: ${errBody.slice(0, 100)}`);
       }
-      if (!reply) throw new Error("Bitte in 1 Minute erneut versuchen.");
-      reply = reply || t("training.plan.aiErrorNoResponse");
+
+      const data = await res.json();
+      const reply: string = data?.text || t("training.plan.aiErrorNoResponse");
 
       // Check if reply contains a plan JSON — show preview instead of raw JSON
-      const plan = extractJSON(reply);
-      if (plan?.days?.length) {
+      const plan = extractJSON(reply.slice(0, 8000));
+      if (plan?.days?.length && validatePlan(plan)) {
         setPendingPlan(plan);
         const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
         const previewLines = plan.days.map((d: any) => `${dayLabels[d.dayIndex] || "?"}: ${d.workoutName} (${(d.exercises || []).length})`);
@@ -795,6 +830,13 @@ const AiCoachChat: React.FC<AiCoachChatProps> = ({ userId, onPlanImported }) => 
       />
     </section>
   );
+};
+
+const AiCoachChat: React.FC<AiCoachChatProps> = (props) => {
+  const { t } = useI18n();
+  const isPro = getActiveIsPro();
+  if (!isPro) return <ProGateOverlay t={t} />;
+  return <AiCoachChatInner {...props} />;
 };
 
 export default AiCoachChat;

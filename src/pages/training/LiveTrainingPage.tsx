@@ -1243,7 +1243,7 @@ export default function LiveTrainingPage({
     elapsedSec,
     totalSets,
     restRemainingSec,
-    overlayData?.exercises.length,
+    overlayData?.exercises?.length,
     overlayData?.cardioDistance,
     overlayData?.overlayPrimaryText,
     overlayData?.overlayRightTopText,

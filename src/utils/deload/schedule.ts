@@ -17,13 +17,15 @@ type DueCheckInput = {
 
 function parseISO(dateISO: string): Date {
   const base = String(dateISO || "").slice(0, 10);
-  return new Date(`${base}T00:00:00`);
+  const [y, m, d] = base.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
 }
 
 function formatISO(d: Date): string {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function getWeekStartISO(dateISO: string): string {

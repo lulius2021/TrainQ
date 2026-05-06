@@ -25,7 +25,8 @@ type AICoachAction =
   | "workout_recommendation"
   | "analyze_workout"
   | "generate_motivation"
-  | "general_chat";
+  | "general_chat"
+  | "chat";
 
 interface AICoachRequest {
   action: AICoachAction;
@@ -39,6 +40,8 @@ interface AICoachRequest {
   payload?: {
     workoutSummary?: string;
     question?: string;
+    messages?: Array<{ role: "user" | "assistant"; content: string }>;
+    system?: string;
   };
 }
 
@@ -121,6 +124,7 @@ Deno.serve(async (req: Request) => {
       "analyze_workout",
       "generate_motivation",
       "general_chat",
+      "chat",
     ];
     if (!validActions.includes(body.action)) {
       return new Response(JSON.stringify({ error: "Invalid action" }), {
@@ -145,16 +149,38 @@ Deno.serve(async (req: Request) => {
       body.payload.workoutSummary = body.payload.workoutSummary.slice(0, 1000);
     }
 
-    const userMessage = buildUserMessage(body);
-    const systemPrompt = buildSystemPrompt();
     const wantsStream = req.headers.get("Accept") === "text/event-stream";
+
+    // chat action: pass full conversation messages directly
+    let anthropicMessages: Array<{ role: string; content: string }>;
+    let systemPrompt: string;
+
+    if (body.action === "chat") {
+      const rawMsgs = body.payload?.messages ?? [];
+      if (!rawMsgs.length) {
+        return new Response(JSON.stringify({ error: "messages array required for chat action" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Sanitize each message content
+      anthropicMessages = rawMsgs.slice(-20).map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content ?? "").slice(0, 1000),
+      }));
+      systemPrompt = body.payload?.system ? String(body.payload.system).slice(0, 2000) : buildSystemPrompt();
+    } else {
+      const userMessage = buildUserMessage(body);
+      anthropicMessages = [{ role: "user", content: userMessage }];
+      systemPrompt = buildSystemPrompt();
+    }
 
     const anthropicPayload = {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system: systemPrompt,
       stream: wantsStream,
-      messages: [{ role: "user", content: userMessage }],
+      messages: anthropicMessages,
     };
 
     const anthropicRes = await fetch(ANTHROPIC_API_URL, {
