@@ -33,7 +33,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
 
     const emailTrim = email.trim();
     if (!emailTrim || !password) {
-      setError(t("auth.login.empty") || "Bitte E-Mail und Passwort eingeben.");
+      setError(t("auth.login.empty"));
       return;
     }
 
@@ -44,7 +44,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
       // Supabase returns generic error messages, map them if possible
       if (!res.ok) {
         let msg = res.error ?? t("auth.login.error");
-        if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid") || "E-Mail oder Passwort falsch.";
+        if (msg.includes("Invalid login credentials")) msg = t("auth.login.invalid");
         setError(msg);
       }
     } catch (e: any) {
@@ -207,7 +207,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
                 onClick={onGoToForgotPassword}
                 className="text-sm text-gray-300 hover:text-white underline-offset-4 hover:underline"
               >
-                {t("auth.login.forgot") || "Passwort vergessen?"}
+                {t("auth.login.forgot")}
               </button>
             ) : (
               <div />
@@ -220,7 +220,7 @@ export default function LoginPage({ onGoToRegister, onGoToForgotPassword }: Prop
             <div className="w-full border-t border-white/10"></div>
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white/5 px-2 text-sm text-gray-400 backdrop-blur-md">ODER</span>
+            <span className="bg-white/5 px-2 text-sm text-gray-400 backdrop-blur-md">{t("auth.login.or")}</span>
           </div>
         </div>
 

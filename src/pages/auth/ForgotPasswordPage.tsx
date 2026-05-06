@@ -15,20 +15,33 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   const { requestPasswordReset } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
-  const [info, setInfo] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    const result = await requestPasswordReset(email);
-    if (!result.ok && result.error) {
-      setInfo(result.error);
-      setSubmitting(false);
+    setError(null);
+
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError(t("auth.forgot.emptyEmail") || "Bitte E-Mail eingeben.");
       return;
     }
-    setInfo(t("auth.forgot.sent"));
-    setSubmitting(false);
+
+    setSubmitting(true);
+    try {
+      const result = await requestPasswordReset(trimmed);
+      if (!result.ok && result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(true);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? t("auth.forgot.error") || "Ein Fehler ist aufgetreten.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -41,21 +54,31 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthInput
-            label={t("auth.email")}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        {success ? (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            {t("auth.forgot.sent")}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <AuthInput
+              label={t("auth.email")}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
 
-          <AuthButton type="submit" disabled={submitting}>
-            {submitting ? t("auth.forgot.loading") : t("auth.forgot.submit")}
-          </AuthButton>
-        </form>
+            {error && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {error}
+              </div>
+            )}
 
-        {info && <p className="text-xs text-green-400">{info}</p>}
+            <AuthButton type="submit" disabled={submitting}>
+              {submitting ? t("auth.forgot.loading") : t("auth.forgot.submit")}
+            </AuthButton>
+          </form>
+        )}
 
         <div className="text-xs text-center text-gray-400">
           <button

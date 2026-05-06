@@ -5,7 +5,6 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { signOutSupabase } from "../services/supabaseAuth";
 import { linkPurchasesToUser, unlinkPurchasesUser } from "../services/purchases";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -31,7 +30,7 @@ export type AuthContextValue = {
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   loginWithApple: () => Promise<AuthResult>;
   logout: () => void;
-  setUserPro: (isPro: boolean) => void;
+  setUserPro: (isPro: boolean) => Promise<void>;
   loading: boolean;
 };
 
@@ -90,12 +89,17 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSupabaseClient();
 
     // Check initial session
-    client?.auth.getSession().then(({ data }) => {
-      if (mountedRef.current) {
-        syncSessionToUser(data.session);
-        setLoading(false);
-      }
-    });
+    if (client) {
+      client.auth.getSession().then(({ data }) => {
+        if (mountedRef.current) {
+          syncSessionToUser(data.session);
+          setLoading(false);
+        }
+      });
+    } else {
+      // No Supabase client (missing env) — end loading immediately
+      setLoading(false);
+    }
 
     // Listen for changes
     const { data: listener } = client?.auth.onAuthStateChange((_event, session) => {
@@ -208,18 +212,16 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const setUserPro = useCallback(async (isPro: boolean) => {
-    // Attempt to update metadata in Supabase
-    // This often requires RLS policies allowing users to update their own metadata
+    // Optimistically update local state so Pro features unlock immediately after purchase.
+    setUser((prev) => (prev ? { ...prev, isPro } : prev));
+
+    // Persist to Supabase user_metadata (best-effort; auth state change will also update).
     const client = getSupabaseClient();
     if (!client) return;
-
     try {
-      await client.auth.updateUser({
-        data: { plan: isPro ? "pro" : "free" }
-      });
-      // Listener will pick up change
+      await client.auth.updateUser({ data: { plan: isPro ? "pro" : "free" } });
     } catch {
-      console.warn("Could not update user metadata. RLS might block this.");
+      // Non-fatal: local state already updated; backend will sync via webhook.
     }
   }, []);
 

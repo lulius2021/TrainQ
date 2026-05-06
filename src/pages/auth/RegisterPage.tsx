@@ -9,6 +9,8 @@ interface Props {
   onGoToLogin?: () => void;
 }
 
+const MIN_PASSWORD_LENGTH = 6;
+
 const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
   const { register } = useAuth();
   const { t } = useI18n();
@@ -17,27 +19,37 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [repeatError, setRepeatError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setRepeatError(null);
 
-    if (password !== repeatPassword) {
-      setError(t("auth.register.passwordMismatch"));
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(
+        t("auth.register.passwordTooShort") ||
+          `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`
+      );
       return;
     }
 
-    setError(null);
-    setBusy(true);
+    if (password !== repeatPassword) {
+      setRepeatError(t("auth.register.passwordMismatch"));
+      return;
+    }
 
+    setBusy(true);
     try {
-      const res: any = await register(email, password);
-      if (res && res.ok === false) {
+      const res = await register(email.trim(), password);
+      if (res && !res.ok) {
         setError(res.error || t("auth.register.error"));
       } else {
-        // optional: nach erfolgreicher Registrierung zurück zum Login
         onGoToLogin?.();
       }
+    } catch (e: any) {
+      setError(e?.message ?? t("auth.register.error"));
     } finally {
       setBusy(false);
     }
@@ -49,6 +61,12 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
         <div className="mb-4">
           <div className="text-lg font-semibold text-white">{t("auth.register.title")}</div>
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput label={t("auth.email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -65,7 +83,7 @@ const RegisterPage: React.FC<Props> = ({ onGoToLogin }) => {
             value={repeatPassword}
             onChange={(e) => setRepeatPassword(e.target.value)}
             required
-            error={error ?? undefined}
+            error={repeatError ?? undefined}
           />
 
           <div className="text-[11px] text-white/45">
