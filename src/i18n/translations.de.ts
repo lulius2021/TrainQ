@@ -588,5 +588,17 @@ export const translationsDe = {
   "profile.sportsPlaceholder": "Gym, Laufen, Radfahren",
   "profile.goalsPlaceholder": "Muskelaufbau, Ausdauer, ...",
   "profile.workoutHistory": "Trainingshistorie",
-  "profile.noWorkouts": "Noch keine Trainings aufgezeichnet."
+  "profile.noWorkouts": "Noch keine Trainings aufgezeichnet.",
+
+  "settings.section.integrations": "Integrationen",
+  "settings.integrations.subtitle": "Synchronisiere deine Workouts automatisch.",
+  "settings.integrations.garmin": "Garmin Connect",
+  "settings.integrations.connected": "Verbunden",
+  "settings.integrations.notConnected": "Nicht verbunden",
+  "settings.integrations.connect": "Garmin verbinden",
+  "settings.integrations.disconnect": "Trennen",
+  "settings.integrations.connectError": "Verbindung fehlgeschlagen.",
+  "settings.integrations.disconnectError": "Trennen fehlgeschlagen.",
+  "settings.confirm.disconnectGarmin": "Garmin Connect trennen?",
+  "settings.alert.deleteAccountFailed": "Account konnte nicht gelöscht werden."
 } as const;

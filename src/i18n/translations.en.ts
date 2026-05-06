@@ -588,4 +588,16 @@ export const translationsEn = {
   "profile.goalsPlaceholder": "Muscle gain, endurance, ...",
   "profile.workoutHistory": "Workout History",
   "profile.noWorkouts": "No workouts recorded yet.",
+
+  "settings.section.integrations": "Integrations",
+  "settings.integrations.subtitle": "Sync your workouts automatically.",
+  "settings.integrations.garmin": "Garmin Connect",
+  "settings.integrations.connected": "Connected",
+  "settings.integrations.notConnected": "Not connected",
+  "settings.integrations.connect": "Connect Garmin",
+  "settings.integrations.disconnect": "Disconnect",
+  "settings.integrations.connectError": "Connection failed.",
+  "settings.integrations.disconnectError": "Failed to disconnect.",
+  "settings.confirm.disconnectGarmin": "Disconnect Garmin Connect?",
+  "settings.alert.deleteAccountFailed": "Could not delete account.",
 } as const;
