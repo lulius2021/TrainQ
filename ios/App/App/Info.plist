@@ -53,5 +53,13 @@
 	<string>TrainQ benötigt Zugriff auf die Fotobibliothek.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TrainQ verwendet deinen Standort, um beim Laufen und Radfahren Distanz, Tempo und Route aufzuzeichnen.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TrainQ verwendet deinen Standort im Hintergrund, damit dein GPS-Tracking weiterläuft, wenn du die App während des Trainings minimierst.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

@@ -371,8 +371,16 @@ export function completeLiveWorkout(workout: LiveWorkout): WorkoutHistoryEntry {
   let paceSecPerKm: number | undefined = undefined;
 
   if (isCardioSport(sport)) {
-    const derived = computeCardioFromSets(workout.exercises || []);
-    if (derived.km > 0) distanceKm = derived.km;
+    // Prefer GPS-measured distance over manually entered sets
+    const gpsKm = typeof (workout as any).gpsDistanceKm === "number" && (workout as any).gpsDistanceKm > 0
+      ? (workout as any).gpsDistanceKm
+      : 0;
+    if (gpsKm > 0) {
+      distanceKm = gpsKm;
+    } else {
+      const derived = computeCardioFromSets(workout.exercises || []);
+      if (derived.km > 0) distanceKm = derived.km;
+    }
     if (distanceKm && durationSeconds > 0) {
       paceSecPerKm = computePaceSecPerKm(durationSeconds, distanceKm);
     }

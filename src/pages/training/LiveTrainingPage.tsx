@@ -49,6 +49,8 @@ import { KeyboardAccessoryBar } from "../../components/keyboard/KeyboardAccessor
 import { PlateCalculatorSheet } from "../../components/plates/PlateCalculatorSheet";
 import { formatMmSs } from "../../utils/timeFormat";
 import { clearLiveTrainingState, setLiveTrainingState, type LiveActivityPayload } from "../../native/liveActivity";
+import { useGPSTracking } from "../../hooks/useGPSTracking";
+import CardioGPSView from "../../components/training/CardioGPSView";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -369,6 +371,16 @@ export default function LiveTrainingPage({
 
   const isCardioWorkout = workout?.sport === "Laufen" || workout?.sport === "Radfahren";
 
+  // GPS tracking — only active for cardio workouts
+  const gps = useGPSTracking(!!workout?.isActive && isCardioWorkout);
+
+  // Keep GPS distance synced into the workout so completeLiveWorkout() picks it up
+  const gpsDistanceRef = useRef(0);
+  useEffect(() => {
+    if (!isCardioWorkout) return;
+    gpsDistanceRef.current = gps.distanceKm;
+  }, [gps.distanceKm, isCardioWorkout]);
+
   // ✅ Volumen/Zeit-Berechnung (Hooks dürfen nicht hinter Early-Returns liegen)
   const totalVolume = useMemo(() => {
     if (!workout) return 0;
@@ -468,9 +480,10 @@ export default function LiveTrainingPage({
     ? `Übung ${activeExerciseIndex + 1}/${exercises.length}`
     : "Übung 0/0";
 
+    const gpsOrManualKm = gps.distanceKm > 0 ? gps.distanceKm : cardioDistance;
     const overlayPrimaryText = isCardioWorkout
-      ? cardioDistance > 0
-        ? `${cardioDistance.toFixed(1)} km in ${elapsedText}`
+      ? gpsOrManualKm > 0
+        ? `${gpsOrManualKm.toFixed(2)} km in ${elapsedText}`
         : cardioMinutes > 0
         ? `${elapsedText} • ${cardioMinutes} min`
         : `${elapsedText}`
@@ -820,7 +833,11 @@ export default function LiveTrainingPage({
   const finishTraining = () => {
     if (!workout) return;
     try {
-      const completed = completeLiveWorkout(workout);
+      // Attach GPS distance so completeLiveWorkout() prefers it over manual entry
+      const workoutWithGps = isCardioWorkout && gpsDistanceRef.current > 0
+        ? { ...workout, gpsDistanceKm: gpsDistanceRef.current }
+        : workout;
+      const completed = completeLiveWorkout(workoutWithGps as any);
       markCalendarEvent("completed", completed.id);
       clearLiveTrainingState();
       if (typeof onShareWorkout === "function") {
@@ -958,13 +975,31 @@ export default function LiveTrainingPage({
           style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           <div className="py-4">
+            {/* GPS panel for cardio workouts */}
+            {isCardioWorkout && (
+              <div className="mb-4">
+                <CardioGPSView
+                  gps={gps}
+                  elapsedText={elapsedText}
+                  sport={workout.sport as "Laufen" | "Radfahren"}
+                />
+              </div>
+            )}
+
             {exercises.length === 0 ? (
               <>
-                <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
-                  Noch keine {isCardioWorkout ? "Einheiten" : "Übungen"}. Füge unten eine hinzu.
-                </div>
+                {!isCardioWorkout && (
+                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-base text-gray-300">
+                    Noch keine Übungen. Füge unten eine hinzu.
+                  </div>
+                )}
+                {isCardioWorkout && (
+                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-center text-sm text-gray-400">
+                    Optional: Füge Intervalle oder Abschnitte hinzu.
+                  </div>
+                )}
                 <button type="button" onClick={() => setLibraryOpen(true)} className="mt-4 w-full rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold text-white hover:bg-white/10 backdrop-blur-md">
-                  + {isCardioWorkout ? "Einheit" : "Übung"} hinzufügen
+                  + {isCardioWorkout ? "Intervall hinzufügen" : "Übung hinzufügen"}
                 </button>
               </>
             ) : (
@@ -1000,8 +1035,13 @@ export default function LiveTrainingPage({
           <div className="mx-auto w-full max-w-5xl rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-md px-3 py-3 shadow-lg">
             <div className="mb-2 flex items-center justify-center gap-4 text-sm text-gray-300">
               {!isCardioWorkout && ( <> <span>Volumen: {totalVolume.toFixed(1)} kg</span><span>•</span> </>)}
-              <span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span>
-              <span>•</span>
+              {isCardioWorkout && gps.distanceKm > 0 && (
+                <><span>{gps.distanceKm.toFixed(2)} km</span><span>•</span></>
+              )}
+              {isCardioWorkout && gps.paceMinPerKm && (
+                <><span>{gps.paceMinPerKm} /km</span><span>•</span></>
+              )}
+              {!isCardioWorkout && <><span>{totalSets} {totalSets === 1 ? "Satz" : "Sätze"}</span><span>•</span></>}
               <span>Zeit: {elapsedText}</span>
             </div>
             <div className="flex gap-3">
