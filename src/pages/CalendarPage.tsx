@@ -333,12 +333,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     }
   };
 
+  // For month navigation: clamp the day to the last valid day of the target
+  // month so we don't roll over (e.g. Jan 31 + 1 month → Mar 3 in JS Date).
+  const stepMonth = (d: Date, delta: number): void => {
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + delta);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, lastDay));
+  };
+
   const goPrev = () => {
     setSelectedDate((prev) => {
       const d = new Date(prev);
       if (viewMode === "day") d.setDate(d.getDate() - 1);
       else if (viewMode === "week") d.setDate(d.getDate() - 7);
-      else d.setMonth(d.getMonth() - 1);
+      else stepMonth(d, -1);
       return startOfDay(d);
     });
   };
@@ -348,7 +358,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       const d = new Date(prev);
       if (viewMode === "day") d.setDate(d.getDate() + 1);
       else if (viewMode === "week") d.setDate(d.getDate() + 7);
-      else d.setMonth(d.getMonth() + 1);
+      else stepMonth(d, 1);
       return startOfDay(d);
     });
   };
@@ -363,7 +373,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       map.get(key)!.push(ev);
     }
     for (const list of map.values()) {
-      list.sort((a, b) => (String(a.startTime ?? "") + a.title).localeCompare(String(b.startTime ?? "") + b.title));
+      list.sort((a, b) => {
+        const ta = String(a.startTime ?? "");
+        const tb = String(b.startTime ?? "");
+        const byTime = ta.localeCompare(tb);
+        if (byTime !== 0) return byTime;
+        return String(a.title ?? "").localeCompare(String(b.title ?? ""));
+      });
     }
     return map;
   }, [events]);
