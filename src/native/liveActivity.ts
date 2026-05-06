@@ -27,8 +27,8 @@ export async function setLiveTrainingState(payload: LiveActivityPayload): Promis
   if (!isNativeIOS) return;
   try {
     await LiveActivity.setLiveTrainingState(payload);
-  } catch {
-    return;
+  } catch (e) {
+    console.warn("[LiveActivity] setLiveTrainingState failed:", e);
   }
 }
 
@@ -36,8 +36,8 @@ export async function clearLiveTrainingState(): Promise<void> {
   if (!isNativeIOS) return;
   try {
     await LiveActivity.clearLiveTrainingState();
-  } catch {
-    return;
+  } catch (e) {
+    console.warn("[LiveActivity] clearLiveTrainingState failed:", e);
   }
 }
 
@@ -45,8 +45,8 @@ export async function refreshLiveActivity(): Promise<void> {
   if (!isNativeIOS) return;
   try {
     await LiveActivity.refresh();
-  } catch {
-    return;
+  } catch (e) {
+    console.warn("[LiveActivity] refresh failed:", e);
   }
 }
 
@@ -54,7 +54,8 @@ export async function debugStartLiveActivity(): Promise<{ ok?: boolean; id?: str
   if (!isNativeIOS) return;
   try {
     return await LiveActivity.debugStart();
-  } catch {
+  } catch (e) {
+    console.warn("[LiveActivity] debugStart failed:", e);
     return;
   }
 }
@@ -63,7 +64,8 @@ export async function debugEndLiveActivity(): Promise<{ ok?: boolean } | undefin
   if (!isNativeIOS) return;
   try {
     return await LiveActivity.debugEnd();
-  } catch {
+  } catch (e) {
+    console.warn("[LiveActivity] debugEnd failed:", e);
     return;
   }
 }

@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         idempotency_key: idempotencyKey,
         request_headers: headers,
       }).then(({ error }) => {
-        if (error && !error.message.includes("duplicate")) {
+        if (error && (error as any).code !== "23505") {
           console.error("Insert raw event error:", error);
         }
       });

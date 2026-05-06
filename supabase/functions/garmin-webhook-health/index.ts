@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
           request_headers: headers,
         }).then(({ error }) => {
           // ON CONFLICT DO NOTHING — ignore duplicates
-          if (error && !error.message.includes("duplicate")) {
+          if (error && (error as any).code !== "23505") {
             console.error("Insert raw event error:", error);
           }
         });

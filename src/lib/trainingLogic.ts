@@ -34,7 +34,9 @@ export function getTrainingModeFromEvent(ev: CalendarEvent): TrainingMode {
 
 function timeStringToMinutes(time: string | undefined): number {
   if (!time) return 0;
-  const [h, m] = time.split(":").map((p) => parseInt(p, 10));
+  const parts = time.split(":");
+  if (parts.length !== 2) return 0;
+  const [h, m] = parts.map((p) => parseInt(p, 10));
   if (Number.isNaN(h) || Number.isNaN(m)) return 0;
   return h * 60 + m;
 }

@@ -90,12 +90,18 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // Check initial session
     if (client) {
-      client.auth.getSession().then(({ data }) => {
-        if (mountedRef.current) {
-          syncSessionToUser(data.session);
-          setLoading(false);
-        }
-      });
+      client.auth
+        .getSession()
+        .then(({ data }) => {
+          if (mountedRef.current) {
+            syncSessionToUser(data.session);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.warn("[Auth] getSession failed:", err);
+          if (mountedRef.current) setLoading(false);
+        });
     } else {
       // No Supabase client (missing env) — end loading immediately
       setLoading(false);

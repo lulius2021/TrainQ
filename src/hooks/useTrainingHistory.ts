@@ -54,8 +54,13 @@ type Options = {
 };
 
 function parseDateFromIso(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map((n) => parseInt(n, 10));
-  return new Date(y, m - 1, d);
+  const parts = dateStr.split("-").map((n) => parseInt(n, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return new Date(NaN);
+  }
+  const [y, m, d] = parts;
+  const out = new Date(y, m - 1, d);
+  return Number.isNaN(out.getTime()) ? new Date(NaN) : out;
 }
 
 function startOfDay(date: Date): Date {

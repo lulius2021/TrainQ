@@ -277,7 +277,7 @@ export default function LiveTrainingPage({
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
-        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        startedAtMsRef.current = Number.isFinite(started) ? started : (startedAtMsRef.current ?? Date.now());
         setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
         return;
       }
@@ -301,7 +301,7 @@ export default function LiveTrainingPage({
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
-        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        startedAtMsRef.current = Number.isFinite(started) ? started : (startedAtMsRef.current ?? Date.now());
         setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
         return;
       }
@@ -328,7 +328,7 @@ export default function LiveTrainingPage({
         setAndMark(merged);
 
         const started = new Date(merged.startedAt).getTime();
-        startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+        startedAtMsRef.current = Number.isFinite(started) ? started : (startedAtMsRef.current ?? Date.now());
         setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
         return;
       }
@@ -347,7 +347,7 @@ export default function LiveTrainingPage({
       setAndMark(merged);
 
       const started = new Date(merged.startedAt).getTime();
-      startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+      startedAtMsRef.current = Number.isFinite(started) ? started : (startedAtMsRef.current ?? Date.now());
       setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
     } catch (err) {
       console.error("[LiveTraining] init error", err);
@@ -495,7 +495,7 @@ export default function LiveTrainingPage({
     if (!workout) return;
 
     const started = new Date(workout.startedAt).getTime();
-    startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
+    startedAtMsRef.current = Number.isFinite(started) ? started : (startedAtMsRef.current ?? Date.now());
 
     setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
 
