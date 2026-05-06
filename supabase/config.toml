@@ -1,0 +1,8 @@
+[functions.garmin-auth-callback]
+verify_jwt = false
+
+[functions.garmin-webhook-activity]
+verify_jwt = false
+
+[functions.garmin-webhook-health]
+verify_jwt = false

@@ -35,7 +35,7 @@ import { LoadingScreen } from "./components/ui/LoadingScreen";
 // Entitlements
 import { useEntitlements } from "./hooks/useEntitlements";
 import type { PaywallReason } from "./utils/entitlements";
-import { isBillingSupported, purchaseSubscription, restorePurchases, syncProToSession } from "./services/purchases";
+import { syncProToSession } from "./services/purchases";
 
 // Paywall UI
 import PaywallModal from "./components/paywall/PaywallModal";
@@ -427,7 +427,7 @@ const LiveTrainingMiniBar: React.FC<{
 type ProfileScreen = "profile" | "settings";
 
 const MainAppShell: React.FC = () => {
-  const { user } = useAuth();
+  const { user, setUserPro } = useAuth();
   const userId = user?.id;
 
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
@@ -580,9 +580,10 @@ const MainAppShell: React.FC = () => {
       setProfileScreen("settings");
     };
 
-    const onOpenPaywall = () => {
+    const onOpenPaywall = (e: CustomEvent) => {
       if (isPro) return;
-      setPaywallReason("calendar_7days");
+      const reason: PaywallReason = (e.detail?.reason as PaywallReason) ?? "calendar_7days";
+      setPaywallReason(reason);
       setPaywallOpen(true);
     };
 
@@ -864,51 +865,13 @@ const MainAppShell: React.FC = () => {
     openPaywall("calendar_7days");
   }, [openPaywall]);
 
-  const handlePurchase = useCallback(
-    async (plan: "monthly" | "yearly") => {
-      if (!user) return;
-      try {
-        const supported = await isBillingSupported();
-        if (!supported) {
-          alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
-          return;
-        }
-
-        await purchaseSubscription(plan);
-        const nextIsPro = await syncProToSession({ id: user.id, email: user.email });
-        if (!nextIsPro) {
-          alert("Kauf abgeschlossen, Abo noch nicht aktiv. Bitte später erneut prüfen.");
-        }
-        setPaywallOpen(false);
-      } catch (e: any) {
-        const msg = String(e?.message ?? "Kauf fehlgeschlagen.");
-        alert(msg);
-      }
-    },
-    [user]
-  );
-
-  const handleRestorePurchases = useCallback(async () => {
+  const handlePurchaseSuccess = useCallback(async () => {
     if (!user) return;
-    try {
-      const supported = await isBillingSupported();
-      if (!supported) {
-        alert("In-App-Käufe sind auf diesem Gerät nicht verfügbar.");
-        return;
-      }
-
-      const nextIsPro = await restorePurchases();
-      await syncProToSession({ id: user.id, email: user.email });
-
-      if (!nextIsPro) {
-        alert("Kein aktives Abo gefunden.");
-      }
-      setPaywallOpen(false);
-    } catch (e: any) {
-      const msg = String(e?.message ?? "Wiederherstellung fehlgeschlagen.");
-      alert(msg);
-    }
-  }, [user]);
+    // Sync Pro status to session + AuthContext state
+    await syncProToSession({ id: user.id, email: user.email });
+    setUserPro(true);
+    setPaywallOpen(false);
+  }, [user, setUserPro]);
 
   // ---------- Routing ----------
   if (route === "/live-training") {
@@ -1047,9 +1010,7 @@ const MainAppShell: React.FC = () => {
         adaptiveBCRemaining={Math.max(0, adaptiveBCRemaining)}
         planShiftRemaining={Math.max(0, planShiftRemaining)}
         calendar7DaysRemaining={Math.max(0, calendar7DaysRemaining)}
-        onBuyMonthly={() => handlePurchase("monthly")}
-        onBuyYearly={() => handlePurchase("yearly")}
-        onRestore={handleRestorePurchases}
+        onPurchaseSuccess={handlePurchaseSuccess}
       />
 
       <NavBar

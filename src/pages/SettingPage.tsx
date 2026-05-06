@@ -47,9 +47,9 @@ export default function SettingPage({
   const safeTop = "env(safe-area-inset-top, 0px)";
   const safeBottom = "env(safe-area-inset-bottom, 0px)";
 
-  const { user, logout } = useAuth();
+  const { user, logout, setUserPro } = useAuth();
   const { t, lang, setLang } = useI18n();
-  const { isPro } = useEntitlements(user?.id);
+  const { isPro } = useEntitlements(user?.id, user?.isPro);
 
   const [section, setSection] = useState<SettingsSection>("theme");
   const [legalTab, setLegalTab] = useState<LegalTab>("privacy");
@@ -118,14 +118,16 @@ export default function SettingPage({
       }
       const nextIsPro = await restorePurchases();
       await syncProToSession({ id: user.id, email: user.email });
-      if (!nextIsPro) {
+      if (nextIsPro) {
+        setUserPro(true);
+      } else {
         alert(t("settings.alert.noActiveSubscription"));
       }
     } catch (e: unknown) {
       const msg = String((e as any)?.message ?? t("settings.alert.restoreFailed"));
       alert(msg);
     }
-  }, [t, user]);
+  }, [t, user, setUserPro]);
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;
