@@ -1,7 +1,6 @@
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 
-// RevenueCat sends event types that determine subscription state
 type RCEventType =
   | "INITIAL_PURCHASE"
   | "RENEWAL"
@@ -16,12 +15,14 @@ type RCEventType =
   | "TRANSFER";
 
 interface RCEvent {
+  id?: string;
   type: RCEventType;
   app_user_id: string;
   aliases?: string[];
   product_id?: string;
   store?: "APP_STORE" | "PLAY_STORE" | "STRIPE" | "AMAZON";
   expiration_at_ms?: number;
+  event_timestamp_ms?: number;
   is_trial_conversion?: boolean;
 }
 
@@ -44,6 +45,23 @@ const INACTIVE_EVENTS: RCEventType[] = [
   "SUBSCRIPTION_PAUSED",
 ];
 
+// Naive in-memory rate limit (per-IP). Edge functions are short-lived,
+// so this only catches burst attacks within a single warm container.
+const RATE_LIMIT_PER_MIN = 60;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_PER_MIN) return false;
+  entry.count++;
+  return true;
+}
+
 function storePlatform(store?: string): string | null {
   if (!store) return null;
   if (store === "APP_STORE") return "ios";
@@ -52,20 +70,43 @@ function storePlatform(store?: string): string | null {
   return store.toLowerCase();
 }
 
+// Constant-time string comparison to prevent timing attacks
+function safeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
-  // Verify RevenueCat shared secret
+  // Rate limit by IP
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "rate_limit_exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // FAIL CLOSED: secret MUST be configured. No secret = no auth = reject everything.
   const secret = Deno.env.get("REVENUECAT_WEBHOOK_SECRET");
-  if (secret) {
-    const auth = req.headers.get("Authorization");
-    if (auth !== secret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  if (!secret) {
+    console.error("[rc-webhook] REVENUECAT_WEBHOOK_SECRET not configured — rejecting all requests");
+    return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const auth = req.headers.get("Authorization") ?? "";
+  if (!safeEquals(auth, secret)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   let payload: RCWebhookPayload;
@@ -86,14 +127,60 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Validate UUID format to prevent SQL injection / FK errors
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(event.app_user_id)) {
+    console.warn(`[rc-webhook] invalid app_user_id format: ${event.app_user_id}`);
+    return new Response(JSON.stringify({ error: "Invalid app_user_id" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const admin = getSupabaseAdmin();
   const userId = event.app_user_id;
   const isActive = ACTIVE_EVENTS.includes(event.type);
   const isInactive = INACTIVE_EVENTS.includes(event.type);
 
   if (!isActive && !isInactive) {
-    // Non-subscription events — acknowledge and skip
     return new Response(JSON.stringify({ ok: true, skipped: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Idempotency: track processed events. If event.id was seen recently, skip.
+  if (event.id) {
+    const { data: existing } = await admin
+      .from("revenuecat_events")
+      .select("event_id")
+      .eq("event_id", event.id)
+      .maybeSingle();
+    if (existing) {
+      return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // Verify user exists before upserting (FK would fail otherwise — but silently in upsert)
+  const { data: userExists, error: userCheckError } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (userCheckError) {
+    console.error("[rc-webhook] user check error:", userCheckError);
+    return new Response(JSON.stringify({ error: "DB error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (!userExists) {
+    console.warn(`[rc-webhook] user ${userId} not found in profiles — likely RevenueCat anonymous ID`);
+    // Return 200 so RevenueCat doesn't retry — this is a config issue, not transient.
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "user_not_found" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -103,7 +190,6 @@ Deno.serve(async (req: Request) => {
     ? new Date(event.expiration_at_ms).toISOString()
     : null;
 
-  // 1. Update profiles table
   const profileUpdate: Record<string, unknown> = {
     is_pro: isActive,
     updated_at: new Date().toISOString(),
@@ -118,19 +204,38 @@ Deno.serve(async (req: Request) => {
 
   const { error: profileError } = await admin
     .from("profiles")
-    .upsert({ id: userId, ...profileUpdate }, { onConflict: "id" });
+    .update(profileUpdate)
+    .eq("id", userId);
 
+  // FAIL: return 5xx so RevenueCat retries
   if (profileError) {
-    console.error("profiles upsert error:", profileError);
+    console.error("[rc-webhook] profiles update error:", profileError);
+    return new Response(JSON.stringify({ error: "DB update failed" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  // 2. Update auth.users app_metadata via admin API
   const { error: metaError } = await admin.auth.admin.updateUserById(userId, {
     app_metadata: { plan: isActive ? "pro" : "free" },
   });
 
   if (metaError) {
-    console.error("auth metadata update error:", metaError);
+    console.error("[rc-webhook] auth metadata update error:", metaError);
+    return new Response(JSON.stringify({ error: "Auth update failed" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Record event for idempotency (best-effort — don't fail the webhook if this errors)
+  if (event.id) {
+    await admin.from("revenuecat_events").insert({
+      event_id: event.id,
+      event_type: event.type,
+      user_id: userId,
+      processed_at: new Date().toISOString(),
+    }).then(() => {}, (e) => console.warn("[rc-webhook] event log failed:", e));
   }
 
   console.log(`[rc-webhook] ${event.type} user=${userId} isPro=${isActive}`);

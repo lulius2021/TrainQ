@@ -6,6 +6,7 @@ import { clearActiveSession, setActiveSession } from "../utils/session";
 import { migrateUserStorage } from "../utils/scopedStorage";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import { signOutSupabase } from "../services/supabaseAuth";
+import { linkPurchasesToUser, unlinkPurchasesUser } from "../services/purchases";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AuthProvider = "email" | "apple";
@@ -79,6 +80,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setUser(authUser);
     setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
     migrateUserStorage(authUser.id);
+    // Link IAP receipts to this Supabase user (best-effort, no-op on web)
+    linkPurchasesToUser(authUser.id).catch(() => {});
   }, []);
 
   // 1. Init Listener
@@ -163,6 +166,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Force clear locally just in case
     setUser(null);
     clearActiveSession();
+    unlinkPurchasesUser();
   }, []);
 
   // -------------------- Apple --------------------

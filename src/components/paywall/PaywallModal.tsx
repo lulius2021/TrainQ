@@ -1,5 +1,5 @@
 // src/components/paywall/PaywallModal.tsx
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { PaywallReason } from "../../utils/entitlements";
 import { FREE_LIMITS } from "../../utils/entitlements";
 import { useI18n } from "../../i18n/useI18n";
@@ -22,6 +22,8 @@ type Props = {
 };
 
 type PurchaseState = "idle" | "loading" | "success" | "error" | "unsupported" | "sync_pending";
+
+const SUCCESS_AUTO_CLOSE_MS = 1800;
 
 function reasonTitle(t: (key: any, vars?: any) => string, reason: PaywallReason): string {
   if (reason === "adaptive_limit") return t("paywall.reason.adaptive");
@@ -49,6 +51,25 @@ function formatRemaining(n: number): string {
   return String(Math.max(0, Math.floor(n)));
 }
 
+// Strict cancel detection — only matches known iOS/Android cancel error codes/messages.
+// Avoids false positives like "user not authenticated".
+function isUserCancelError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as { code?: string | number; message?: string };
+  // iOS StoreKit: SKErrorPaymentCancelled = 2
+  if (err.code === 2 || err.code === "2") return true;
+  // Capgo native-purchases standardized codes
+  if (err.code === "PURCHASE_CANCELLED" || err.code === "USER_CANCELLED") return true;
+  // Android Billing: BillingClient.BillingResponseCode.USER_CANCELED = 1
+  if (err.code === 1 || err.code === "1") return true;
+  const msg = (err.message ?? "").toLowerCase();
+  // Specific phrases — NOT generic "user" or "cancel"
+  if (msg.includes("payment cancelled") || msg.includes("payment canceled")) return true;
+  if (msg.includes("user cancelled") || msg.includes("user canceled")) return true;
+  if (msg.includes("benutzer hat abgebrochen") || msg.includes("abgebrochen vom benutzer")) return true;
+  return false;
+}
+
 const BULLETS = [
   "paywall.bullet.adaptive",
   "paywall.bullet.planShift",
@@ -73,81 +94,117 @@ export default function PaywallModal(props: Props) {
   const [purchaseState, setPurchaseState] = useState<PurchaseState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Track mount status — async store calls can resolve after the modal closes.
+  // Without this, setState would fire on an unmounted/hidden component.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Reset transient state every time the modal is opened fresh.
+  // Without this, stale errors/success would remain from the previous session.
+  useEffect(() => {
+    if (open) {
+      setPurchaseState("idle");
+      setErrorMsg("");
+    }
+  }, [open]);
+
+  // Auto-close after success so the user actually sees the celebration screen.
+  // The parent's onPurchaseSuccess updates Pro state but does NOT close us anymore.
+  useEffect(() => {
+    if (purchaseState !== "success" && purchaseState !== "sync_pending") return;
+    const timer = setTimeout(() => {
+      if (mountedRef.current) onClose();
+    }, SUCCESS_AUTO_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [purchaseState, onClose]);
+
+  const safeSetState = useCallback((next: PurchaseState, msg = "") => {
+    if (!mountedRef.current) return;
+    setPurchaseState(next);
+    setErrorMsg(msg);
+  }, []);
+
   const handlePurchase = useCallback(
     async (plan: "monthly" | "yearly") => {
-      setPurchaseState("loading");
-      setErrorMsg("");
+      safeSetState("loading");
       try {
         const supported = await isBillingSupported();
         if (!supported) {
-          setPurchaseState("unsupported");
+          safeSetState("unsupported");
           return;
         }
 
         await purchaseSubscription(plan);
-
-        // Validate that the store confirmed Pro status
         const isNowPro = await refreshProStatus();
+
+        if (!mountedRef.current) return;
         if (isNowPro) {
-          setPurchaseState("success");
+          // Update parent's Pro state FIRST — so when auto-close fires, UI is unlocked.
           onPurchaseSuccess();
+          safeSetState("success");
         } else {
-          // RevenueCat webhook may still be processing — soft success
-          setPurchaseState("sync_pending");
+          // Webhook hasn't confirmed yet — show pending state, let user retry restore later.
+          safeSetState("sync_pending");
         }
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "";
-        // User cancellation — silently close
-        if (msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("user")) {
-          setPurchaseState("idle");
+        if (isUserCancelError(e)) {
+          safeSetState("idle");
           return;
         }
-        if (msg.toLowerCase().includes("produkt-id") || msg.toLowerCase().includes("missing")) {
-          setErrorMsg(t("paywall.error.missingProductId"));
+        const msg = e instanceof Error ? e.message.toLowerCase() : "";
+        if (msg.includes("produkt-id") || msg.includes("missing") || msg.includes("not found")) {
+          safeSetState("error", t("paywall.error.missingProductId"));
         } else {
-          setErrorMsg(t("paywall.error.generic"));
+          safeSetState("error", t("paywall.error.generic"));
         }
-        setPurchaseState("error");
       }
     },
-    [t, onPurchaseSuccess]
+    [t, onPurchaseSuccess, safeSetState]
   );
 
   const handleRestore = useCallback(async () => {
-    setPurchaseState("loading");
-    setErrorMsg("");
+    safeSetState("loading");
     try {
       const supported = await isBillingSupported();
       if (!supported) {
-        setPurchaseState("unsupported");
+        safeSetState("unsupported");
         return;
       }
-
       const didRestore = await restorePurchases();
+      if (!mountedRef.current) return;
       if (didRestore) {
-        setPurchaseState("success");
         onPurchaseSuccess();
+        safeSetState("success");
       } else {
-        setErrorMsg(t("paywall.error.noActiveSub"));
-        setPurchaseState("error");
+        safeSetState("error", t("paywall.error.noActiveSub"));
       }
     } catch {
-      setErrorMsg(t("paywall.error.restoreFailed"));
-      setPurchaseState("error");
+      safeSetState("error", t("paywall.error.restoreFailed"));
     }
-  }, [t, onPurchaseSuccess]);
-
-  const handleClose = useCallback(() => {
-    setPurchaseState("idle");
-    setErrorMsg("");
-    onClose();
-  }, [onClose]);
-
-  if (!open) return null;
+  }, [t, onPurchaseSuccess, safeSetState]);
 
   const isLoading = purchaseState === "loading";
   const isSuccess = purchaseState === "success";
   const isSyncPending = purchaseState === "sync_pending";
+
+  const handleBackdropClick = useCallback(() => {
+    // Don't dismiss while a purchase is in flight or success is showing —
+    // prevents user from losing the success screen or orphaning a pending purchase.
+    if (isLoading || isSuccess || isSyncPending) return;
+    onClose();
+  }, [isLoading, isSuccess, isSyncPending, onClose]);
+
+  const handleCloseButton = useCallback(() => {
+    if (isLoading) return;
+    onClose();
+  }, [isLoading, onClose]);
+
+  if (!open) return null;
 
   const remainingLine = (() => {
     if (isPro) return t("paywall.remaining.proActive");
@@ -163,33 +220,24 @@ export default function PaywallModal(props: Props) {
       data-overlay-open="true"
       role="dialog"
       aria-modal="true"
-      onClick={handleClose}
+      onClick={handleBackdropClick}
     >
       <div
         className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0B0D12]/97 pb-6 pt-5 px-5 shadow-2xl backdrop-blur mb-4 sm:mb-0"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Success overlay */}
         {(isSuccess || isSyncPending) && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0B0D12]/97 px-6 text-center">
-            <div className="text-4xl">🎉</div>
+            <div className="text-5xl">{isSuccess ? "🎉" : "⏳"}</div>
             <div className="text-lg font-bold text-white">
               {isSuccess ? t("paywall.success.title") : t("paywall.plan.yearly")}
             </div>
             <div className="text-sm text-white/70">
               {isSuccess ? t("paywall.success.subtitle") : t("paywall.error.syncFailed")}
             </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="mt-2 rounded-2xl bg-[var(--accent-color)] px-6 py-3 text-sm font-semibold text-white shadow-lg"
-            >
-              {t("common.done") ?? "Fertig"}
-            </button>
           </div>
         )}
 
-        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--accent-color)]">
@@ -204,22 +252,21 @@ export default function PaywallModal(props: Props) {
           </div>
           <button
             type="button"
-            onClick={handleClose}
-            className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-transform"
+            onClick={handleCloseButton}
+            disabled={isLoading}
+            className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-transform disabled:opacity-30"
             aria-label="Schließen"
           >
             ✕
           </button>
         </div>
 
-        {/* Remaining credits */}
         {remainingLine && (
           <div className="mt-3 rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-[12px] text-white/60">
             {remainingLine}
           </div>
         )}
 
-        {/* Feature bullets */}
         <div className="mt-4 grid grid-cols-1 gap-1.5">
           {BULLETS.map((key) => (
             <div key={key} className="flex items-center gap-2.5 text-[13px] text-white/85">
@@ -231,7 +278,6 @@ export default function PaywallModal(props: Props) {
           ))}
         </div>
 
-        {/* Error message */}
         {purchaseState === "error" && (
           <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
             {errorMsg || t("paywall.error.generic")}
@@ -243,7 +289,6 @@ export default function PaywallModal(props: Props) {
           </div>
         )}
 
-        {/* Pricing buttons */}
         <div className="mt-5 grid gap-2">
           <button
             type="button"
@@ -276,7 +321,6 @@ export default function PaywallModal(props: Props) {
             </div>
           </button>
 
-          {/* Loading indicator */}
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-2 text-[13px] text-white/60">
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
@@ -294,7 +338,6 @@ export default function PaywallModal(props: Props) {
           </button>
         </div>
 
-        {/* Legal */}
         <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-white/35">
           <span>{t("paywall.loading.applePayHint")}</span>
         </div>

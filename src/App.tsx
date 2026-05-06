@@ -867,10 +867,9 @@ const MainAppShell: React.FC = () => {
 
   const handlePurchaseSuccess = useCallback(async () => {
     if (!user) return;
-    // Sync Pro status to session + AuthContext state
+    // Update Pro state — modal auto-closes itself after showing the success screen
     await syncProToSession({ id: user.id, email: user.email });
     setUserPro(true);
-    setPaywallOpen(false);
   }, [user, setUserPro]);
 
   // ---------- Routing ----------

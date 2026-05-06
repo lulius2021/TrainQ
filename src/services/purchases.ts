@@ -21,6 +21,42 @@ function isNative(): boolean {
   }
 }
 
+// Tracks which Supabase user ID we last linked to IAP, so we don't redundantly call setApplicationUsername.
+let linkedUserId: string | null = null;
+
+/**
+ * Link the active Supabase user ID to the native purchases SDK so that purchase
+ * receipts (and any future server-side validation / RevenueCat events) can be
+ * mapped back to our user.
+ *
+ * Called from AuthContext on login. Safe to call multiple times — no-op on web,
+ * idempotent for the same user. Failures are swallowed (best-effort).
+ */
+export async function linkPurchasesToUser(userId: string): Promise<void> {
+  if (!isNative() || !userId) return;
+  if (linkedUserId === userId) return;
+
+  // @capgo/native-purchases v7 exposes setApplicationUsername (forwards to
+  // StoreKit's appAccountToken / Play Billing's obfuscatedAccountId). If the
+  // method isn't available in the installed version, this is a no-op.
+  const np = NativePurchases as unknown as { setApplicationUsername?: (opts: { username: string }) => Promise<unknown> };
+  try {
+    if (typeof np.setApplicationUsername === "function") {
+      await np.setApplicationUsername({ username: userId });
+      linkedUserId = userId;
+    }
+  } catch {
+    // Best-effort: don't fail login if IAP linking fails.
+  }
+}
+
+/**
+ * Clear the IAP user link (called on logout).
+ */
+export function unlinkPurchasesUser(): void {
+  linkedUserId = null;
+}
+
 function isActiveSubscription(tx: Transaction): boolean {
   if (tx.productType !== "subs") return false;
   if (!SUB_IDS.includes(tx.productIdentifier)) return false;
