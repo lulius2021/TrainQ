@@ -38,6 +38,8 @@ import { shiftPlanEvents } from "../utils/planShift";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { FREE_LIMITS } from "../utils/entitlements";
 import { getScopedItem, setScopedItem } from "../utils/scopedStorage";
+import { loadCoreState } from "../services/trainqCore";
+import type { SplitType } from "../types/training";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 
 interface DashboardProps {
@@ -601,6 +603,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const [adaptiveOpen, setAdaptiveOpen] = useState(false);
   const [adaptiveTargetEvent, setAdaptiveTargetEvent] = useState<CalendarEvent | null>(null);
+  const activeSplitType = useMemo((): SplitType => {
+    const plans = loadCoreState().plans;
+    return (plans.find((p) => p.isActive)?.splitType) ?? "push_pull";
+  }, []);
 
   const openAdaptiveForToday = () => {
     const target = todayTrainingEvents[0] ?? null;
@@ -1084,7 +1090,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           setAdaptiveTargetEvent(null);
         }}
         plannedWorkoutType={inferWorkoutTypeFromTitle((adaptiveTargetEvent as any)?.title ?? "Push")}
-        splitType="push_pull"
+        splitType={activeSplitType}
         onSelect={(s, a) => applyAdaptiveSelection(s, a)}
         isPro={effectiveIsPro}
         adaptiveLeftBC={Number.isFinite(adaptiveLeft as number) ? (adaptiveLeft as number) : undefined}

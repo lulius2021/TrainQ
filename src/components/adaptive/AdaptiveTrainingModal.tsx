@@ -107,10 +107,19 @@ export default function AdaptiveTrainingModal(props: AdaptiveTrainingModalProps)
               </div>
               {suggestions.map(s => {
                 const accent = profileAccent(s.profile);
+                const blocked = s.estimatedMinutes <= 0;
                 return (
-                  <div key={s.profile} className="rounded-xl p-4" style={{ borderColor: accent.border, background: accent.bg }}>
+                  <div key={s.profile} className="rounded-xl p-4" style={{ borderColor: accent.border, background: accent.bg, opacity: blocked ? 0.5 : 1 }}>
                     {/* ... Suggestion card content ... */}
-                    <button className="w-full mt-4 py-3 rounded-xl text-base font-semibold text-white hover:opacity-90" style={{ background: accent.badgeBg.replace('0.18', '0.3') }} onClick={() => onSelect(s, answers)}>{t("adaptive.select")}</button>
+                    <button
+                      className="w-full mt-4 py-3 rounded-xl text-base font-semibold text-white"
+                      style={{ background: accent.badgeBg.replace('0.18', '0.3'), cursor: blocked ? "not-allowed" : "pointer" }}
+                      disabled={blocked}
+                      title={blocked ? s.intensityHint : undefined}
+                      onClick={() => !blocked && onSelect(s, answers)}
+                    >
+                      {blocked ? s.intensityHint : t("adaptive.select")}
+                    </button>
                   </div>
                 )
               })}

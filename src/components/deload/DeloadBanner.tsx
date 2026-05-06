@@ -22,14 +22,14 @@ export default function DeloadBanner({ onPlan, onDismiss }: Props) {
           className="rounded-xl px-4 py-2 text-xs font-semibold text-black"
           style={{ background: "rgb(251,146,60)" }}
         >
-          Train
+          Deload planen
         </button>
         <button
           type="button"
           onClick={onDismiss}
           className="rounded-xl px-4 py-2 text-xs font-semibold text-orange-200 border border-orange-400/40"
         >
-          Verpassen
+          Später
         </button>
       </div>
     </div>
