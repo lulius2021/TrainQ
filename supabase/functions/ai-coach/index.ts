@@ -115,6 +115,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const user = await getUserFromAuth(auth);
+    if (!user.id) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!checkRateLimit(user.id)) {
       return new Response(JSON.stringify({ error: "rate_limit_exceeded" }), {
@@ -203,7 +209,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await anthropicRes.json();
-    const text = data?.content?.[0]?.text ?? "";
+    const text = data?.content?.[0]?.text;
+    if (typeof text !== "string") {
+      console.error("Anthropic API returned unexpected response structure:", JSON.stringify(data).slice(0, 200));
+      return new Response(JSON.stringify({ error: "AI service error" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ text, action: body.action }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

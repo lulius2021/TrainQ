@@ -37,7 +37,7 @@ function dateKey(date: Date): string {
 
 function parseISODate(input: string): Date {
   const d = new Date(input);
-  if (!Number.isFinite(d.getTime())) return new Date();
+  if (!Number.isFinite(d.getTime())) return new Date(NaN);
   return d;
 }
 
@@ -56,6 +56,7 @@ export function getWorkoutsForRange(
   const source = workoutsOverride ?? loadWorkoutHistory();
   return source.filter((w) => {
     const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) return false;
     return inRange(d, from, to);
   });
 }
@@ -87,7 +88,9 @@ export function isWorkingSet(set: WorkoutHistorySet): boolean {
 export function computeVolumeByDay(workouts: WorkoutHistoryEntry[], includeWarmup = false): DailyValue[] {
   const map = new Map<string, number>();
   for (const w of workouts) {
-    const day = dateKey(parseISODate(w.endedAt || w.startedAt));
+    const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) continue;
+    const day = dateKey(d);
     let sum = 0;
     for (const ex of w.exercises || []) {
       for (const set of ex.sets || []) {
@@ -208,8 +211,9 @@ export function computeAllTimeE1RMPR(
 export function computeTrainingDays(workouts: WorkoutHistoryEntry[]): string[] {
   const days = new Set<string>();
   for (const w of workouts) {
-    const day = dateKey(parseISODate(w.endedAt || w.startedAt));
-    days.add(day);
+    const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) continue;
+    days.add(dateKey(d));
   }
   return Array.from(days).sort();
 }
@@ -253,6 +257,7 @@ export function computeWeeklyTrainingDays(workouts: WorkoutHistoryEntry[]): Week
   const map = new Map<string, Set<string>>();
   for (const w of workouts) {
     const d = parseISODate(w.endedAt || w.startedAt);
+    if (!Number.isFinite(d.getTime())) continue;
     const weekKey = dateKey(startOfWeekMonday(d));
     const dayKey = dateKey(d);
     if (!map.has(weekKey)) map.set(weekKey, new Set());
