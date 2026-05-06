@@ -48,6 +48,13 @@ Deno.serve(async (req) => {
 
     const counts = { activities: 0, sleep: 0, metrics: 0 };
 
+    function isReasonableUnixSeconds(n: unknown): n is number {
+      if (typeof n !== "number" || !Number.isFinite(n)) return false;
+      const min = 631152000; // 1990-01-01
+      const max = Date.now() / 1000 + 86400 * 365;
+      return n >= min && n <= max;
+    }
+
     async function fetchAndUpsert(baseUrl: string, type: "dailies" | "sleeps" | "activities") {
       const url = `${baseUrl}?${timeParams}`;
       const res = await garminApiFetch(admin, tokenRow, url);
@@ -67,7 +74,7 @@ Deno.serve(async (req) => {
               user_id: user.id,
               garmin_activity_id: item.activityId?.toString() || item.summaryId?.toString(),
               activity_type: item.activityType,
-              start_time: item.startTimeInSeconds ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
+              start_time: isReasonableUnixSeconds(item.startTimeInSeconds) ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
               duration_seconds: item.durationInSeconds,
               distance_meters: item.distanceInMeters,
               calories: item.activeKilocalories,
@@ -86,8 +93,8 @@ Deno.serve(async (req) => {
               user_id: user.id,
               garmin_summary_id: item.summaryId?.toString() || item.startTimeInSeconds?.toString(),
               calendar_date: item.calendarDate,
-              sleep_start: item.startTimeInSeconds ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
-              sleep_end: item.startTimeInSeconds && item.durationInSeconds
+              sleep_start: isReasonableUnixSeconds(item.startTimeInSeconds) ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
+              sleep_end: isReasonableUnixSeconds(item.startTimeInSeconds) && typeof item.durationInSeconds === "number" && item.durationInSeconds >= 0
                 ? new Date((item.startTimeInSeconds + item.durationInSeconds) * 1000).toISOString()
                 : null,
               total_sleep_seconds: item.durationInSeconds,
@@ -156,8 +163,7 @@ Deno.serve(async (req) => {
       { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    console.error("garmin-fetch-data error:", msg);
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: corsHeaders });
+    console.error("garmin-fetch-data error:", e instanceof Error ? e.message : e);
+    return new Response(JSON.stringify({ error: "Sync failed" }), { status: 500, headers: corsHeaders });
   }
 });

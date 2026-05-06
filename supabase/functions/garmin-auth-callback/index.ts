@@ -52,9 +52,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const tokenData = await tokenRes.json();
-    const accessToken: string = tokenData.access_token;
-    const refreshToken: string = tokenData.refresh_token;
-    const expiresIn: number = tokenData.expires_in ?? 3600;
+    const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token;
+    if (!accessToken || typeof accessToken !== "string") {
+      console.error("Token exchange returned no access_token");
+      return Response.redirect("trainq://garmin-callback?status=error&message=token_exchange_failed", 302);
+    }
+    if (!refreshToken || typeof refreshToken !== "string") {
+      console.error("Token exchange returned no refresh_token");
+      return Response.redirect("trainq://garmin-callback?status=error&message=token_exchange_failed", 302);
+    }
+    const expiresIn: number = typeof tokenData.expires_in === "number" ? tokenData.expires_in : 3600;
     const tokenExpiry = new Date(Date.now() + expiresIn * 1000).toISOString();
 
     // Fetch Garmin user ID
@@ -99,7 +107,6 @@ Deno.serve(async (req: Request) => {
     return Response.redirect("trainq://garmin-callback?status=success", 302);
   } catch (e) {
     console.error("garmin-auth-callback error:", e);
-    const msg = e instanceof Error ? encodeURIComponent(e.message) : "unknown";
-    return Response.redirect(`trainq://garmin-callback?status=error&message=${msg}`, 302);
+    return Response.redirect("trainq://garmin-callback?status=error&message=auth_failed", 302);
   }
 });

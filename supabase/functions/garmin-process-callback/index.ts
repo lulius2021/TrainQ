@@ -46,6 +46,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid garminUserId" }), { status: 400 });
     }
 
+    const VALID_EVENT_TYPES = new Set([
+      "activity", "activityDetails", "sleeps", "dailies", "epochs",
+      "bodyCompositions", "stressDetails", "userMetrics", "moveIQ",
+    ]);
+    if (typeof eventType !== "string" || !VALID_EVENT_TYPES.has(eventType)) {
+      console.warn("Rejected unknown eventType:", eventType);
+      return new Response(JSON.stringify({ error: "Invalid eventType" }), { status: 400 });
+    }
+
     // Look up user tokens by garmin_user_id
     const { data: tokens } = await admin
       .from("garmin_tokens")
@@ -168,6 +177,6 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("garmin-process-callback error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Processing failed" }), { status: 500 });
   }
 });
