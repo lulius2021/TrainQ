@@ -33,7 +33,11 @@ export const authStorageAdapter: SupportedStorage = {
             }
         } else {
             if (typeof window === "undefined") return;
-            window.localStorage.setItem(key, value);
+            try {
+                window.localStorage.setItem(key, value);
+            } catch (e) {
+                console.warn("[authStorage] localStorage set failed:", e);
+            }
         }
     },
 

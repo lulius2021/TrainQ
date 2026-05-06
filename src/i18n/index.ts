@@ -12,7 +12,16 @@ export const dictionaries: Record<Lang, Record<TranslationKey, string>> = {
 export const defaultLang: Lang = "de";
 
 export function getTranslation(lang: Lang, key: TranslationKey): string {
-  return dictionaries[lang][key];
+  const direct = dictionaries[lang]?.[key];
+  if (typeof direct === "string") return direct;
+  // Fallback chain: try the other language, then the key itself, so a
+  // missing translation never renders as "undefined" / blank in the UI.
+  for (const altLang of Object.keys(dictionaries) as Lang[]) {
+    if (altLang === lang) continue;
+    const alt = dictionaries[altLang]?.[key];
+    if (typeof alt === "string") return alt;
+  }
+  return String(key);
 }
 
 export function assertTranslationsMatch(): void {

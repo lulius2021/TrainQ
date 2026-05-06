@@ -88,7 +88,11 @@ export function getTrainingTemplateById(userId: string, id: string): TrainingTem
 export function saveTrainingTemplates(userId: string, items: TrainingTemplate[]): void {
   if (!userId) return;
   const safeItems = ensureArray<TrainingTemplate>(items);
-  window.localStorage.setItem(storageKey(userId), JSON.stringify(safeItems));
+  try {
+    window.localStorage.setItem(storageKey(userId), JSON.stringify(safeItems));
+  } catch (e) {
+    console.warn("[trainingTemplates] save failed (likely quota):", e);
+  }
 }
 
 export function upsertTrainingTemplate(userId: string, item: TrainingTemplate): TrainingTemplate {

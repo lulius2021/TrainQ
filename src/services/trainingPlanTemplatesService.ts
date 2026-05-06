@@ -56,6 +56,10 @@ export function upsertTrainingPlanTemplate(userId: string, plan: TrainingPlanTem
   };
   const idx = existing.findIndex((p) => p.id === normalized.id);
   const next = idx >= 0 ? [...existing.slice(0, idx), normalized, ...existing.slice(idx + 1)] : [normalized, ...existing];
-  window.localStorage.setItem(storageKey(userId), JSON.stringify(next));
+  try {
+    window.localStorage.setItem(storageKey(userId), JSON.stringify(next));
+  } catch (e) {
+    console.warn("[trainingPlanTemplates] save failed (likely quota):", e);
+  }
   return normalized;
 }

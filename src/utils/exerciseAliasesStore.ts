@@ -44,6 +44,10 @@ export function addAliasOverride(exerciseId: string, lang: "en" | "de", alias: s
     nextList.push(trimmed);
   }
   overrides[exerciseId] = { ...entry, [lang]: nextList };
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.warn("[exerciseAliases] save failed (likely quota):", e);
+  }
   return overrides;
 }
