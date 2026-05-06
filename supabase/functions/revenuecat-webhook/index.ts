@@ -228,14 +228,19 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Record event for idempotency (best-effort — don't fail the webhook if this errors)
+  // Record event for idempotency. Tolerate 23505 (race between concurrent
+  // webhooks for the same event); log loudly on any other failure so a
+  // broken table doesn't silently disable duplicate detection.
   if (event.id) {
-    await admin.from("revenuecat_events").insert({
+    const { error: logError } = await admin.from("revenuecat_events").insert({
       event_id: event.id,
       event_type: event.type,
       user_id: userId,
       processed_at: new Date().toISOString(),
-    }).then(() => {}, (e) => console.warn("[rc-webhook] event log failed:", e));
+    });
+    if (logError && (logError as { code?: string }).code !== "23505") {
+      console.error("[rc-webhook] event log failed:", logError);
+    }
   }
 
   console.log(`[rc-webhook] ${event.type} user=${userId} isPro=${isActive}`);

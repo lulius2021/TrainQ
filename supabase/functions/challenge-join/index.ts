@@ -1,5 +1,6 @@
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { getUserFromAuth, getSupabaseAdmin } from "../_shared/supabase-admin.ts";
+import { isUuid } from "../_shared/validation.ts";
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -12,9 +13,9 @@ Deno.serve(async (req) => {
     const user = await getUserFromAuth(auth);
     const { challenge_id } = await req.json();
 
-    if (!challenge_id) {
+    if (!isUuid(challenge_id)) {
       return new Response(
-        JSON.stringify({ ok: false, error: "challenge_id required" }),
+        JSON.stringify({ ok: false, error: "valid challenge_id (uuid) required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

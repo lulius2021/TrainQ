@@ -45,7 +45,11 @@ Deno.serve(async (req) => {
       if (!Array.isArray(summaries)) continue;
 
       for (const summary of summaries) {
-        const garminUserId = summary.userId?.toString() || summary.userAccessToken || "unknown";
+        const garminUserId = summary.userId?.toString() || summary.userAccessToken;
+        if (!garminUserId) {
+          console.warn(`Skipping ${eventType} webhook entry without userId/userAccessToken`);
+          continue;
+        }
         const summaryId = summary.summaryId || summary.startTimeInSeconds?.toString() || crypto.randomUUID();
         const idempotencyKey = await sha256(`${eventType}:${garminUserId}:${summaryId}`);
 

@@ -3,12 +3,29 @@ import { getUserFromAuth } from "../_shared/supabase-admin.ts";
 
 // Rate limiting: max requests per user per minute
 const RATE_LIMIT_PER_MIN = 10;
+const RATE_LIMIT_MAX_ENTRIES = 5000;
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function pruneRateLimitMap(now: number): void {
+  // Drop expired entries; if still oversized, drop oldest insertion order.
+  for (const [k, v] of rateLimitMap) {
+    if (now > v.resetAt) rateLimitMap.delete(k);
+  }
+  if (rateLimitMap.size > RATE_LIMIT_MAX_ENTRIES) {
+    const drop = rateLimitMap.size - RATE_LIMIT_MAX_ENTRIES;
+    let i = 0;
+    for (const k of rateLimitMap.keys()) {
+      if (i++ >= drop) break;
+      rateLimitMap.delete(k);
+    }
+  }
+}
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(userId);
   if (!entry || now > entry.resetAt) {
+    if (rateLimitMap.size >= RATE_LIMIT_MAX_ENTRIES) pruneRateLimitMap(now);
     rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
     return true;
   }

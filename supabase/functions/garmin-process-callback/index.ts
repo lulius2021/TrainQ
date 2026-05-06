@@ -4,6 +4,30 @@
 import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 import { garminApiFetch, type GarminTokenRow } from "../_shared/garmin-tokens.ts";
 
+// Only Garmin's official API hosts are allowed for callback fetches (SSRF guard).
+const ALLOWED_GARMIN_HOSTS = new Set([
+  "apis.garmin.com",
+  "healthapi.garmin.com",
+]);
+
+function isAllowedGarminUrl(raw: unknown): raw is string {
+  if (typeof raw !== "string") return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && ALLOWED_GARMIN_HOSTS.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Sanity-check a Unix timestamp (seconds): roughly 1990 .. now+1y
+function isReasonableUnixSeconds(n: unknown): n is number {
+  if (typeof n !== "number" || !Number.isFinite(n)) return false;
+  const min = 631152000; // 1990-01-01
+  const max = Date.now() / 1000 + 86400 * 365;
+  return n >= min && n <= max;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -13,6 +37,14 @@ Deno.serve(async (req) => {
 
   try {
     const { callbackUrl, garminUserId, eventType } = await req.json();
+
+    if (!isAllowedGarminUrl(callbackUrl)) {
+      console.error("Rejected callbackUrl (not a Garmin host):", callbackUrl);
+      return new Response(JSON.stringify({ error: "Invalid callback URL" }), { status: 400 });
+    }
+    if (typeof garminUserId !== "string" || !garminUserId || garminUserId === "unknown") {
+      return new Response(JSON.stringify({ error: "Invalid garminUserId" }), { status: 400 });
+    }
 
     // Look up user tokens by garmin_user_id
     const { data: tokens } = await admin
@@ -48,7 +80,9 @@ Deno.serve(async (req) => {
               user_id: tokens.user_id,
               garmin_activity_id: item.activityId?.toString() || item.summaryId?.toString(),
               activity_type: item.activityType,
-              start_time: item.startTimeInSeconds ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
+              start_time: isReasonableUnixSeconds(item.startTimeInSeconds)
+                ? new Date(item.startTimeInSeconds * 1000).toISOString()
+                : null,
               duration_seconds: item.durationInSeconds,
               distance_meters: item.distanceInMeters,
               calories: item.activeKilocalories || item.calories,
@@ -61,13 +95,23 @@ Deno.serve(async (req) => {
             { onConflict: "user_id,garmin_activity_id" },
           );
         } else if (eventType === "sleeps") {
+          const sleepSummaryId =
+            item.summaryId?.toString() ||
+            item.startTimeInSeconds?.toString() ||
+            item.calendarDate;
+          if (!sleepSummaryId) {
+            console.warn("Skipping sleep item without identifier");
+            continue;
+          }
+          const startOk = isReasonableUnixSeconds(item.startTimeInSeconds);
+          const durOk = typeof item.durationInSeconds === "number" && item.durationInSeconds >= 0;
           await admin.from("garmin_sleep_summaries").upsert(
             {
               user_id: tokens.user_id,
-              garmin_summary_id: item.summaryId?.toString() || item.startTimeInSeconds?.toString(),
+              garmin_summary_id: sleepSummaryId,
               calendar_date: item.calendarDate,
-              sleep_start: item.startTimeInSeconds ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
-              sleep_end: item.startTimeInSeconds && item.durationInSeconds
+              sleep_start: startOk ? new Date(item.startTimeInSeconds * 1000).toISOString() : null,
+              sleep_end: startOk && durOk
                 ? new Date((item.startTimeInSeconds + item.durationInSeconds) * 1000).toISOString()
                 : null,
               total_sleep_seconds: item.durationInSeconds,

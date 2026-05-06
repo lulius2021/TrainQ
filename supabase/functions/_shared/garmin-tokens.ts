@@ -73,12 +73,31 @@ export async function resolveAccessToken(
  * Fetch a Garmin API URL with a valid Bearer token.
  * Handles token refresh automatically.
  */
+const ALLOWED_GARMIN_HOSTS = new Set([
+  "apis.garmin.com",
+  "healthapi.garmin.com",
+]);
+
+function assertGarminUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`Refusing fetch: invalid URL`);
+  }
+  if (parsed.protocol !== "https:" || !ALLOWED_GARMIN_HOSTS.has(parsed.hostname)) {
+    throw new Error(`Refusing fetch: host ${parsed.hostname} is not a Garmin API host`);
+  }
+  return parsed;
+}
+
 export async function garminApiFetch(
   admin: SupabaseClient,
   tokens: GarminTokenRow,
   url: string,
   options: RequestInit = {},
 ): Promise<Response> {
+  assertGarminUrl(url);
   const accessToken = await resolveAccessToken(admin, tokens);
 
   const res = await fetch(url, {

@@ -85,8 +85,16 @@ Deno.serve(async (req: Request) => {
       { onConflict: "user_id" },
     );
 
-    // Clean up temp row
-    await admin.from("garmin_oauth_temp").delete().eq("id", temp.id);
+    // Clean up temp row — fail loudly if delete fails so a stale state value
+    // can't be replayed.
+    const { error: delError } = await admin
+      .from("garmin_oauth_temp")
+      .delete()
+      .eq("id", temp.id);
+    if (delError) {
+      console.error("garmin-auth-callback temp cleanup failed:", delError);
+      throw new Error("Failed to clean up oauth temp row");
+    }
 
     return Response.redirect("trainq://garmin-callback?status=success", 302);
   } catch (e) {

@@ -129,16 +129,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    await Promise.allSettled([
+    const settled = await Promise.allSettled([
       fetchAndUpsert(DAILIES_URL, "dailies"),
       fetchAndUpsert(SLEEPS_URL, "sleeps"),
       fetchAndUpsert(ACTIVITIES_URL, "activities"),
     ]);
+    const failures = settled
+      .map((r, i) => ({ r, name: ["dailies", "sleeps", "activities"][i] }))
+      .filter((x) => x.r.status === "rejected")
+      .map((x) => ({
+        name: x.name,
+        error: (x.r as PromiseRejectedResult).reason instanceof Error
+          ? (x.r as PromiseRejectedResult).reason.message
+          : String((x.r as PromiseRejectedResult).reason),
+      }));
+    if (failures.length > 0) console.error("garmin-fetch-data partial failures:", failures);
 
-    // Update last_sync_at
-    await admin.from("garmin_tokens").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
+    // Update last_sync_at only if at least one fetch succeeded
+    if (failures.length < settled.length) {
+      await admin.from("garmin_tokens").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
+    }
 
-    return new Response(JSON.stringify(counts), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const status = failures.length === settled.length ? 502 : 200;
+    return new Response(
+      JSON.stringify({ ...counts, failures: failures.length > 0 ? failures : undefined }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("garmin-fetch-data error:", msg);
