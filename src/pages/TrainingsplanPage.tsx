@@ -174,12 +174,17 @@ function dateToISO(d: Date): string {
 }
 
 function isoToDate(iso: string): Date {
-  const [y, m, dd] = iso.split("-").map((v) => Number(v));
+  // Strict YYYY-MM-DD; if anything is off, return today rather than silently
+  // patching individual parts (which previously turned "0000-01-01" into
+  // today-with-month-1).
   const dt = new Date();
-  dt.setFullYear(y || dt.getFullYear());
-  dt.setMonth(m ? m - 1 : dt.getMonth());
-  dt.setDate(dd || dt.getDate());
   dt.setHours(0, 0, 0, 0);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return dt;
+  const [y, m, dd] = iso.split("-").map((v) => Number(v));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(dd)) return dt;
+  dt.setFullYear(y);
+  dt.setMonth(m - 1);
+  dt.setDate(dd);
   return dt;
 }
 
@@ -345,7 +350,10 @@ function defaultLabelForSport(sport: WeeklySportType): string {
 }
 
 function makeTemplateId() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `tpl_${Date.now()}`;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  // Fallback for environments without crypto.randomUUID: combine timestamp
+  // with random suffix to avoid collisions on rapid successive calls.
+  return `tpl_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
 }
 
 // ✅ FIX: TrainingType passt jetzt exakt zu src/types/training.ts (lowercase: laufen/radfahren)
@@ -1083,7 +1091,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, isPro
   };
 
   const pushWeeklyToCalendar = () => {
-    if (!onAddEvent) return;
+    if (!onAddEvent || weeklyDays.length === 0) return;
 
     const templateId = makeTemplateId();
     try {
