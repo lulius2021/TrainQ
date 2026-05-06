@@ -16,11 +16,16 @@ export default async function handler(req: any, res: any) {
         return res.status(401).json({ error: 'Invalid token' });
     }
 
-    await supabase
+    const { error: deleteError } = await supabase
         .from('user_integrations')
         .delete()
         .eq('user_id', user.id)
         .eq('provider', 'garmin');
+
+    if (deleteError) {
+        console.error('Failed to disconnect Garmin:', deleteError);
+        return res.status(500).json({ error: 'Failed to disconnect' });
+    }
 
     res.status(200).json({ success: true });
 }

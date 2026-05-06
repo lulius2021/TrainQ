@@ -147,8 +147,9 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const client = getSupabaseClient();
     if (!client) return { ok: false, error: "Auth Client nicht verfügbar." };
 
+    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const { error } = await client.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/reset-password", // Ensure this route exists or client handles it
+      redirectTo: `${appUrl}/reset-password`,
     });
 
     if (error) return { ok: false, error: error.message };

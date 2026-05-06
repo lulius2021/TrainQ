@@ -65,7 +65,9 @@ function ensureArray<T>(value: unknown): T[] {
  */
 export function generateId(prefix = "tq"): string {
   const t = Date.now().toString(36);
-  const r = Math.random().toString(36).slice(2, 10);
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  const r = Array.from(bytes, b => b.toString(36)).join('').slice(0, 8);
   return `${prefix}_${t}_${r}`;
 }
 
