@@ -232,10 +232,12 @@ export function getActiveLiveWorkout(): LiveWorkout | null {
   const sport = normalizeSport((parsed as any).sport);
 
   const exercises = Array.isArray((parsed as any).exercises) ? (parsed as any).exercises : [];
-  const normalizedExercises = exercises.map((ex: any) => ({
-    ...ex,
-    restSeconds: normalizeRestSeconds(ex?.restSeconds),
-  }));
+  const normalizedExercises = exercises
+    .filter((ex: any) => ex !== null && ex !== undefined && typeof ex === "object")
+    .map((ex: any) => ({
+      ...ex,
+      restSeconds: normalizeRestSeconds(ex?.restSeconds),
+    }));
 
   return { ...parsed, sport, exercises: normalizedExercises } as LiveWorkout;
 }

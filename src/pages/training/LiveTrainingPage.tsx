@@ -793,7 +793,7 @@ export default function LiveTrainingPage({
     workout?.isActive,
     elapsedSec,
     totalSets,
-    overlayData?.exercises.length,
+    overlayData?.exercises?.length,
     overlayData?.cardioDistance,
     overlayData?.overlayPrimaryText,
     overlayData?.overlayRightTopText,
