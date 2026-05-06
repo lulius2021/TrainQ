@@ -235,11 +235,12 @@ export function computeStreaks(workouts: WorkoutHistoryEntry[]): { current: numb
     longest = Math.max(longest, run);
   }
 
-  const today = startOfDay(new Date()).getTime();
-  const last = startOfDay(sorted[sorted.length - 1]).getTime();
-  if (today === last) {
-    current = run;
-  } else if (today - last === 24 * 60 * 60 * 1000) {
+  const todayKey = dateKey(new Date());
+  const lastKey = dateKey(sorted[sorted.length - 1]);
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = dateKey(yesterday);
+  if (todayKey === lastKey || yesterdayKey === lastKey) {
     current = run;
   } else {
     current = 0;

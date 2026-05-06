@@ -819,13 +819,18 @@ export default function LiveTrainingPage({
 
   const finishTraining = () => {
     if (!workout) return;
-    const completed = completeLiveWorkout(workout);
-    markCalendarEvent("completed", completed.id);
-    clearLiveTrainingState();
-    if (typeof onShareWorkout === "function") {
-      onShareWorkout(completed.id);
-    } else {
-      onExit();
+    try {
+      const completed = completeLiveWorkout(workout);
+      markCalendarEvent("completed", completed.id);
+      clearLiveTrainingState();
+      if (typeof onShareWorkout === "function") {
+        onShareWorkout(completed.id);
+      } else {
+        onExit();
+      }
+    } catch (e) {
+      console.error("[LiveTraining] finishTraining failed:", e);
+      window.alert("Workout konnte nicht gespeichert werden (Speicher voll?). Bitte gib etwas Speicher frei und versuche es erneut.");
     }
   };
 

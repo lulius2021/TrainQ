@@ -118,7 +118,12 @@ function normalizeDateISO(dateISO: string): string {
   if (m?.[1]) return m[1];
 
   const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!Number.isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const dy = String(d.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${dy}`;
+  }
 
   return s.length >= 10 ? s.slice(0, 10) : s;
 }

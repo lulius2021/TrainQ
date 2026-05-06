@@ -386,8 +386,9 @@ export function saveWorkoutHistory(list: WorkoutHistoryEntry[]): void {
   try {
     setScopedItem(STORAGE_KEY, raw);
     emitUpdated();
-  } catch {
-    // ignore
+  } catch (e) {
+    console.warn("[workoutHistory] save failed (likely quota):", e);
+    throw e;
   }
 }
 

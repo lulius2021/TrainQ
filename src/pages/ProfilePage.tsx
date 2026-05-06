@@ -118,6 +118,24 @@ function toNumberOrNull(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function clampedAge(raw: string): number | null {
+  const n = toNumberOrNull(raw);
+  if (n == null) return null;
+  return Math.min(120, Math.max(5, Math.round(n)));
+}
+
+function clampedHeight(raw: string): number | null {
+  const n = toNumberOrNull(raw);
+  if (n == null) return null;
+  return Math.min(250, Math.max(80, Math.round(n)));
+}
+
+function clampedWeight(raw: string): number | null {
+  const n = toNumberOrNull(raw);
+  if (n == null) return null;
+  return Math.min(400, Math.max(20, Math.round(n)));
+}
+
 // -------------------- Page --------------------
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywall, onOpenWorkoutShare }) => {
@@ -275,7 +293,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
   }, [profileBio, profileName]);
 
   const onPickAvatar = useCallback(() => fileRef.current?.click(), []);
-  const onAvatarSelected = useCallback(async (file?: File | null) => {
+  const onAvatarSelected = useCallback(async (file?: File | null, inputEl?: HTMLInputElement | null) => {
+    // Reset the file input so the same file can be re-selected later
+    if (inputEl) inputEl.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
     // Cap raw image at 3 MB; data URLs are ~33% larger and localStorage
@@ -286,6 +306,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       return;
     }
 
+    let cancelled = false;
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
@@ -293,10 +314,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
         r.onerror = () => reject(new Error("FileReader error"));
         r.readAsDataURL(file);
       });
-      setAvatarDataUrl(dataUrl);
+      if (!cancelled) setAvatarDataUrl(dataUrl);
     } catch {
       // file read failed — silently ignore, avatar stays unchanged
     }
+    return () => { cancelled = true; };
   }, [t]);
 
   const saveProfileEdits = useCallback(() => {
@@ -312,9 +334,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
       },
       personal: {
         ...(current.personal ?? {}),
-        age: toNumberOrNull(age),
-        height: toNumberOrNull(height),
-        weight: toNumberOrNull(weight),
+        age: clampedAge(age),
+        height: clampedHeight(height),
+        weight: clampedWeight(weight),
       },
       training: {
         ...(current.training ?? {}),
@@ -638,7 +660,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
                 {avatarDataUrl ? ( <img src={avatarDataUrl} alt="Profilbild" className="h-full w-full object-cover" /> ) : ( <span className="text-2xl font-semibold text-white">{safeInitials(profileName)}</span> )}
               </div>
               <div className="flex flex-col gap-2">
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null)} />
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatarSelected(e.target.files?.[0] ?? null, e.target)} />
                 <button type="button" onClick={onPickAvatar} className="px-4 py-2 rounded-xl text-sm bg-white/10 border border-white/10 text-white hover:bg-white/20">
                   {t("profile.avatarSelect")}
                 </button>
@@ -653,11 +675,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenPaywal
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="block text-sm text-gray-300">Name</label>
-                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white" placeholder={t("profile.namePlaceholder")} />
+                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} maxLength={80} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white" placeholder={t("profile.namePlaceholder")} />
               </div>
               <div className="space-y-1">
                 <label className="block text-sm text-gray-300">Beschreibung</label>
-                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white min-h-[80px]" placeholder={t("profile.bioPlaceholder")} />
+                <textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} maxLength={500} className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-base text-white min-h-[80px]" placeholder={t("profile.bioPlaceholder")} />
               </div>
             </div>
 

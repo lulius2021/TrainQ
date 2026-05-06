@@ -12,6 +12,19 @@ async function sha256(message: string): Promise<string> {
   return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function verifyGarminSignature(rawBody: string, signature: string, consumerSecret: string): Promise<boolean> {
+  try {
+    const keyData = encoder.encode(consumerSecret);
+    const messageData = encoder.encode(rawBody);
+    const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = await crypto.subtle.sign("HMAC", key, messageData);
+    const expected = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("");
+    return expected === signature.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 /** Extract relevant headers for audit trail. */
 function extractHeaders(req: Request): Record<string, string> {
   const out: Record<string, string> = {};
@@ -33,7 +46,24 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // Verify Garmin HMAC-SHA256 signature when secret is configured
+    const consumerSecret = Deno.env.get("GARMIN_CONSUMER_SECRET");
+    if (consumerSecret) {
+      const signature = req.headers.get("x-garmin-signature") ?? "";
+      if (!signature) {
+        console.warn("garmin-webhook-health: missing x-garmin-signature header");
+        return new Response("Unauthorized", { status: 401 });
+      }
+      const valid = await verifyGarminSignature(rawBody, signature, consumerSecret);
+      if (!valid) {
+        console.warn("garmin-webhook-health: invalid signature");
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
+    const body = JSON.parse(rawBody);
     const admin = getSupabaseAdmin();
     const headers = extractHeaders(req);
 
