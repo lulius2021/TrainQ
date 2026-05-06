@@ -943,7 +943,7 @@ export default function LiveTrainingPage({
         <main
           ref={mainRef}
           className="flex-1 min-h-0 overflow-y-auto px-4"
-          style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
+          style={{ paddingTop: mainPadTop, paddingBottom: mainPadBottom, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           <div className="py-4">
             {exercises.length === 0 ? (

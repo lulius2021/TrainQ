@@ -248,6 +248,10 @@ textarea {
 button {
   -webkit-appearance: none;
   appearance: none;
+  /* Prevents accidental button taps during scroll on iOS/Android.
+     Eliminates 300ms tap delay and lets the browser distinguish
+     scroll gestures from taps without guessing. */
+  touch-action: manipulation;
 }
 
 /* =========================

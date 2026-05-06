@@ -893,13 +893,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       const leftBorder = isCompletedTraining(ev) ? "border-green-500" : training ? "border-sky-500" : "border-gray-500";
 
                       return (
-                        <div key={ev.id} className={`rounded-lg px-4 py-3 flex flex-col gap-2 cursor-pointer bg-white/5 border border-transparent border-l-4 ${leftBorder}`} onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}>
+                        <button key={ev.id} type="button" className={`w-full text-left rounded-lg px-4 py-3 flex flex-col gap-2 bg-white/5 border border-transparent border-l-4 ${leftBorder}`} onClick={() => (training ? openTrainingPreview(ev) : openInfoSheet(ev))}>
                           <div className="flex items-start justify-between gap-3">
                             <h3 className="text-lg font-semibold truncate">{normalizeTitle(ev.title)}</h3>
                             <p className="text-base whitespace-nowrap text-gray-300">{isTrainingEvent(ev) ? ev.startTime || "" : `${ev.startTime || ""}–${ev.endTime || ""}`}</p>
                           </div>
                           {label && <p className="text-sm text-gray-300">{label}</p>}
-                        </div>
+                        </button>
                       );
                     })
                   )}
