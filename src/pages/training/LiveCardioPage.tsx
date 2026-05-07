@@ -1,7 +1,7 @@
 // src/pages/training/LiveCardioPage.tsx
 // Strava-style live GPS tracking for Laufen / Radfahren
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapPin, Pause, Play, Square, Flag, ChevronDown,
 } from "lucide-react";
@@ -26,11 +26,13 @@ import {
   formatSpeed,
   computeCalories,
   computePace,
+  paceToSpeed,
 } from "../../utils/gpsUtils";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../theme/ThemeContext";
 import type { CalendarEvent, LiveWorkout } from "../../types/training";
-import type { GpsPoint, LapEntry, CardioInterval, CardioTarget } from "../../types/cardio";
+import type { GpsPoint, LapEntry, CardioInterval, CardioTarget, CardioPlanSegment } from "../../types/cardio";
 
 function downsampleGpsPoints(points: GpsPoint[], maxPoints: number): GpsPoint[] {
   if (points.length <= maxPoints) return points;
@@ -71,14 +73,28 @@ function getLapRows(laps: LapEntry[]): Array<{
   });
 }
 
-/** ±15 s tolerance for pace zone colouring */
-const PACE_ZONE_TOLERANCE_SEC = 15;
+/** ±10 s tolerance for planned pace zone colouring */
+const PACE_ZONE_TOLERANCE_SEC = 10;
 
 interface IntervalInfo {
   interval: CardioInterval;
   indexInCycle: number;
   remainingSec: number;
   totalIntervals: number;
+}
+
+interface PlanSegmentInfo {
+  segment: CardioPlanSegment;
+  nextSegment?: CardioPlanSegment;
+  index: number;
+  total: number;
+  elapsedSec: number;
+  remainingSec?: number;
+  overrunSec: number;
+  completedDistanceM: number;
+  remainingDistanceM?: number;
+  progress: number;
+  isComplete: boolean;
 }
 
 function getIntervalInfo(intervals: CardioInterval[], elapsedSec: number): IntervalInfo | null {
@@ -99,6 +115,62 @@ function getIntervalInfo(intervals: CardioInterval[], elapsedSec: number): Inter
     }
   }
   return null;
+}
+
+function getPlanSegmentInfo(
+  segments: CardioPlanSegment[],
+  index: number,
+  segmentStartElapsedSec: number,
+  segmentStartDistanceM: number,
+  elapsedSec: number,
+  distanceM: number
+): PlanSegmentInfo | null {
+  const segment = segments[index];
+  if (!segment) return null;
+
+  const segmentElapsedSec = Math.max(0, elapsedSec - segmentStartElapsedSec);
+  const completedDistanceM = Math.max(0, distanceM - segmentStartDistanceM);
+  const hasDuration = typeof segment.durationSec === "number" && segment.durationSec > 0;
+  const hasDistance = typeof segment.distanceM === "number" && segment.distanceM > 0;
+  const remainingSec = hasDuration ? segment.durationSec! - segmentElapsedSec : undefined;
+  const remainingDistanceM = hasDistance ? Math.max(0, segment.distanceM! - completedDistanceM) : undefined;
+  const timeDone = !hasDuration || segmentElapsedSec >= segment.durationSec!;
+  const distanceDone = !hasDistance || completedDistanceM >= segment.distanceM!;
+  const timeProgress = hasDuration ? Math.min(1, segmentElapsedSec / segment.durationSec!) : 1;
+  const distanceProgress = hasDistance ? Math.min(1, completedDistanceM / segment.distanceM!) : 1;
+
+  return {
+    segment,
+    nextSegment: segments[index + 1],
+    index,
+    total: segments.length,
+    elapsedSec: segmentElapsedSec,
+    remainingSec,
+    overrunSec: hasDuration ? Math.max(0, -remainingSec!) : 0,
+    completedDistanceM,
+    remainingDistanceM,
+    progress: Math.max(0, Math.min(1, Math.min(timeProgress, distanceProgress))),
+    isComplete: (hasDuration || hasDistance) && timeDone && distanceDone,
+  };
+}
+
+function formatSignedPlanTime(remainingSec: number | undefined): string {
+  if (remainingSec === undefined) return "--:--";
+  if (remainingSec >= 0) return formatElapsedSec(Math.round(remainingSec));
+  return `+${formatElapsedSec(Math.abs(Math.round(remainingSec)))}`;
+}
+
+function formatSegmentTarget(segment: CardioPlanSegment, isCycling: boolean): string {
+  const parts: string[] = [];
+  if (segment.durationSec) parts.push(formatElapsedSec(segment.durationSec));
+  if (segment.distanceM) parts.push(`${formatDistanceKm(segment.distanceM)} km`);
+  if (isCycling) {
+    const speed = segment.targetSpeedKmh ?? paceToSpeed(segment.targetPaceSecPerKm);
+    if (speed) parts.push(`${speed.toFixed(1)} km/h`);
+  } else if (segment.targetPaceSecPerKm) {
+    parts.push(`${formatPace(segment.targetPaceSecPerKm)}/km`);
+  }
+  return parts.join(" · ");
 }
 
 type LiveCardioPageProps = {
@@ -154,6 +226,11 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
   const [startBusy, setStartBusy]                 = useState(false);
   const [mapStyle, setMapStyle]                   = useState<MapStyle>("street");
   const [showMapStyleSheet, setShowMapStyleSheet] = useState(false);
+  const [planSegmentIndex, setPlanSegmentIndex]   = useState(0);
+  const segmentStartElapsedRef                    = useRef(0);
+  const segmentStartDistanceRef                   = useRef(0);
+  const { theme } = useTheme();
+  const isLightTheme = theme.mode === "light";
 
   // GPS starts on explicit user tap — iOS requires a real interaction to show the permission dialog
   const handleStart = async () => {
@@ -191,12 +268,43 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
 
   // Cardio target (pace zone + intervals)
   const cardioTarget: CardioTarget | undefined = workout.cardioTarget;
-  const intervalInfo = cardioTarget?.intervals
+  const planSegments = useMemo(
+    () => cardioTarget?.segments?.filter((segment) => segment.durationSec || segment.distanceM) ?? [],
+    [cardioTarget?.segments]
+  );
+  const hasPlanSegments = planSegments.length > 0;
+  const planSegmentInfo = hasPlanSegments
+    ? getPlanSegmentInfo(
+        planSegments,
+        planSegmentIndex,
+        segmentStartElapsedRef.current,
+        segmentStartDistanceRef.current,
+        elapsedSec,
+        distanceM
+      )
+    : null;
+  const intervalInfo = !hasPlanSegments && cardioTarget?.intervals
     ? getIntervalInfo(cardioTarget.intervals, elapsedSec)
     : null;
   // Effective target pace: per-interval override OR overall target
   const effectiveTargetPace =
-    intervalInfo?.interval.targetPaceSecPerKm ?? cardioTarget?.targetPaceSecPerKm;
+    planSegmentInfo?.segment.targetPaceSecPerKm ??
+    intervalInfo?.interval.targetPaceSecPerKm ??
+    cardioTarget?.targetPaceSecPerKm;
+
+  useEffect(() => {
+    setPlanSegmentIndex(0);
+    segmentStartElapsedRef.current = 0;
+    segmentStartDistanceRef.current = 0;
+  }, [workout.id, cardioTarget?.segments]);
+
+  useEffect(() => {
+    if (!hasPlanSegments || !planSegmentInfo || gps.status === "idle") return;
+    if (!planSegmentInfo.isComplete || planSegmentIndex >= planSegments.length - 1) return;
+    segmentStartElapsedRef.current = elapsedSec;
+    segmentStartDistanceRef.current = distanceM;
+    setPlanSegmentIndex((prev) => Math.min(prev + 1, planSegments.length - 1));
+  }, [distanceM, elapsedSec, gps.status, hasPlanSegments, planSegmentInfo, planSegmentIndex, planSegments.length]);
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -306,7 +414,7 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
           points={gps.points}
           isTracking={gps.status === "tracking"}
           className="absolute inset-0 w-full h-full"
-          controlsTopOffset={Math.max(insets.top, 16) + 56}
+          controlsTopOffset={Math.max(insets.top, 16) + 8}
           mapStyle={mapStyle}
           onLayersPress={() => setShowMapStyleSheet(true)}
         />
@@ -345,17 +453,31 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
             {/* Spacer */}
             <div className="w-10" />
           </div>
+          {planSegmentInfo && (
+            <div className="px-4 pb-5 -mt-2">
+              <PlanCoachCard
+                info={planSegmentInfo}
+                isCycling={isCycling}
+                isTracking={gps.status === "tracking"}
+                currentPaceSecPerKm={gps.currentPaceSecPerKm}
+                currentSpeedKmh={curSpeedKmh}
+                isLightTheme={isLightTheme}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── Bottom stats + controls panel ── */}
         <div
           className="absolute bottom-0 left-0 right-0 z-10"
           style={{ display: showMapStyleSheet ? "none" : undefined,
-            background: "var(--card-bg)",
-            backdropFilter: "blur(20px)",
+            background: isLightTheme ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.52)",
+            backdropFilter: "blur(40px) saturate(1.8)",
+            WebkitBackdropFilter: "blur(40px) saturate(1.8)",
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
-            borderTop: "1px solid var(--border-color)",
+            borderTop: `1px solid ${isLightTheme ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.15)"}`,
+            boxShadow: "0 -8px 32px rgba(0, 0, 0, 0.12)",
           }}
         >
           {/* Primary metric: Distance */}
@@ -379,7 +501,7 @@ const LiveCardioPage: React.FC<LiveCardioPageProps> = ({
           )}
 
           {/* Pace zone indicator */}
-          {effectiveTargetPace && gps.status !== "idle" && (
+          {!planSegmentInfo && effectiveTargetPace && gps.status !== "idle" && (
             <PaceZoneBar
               targetPaceSecPerKm={effectiveTargetPace}
               currentPaceSecPerKm={gps.currentPaceSecPerKm}
@@ -765,6 +887,183 @@ function CircleButton({
     >
       {children}
     </button>
+  );
+}
+
+function PlanCoachCard({
+  info,
+  isCycling,
+  isTracking,
+  currentPaceSecPerKm,
+  currentSpeedKmh,
+  isLightTheme,
+}: {
+  info: PlanSegmentInfo;
+  isCycling: boolean;
+  isTracking: boolean;
+  currentPaceSecPerKm?: number;
+  currentSpeedKmh: number;
+  isLightTheme: boolean;
+}) {
+  const { segment, nextSegment } = info;
+  const countdown = formatSignedPlanTime(info.remainingSec);
+  const overrun = info.overrunSec > 0;
+  const target = formatSegmentTarget(segment, isCycling);
+  const nextTarget = nextSegment ? formatSegmentTarget(nextSegment, isCycling) : "";
+  const remainingKm =
+    info.remainingDistanceM !== undefined
+      ? `${formatDistanceKm(info.remainingDistanceM)} km`
+      : undefined;
+  const textColor = isLightTheme ? "#000000" : "#FFFFFF";
+  const mutedColor = isLightTheme ? "rgba(0,0,0,0.56)" : "rgba(255,255,255,0.55)";
+  const secondaryColor = isLightTheme ? "rgba(0,0,0,0.68)" : "rgba(255,255,255,0.70)";
+  const subtleColor = isLightTheme ? "rgba(0,0,0,0.50)" : "rgba(255,255,255,0.50)";
+  const glassBackground = isLightTheme ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.52)";
+  const glassBorder = isLightTheme ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.15)";
+  const innerBackground = isLightTheme ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.10)";
+  const trackBackground = isLightTheme ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.14)";
+
+  return (
+    <div
+      className="pointer-events-none rounded-3xl backdrop-blur-md shadow-2xl px-4 py-3"
+      style={{
+        backgroundColor: glassBackground,
+        border: `1px solid ${glassBorder}`,
+        color: textColor,
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: mutedColor }}>
+            Abschnitt {info.index + 1}/{info.total}
+          </div>
+          <div className="mt-0.5 text-lg font-black truncate">
+            {segment.label}
+          </div>
+          {target && (
+            <div className="mt-0.5 text-[12px] truncate" style={{ color: secondaryColor }}>
+              {target}
+            </div>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-4xl font-black tabular-nums leading-none" style={{ color: overrun ? "#EF4444" : textColor }}>
+            {countdown}
+          </div>
+          <div className="mt-1 text-[10px] uppercase tracking-[0.18em]" style={{ color: mutedColor }}>
+            {overrun ? "Überzeit" : "Restzeit"}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ backgroundColor: trackBackground }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${info.progress * 100}%`, backgroundColor: overrun ? "#F87171" : "#3B82F6" }}
+        />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <PlanZoneBadge
+          isCycling={isCycling}
+          isTracking={isTracking}
+          targetPaceSecPerKm={segment.targetPaceSecPerKm}
+          targetSpeedKmh={segment.targetSpeedKmh}
+          currentPaceSecPerKm={currentPaceSecPerKm}
+          currentSpeedKmh={currentSpeedKmh}
+          isLightTheme={isLightTheme}
+        />
+        <div className="rounded-2xl px-3 py-2 text-right" style={{ backgroundColor: innerBackground }}>
+          <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: subtleColor }}>
+            {remainingKm ? "Reststrecke" : "Nächste"}
+          </div>
+          <div className="text-sm font-bold truncate">
+            {remainingKm ?? (nextSegment ? nextSegment.label : "Ziel")}
+          </div>
+        </div>
+      </div>
+
+      {nextSegment && (
+        <div className="mt-2 text-[11px] truncate" style={{ color: secondaryColor }}>
+          Nächste: {nextSegment.label}{nextTarget ? ` · ${nextTarget}` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanZoneBadge({
+  isCycling,
+  isTracking,
+  targetPaceSecPerKm,
+  targetSpeedKmh,
+  currentPaceSecPerKm,
+  currentSpeedKmh,
+  isLightTheme,
+}: {
+  isCycling: boolean;
+  isTracking: boolean;
+  targetPaceSecPerKm?: number;
+  targetSpeedKmh?: number;
+  currentPaceSecPerKm?: number;
+  currentSpeedKmh: number;
+  isLightTheme: boolean;
+}) {
+  const targetSpeed = targetSpeedKmh ?? paceToSpeed(targetPaceSecPerKm);
+  const hasTarget = isCycling ? !!targetSpeed : !!targetPaceSecPerKm;
+  const hasCurrent = isCycling ? currentSpeedKmh > 0 : !!currentPaceSecPerKm;
+  let color = "#9CA3AF";
+  let label = hasTarget ? "Suche GPS" : "Kein Ziel";
+  let sub = "";
+
+  if (hasTarget) {
+    if (isCycling && targetSpeed) {
+      const targetPace = 3600 / targetSpeed;
+      const fastBound = 3600 / Math.max(1, targetPace - PACE_ZONE_TOLERANCE_SEC);
+      const slowBound = 3600 / (targetPace + PACE_ZONE_TOLERANCE_SEC);
+      sub = `Ziel ${targetSpeed.toFixed(1)} km/h`;
+      if (hasCurrent && isTracking) {
+        if (currentSpeedKmh >= slowBound && currentSpeedKmh <= fastBound) {
+          color = "#22C55E";
+          label = "Im Zielbereich";
+        } else if (currentSpeedKmh > fastBound) {
+          color = "#EF4444";
+          label = "Zu schnell";
+        } else {
+          color = "#EF4444";
+          label = "Zu langsam";
+        }
+        sub = `${currentSpeedKmh.toFixed(1)} / ${targetSpeed.toFixed(1)} km/h`;
+      }
+    } else if (targetPaceSecPerKm) {
+      const diff = currentPaceSecPerKm != null ? currentPaceSecPerKm - targetPaceSecPerKm : null;
+      sub = `Ziel ${formatPace(targetPaceSecPerKm)}/km`;
+      if (diff !== null && isTracking) {
+        if (Math.abs(diff) <= PACE_ZONE_TOLERANCE_SEC) {
+          color = "#22C55E";
+          label = "Im Zielbereich";
+        } else if (diff < -PACE_ZONE_TOLERANCE_SEC) {
+          color = "#EF4444";
+          label = "Zu schnell";
+        } else {
+          color = "#EF4444";
+          label = "Zu langsam";
+        }
+        sub = `${formatPace(currentPaceSecPerKm)} / ${formatPace(targetPaceSecPerKm)}`;
+      }
+    }
+  }
+
+  const subColor = isLightTheme ? "rgba(0,0,0,0.58)" : "rgba(255,255,255,0.60)";
+
+  return (
+    <div className="rounded-2xl px-3 py-2" style={{ backgroundColor: `${color}24`, border: `1px solid ${color}66` }}>
+      <div className="flex items-center gap-2">
+        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+        <div className="text-sm font-black truncate" style={{ color }}>{label}</div>
+      </div>
+      <div className="mt-0.5 text-[10px] truncate" style={{ color: subColor }}>{sub}</div>
+    </div>
   );
 }
 

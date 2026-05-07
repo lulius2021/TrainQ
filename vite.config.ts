@@ -39,6 +39,9 @@ export default defineConfig({
       host: 'localhost',
       port: 5173,
     },
+    watch: {
+      ignored: ['**/build/**', '**/ios/**', '**/node_modules/**', '**/.git/**'],
+    },
   },
   build: {
     minify: 'oxc',

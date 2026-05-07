@@ -80,6 +80,7 @@ import { ProfileService } from "../../services/ProfileService";
 import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useTheme } from "../../context/ThemeContext";
 import { useI18n } from "../../i18n/useI18n";
+import { buildCardioTargetFromLiveExercises } from "../../utils/cardioPlan";
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -458,12 +459,15 @@ export default function LiveTrainingPage({
         const seedToUse = event?.adaptiveSuggestion
           ? applyAdaptiveToSeed(globalSeed, event.adaptiveSuggestion)
           : globalSeed;
+        const sport = seedSportToSportType(seedToUse.sport);
+        const initialExercises = seedToInitialExercises(seedToUse);
 
         const w = startLiveWorkout({
           title: seedToUse.title || "Training",
-          sport: seedSportToSportType(seedToUse.sport),
+          sport,
           calendarEventId: eventId,
-          initialExercises: seedToInitialExercises(seedToUse),
+          initialExercises,
+          cardioTarget: buildCardioTargetFromLiveExercises(initialExercises, sport) ?? event?.cardioTarget,
         });
 
         const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
@@ -486,12 +490,15 @@ export default function LiveTrainingPage({
         const seedToUse = event?.adaptiveSuggestion
           ? applyAdaptiveToSeed(resolvedSeed, event.adaptiveSuggestion)
           : resolvedSeed;
+        const sport = seedSportToSportType(seedToUse.sport);
+        const initialExercises = seedToInitialExercises(seedToUse);
 
         const w = startLiveWorkout({
           title: seedToUse.title || event?.title || "Training",
-          sport: seedSportToSportType(seedToUse.sport),
+          sport,
           calendarEventId: eventId,
-          initialExercises: seedToInitialExercises(seedToUse),
+          initialExercises,
+          cardioTarget: buildCardioTargetFromLiveExercises(initialExercises, sport) ?? event?.cardioTarget,
         });
 
         const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
@@ -512,6 +519,7 @@ export default function LiveTrainingPage({
         sport,
         calendarEventId: eventId,
         initialExercises: [],
+        cardioTarget: event?.cardioTarget,
       });
 
       const merged = { ...w, ...(initialWorkout as any) } as LiveWorkout;
@@ -534,6 +542,7 @@ export default function LiveTrainingPage({
     (event as any)?.trainingType,
     (event as any)?.sport,
     event?.adaptiveSuggestion,
+    event?.cardioTarget,
     initialWorkout,
   ]);
 

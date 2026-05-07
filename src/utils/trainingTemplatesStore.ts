@@ -9,6 +9,7 @@ export type TemplateDrop = {
 export type TemplateSet = {
   reps?: number;
   weight?: number;
+  notes?: string;
   type?: "n" | "w" | "f" | "d"; // normal, warmup, failure, dropset
   drops?: TemplateDrop[];
 };
@@ -85,6 +86,7 @@ function normalizeTemplate(input: any): TrainingTemplateLite | null {
             ? ex.sets.map((s: any) => ({
                 reps: typeof s?.reps === "number" ? s.reps : undefined,
                 weight: typeof s?.weight === "number" ? s.weight : undefined,
+                notes: typeof s?.notes === "string" ? s.notes : undefined,
               }))
             : undefined,
         }))

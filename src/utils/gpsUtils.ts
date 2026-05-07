@@ -51,7 +51,7 @@ export function computePace(distanceM: number, durationMs: number): number | und
 }
 
 export function formatPace(secPerKm: number | undefined): string {
-  if (!secPerKm || !Number.isFinite(secPerKm) || secPerKm <= 0) return "--:--";
+  if (!secPerKm || !Number.isFinite(secPerKm) || secPerKm <= 0 || secPerKm > 5999) return "--:--";
   const min = Math.floor(secPerKm / 60);
   const sec = Math.round(secPerKm % 60);
   return `${min}:${sec.toString().padStart(2, "0")}`;

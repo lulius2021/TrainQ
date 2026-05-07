@@ -100,8 +100,24 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const [cardioDistanceKm, setCardioDistanceKm] = useState<number | "">("");
     const [cardioTimeMin, setCardioTimeMin] = useState<number | "">("");
     const [cardioPaceMinKm, setCardioPaceMinKm] = useState<number | "">("");
-    type IntervalBlock = { distanceKm: number | ""; timeMin: number | ""; paceMinKm: number | "" };
-    const [intervals, setIntervals] = useState<IntervalBlock[]>([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
+    type CardioAddon = {
+        enabled: boolean;
+        distanceKm: number | "";
+        timeMin: number | "";
+        paceMinKm: number | "";
+    };
+    const emptyCardioAddon = (): CardioAddon => ({ enabled: false, distanceKm: "", timeMin: "", paceMinKm: "" });
+    const [warmup, setWarmup] = useState<CardioAddon>(emptyCardioAddon());
+    const [cooldown, setCooldown] = useState<CardioAddon>(emptyCardioAddon());
+    type IntervalBlock = {
+        kind: "interval" | "pause";
+        targetType: "time" | "distance" | "time_distance" | "pace_combo";
+        recoveryType?: "walk" | "easy" | "stand";
+        distanceKm: number | "";
+        timeMin: number | "";
+        paceMinKm: number | "";
+    };
+    const [intervals, setIntervals] = useState<IntervalBlock[]>([{ kind: "interval", targetType: "time_distance", distanceKm: "", timeMin: "", paceMinKm: "" }]);
     const [customNameInput, setCustomNameInput] = useState("");
     const [showCustomInput, setShowCustomInput] = useState(false);
 
@@ -133,7 +149,9 @@ function CreateTemplateModal({ open, onClose, onSave }: {
             setCardioDistanceKm("");
             setCardioTimeMin("");
             setCardioPaceMinKm("");
-            setIntervals([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
+            setWarmup(emptyCardioAddon());
+            setCooldown(emptyCardioAddon());
+            setIntervals([{ kind: "interval", targetType: "time_distance", distanceKm: "", timeMin: "", paceMinKm: "" }]);
             setCustomNameInput("");
             setShowCustomInput(false);
         }
@@ -147,7 +165,9 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         setCardioDistanceKm("");
         setCardioTimeMin("");
         setCardioPaceMinKm("");
-        setIntervals([{ distanceKm: "", timeMin: "", paceMinKm: "" }]);
+        setWarmup(emptyCardioAddon());
+        setCooldown(emptyCardioAddon());
+        setIntervals([{ kind: "interval", targetType: "time_distance", distanceKm: "", timeMin: "", paceMinKm: "" }]);
         setCustomNameInput("");
         setShowCustomInput(false);
     };
@@ -159,15 +179,71 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         if (!title.trim()) return;
         hapticMedium();
         let finalExercises: TemplateExercise[] | undefined;
+        const makeCardioExercise = (name: string, block: Pick<CardioAddon, "distanceKm" | "timeMin" | "paceMinKm">, noteLabel?: string): TemplateExercise => {
+            const pace =
+                typeof block.paceMinKm === "number" && block.paceMinKm > 0
+                    ? `${block.paceMinKm} min/km`
+                    : undefined;
+            const notes = [noteLabel, pace].filter(Boolean).join(" · ");
+            return {
+                name,
+                sets: [{
+                    weight: typeof block.distanceKm === "number" ? block.distanceKm : 0,
+                    reps: typeof block.timeMin === "number" ? block.timeMin : 0,
+                    notes: notes || undefined,
+                }],
+            };
+        };
+        const addonExercises = {
+            warmup: warmup.enabled ? makeCardioExercise("Warm-up", warmup, "Warm-up") : undefined,
+            cooldown: cooldown.enabled ? makeCardioExercise("Cooldown", cooldown, "Cooldown") : undefined,
+        };
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
         } else if (isCardio && cardioType) {
             const cardioName = cardioType === "intervals" ? "Intervalle"
                 : cardioType === "recovery" ? (sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt")
                 : (sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt");
-            const dist = typeof cardioDistanceKm === "number" ? cardioDistanceKm : 0;
-            const mins = typeof cardioTimeMin === "number" ? cardioTimeMin : 0;
-            finalExercises = [{ name: cardioName, sets: [{ weight: dist, reps: mins }] }];
+            if (cardioType === "intervals") {
+                let intervalCount = 0;
+                let pauseCount = 0;
+                const intervalExercises = intervals.map((block) => {
+                    const isPause = block.kind === "pause";
+                    const index = isPause ? ++pauseCount : ++intervalCount;
+                    const pauseTarget =
+                        block.targetType === "distance" ? "km" :
+                        block.targetType === "time" ? "min" :
+                        block.targetType === "pace_combo" ? "Pace" :
+                        undefined;
+                    const pace =
+                        typeof block.paceMinKm === "number" && block.paceMinKm > 0
+                            ? `${block.paceMinKm} min/km`
+                            : undefined;
+                    const notes = [
+                        isPause ? ["Pause", pauseTarget].filter(Boolean).join(": ") : "Intervall",
+                        pace,
+                    ].filter(Boolean).join(" · ");
+                    return {
+                        name: isPause ? `Pause ${index}` : `Intervall ${index}`,
+                        sets: [{
+                            weight: block.targetType !== "time" && typeof block.distanceKm === "number" ? block.distanceKm : 0,
+                            reps: block.targetType !== "distance" && typeof block.timeMin === "number" ? block.timeMin : 0,
+                            notes,
+                        }],
+                    };
+                });
+                finalExercises = [
+                    addonExercises.warmup,
+                    ...intervalExercises,
+                    addonExercises.cooldown,
+                ].filter(Boolean) as TemplateExercise[];
+            } else {
+                finalExercises = [
+                    addonExercises.warmup,
+                    makeCardioExercise(cardioName, { distanceKm: cardioDistanceKm, timeMin: cardioTimeMin, paceMinKm: cardioPaceMinKm }),
+                    addonExercises.cooldown,
+                ].filter(Boolean) as TemplateExercise[];
+            }
         }
         onSave({ title: title.trim(), sportType: sport, exercises: finalExercises });
     };
@@ -198,14 +274,49 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         );
     };
 
-    const handleIntervalChange = (idx: number, field: keyof IntervalBlock, value: string) => {
+    const handleIntervalChange = (idx: number, field: "distanceKm" | "timeMin" | "paceMinKm", value: string) => {
         const num = value === "" ? "" as const : parseFloat(value);
         setIntervals(prev => prev.map((iv, i) => i === idx ? { ...iv, [field]: num } : iv));
     };
 
+    const handleAddonChange = (
+        kind: "warmup" | "cooldown",
+        field: "distanceKm" | "timeMin" | "paceMinKm",
+        value: string
+    ) => {
+        const num = value === "" ? "" as const : parseFloat(value);
+        const setter = kind === "warmup" ? setWarmup : setCooldown;
+        setter(prev => ({ ...prev, [field]: num }));
+    };
+
+    const toggleAddon = (kind: "warmup" | "cooldown") => {
+        hapticButton();
+        const setter = kind === "warmup" ? setWarmup : setCooldown;
+        setter(prev => prev.enabled ? emptyCardioAddon() : { ...prev, enabled: true });
+    };
+
+    const handlePauseTargetChange = (idx: number, targetType: IntervalBlock["targetType"]) => {
+        hapticSelect();
+        setIntervals(prev => prev.map((iv, i) => {
+            if (i !== idx) return iv;
+            return {
+                ...iv,
+                targetType,
+                distanceKm: targetType === "time" ? "" : iv.distanceKm,
+                timeMin: targetType === "distance" ? "" : iv.timeMin,
+                paceMinKm: targetType === "pace_combo" ? iv.paceMinKm : "",
+            };
+        }));
+    };
+
     const addInterval = () => {
         hapticButton();
-        setIntervals(prev => [...prev, { distanceKm: "", timeMin: "", paceMinKm: "" }]);
+        setIntervals(prev => [...prev, { kind: "interval", targetType: "time_distance", distanceKm: "", timeMin: "", paceMinKm: "" }]);
+    };
+
+    const addPause = () => {
+        hapticButton();
+        setIntervals(prev => [...prev, { kind: "pause", targetType: "time", recoveryType: "walk", distanceKm: "", timeMin: "", paceMinKm: "" }]);
     };
 
     const removeInterval = (idx: number) => {
@@ -304,6 +415,80 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     };
 
     const existingIds = exercises.map((e) => e.exerciseId).filter(Boolean) as string[];
+    const renderCardioAddon = (kind: "warmup" | "cooldown") => {
+        const block = kind === "warmup" ? warmup : cooldown;
+        const label = kind === "warmup" ? "Warm-up" : "Cooldown";
+        const buttonLabel = kind === "warmup" ? "+ Warm-up" : "+ Cooldown";
+
+        if (!block.enabled) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => toggleAddon(kind)}
+                    className="h-8 px-3 rounded-xl inline-flex items-center justify-center text-[12px] font-bold active:scale-[0.97]"
+                    style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
+                >
+                    {buttonLabel}
+                </button>
+            );
+        }
+
+        return (
+            <div className="w-full rounded-2xl p-3 space-y-2" style={{ backgroundColor: "var(--button-bg)" }}>
+                <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold" style={{ color: "var(--text-color)" }}>{label}</span>
+                    <button
+                        type="button"
+                        onClick={() => toggleAddon(kind)}
+                        className="w-6 h-6 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: "var(--card-bg)" }}
+                    >
+                        <X size={10} style={{ color: "var(--text-muted)" }} />
+                    </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="relative">
+                        <input
+                            type="number"
+                            inputMode="decimal"
+                            step={0.1}
+                            value={block.distanceKm || ""}
+                            placeholder="-"
+                            onChange={(e) => handleAddonChange(kind, "distanceKm", e.target.value)}
+                            className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                        />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
+                    </div>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            inputMode="numeric"
+                            value={block.timeMin || ""}
+                            placeholder="-"
+                            onChange={(e) => handleAddonChange(kind, "timeMin", e.target.value)}
+                            className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                        />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                    </div>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            inputMode="decimal"
+                            step={0.1}
+                            value={block.paceMinKm || ""}
+                            placeholder="-"
+                            onChange={(e) => handleAddonChange(kind, "paceMinKm", e.target.value)}
+                            className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                            style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }}
+                        />
+                        <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
@@ -609,6 +794,9 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                     className="rounded-b-2xl p-4 space-y-3"
                                                     style={{ backgroundColor: "var(--card-bg)", borderLeft: "1.5px solid #007AFF", borderRight: "1.5px solid #007AFF", borderBottom: "1.5px solid #007AFF" }}
                                                 >
+                                                    <div className="flex justify-start">
+                                                        {renderCardioAddon("warmup")}
+                                                    </div>
                                                     <div className="grid grid-cols-3 gap-2">
                                                         <div>
                                                             <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Distanz</label>
@@ -642,6 +830,9 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                         </div>
                                                     </div>
                                                     <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>2 Werte eingeben — der 3. wird berechnet</p>
+                                                    <div className="flex justify-end">
+                                                        {renderCardioAddon("cooldown")}
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -651,48 +842,111 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                     className="rounded-b-2xl p-4 space-y-3"
                                                     style={{ backgroundColor: "var(--card-bg)", borderLeft: "1.5px solid #007AFF", borderRight: "1.5px solid #007AFF", borderBottom: "1.5px solid #007AFF" }}
                                                 >
-                                                    {intervals.map((iv, ivIdx) => (
-                                                        <div key={ivIdx}>
-                                                            <div className="flex items-center justify-between mb-1.5">
-                                                                <span className="text-[11px] font-bold" style={{ color: "var(--text-color)" }}>Intervall {ivIdx + 1}</span>
-                                                                {intervals.length > 1 && (
-                                                                    <button onClick={() => removeInterval(ivIdx)} className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--button-bg)" }}>
-                                                                        <X size={10} style={{ color: "var(--text-muted)" }} />
-                                                                    </button>
+                                                    <div className="flex justify-start">
+                                                        {renderCardioAddon("warmup")}
+                                                    </div>
+                                                    {intervals.map((iv, ivIdx) => {
+                                                        const isPause = iv.kind === "pause";
+                                                        const segmentIndex = intervals
+                                                            .slice(0, ivIdx + 1)
+                                                            .filter((block) => block.kind === iv.kind).length;
+                                                        const pauseTargetOptions = [
+                                                            { key: "distance", label: "km" },
+                                                            { key: "time", label: "min" },
+                                                            { key: "pace_combo", label: "Pace" },
+                                                        ] as const;
+                                                        const showDistance = !isPause || iv.targetType === "distance" || iv.targetType === "pace_combo";
+                                                        const showTime = !isPause || iv.targetType === "time" || iv.targetType === "pace_combo";
+                                                        const showPace = !isPause || iv.targetType === "pace_combo";
+
+                                                        return (
+                                                            <div key={ivIdx}>
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-[11px] font-bold" style={{ color: "var(--text-color)" }}>
+                                                                        {isPause ? `Pause ${segmentIndex}` : `Intervall ${segmentIndex}`}
+                                                                    </span>
+                                                                    {intervals.length > 1 && (
+                                                                        <button
+                                                                            onClick={() => removeInterval(ivIdx)}
+                                                                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                                                                            style={{ backgroundColor: "var(--button-bg)" }}
+                                                                        >
+                                                                            <X size={10} style={{ color: "var(--text-muted)" }} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                {isPause && (
+                                                                    <div className="grid grid-cols-3 gap-1.5 rounded-2xl p-1 mb-2" style={{ backgroundColor: "var(--input-bg)" }}>
+                                                                        {pauseTargetOptions.map((target) => {
+                                                                            const selected = iv.targetType === target.key;
+                                                                            return (
+                                                                                <button
+                                                                                    key={target.key}
+                                                                                    type="button"
+                                                                                    onClick={() => handlePauseTargetChange(ivIdx, target.key)}
+                                                                                    className="h-8 rounded-xl text-[11px] font-bold"
+                                                                                    style={{
+                                                                                        backgroundColor: selected ? "var(--card-bg)" : "transparent",
+                                                                                        color: selected ? "#007AFF" : "var(--text-muted)",
+                                                                                    }}
+                                                                                >
+                                                                                    {target.label}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
                                                                 )}
+                                                                <div className={`grid gap-2 ${[showDistance, showTime, showPace].filter(Boolean).length === 1 ? "grid-cols-1" : "grid-cols-3"}`}>
+                                                                    {showDistance && (
+                                                                        <div className="relative">
+                                                                            <input type="number" inputMode="decimal" step={0.1} value={iv.distanceKm || ""} placeholder="-"
+                                                                                onChange={(e) => handleIntervalChange(ivIdx, "distanceKm", e.target.value)}
+                                                                                className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {showTime && (
+                                                                        <div className="relative">
+                                                                            <input type="number" inputMode="numeric" value={iv.timeMin || ""} placeholder="-"
+                                                                                onChange={(e) => handleIntervalChange(ivIdx, "timeMin", e.target.value)}
+                                                                                className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {showPace && (
+                                                                        <div className="relative">
+                                                                            <input type="number" inputMode="decimal" step={0.1} value={iv.paceMinKm || ""} placeholder="-"
+                                                                                onChange={(e) => handleIntervalChange(ivIdx, "paceMinKm", e.target.value)}
+                                                                                className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
+                                                                                style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
+                                                                            <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div className="grid grid-cols-3 gap-2">
-                                                                <div className="relative">
-                                                                    <input type="number" inputMode="decimal" step={0.1} value={iv.distanceKm || ""} placeholder="-"
-                                                                        onChange={(e) => handleIntervalChange(ivIdx, "distanceKm", e.target.value)}
-                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
-                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
-                                                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>km</span>
-                                                                </div>
-                                                                <div className="relative">
-                                                                    <input type="number" inputMode="numeric" value={iv.timeMin || ""} placeholder="-"
-                                                                        onChange={(e) => handleIntervalChange(ivIdx, "timeMin", e.target.value)}
-                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
-                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
-                                                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
-                                                                </div>
-                                                                <div className="relative">
-                                                                    <input type="number" inputMode="decimal" step={0.1} value={iv.paceMinKm || ""} placeholder="-"
-                                                                        onChange={(e) => handleIntervalChange(ivIdx, "paceMinKm", e.target.value)}
-                                                                        className="h-9 w-full rounded-2xl text-center text-sm font-bold outline-none placeholder-zinc-400"
-                                                                        style={{ backgroundColor: "var(--input-bg)", color: "var(--text-color)" }} />
-                                                                    <span className="absolute right-0.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold" style={{ color: "var(--text-muted)" }}>min/km</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        onClick={addInterval}
-                                                        className="w-full py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
-                                                        style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
-                                                    >
-                                                        <Plus size={15} /> Intervall
-                                                    </button>
+                                                        );
+                                                    })}
+                                                    <div className="flex justify-end">
+                                                        {renderCardioAddon("cooldown")}
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            onClick={addInterval}
+                                                            className="py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
+                                                            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
+                                                        >
+                                                            <Plus size={15} /> Intervall
+                                                        </button>
+                                                        <button
+                                                            onClick={addPause}
+                                                            className="py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
+                                                            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
+                                                        >
+                                                            <Plus size={15} /> Pause
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

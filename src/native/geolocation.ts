@@ -54,13 +54,32 @@ export async function watchPosition(
   onPoint: (point: GpsPoint) => void,
   onError?: (err: unknown) => void,
 ): Promise<WatchCallbackId> {
+  let coarseId: string | null = null;
+  let gotHighAccuracy = false;
+
+  const toPoint = (p: GeolocationPosition): GpsPoint => ({
+    lat: p.coords.latitude,
+    lng: p.coords.longitude,
+    altitude: p.coords.altitude ?? undefined,
+    accuracy: p.coords.accuracy ?? undefined,
+    timestamp: p.timestamp,
+  });
+
+  // Phase 1: Coarse watch (WiFi/Cell — instant first fix)
+  if (isNative) {
+    Geolocation.watchPosition(
+      { enableHighAccuracy: false },
+      (position) => {
+        if (gotHighAccuracy || !position) return;
+        onPoint(toPoint(position));
+      },
+    ).then((id) => { coarseId = id; }).catch(() => {});
+  }
+
+  // Phase 2: High-accuracy watch (real GPS tracking)
   const id = await Geolocation.watchPosition(
     {
       enableHighAccuracy: true,
-      // backgroundMessage enables allowsBackgroundLocationUpdates on iOS — REQUIRED for
-      // GPS to keep running when the screen is locked or app is backgrounded.
-      // Without this the CLLocationManager suspends updates even if UIBackgroundModes
-      // contains "location" in Info.plist.
       ...(isNative
         ? {
             backgroundMessage: "TrainQ zeichnet deine Route auf",
@@ -69,19 +88,16 @@ export async function watchPosition(
         : { timeout: 10000, maximumAge: 0 }),
     },
     (position, err) => {
-      if (err) {
-        onError?.(err);
-        return;
-      }
+      if (err) { onError?.(err); return; }
       if (!position) return;
-      const point: GpsPoint = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        altitude: position.coords.altitude ?? undefined,
-        accuracy: position.coords.accuracy ?? undefined,
-        timestamp: position.timestamp,
-      };
-      onPoint(point);
+
+      // Stop coarse watch once high-accuracy arrives
+      if (!gotHighAccuracy && coarseId) {
+        gotHighAccuracy = true;
+        Geolocation.clearWatch({ id: coarseId }).catch(() => {});
+        coarseId = null;
+      }
+      onPoint(toPoint(position));
     },
   );
   return id;
@@ -96,17 +112,29 @@ export async function clearWatch(id: WatchCallbackId): Promise<void> {
 }
 
 /**
- * Warm up the GPS receiver by requesting a single high-accuracy position.
- * Call this early (e.g. when the cardio page mounts) so the GPS chip is
- * already locked on satellites by the time the user taps "Start".
+ * Warm up the GPS receiver with two phases:
+ * 1. Instant coarse fix (WiFi/Cell) — ~1-2s
+ * 2. Background high-accuracy request — wakes GPS chip for later
+ * Call at app launch (main.tsx), not just when cardio opens.
  */
+let _warmupDone = false;
 export async function warmupGps(): Promise<void> {
+  if (_warmupDone) return;
+  _warmupDone = true;
+  // Phase 1: Fast coarse position (near-instant via WiFi/Cell)
   try {
     await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 15000,
+      enableHighAccuracy: false,
+      timeout: 3000,
+      maximumAge: 120000,
     });
-  } catch {
-    // Best-effort warmup — failure is fine
-  }
+  } catch { /* ignore */ }
+  // Phase 2: High-accuracy in background (wakes GPS chip)
+  Geolocation.getCurrentPosition({
+    enableHighAccuracy: true,
+    timeout: 15000,
+  }).catch(() => {});
 }
+
+/** Reset warmup (e.g. after long idle) */
+export function resetWarmup(): void { _warmupDone = false; }

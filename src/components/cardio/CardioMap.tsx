@@ -270,7 +270,7 @@ const CardioMap: React.FC<CardioMapProps> = ({
 
       {/* Control buttons — outside leaflet container so z-index works */}
       <div
-        className="absolute right-3 flex flex-col gap-2"
+        className="absolute right-3 flex flex-row gap-2"
         style={{ zIndex: 9999, top: controlsTopOffset ?? 12 }}
       >
         {/* Map style toggle */}

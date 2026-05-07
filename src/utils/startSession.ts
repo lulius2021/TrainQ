@@ -74,6 +74,7 @@ function templateToSeed(template: TrainingTemplateLite): LiveTrainingSeed {
       sets: (ex.sets ?? []).map((s) => ({
         reps: typeof s.reps === "number" ? s.reps : undefined,
         weight: typeof s.weight === "number" ? s.weight : undefined,
+        notes: typeof s.notes === "string" ? s.notes : undefined,
       })),
     })) ?? [];
 

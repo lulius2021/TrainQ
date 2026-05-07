@@ -571,7 +571,8 @@ const DashboardPage = () => {
               key={i}
               onClick={item.action}
               disabled={isWorkoutActive}
-              className="w-full bg-[var(--card-bg)] rounded-[20px] px-4 py-3.5 border border-[var(--border-color)] flex items-center gap-4 active:scale-[0.98] transition-transform btn-haptic disabled:opacity-50"
+              className="w-full rounded-[20px] px-4 py-3.5 flex items-center gap-4 active:scale-[0.98] transition-transform btn-haptic disabled:opacity-50 backdrop-blur-xl"
+              style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
             >
               <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.12)", color: "#007AFF" }}>
                 {item.icon}
@@ -587,11 +588,13 @@ const DashboardPage = () => {
 
         {/* QUICK ACCESS — inline row */}
         <div className="flex gap-2">
-          <button onClick={() => setShowPlanModal(true)} className="flex-1 bg-[var(--card-bg)] rounded-[20px] px-4 py-3 border border-[var(--border-color)] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic">
+          <button onClick={() => setShowPlanModal(true)} className="flex-1 rounded-[20px] px-4 py-3 flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic backdrop-blur-xl"
+            style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
             <Plus size={16} style={{ color: "#007AFF" }} strokeWidth={2.5} />
             <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.plan")}</span>
           </button>
-          <button onClick={() => setShowShiftModal(true)} className="flex-1 bg-[var(--card-bg)] rounded-[20px] px-4 py-3 border border-[var(--border-color)] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic">
+          <button onClick={() => setShowShiftModal(true)} className="flex-1 rounded-[20px] px-4 py-3 flex items-center justify-center gap-2 active:scale-[0.97] transition-transform btn-haptic backdrop-blur-xl"
+            style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
             <RefreshCw size={14} style={{ color: "#007AFF" }} />
             <span className="text-[13px] font-semibold text-[var(--text-color)]">{t("dashboard.quickAccess.shift")}</span>
           </button>
@@ -600,7 +603,7 @@ const DashboardPage = () => {
 
 
         {/* WEEKLY OVERVIEW */}
-        <div className="bg-[var(--card-bg)] rounded-[24px] px-5 py-4 border border-[var(--border-color)]">
+        <div className="rounded-[24px] px-5 py-4 backdrop-blur-xl" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
           <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">{t("dashboard.weekOverview")}</h3>
           <div className="flex items-baseline gap-2 mb-3">
             <span className="text-[42px] font-black tabular-nums leading-none" style={{ color: "var(--text-color)" }}>{weeklyWorkouts}</span>
@@ -624,7 +627,7 @@ const DashboardPage = () => {
         {lastActivity && (
           <div>
             <h3 className="text-[13px] font-bold text-[var(--text-muted)] mb-3 pl-1 uppercase tracking-wider">{t("dashboard.lastTraining")}</h3>
-            <div className="bg-[var(--card-bg)] rounded-[28px] p-4 border border-[var(--border-color)] flex items-center gap-4">
+            <div className="rounded-[28px] p-4 flex items-center gap-4 backdrop-blur-xl" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}>
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
                 {lastActivity.sport === "gym" ? <IconDumbbellFill width={20} height={12} style={{ color: "#007AFF" }} /> : lastActivity.sport === "laufen" ? <IconFigureRun width={20} height={20} style={{ color: "#007AFF" }} /> : <Bike size={20} style={{ color: "#007AFF" }} />}
               </div>

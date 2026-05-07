@@ -9,11 +9,29 @@ export interface CardioInterval {
   targetPaceSecPerKm?: number;
 }
 
+export type CardioPlanSegmentType = "warmup" | "work" | "rest" | "steady" | "cooldown";
+
+export interface CardioPlanSegment {
+  id: string;
+  type: CardioPlanSegmentType;
+  label: string;
+  /** Planned duration in seconds. Optional for distance-only targets. */
+  durationSec?: number;
+  /** Planned distance in meters. Optional for time-only targets. */
+  distanceM?: number;
+  /** Running-style target pace in seconds per km. */
+  targetPaceSecPerKm?: number;
+  /** Cycling-style target speed in km/h. */
+  targetSpeedKmh?: number;
+}
+
 export interface CardioTarget {
   /** Overall target pace in sec/km */
   targetPaceSecPerKm?: number;
   /** If set: interval mode — cycles through the list repeatedly */
   intervals?: CardioInterval[];
+  /** Sequential plan used by template-driven live cardio training. */
+  segments?: CardioPlanSegment[];
 }
 
 export interface GpsPoint {

@@ -48,6 +48,9 @@ function setupGlobalNoZoom() {
 
 setupGlobalNoZoom();
 
+// ----- Global: GPS warmup (start early so chip is ready for cardio) -----
+import("./native/geolocation").then(({ warmupGps }) => warmupGps()).catch(() => {});
+
 // ----- Global: scroll focused input into view when keyboard opens -----
 // Capacitor Keyboard resize is set to 'none', so we handle it manually.
 function setupKeyboardScrollFix() {

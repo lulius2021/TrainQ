@@ -14,7 +14,9 @@ import { haversineDistance, computePace } from "../utils/gpsUtils";
 import { saveGpsSession, loadGpsSession, clearGpsSession } from "../utils/gpsSessionPersistence";
 import type { GpsSignalStrength } from "../components/cardio/GpsSignalIndicator";
 
-const MAX_ACCURACY_M = 20;          // reject points with worse accuracy
+const MAX_ACCURACY_M = 20;          // reject points with worse accuracy (after grace)
+const INITIAL_ACCURACY_M = 100;    // accept coarse points for first 10s
+const INITIAL_GRACE_MS = 10000;    // 10s grace period with relaxed accuracy
 const GPS_SIGNAL_WEAK_M = 10;      // accuracy > this = "weak" signal
 const MAX_SPEED_MS = 12;           // reject points > 12 m/s (43 km/h, unrealistic for running)
 const AUTO_PAUSE_SPEED_MS = 0.5;   // below this → standing still
@@ -26,7 +28,8 @@ const SMOOTHING_WINDOW = 3;        // 3-point moving average
 
 /** Derive GPS signal quality from accuracy in meters. */
 function deriveGpsSignal(accuracy: number | undefined): GpsSignalStrength {
-  if (accuracy === undefined || accuracy > MAX_ACCURACY_M) return "searching";
+  if (accuracy === undefined) return "searching";
+  if (accuracy > INITIAL_ACCURACY_M) return "searching";
   if (accuracy > GPS_SIGNAL_WEAK_M) return "weak";
   return "good";
 }
@@ -117,8 +120,10 @@ export function useGpsTracking() {
     // Update GPS signal strength on every incoming point (even rejected ones)
     setGpsSignal(deriveGpsSignal(point.accuracy));
 
-    // Reject low-accuracy points
-    if (point.accuracy && point.accuracy > MAX_ACCURACY_M) return;
+    // Reject low-accuracy points — relaxed during initial grace period
+    const elapsed = Date.now() - (startedAtRef.current || Date.now());
+    const maxAcc = elapsed < INITIAL_GRACE_MS ? INITIAL_ACCURACY_M : MAX_ACCURACY_M;
+    if (point.accuracy && point.accuracy > maxAcc) return;
 
     const prev = pointsRef.current;
     const lastPoint = prev[prev.length - 1];

@@ -13,6 +13,7 @@ import type {
   SportType,
   TrainingStatus,
 } from "../types/training";
+import type { CardioTarget } from "../types/cardio";
 import { getScopedItem, removeScopedItem, setScopedItem } from "./scopedStorage";
 
 import {
@@ -275,6 +276,7 @@ export function startLiveWorkout(args: {
   title: string;
   sport: SportType;
   calendarEventId?: string;
+  cardioTarget?: CardioTarget;
   initialExercises?: Array<{
     exerciseId?: string;
     name: string;
@@ -311,6 +313,7 @@ export function startLiveWorkout(args: {
     isActive: true,
     isMinimized: false,
     exercises,
+    cardioTarget: args.cardioTarget,
     notes: "",
     abortedAt: undefined,
   };
