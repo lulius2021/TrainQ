@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "bash scripts/dev.sh",
     "typecheck": "tsc -b",
     "build": "vite build",
     "lint": "eslint .",
