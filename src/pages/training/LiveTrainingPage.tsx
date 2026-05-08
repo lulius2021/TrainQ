@@ -95,6 +95,26 @@ type LiveTrainingPageProps = {
 // --- FORCE LIVE ACTIVITY START (DEBUG) ---
 
 
+function ErrorBoundaryFallback({ errorMessage, onExit, theme }: { errorMessage?: string; onExit: () => void; theme: import("../../theme/types").Theme }) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="flex h-screen w-screen items-center justify-center px-4"
+      style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
+    >
+      <AppCard className="w-full max-w-md text-center">
+        <div className="text-sm font-semibold">{t("live_training.error_boundary.title")}</div>
+        <div className="mt-2 text-xs text-zinc-400">
+          {errorMessage || t("live_training.error_boundary.message")}
+        </div>
+        <AppButton onClick={onExit} className="mt-3" fullWidth variant="secondary">
+          {t("live_training.error_boundary.back")}
+        </AppButton>
+      </AppCard>
+    </div>
+  );
+}
+
 class LiveTrainingErrorBoundary extends React.Component<
   { onExit: () => void; children: React.ReactNode; theme: import("../../theme/types").Theme },
   { hasError: boolean; errorMessage?: string }
@@ -113,28 +133,7 @@ class LiveTrainingErrorBoundary extends React.Component<
 
   render() {
     if (!this.state.hasError) return this.props.children;
-    const { theme } = this.props;
-    return (
-      <div
-        className="flex h-screen w-screen items-center justify-center px-4"
-        style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
-      >
-        <AppCard className="w-full max-w-md text-center">
-          <div className="text-sm font-semibold">Live-Training ist abgestürzt.</div>
-          <div className="mt-2 text-xs text-zinc-400">
-            {this.state.errorMessage || "Bitte erneut versuchen."}
-          </div>
-          <AppButton
-            onClick={this.props.onExit}
-            className="mt-3"
-            fullWidth
-            variant="secondary"
-          >
-            Zurück
-          </AppButton>
-        </AppCard>
-      </div>
-    );
+    return <ErrorBoundaryFallback errorMessage={this.state.errorMessage} onExit={this.props.onExit} theme={this.props.theme} />;
   }
 }
 
@@ -635,12 +634,12 @@ export default function LiveTrainingPage({
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([m]) => m);
-  }, [workout, workout?.exercises]);
+  }, [workout?.exercises]);
 
   const overlayData = useMemo(() => {
     if (!workout) return null;
 
-    const tp = formatTimeParts(elapsedSec);
+    const tp = formatTimeParts(elapsedSecRef.current);
     const showHours = tp.h > 0;
     const elapsedText = showHours ? `${tp.h}:${tp.mm}:${tp.ss}` : `${Number(tp.mm)}:${tp.ss}`;
     const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
@@ -712,7 +711,8 @@ export default function LiveTrainingPage({
       activeSet,
       activeSetIndex,
     };
-  }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]);
+  // PERF: elapsedSec triggers re-render only every 5s, restRemainingSec still every 1s (needed for countdown display)
+  }, [workout, elapsedSec, restRemainingSec, isCardioWorkout]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ... (ticks and timers remain same)
 
@@ -849,17 +849,24 @@ export default function LiveTrainingPage({
 
 
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
+  // PERF: Only setState every 5 seconds for overlay/live-activity, use ref for display
+  const elapsedSecRef = useRef(0);
   useEffect(() => {
     if (!workout) return;
 
     const started = new Date(workout.startedAt).getTime();
     startedAtMsRef.current = Number.isFinite(started) ? started : Date.now();
 
-    setElapsedSec(Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000)));
+    const initial = Math.max(0, Math.floor((Date.now() - (startedAtMsRef.current ?? Date.now())) / 1000));
+    elapsedSecRef.current = initial;
+    setElapsedSec(initial);
 
     tickRef.current = window.setInterval(() => {
       const base = startedAtMsRef.current ?? Date.now();
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - base) / 1000)));
+      const sec = Math.max(0, Math.floor((Date.now() - base) / 1000));
+      elapsedSecRef.current = sec;
+      // Only trigger React re-render every 5 seconds (for overlay/live-activity sync)
+      if (sec % 5 === 0) setElapsedSec(sec);
     }, 1000);
 
     return () => {
@@ -901,13 +908,23 @@ export default function LiveTrainingPage({
     };
   }, [activeRest]);
 
-  // ✅ Persist Active Workout bei jeder Änderung (nur solange aktiv)
-  // Syncs to BOTH: legacy (utils) and Zustand (store)
+  // ✅ Persist Active Workout — throttled to max every 3 seconds
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPersistedRef = useRef<string>("");
   useEffect(() => {
-    if (!workout) return;
-    if (!workout.isActive) return;
-    persistActiveLiveWorkout(workout);
-    useLiveTrainingStore.getState().updateWorkout(workout); // ✅ Sync to Store
+    if (!workout || !workout.isActive) return;
+    // Skip if workout hasn't actually changed (same JSON)
+    const json = JSON.stringify(workout.exercises?.map(e => ({ id: e.id, sets: e.sets })));
+    if (json === lastPersistedRef.current) return;
+
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      lastPersistedRef.current = json;
+      persistActiveLiveWorkout(workout);
+      useLiveTrainingStore.getState().updateWorkout(workout);
+    }, 3000);
+
+    return () => { if (persistTimerRef.current) clearTimeout(persistTimerRef.current); };
   }, [workout]);
 
   // ✅ Scroll Effect
@@ -1241,7 +1258,7 @@ export default function LiveTrainingPage({
     if (!workout || !workout.isActive) return;
 
     const now = Date.now();
-    if (now - liveActivityLastUpdateRef.current < 1500) return;
+    if (now - liveActivityLastUpdateRef.current < 5000) return; // PERF: throttle to 5s
     liveActivityLastUpdateRef.current = now;
 
     const payload = buildLiveActivityPayload();

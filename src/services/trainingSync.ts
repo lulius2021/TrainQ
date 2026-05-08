@@ -20,6 +20,80 @@ function setLastSync(table: string, ts: string): void {
 }
 function now(): string { return new Date().toISOString(); }
 
+function logSyncError(context: string, err: unknown): void {
+  if (import.meta.env.DEV) console.error(`[TrainingSync] ${context}:`, err);
+}
+
+// ==================== Types ====================
+
+interface WorkoutEntry {
+  id: string;
+  calendarEventId?: string;
+  title?: string;
+  sport?: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSec?: number;
+  sessionRpe?: number;
+  exercises?: unknown;
+  distanceKm?: number;
+  paceSecPerKm?: number;
+  totalVolume?: number;
+  adaptiveScore?: number;
+  rating?: number;
+  gpsPoints?: unknown;
+  elevationGainM?: number;
+  calories?: number;
+  postFeedback?: unknown;
+  updatedAt?: string;
+}
+
+interface TrainingTemplateSync {
+  id: string;
+  name?: string;
+  sportType?: string;
+  exercises?: unknown;
+  sourcePlanId?: string;
+  sourceDayIndex?: number;
+  signature?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface TrainingPlanTemplateSync {
+  id: string;
+  name?: string;
+  kind?: string;
+  startDate?: string;
+  durationWeeks?: number;
+  days?: unknown;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface CustomExerciseSync {
+  id: string;
+  name?: string;
+  aliases?: string[];
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  equipment?: string;
+  movement?: string;
+  type?: string;
+  metrics?: unknown;
+  imageSrc?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface AiCoachProfileSync {
+  goal?: string;
+  level?: string;
+  daysPerWeek?: number;
+  equipment?: string[];
+  durationWeeks?: number;
+}
+
 // ==================== PUSH: Calendar Events ====================
 
 export function pushCalendarEvent(event: CalendarEvent): void {
@@ -28,7 +102,7 @@ export function pushCalendarEvent(event: CalendarEvent): void {
   client.from("calendar_events").upsert({
     id: event.id, user_id: uid, title: event.title, date: event.date,
     start_time: event.startTime || "", end_time: event.endTime || "",
-    event_type: (event as any).type, training_type: event.trainingType,
+    event_type: event.type, training_type: event.trainingType,
     training_status: event.trainingStatus, completed_at: event.completedAt,
     skipped_at: event.skippedAt, workout_id: event.workoutId,
     template_id: event.templateId, deload: event.deload,
@@ -36,12 +110,13 @@ export function pushCalendarEvent(event: CalendarEvent): void {
     adaptive_profile: event.adaptiveProfile, adaptive_suggestion: event.adaptiveSuggestion,
     description: event.description, notes: event.notes, sport: event.sport,
     updated_at: now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushCalendarEvent", err));
 }
 
 export function pushCalendarEventDelete(id: string): void {
   const client = getClient(); if (!client) return;
-  client.from("calendar_events").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId()).then(() => {}, () => {});
+  client.from("calendar_events").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId())
+    .then(() => {}, (err) => logSyncError("pushCalendarEventDelete", err));
 }
 
 export function pushCalendarEventsBatch(events: CalendarEvent[]): void {
@@ -50,16 +125,17 @@ export function pushCalendarEventsBatch(events: CalendarEvent[]): void {
   const rows = events.map((e) => ({
     id: e.id, user_id: uid, title: e.title, date: e.date,
     start_time: e.startTime || "", end_time: e.endTime || "",
-    event_type: (e as any).type, training_type: e.trainingType,
+    event_type: e.type, training_type: e.trainingType,
     training_status: e.trainingStatus, workout_data: e.workoutData,
     template_id: e.templateId, updated_at: now(),
   }));
-  client.from("calendar_events").upsert(rows).then(() => {}, () => {});
+  client.from("calendar_events").upsert(rows)
+    .then(() => {}, (err) => logSyncError("pushCalendarEventsBatch", err));
 }
 
 // ==================== PUSH: Workout History ====================
 
-export function pushWorkoutEntry(entry: any): void {
+export function pushWorkoutEntry(entry: WorkoutEntry): void {
   const client = getClient(); if (!client) return;
   const uid = getUserId();
   client.from("workout_history").upsert({
@@ -73,12 +149,12 @@ export function pushWorkoutEntry(entry: any): void {
     gps_points: entry.gpsPoints, elevation_gain_m: entry.elevationGainM,
     calories: entry.calories, post_feedback: entry.postFeedback,
     updated_at: now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushWorkoutEntry", err));
 }
 
 // ==================== PUSH: Training Templates ====================
 
-export function pushTrainingTemplate(tpl: any): void {
+export function pushTrainingTemplate(tpl: TrainingTemplateSync): void {
   const client = getClient(); if (!client) return;
   const uid = getUserId();
   client.from("training_templates").upsert({
@@ -86,29 +162,30 @@ export function pushTrainingTemplate(tpl: any): void {
     exercises: tpl.exercises, source_plan_id: tpl.sourcePlanId,
     source_day_index: tpl.sourceDayIndex, signature: tpl.signature,
     created_at: tpl.createdAt, updated_at: tpl.updatedAt || now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushTrainingTemplate", err));
 }
 
 export function pushTrainingTemplateDelete(id: string): void {
   const client = getClient(); if (!client) return;
-  client.from("training_templates").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId()).then(() => {}, () => {});
+  client.from("training_templates").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId())
+    .then(() => {}, (err) => logSyncError("pushTrainingTemplateDelete", err));
 }
 
 // ==================== PUSH: Training Plan Templates ====================
 
-export function pushTrainingPlanTemplate(plan: any): void {
+export function pushTrainingPlanTemplate(plan: TrainingPlanTemplateSync): void {
   const client = getClient(); if (!client) return;
   const uid = getUserId();
   client.from("training_plan_templates").upsert({
     id: plan.id, user_id: uid, name: plan.name, kind: plan.kind,
     start_date: plan.startDate, duration_weeks: plan.durationWeeks,
     days: plan.days, created_at: plan.createdAt, updated_at: plan.updatedAt || now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushTrainingPlanTemplate", err));
 }
 
 // ==================== PUSH: Custom Exercises ====================
 
-export function pushCustomExercise(ex: any): void {
+export function pushCustomExercise(ex: CustomExerciseSync): void {
   const client = getClient(); if (!client) return;
   const uid = getUserId();
   client.from("custom_exercises").upsert({
@@ -117,24 +194,25 @@ export function pushCustomExercise(ex: any): void {
     equipment: ex.equipment, movement: ex.movement, exercise_type: ex.type,
     metrics: ex.metrics, image_src: ex.imageSrc,
     created_at: ex.createdAt || now(), updated_at: ex.updatedAt || now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushCustomExercise", err));
 }
 
 export function pushCustomExerciseDelete(id: string): void {
   const client = getClient(); if (!client) return;
-  client.from("custom_exercises").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId()).then(() => {}, () => {});
+  client.from("custom_exercises").update({ deleted_at: now() }).eq("id", id).eq("user_id", getUserId())
+    .then(() => {}, (err) => logSyncError("pushCustomExerciseDelete", err));
 }
 
 // ==================== PUSH: AI Coach Profile ====================
 
-export function pushAiCoachProfile(profile: any): void {
+export function pushAiCoachProfile(profile: AiCoachProfileSync): void {
   const client = getClient(); if (!client) return;
   const uid = getUserId();
   client.from("ai_coach_profiles").upsert({
     user_id: uid, goal: profile.goal, level: profile.level,
     days_per_week: profile.daysPerWeek, equipment: profile.equipment,
     duration_weeks: profile.durationWeeks, updated_at: now(),
-  }).then(() => {}, () => {});
+  }).then(() => {}, (err) => logSyncError("pushAiCoachProfile", err));
 }
 
 // ==================== PULL & MERGE ====================
@@ -148,6 +226,14 @@ export async function pullAndMergeTrainingData(): Promise<void> {
   const syncNow = now();
 
   try {
+    // First login with local data? Push everything to Supabase first
+    const firstSyncKey = `trainq_training_initial_push_done_${uid}`;
+    if (!localStorage.getItem(firstSyncKey)) {
+      if (import.meta.env.DEV) console.log("[TrainingSync] First sync — pushing all local data...");
+      await pushAllLocalData();
+      localStorage.setItem(firstSyncKey, "1");
+    }
+
     await Promise.all([
       pullCalendarEvents(client, uid),
       pullWorkoutHistory(client, uid),
@@ -161,13 +247,13 @@ export async function pullAndMergeTrainingData(): Promise<void> {
     ["calendar_events", "workout_history", "training_templates", "training_plan_templates", "custom_exercises", "ai_coach_profiles"]
       .forEach((t) => setLastSync(t, syncNow));
   } catch (e) {
-    if (import.meta.env.DEV) console.error("[TrainingSync] Pull failed:", e);
+    logSyncError("Pull failed", e);
   }
 }
 
-async function pullCalendarEvents(client: any, uid: string) {
+async function pullCalendarEvents(client: ReturnType<typeof getSupabaseClient>, uid: string) {
   const lastSync = getLastSync("calendar_events");
-  const { data } = await client.from("calendar_events").select("*").eq("user_id", uid).gt("updated_at", lastSync);
+  const { data } = await client!.from("calendar_events").select("*").eq("user_id", uid).gt("updated_at", lastSync);
   if (!data?.length) return;
 
   const raw = getScopedItem("trainq_calendar_events", uid);
@@ -178,7 +264,7 @@ async function pullCalendarEvents(client: any, uid: string) {
     if (re.deleted_at) { localMap.delete(re.id); continue; }
     const localItem = localMap.get(re.id);
     const remoteTs = re.updated_at || re.created_at;
-    const localTs = (localItem as any)?.updatedAt || "";
+    const localTs = (localItem as Record<string, unknown>)?.updatedAt as string || "";
     if (!localItem || remoteTs > localTs) {
       localMap.set(re.id, {
         id: re.id, title: re.title, date: re.date, startTime: re.start_time, endTime: re.end_time,
@@ -194,14 +280,14 @@ async function pullCalendarEvents(client: any, uid: string) {
   window.dispatchEvent(new Event("trainq:update_events"));
 }
 
-async function pullWorkoutHistory(client: any, uid: string) {
+async function pullWorkoutHistory(client: ReturnType<typeof getSupabaseClient>, uid: string) {
   const lastSync = getLastSync("workout_history");
-  const { data } = await client.from("workout_history").select("*").eq("user_id", uid).gt("updated_at", lastSync);
+  const { data } = await client!.from("workout_history").select("*").eq("user_id", uid).gt("updated_at", lastSync);
   if (!data?.length) return;
 
   const raw = getScopedItem("trainq_workout_history_v1", uid);
-  const local: any[] = raw ? JSON.parse(raw) : [];
-  const localMap = new Map(local.map((e: any) => [e.id, e]));
+  const local: WorkoutEntry[] = raw ? JSON.parse(raw) : [];
+  const localMap = new Map(local.map((e) => [e.id, e]));
 
   for (const re of data) {
     if (re.deleted_at) { localMap.delete(re.id); continue; }
@@ -221,22 +307,22 @@ async function pullWorkoutHistory(client: any, uid: string) {
   window.dispatchEvent(new Event("trainq:workoutHistoryUpdated"));
 }
 
-async function pullTrainingTemplates(client: any, uid: string) {
+async function pullTrainingTemplates(client: ReturnType<typeof getSupabaseClient>, uid: string) {
   const lastSync = getLastSync("training_templates");
-  const { data } = await client.from("training_templates").select("*").eq("user_id", uid).gt("updated_at", lastSync);
+  const { data } = await client!.from("training_templates").select("*").eq("user_id", uid).gt("updated_at", lastSync);
   if (!data?.length) return;
 
   const storageKey = `trainq:${uid}:training_templates_v1`;
   const raw = localStorage.getItem(storageKey);
-  const local: any[] = raw ? JSON.parse(raw) : [];
-  const localMap = new Map(local.map((e: any) => [e.id, e]));
+  const local: TrainingTemplateSync[] = raw ? JSON.parse(raw) : [];
+  const localMap = new Map(local.map((e) => [e.id, e]));
 
   for (const re of data) {
     if (re.deleted_at) { localMap.delete(re.id); continue; }
     const localItem = localMap.get(re.id);
     if (!localItem || (re.updated_at || "") > (localItem.updatedAt || "")) {
       localMap.set(re.id, {
-        id: re.id, userId: uid, name: re.name, sportType: re.sport_type,
+        id: re.id, name: re.name, sportType: re.sport_type,
         exercises: re.exercises, sourcePlanId: re.source_plan_id,
         sourceDayIndex: re.source_day_index, signature: re.signature,
         createdAt: re.created_at, updatedAt: re.updated_at,
@@ -246,22 +332,22 @@ async function pullTrainingTemplates(client: any, uid: string) {
   localStorage.setItem(storageKey, JSON.stringify([...localMap.values()]));
 }
 
-async function pullTrainingPlanTemplates(client: any, uid: string) {
+async function pullTrainingPlanTemplates(client: ReturnType<typeof getSupabaseClient>, uid: string) {
   const lastSync = getLastSync("training_plan_templates");
-  const { data } = await client.from("training_plan_templates").select("*").eq("user_id", uid).gt("updated_at", lastSync);
+  const { data } = await client!.from("training_plan_templates").select("*").eq("user_id", uid).gt("updated_at", lastSync);
   if (!data?.length) return;
 
   const storageKey = `trainq:${uid}:training_plan_templates_v1`;
   const raw = localStorage.getItem(storageKey);
-  const local: any[] = raw ? JSON.parse(raw) : [];
-  const localMap = new Map(local.map((e: any) => [e.id, e]));
+  const local: TrainingPlanTemplateSync[] = raw ? JSON.parse(raw) : [];
+  const localMap = new Map(local.map((e) => [e.id, e]));
 
   for (const re of data) {
     if (re.deleted_at) { localMap.delete(re.id); continue; }
     const localItem = localMap.get(re.id);
     if (!localItem || (re.updated_at || "") > (localItem.updatedAt || "")) {
       localMap.set(re.id, {
-        id: re.id, userId: uid, name: re.name, kind: re.kind,
+        id: re.id, name: re.name, kind: re.kind,
         startDate: re.start_date, durationWeeks: re.duration_weeks,
         days: re.days, createdAt: re.created_at, updatedAt: re.updated_at,
       });
@@ -270,14 +356,14 @@ async function pullTrainingPlanTemplates(client: any, uid: string) {
   localStorage.setItem(storageKey, JSON.stringify([...localMap.values()]));
 }
 
-async function pullCustomExercises(client: any, uid: string) {
+async function pullCustomExercises(client: ReturnType<typeof getSupabaseClient>, uid: string) {
   const lastSync = getLastSync("custom_exercises");
-  const { data } = await client.from("custom_exercises").select("*").eq("user_id", uid).gt("updated_at", lastSync);
+  const { data } = await client!.from("custom_exercises").select("*").eq("user_id", uid).gt("updated_at", lastSync);
   if (!data?.length) return;
 
   const raw = getScopedItem("trainq_custom_exercises_v1", uid);
-  const local: any[] = raw ? JSON.parse(raw) : [];
-  const localMap = new Map(local.map((e: any) => [e.id, e]));
+  const local: CustomExerciseSync[] = raw ? JSON.parse(raw) : [];
+  const localMap = new Map(local.map((e) => [e.id, e]));
 
   for (const re of data) {
     if (re.deleted_at) { localMap.delete(re.id); continue; }
@@ -292,10 +378,10 @@ async function pullCustomExercises(client: any, uid: string) {
   setScopedItem("trainq_custom_exercises_v1", JSON.stringify([...localMap.values()]), uid);
 }
 
-async function pullAiCoachProfile(client: any, uid: string) {
-  const { data } = await client.from("ai_coach_profiles").select("*").eq("user_id", uid).maybeSingle();
+async function pullAiCoachProfile(client: ReturnType<typeof getSupabaseClient>, uid: string) {
+  const { data } = await client!.from("ai_coach_profiles").select("*").eq("user_id", uid).maybeSingle();
   if (!data) return;
-  const profile = { goal: data.goal, level: data.level, daysPerWeek: data.days_per_week, equipment: data.equipment, durationWeeks: data.duration_weeks };
+  const profile: AiCoachProfileSync = { goal: data.goal, level: data.level, daysPerWeek: data.days_per_week, equipment: data.equipment, durationWeeks: data.duration_weeks };
   setScopedItem("trainq_ai_coach_profile", JSON.stringify(profile), uid);
 }
 
@@ -313,48 +399,48 @@ export async function pushAllLocalData(): Promise<void> {
     try {
       const events: CalendarEvent[] = JSON.parse(rawCal);
       if (events.length) pushCalendarEventsBatch(events);
-    } catch {}
+    } catch (e) { logSyncError("pushAll/calendar parse", e); }
   }
 
   // Workout history
   const rawWh = getScopedItem("trainq_workout_history_v1", uid);
   if (rawWh) {
     try {
-      const entries: any[] = JSON.parse(rawWh);
+      const entries: WorkoutEntry[] = JSON.parse(rawWh);
       for (const e of entries) pushWorkoutEntry(e);
-    } catch {}
+    } catch (e) { logSyncError("pushAll/workout parse", e); }
   }
 
   // Training templates
   const rawTt = localStorage.getItem(`trainq:${uid}:training_templates_v1`);
   if (rawTt) {
     try {
-      const templates: any[] = JSON.parse(rawTt);
+      const templates: TrainingTemplateSync[] = JSON.parse(rawTt);
       for (const t of templates) pushTrainingTemplate(t);
-    } catch {}
+    } catch (e) { logSyncError("pushAll/templates parse", e); }
   }
 
   // Plan templates
   const rawPt = localStorage.getItem(`trainq:${uid}:training_plan_templates_v1`);
   if (rawPt) {
     try {
-      const plans: any[] = JSON.parse(rawPt);
+      const plans: TrainingPlanTemplateSync[] = JSON.parse(rawPt);
       for (const p of plans) pushTrainingPlanTemplate(p);
-    } catch {}
+    } catch (e) { logSyncError("pushAll/plans parse", e); }
   }
 
   // Custom exercises
   const rawCe = getScopedItem("trainq_custom_exercises_v1", uid);
   if (rawCe) {
     try {
-      const exercises: any[] = JSON.parse(rawCe);
+      const exercises: CustomExerciseSync[] = JSON.parse(rawCe);
       for (const e of exercises) pushCustomExercise(e);
-    } catch {}
+    } catch (e) { logSyncError("pushAll/exercises parse", e); }
   }
 
   // AI coach profile
   const rawAi = getScopedItem("trainq_ai_coach_profile", uid);
   if (rawAi) {
-    try { pushAiCoachProfile(JSON.parse(rawAi)); } catch {}
+    try { pushAiCoachProfile(JSON.parse(rawAi)); } catch (e) { logSyncError("pushAll/aiCoach parse", e); }
   }
 }

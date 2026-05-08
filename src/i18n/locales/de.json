@@ -1516,5 +1516,9 @@
     "exercise.instructions": "Anleitung & Form",
     "exercise.proTip": "Pro Tipp",
     "exercise.1rmTrend": "1RM Trend (geschätzt)",
-    "exercise.weightTrend": "Gewichtsentwicklung"
+    "exercise.weightTrend": "Gewichtsentwicklung",
+
+    "live_training.error_boundary.title": "Live-Training ist abgestürzt.",
+    "live_training.error_boundary.message": "Bitte erneut versuchen.",
+    "live_training.error_boundary.back": "Zurück"
 }

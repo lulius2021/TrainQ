@@ -1687,5 +1687,9 @@
     "exercise.instructions": "Instructions & Form",
     "exercise.proTip": "Pro Tip",
     "exercise.1rmTrend": "1RM Trend (estimated)",
-    "exercise.weightTrend": "Weight Progression"
+    "exercise.weightTrend": "Weight Progression",
+
+    "live_training.error_boundary.title": "Live training crashed.",
+    "live_training.error_boundary.message": "Please try again.",
+    "live_training.error_boundary.back": "Back"
 }
