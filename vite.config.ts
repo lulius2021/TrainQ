@@ -32,13 +32,10 @@ const stripCrossOrigin = {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [react(), capacitorSharedWorkerFix, stripCrossOrigin],
   server: {
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-    },
+    hmr: false,
     watch: {
       ignored: ['**/build/**', '**/ios/**', '**/node_modules/**', '**/.git/**'],
     },

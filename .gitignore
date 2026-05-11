@@ -45,3 +45,28 @@ Thumbs.db
 # ===============================
 *.swp
 *.swo
+
+# ===============================
+# Fastlane
+# ===============================
+ios/App/fastlane/.env
+ios/App/fastlane/.env.*
+!ios/App/fastlane/.env.example
+ios/App/fastlane/api_key.json
+ios/App/fastlane/report.xml
+ios/App/fastlane/Preview.html
+ios/App/fastlane/screenshots/
+ios/App/fastlane/test_output/
+ios/App/build/
+
+# Certificates / Provisioning (lokal)
+*.cer
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+
+# ===============================
+# Supabase temp
+# ===============================
+supabase/.temp/
