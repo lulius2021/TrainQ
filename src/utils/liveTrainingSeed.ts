@@ -72,6 +72,7 @@ function safeSet(key: string, value: unknown): void {
   if (!hasWindow()) return;
   try {
     setScopedItem(key, JSON.stringify(value));
+    import("../services/settingsSync").then(m => m.scheduleSettingsPush()).catch(() => {});
   } catch {
     // ignore
   }

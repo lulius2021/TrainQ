@@ -8,6 +8,7 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { authStorageAdapter } from "../lib/authStorageAdapter";
 import { pullAndMerge } from "../services/nutritionSync";
 import { pullAndMergeTrainingData, pushAllLocalData } from "../services/trainingSync";
+import { pullAndMergeSettings, pushAllLocalSettings } from "../services/settingsSync";
 import { signOutSupabase } from "../services/supabaseAuth";
 import { getOnboardingStatus, cacheOnboardingCompleted, clearOnboardingCache } from "../utils/onboardingPersistence";
 import { hasActiveChallengeGrant } from "../utils/challengeStore";
@@ -148,6 +149,7 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     migrateUserStorage(authUser.id);
     pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge nutrition failed:", e); });
     pullAndMergeTrainingData().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge training failed:", e); });
+    pullAndMergeSettings().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge settings failed:", e); });
   }, []);
 
   const ensureLocalUser = useCallback(() => {
@@ -326,29 +328,26 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [getSafeClient]);
 
   const logout = useCallback(async () => {
-    const client = getSafeClient();
     try {
-      await client?.auth.signOut();
-    } catch {
-      // signOut may fail if network is unavailable — proceed with local cleanup
-    }
-    // Explicitly clear Supabase session from storage (handles signOut failure + SecureStorage on iOS)
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-    if (supabaseUrl) {
-      const projectRef = supabaseUrl.replace("https://", "").split(".")[0];
-      try {
-        await authStorageAdapter.removeItem(`sb-${projectRef}-auth-token`);
-      } catch {
-        // ignore
+      const client = getSafeClient();
+      try { await client?.auth.signOut(); } catch { /* network may be down */ }
+
+      // Clear Supabase session from SecureStorage
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      if (supabaseUrl) {
+        const projectRef = supabaseUrl.replace("https://", "").split(".")[0];
+        try { await authStorageAdapter.removeItem(`sb-${projectRef}-auth-token`); } catch { /* ignore */ }
       }
+
+      // Clear scoped user data
+      try { if (user?.id) clearUserScopedData(user.id); } catch { /* ignore */ }
+    } catch (e) {
+      if (import.meta.env.DEV) console.error("[Auth] logout cleanup error:", e);
     }
-    // Clear scoped user data before wiping session
-    const uid = user?.id;
-    if (uid) {
-      clearUserScopedData(uid);
-    }
-    localStorage.removeItem(LOCAL_USER_KEY);
-    localStorage.removeItem(CACHED_AUTH_KEY);
+
+    // Always clear local state — even if above steps fail
+    try { localStorage.removeItem(LOCAL_USER_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(CACHED_AUTH_KEY); } catch { /* ignore */ }
     clearActiveSession();
     setUser(null);
   }, [getSafeClient, user]);

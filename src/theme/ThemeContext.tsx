@@ -58,6 +58,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         localStorage.setItem("trainq_theme", mode);
+        import("../services/settingsSync").then(m => m.pushSettingsPartial({ theme: mode })).catch(() => {});
     }, [mode]);
 
     // 3. Memoize theme object

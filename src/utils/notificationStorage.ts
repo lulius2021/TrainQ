@@ -57,6 +57,7 @@ export function loadNotificationPrefs(): NotificationPreferences {
 export function saveNotificationPrefs(prefs: NotificationPreferences): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    import("../services/settingsSync").then(m => m.pushSettingsPartial({ notification_prefs: prefs })).catch(() => {});
   } catch {
     // Storage full or unavailable — silently ignore
   }

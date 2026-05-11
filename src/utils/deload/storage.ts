@@ -2,6 +2,10 @@ import type { DeloadPlan } from "../../types/deload";
 import type { DeloadHistoryEntry } from "../../types/wellness";
 import { getScopedItem, removeScopedItem, setScopedItem } from "../scopedStorage";
 
+function syncSettings() {
+  import("../../services/settingsSync").then(m => m.scheduleSettingsPush()).catch(() => {});
+}
+
 const STORAGE_KEY = "trainq_deload_v1";
 const STORAGE_KEY_DISMISSED = "trainq_deload_dismissed_until_v1";
 const STORAGE_KEY_LAST_START = "trainq_deload_last_start_v1";
@@ -26,6 +30,7 @@ export function readDeloadPlan(userId?: string | null): DeloadPlan | null {
 export function writeDeloadPlan(userId: string | undefined | null, plan: DeloadPlan): void {
   try {
     setScopedItem(STORAGE_KEY, JSON.stringify(plan), userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -34,6 +39,7 @@ export function writeDeloadPlan(userId: string | undefined | null, plan: DeloadP
 export function clearDeloadPlan(userId?: string | null): void {
   try {
     removeScopedItem(STORAGE_KEY, userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -47,6 +53,7 @@ export function readDeloadDismissedUntil(userId?: string | null): string | null 
 export function writeDeloadDismissedUntil(userId: string | undefined | null, iso: string): void {
   try {
     setScopedItem(STORAGE_KEY_DISMISSED, iso, userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -68,6 +75,7 @@ export function readLastDeloadStartISO(userId?: string | null): string | null {
 export function writeLastDeloadStartISO(userId: string | undefined | null, iso: string): void {
   try {
     setScopedItem(STORAGE_KEY_LAST_START, iso, userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -83,6 +91,7 @@ export function writeLastDeloadIntervalWeeks(userId: string | undefined | null, 
   if (!Number.isFinite(weeks) || weeks <= 0) return;
   try {
     setScopedItem(STORAGE_KEY_LAST_INTERVAL, String(weeks), userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -114,6 +123,7 @@ export function addDeloadHistoryEntry(
     const current = readDeloadHistory(userId);
     const next = [entry, ...current.filter((e) => e.id !== entry.id)].slice(0, 20);
     setScopedItem(STORAGE_KEY_HISTORY, JSON.stringify(next), userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -128,6 +138,7 @@ export function updateDeloadHistoryEntry(
     const current = readDeloadHistory(userId);
     const next = current.map((e) => (e.id === id ? { ...e, ...patch } : e));
     setScopedItem(STORAGE_KEY_HISTORY, JSON.stringify(next), userId);
+    syncSettings();
   } catch {
     // ignore
   }
@@ -149,6 +160,7 @@ export function markFeedbackGiven(userId: string | undefined | null, planId: str
     const current = readFeedbackGivenIds(userId);
     if (!current.includes(planId)) {
       setScopedItem(STORAGE_KEY_FEEDBACK_GIVEN, JSON.stringify([...current, planId]), userId);
+      syncSettings();
     }
   } catch {
     // ignore

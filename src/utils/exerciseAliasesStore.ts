@@ -45,5 +45,6 @@ export function addAliasOverride(exerciseId: string, lang: "en" | "de", alias: s
   }
   overrides[exerciseId] = { ...entry, [lang]: nextList };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+  import("../services/settingsSync").then(m => m.scheduleSettingsPush()).catch(() => {});
   return overrides;
 }
