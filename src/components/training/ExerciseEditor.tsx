@@ -5,7 +5,7 @@ import type { LiveSet } from "../../types/training";
 import { useI18n } from "../../i18n/useI18n";
 import { AnimatePresence, useAnimation } from "framer-motion";
 import { MotionDiv } from "../ui/Motion";
-import { Info, MoreHorizontal, X, Plus, Trash2, ArrowLeftRight } from "lucide-react";
+import { Info, MoreHorizontal, X, Plus, Trash2, ArrowLeftRight, ChevronUp, ChevronDown } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import MuscleBodyMap from "../exercises/MuscleBodyMap";
 import { EXERCISES } from "../../data/exerciseLibrary";
@@ -277,6 +277,7 @@ const SwipeableSetRow = ({
   prSets,     // Set<string> of set IDs that are PRs
 }: any) => {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
   // Debounce: prevent double-fire from iOS pointer/touch event overlap
   const lastToggleMs = useRef(0);
@@ -425,7 +426,7 @@ const SwipeableSetRow = ({
           type="number"
           inputMode="numeric"
           value={typeof repsValue === "number" ? repsValue : ""}
-          placeholder={isDrop ? "Wdh" : fmtPlaceholderNumber(last?.reps, "-")}
+          placeholder={isDrop ? t("exerciseEditor.reps_placeholder") : fmtPlaceholderNumber(last?.reps, "-")}
           onChange={(e) => onChangeReps(e.target.value)}
 
           style={{
@@ -601,7 +602,7 @@ const SwipeableSetRow = ({
             style={{ backgroundColor: theme.colors.inputBackground, color: "var(--text-secondary)" }}
           >
             <Plus size={12} />
-            DROP
+            {t("exerciseEditor.drop_label")}
           </button>
         </div>
       </div>
@@ -623,7 +624,7 @@ const SwipeableSetRow = ({
         <div className="absolute inset-y-0 right-0 left-0 bg-red-500 flex items-center justify-end px-4 z-0 h-full">
           <div className="flex items-center gap-2 font-bold text-white">
             <Trash2 size={16} />
-            <span className="text-sm">Löschen</span>
+            <span className="text-sm">{t("exerciseEditor.delete")}</span>
           </div>
         </div>
       )}
@@ -742,9 +743,9 @@ const SwipeableSetRow = ({
           <div className="flex flex-col gap-2 pb-3 px-3 border-t border-[var(--border-color)] bg-[var(--bg-color)]/10 pt-2">
             {/* Header for Drops */}
             <div className="flex justify-between items-center pl-8 text-xs text-purple-400 font-semibold uppercase tracking-wide">
-              <span>Dropsets</span>
+              <span>{t("exerciseEditor.dropsets")}</span>
               <button onClick={addDrop} className="flex items-center gap-1 hover:text-purple-300">
-                <span className="text-lg leading-none">+</span> Drop
+                {t("exerciseEditor.add_drop")}
               </button>
             </div>
 
@@ -775,7 +776,7 @@ const SwipeableSetRow = ({
                   type="number"
                   inputMode="numeric"
                   value={typeof drop.reps === "number" ? drop.reps : ""}
-                  placeholder="Wdh"
+                  placeholder={t("exerciseEditor.reps_placeholder")}
                   onChange={(e) => updateDrop(drop.id, { reps: e.target.value })}
         
                   className="h-8 w-full rounded-2xl bg-[var(--button-bg)] text-[var(--text-color)] text-center text-sm font-medium outline-none border border-[var(--border-color)] focus:border-purple-500/50 transition-all placeholder-[var(--text-secondary)]/30"
@@ -831,6 +832,8 @@ function ExerciseEditorInner({
   historySessionCount,   // Number of past sessions for this exercise
   prSets,                // Set<string> of set IDs that are PRs
   onSwap,                // Swap exercise callback
+  onMoveUp,              // Move exercise up
+  onMoveDown,            // Move exercise down
 }: any) {
   const { theme } = useTheme();
   const { t } = useI18n();
@@ -841,9 +844,9 @@ function ExerciseEditorInner({
 
   if (!theme) return null;
 
-  const repsUnit = isCardio ? "Min" : "Wdh.";
-  const weightUnit = isCardio ? "km" : "kg";
-  const addSetLabel = isCardio ? "Intervall hinzufügen" : "Satz hinzufügen";
+  const repsUnit = isCardio ? t("exerciseEditor.reps_unit_cardio") : t("exerciseEditor.reps_unit");
+  const weightUnit = isCardio ? t("exerciseEditor.weight_unit_cardio") : t("exerciseEditor.weight_unit");
+  const addSetLabel = isCardio ? t("exerciseEditor.add_interval") : t("exerciseEditor.add_set");
   const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
 
   const handleTitleClick = () => {
@@ -870,7 +873,7 @@ function ExerciseEditorInner({
             className="text-sm font-semibold leading-tight truncate"
             style={{ color: theme.colors.text }}
           >
-            {exercise.name || "Neue Übung"}
+            {exercise.name || t("exerciseEditor.new_exercise")}
           </h3>
           <Info size={16} className="text-[#007AFF] shrink-0" />
         </div>
@@ -920,6 +923,31 @@ function ExerciseEditorInner({
                     {t("training.swapExercise")}
                   </button>
                 )}
+                {(onMoveUp || onMoveDown) && (
+                  <div className="flex" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
+                    <button
+                      type="button"
+                      disabled={!onMoveUp}
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); hapticLight(); onMoveUp?.(); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm transition-colors hover:opacity-75 disabled:opacity-30"
+                      style={{ color: theme.colors.text }}
+                    >
+                      <ChevronUp size={16} />
+                      {t("training.moveUp")}
+                    </button>
+                    <div style={{ width: 1, backgroundColor: theme.colors.border }} />
+                    <button
+                      type="button"
+                      disabled={!onMoveDown}
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); hapticLight(); onMoveDown?.(); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm transition-colors hover:opacity-75 disabled:opacity-30"
+                      style={{ color: theme.colors.text }}
+                    >
+                      <ChevronDown size={16} />
+                      {t("training.moveDown")}
+                    </button>
+                  </div>
+                )}
                 {sets.length > 0 && (
                   <>
                     <div className="px-4 pt-2 pb-1">
@@ -934,7 +962,7 @@ function ExerciseEditorInner({
                         style={{ color: "#ef4444" }}
                       >
                         <Trash2 size={14} />
-                        Satz {i + 1}{s.weight != null ? ` — ${s.weight}kg` : ""}{s.reps != null ? ` ×${s.reps}` : ""}
+                        {t("exerciseEditor.set_label", { index: i + 1 })}{s.weight != null ? ` — ${s.weight}kg` : ""}{s.reps != null ? ` ×${s.reps}` : ""}
                       </button>
                     ))}
                   </>
@@ -947,7 +975,7 @@ function ExerciseEditorInner({
                   style={{ color: "#ef4444" }}
                 >
                   <X size={16} />
-                  Übung entfernen
+                  {t("exerciseEditor.remove_exercise")}
                 </button>
               </div>
             </>
@@ -959,11 +987,11 @@ function ExerciseEditorInner({
       {weightSuggestion && (
         <div className="flex flex-col gap-0.5 px-1 -mt-1 mb-1">
           <span className="text-xs font-medium" style={{ color: theme.colors.textSecondary }}>
-            Letztes Mal: {weightSuggestion.lastWeight}kg &times; {weightSuggestion.lastReps}
+            {t("exerciseEditor.last_time", { weight: weightSuggestion.lastWeight, reps: weightSuggestion.lastReps })}
           </span>
           {weightSuggestion.allSetsCompleted && (
             <span className="text-xs font-semibold text-[#007AFF]">
-              Vorschlag: {weightSuggestion.suggestedWeight}kg (+{weightSuggestion.increment}kg)
+              {t("exerciseEditor.suggestion", { weight: weightSuggestion.suggestedWeight, increment: weightSuggestion.increment })}
             </span>
           )}
         </div>
@@ -980,7 +1008,7 @@ function ExerciseEditorInner({
             className="w-full h-9 flex items-center justify-center gap-2 rounded-2xl text-xs font-semibold transition-all active:scale-95 border border-yellow-500/20"
             style={{ backgroundColor: "rgba(234,179,8,0.08)", color: "#EAB308" }}
           >
-            <span>🔥</span> Aufwärmsätze hinzufügen
+            <span>🔥</span> {t("exerciseEditor.add_warmup")}
           </button>
         );
       })()}

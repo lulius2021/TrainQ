@@ -629,7 +629,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             onClick={() => setShowCreateFood(true)}
             className="w-full py-3 rounded-2xl border border-dashed border-[var(--border-color)] text-sm font-semibold text-[var(--accent-color)] active:scale-[0.98] transition-transform"
           >
-            &quot;{createFoodInitialName}&quot; erstellen
+            {t("nutrition.create_food_prompt", { name: createFoodInitialName })}
           </button>
         )}
 
@@ -669,7 +669,7 @@ const NutritionPage: React.FC<NutritionPageProps> = ({ onBack }) => {
             </div>
             <div className="text-left">
               <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("nutrition.history")}</div>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>Vergangene Tage ansehen</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{t("nutrition.view_past_days")}</div>
             </div>
           </div>
           <div style={{ color: "var(--text-muted)" }}>

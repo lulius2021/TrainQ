@@ -636,6 +636,9 @@ export default function LiveTrainingPage({
       .map(([m]) => m);
   }, [workout?.exercises]);
 
+  // PERF: ref for timer display, only setState every 5 seconds
+  const elapsedSecRef = useRef(0);
+
   const overlayData = useMemo(() => {
     if (!workout) return null;
 
@@ -849,8 +852,6 @@ export default function LiveTrainingPage({
 
 
   // ✅ Tick läuft erst wenn workout da ist; Zeit wird aus startedAt berechnet
-  // PERF: Only setState every 5 seconds for overlay/live-activity, use ref for display
-  const elapsedSecRef = useRef(0);
   useEffect(() => {
     if (!workout) return;
 

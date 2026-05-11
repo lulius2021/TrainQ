@@ -7,7 +7,7 @@ import { App } from "@capacitor/app";
 import { getSupabaseClient } from "../lib/supabaseClient";
 
 const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID;
-const STRAVA_REDIRECT_URI = "https://ilfsxckixlsyanuovfum.supabase.co/functions/v1/strava-callback";
+const STRAVA_REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/strava-callback`;
 
 const STORAGE_KEYS = {
   accessToken: "trainq_strava_access_token",

@@ -231,6 +231,8 @@ export async function pullAndMergeTrainingData(): Promise<void> {
     if (!localStorage.getItem(firstSyncKey)) {
       if (import.meta.env.DEV) console.log("[TrainingSync] First sync — pushing all local data...");
       await pushAllLocalData();
+      // Also push settings on first sync
+      import("./settingsSync").then(m => m.pushAllLocalSettings()).catch(() => {});
       localStorage.setItem(firstSyncKey, "1");
     }
 

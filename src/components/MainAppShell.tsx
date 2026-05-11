@@ -893,7 +893,7 @@ const MainAppShell: React.FC = () => {
                                 {tab === "plan" && <TrainingsplanPage onAddEvent={handleAddEvent} onBatchAddEvents={handleBatchAddEvents} events={events} onUpdateEvents={setEvents} />}
                                 {tab === "profile" && (
                                     profileScreen === "settings" ? (
-                                        <SettingsPage onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenGoals={() => alert("Funktion folgt.")} />
+                                        <SettingsPage isSheet onBack={() => setProfileScreen("profile")} onClearCalendar={handleClearCalendar} onOpenGoals={() => alert("Funktion folgt.")} />
                                     ) : (
                                         <ProfilePage onClearCalendar={handleClearCalendar} onOpenWorkoutShare={openWorkoutShare} />
                                     )

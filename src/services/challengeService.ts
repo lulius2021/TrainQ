@@ -143,6 +143,7 @@ export async function joinServerChallenge(challengeId: string): Promise<{ ok: bo
       },
       body: JSON.stringify({ challenge_id: challengeId }),
     });
+    if (!res.ok) return { ok: false, error: `server_error_${res.status}` };
     return await res.json();
   } catch {
     return { ok: false, error: "network_error" };
@@ -165,6 +166,7 @@ export async function submitProgress(participationId: string, current: number): 
       },
       body: JSON.stringify({ participation_id: participationId, progress_current: current }),
     });
+    if (!res.ok) return { ok: false, error: `server_error_${res.status}` };
     return await res.json();
   } catch {
     return { ok: false, error: "network_error" };
@@ -187,6 +189,7 @@ export async function claimServerReward(participationId: string): Promise<{ ok: 
       },
       body: JSON.stringify({ participation_id: participationId }),
     });
+    if (!res.ok) return { ok: false, error: `server_error_${res.status}` };
     return await res.json();
   } catch {
     return { ok: false, error: "network_error" };

@@ -81,8 +81,12 @@ const WelcomeStep: React.FC<{ onNext: () => void; isDark: boolean }> = ({ onNext
 
 /* ─── Step 2: Name ─── */
 
-const NameStep: React.FC<{ value: string; onChange: (v: string) => void; onNext: () => void }> = ({
-  value, onChange, onNext,
+const NameStep: React.FC<{
+  value: string; onChange: (v: string) => void;
+  weight: string; onWeightChange: (v: string) => void;
+  onNext: () => void;
+}> = ({
+  value, onChange, weight, onWeightChange, onNext,
 }) => {
   const canContinue = value.trim().length >= 2;
 
@@ -103,7 +107,7 @@ const NameStep: React.FC<{ value: string; onChange: (v: string) => void; onNext:
         </p>
       </div>
 
-      <div className="mb-auto">
+      <div className="mb-auto space-y-4">
         <input
           type="text"
           value={value}
@@ -118,6 +122,28 @@ const NameStep: React.FC<{ value: string; onChange: (v: string) => void; onNext:
           }}
           onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) onNext(); }}
         />
+
+        <div>
+          <label className="text-[13px] font-medium ml-1 mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>
+            Gewicht (kg) — optional
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={weight}
+            onChange={(e) => onWeightChange(e.target.value)}
+            placeholder="z.B. 75"
+            className="w-full text-center text-lg font-bold bg-transparent outline-none py-3 px-4 rounded-2xl border transition-colors"
+            style={{
+              color: 'var(--text-color)',
+              borderColor: 'var(--border-color)',
+              backgroundColor: 'var(--card-bg)',
+            }}
+          />
+          <p className="text-[11px] mt-1.5 ml-1" style={{ color: 'var(--text-secondary)' }}>
+            Wird fuer die Berechnung bei Koerpergewichtsuebungen wie Klimmzuege genutzt.
+          </p>
+        </div>
       </div>
 
       <div className="mt-8">
@@ -733,6 +759,7 @@ export const Onboarding: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const [userName, setUserName] = useState('');
+  const [userWeight, setUserWeight] = useState('');
   const [goal, setGoal] = useState('beginner');
   const [timePerWorkout, setTimePerWorkout] = useState(45);
   const [fitnessLevel, setFitnessLevel] = useState(3);
@@ -766,11 +793,16 @@ export const Onboarding: React.FC = () => {
 
       // Save name to onboarding storage so ProfilePage picks it up
       const current = readOnboardingDataFromStorage();
+      const parsedWeight = parseFloat(userWeight) || null;
       writeOnboardingDataToStorage({
         ...current,
         profile: {
           ...(current.profile ?? { username: '', bio: '', isPublic: true }),
           username: userName.trim(),
+        },
+        personal: {
+          ...(current.personal ?? { weight: null, height: null, age: null, stressLevel: 5, sleepHours: 7 }),
+          weight: parsedWeight,
         },
       });
 
@@ -790,7 +822,7 @@ export const Onboarding: React.FC = () => {
       if (import.meta.env.DEV) console.error('Onboarding error:', e);
       setSaving(false);
     }
-  }, [goal, fitnessLevel, timePerWorkout, userName, user, completeOnboarding]);
+  }, [goal, fitnessLevel, timePerWorkout, userName, userWeight, user, completeOnboarding]);
 
   const { theme } = useTheme();
   const isDark = theme.mode === 'dark';
@@ -843,7 +875,7 @@ export const Onboarding: React.FC = () => {
               className="flex-1 flex flex-col"
             >
               {step === 0 && <WelcomeStep onNext={goForward} isDark={isDark} />}
-              {step === 1 && <NameStep value={userName} onChange={setUserName} onNext={goForward} />}
+              {step === 1 && <NameStep value={userName} onChange={setUserName} weight={userWeight} onWeightChange={setUserWeight} onNext={goForward} />}
               {step === 2 && <PermissionsStep onNext={goForward} />}
               {step === 3 && <FokusStep value={goal} onChange={setGoal} onNext={goForward} />}
               {step === 4 && <TimeStep value={timePerWorkout} onChange={setTimePerWorkout} onNext={goForward} />}

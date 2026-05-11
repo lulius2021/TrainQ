@@ -548,14 +548,18 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
     if (dx < 0) navigateTemplate(1); else navigateTemplate(-1);
   };
 
+  const [exportError, setExportError] = useState<string | null>(null);
+
   const handleExport = async (mode: 'share' | 'save') => {
     if (!exportRef.current) return;
     setIsExporting(true);
+    setExportError(null);
     try {
       await new Promise(r => setTimeout(r, 100));
       const cvs = await html2canvas(exportRef.current, {
-        scale: 1,
+        scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#09090b',
         logging: false,
         width: 1080,
@@ -566,6 +570,8 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
 
       // Convert canvas to base64
       const base64 = cvs.toDataURL('image/png').split(',')[1];
+      if (!base64) throw new Error("Canvas rendering failed");
+
       const fileName = `trainq-share-${Date.now()}.png`;
 
       // Save to device via Capacitor Filesystem
@@ -576,8 +582,10 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       });
 
       if (mode === 'share') {
+        // Use both url and files for maximum compatibility
         await Share.share({
           title: 'TrainQ Workout',
+          url: saved.uri,
           files: [saved.uri],
         });
       } else {
@@ -587,12 +595,17 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
           await Media.savePhoto({ path: saved.uri });
           hapticSuccess();
         } catch {
-          // Fallback: share dialog so user can save manually
-          await Share.share({ files: [saved.uri] });
+          // Fallback: share dialog so user can save to photos manually
+          await Share.share({
+            title: 'TrainQ Workout',
+            url: saved.uri,
+            files: [saved.uri],
+          });
         }
       }
     } catch (e) {
-      if (import.meta.env.DEV) console.error("Export failed", e);
+      console.error("Export failed", e);
+      setExportError(e instanceof Error ? e.message : "Export fehlgeschlagen");
     } finally {
       setIsExporting(false);
     }
@@ -666,6 +679,12 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
             Teilen
           </button>
         </div>
+
+        {exportError && (
+          <div className="w-full max-w-sm mb-2 px-3 py-2 rounded-xl text-xs text-center" style={{ backgroundColor: "rgba(255,59,48,0.15)", color: "#FF3B30" }}>
+            {exportError}
+          </div>
+        )}
 
         <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "var(--text-muted)" }}>
           {currentTemplate.label}

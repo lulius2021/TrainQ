@@ -42,7 +42,7 @@ function saveCoachProfile(profile: CoachProfile): void {
 
 function extractProfileFromChat(messages: ChatMessage[]): CoachProfile | null {
   // Parse the conversation to extract user answers
-  const userMsgs = messages.filter((m) => m.role === "user").map((m) => m.content.toLowerCase());
+  const userMsgs = messages.filter((m) => m.role === "user").map((m) => (m.content ?? "").toLowerCase());
   if (userMsgs.length < 2) return null;
 
   const profile: CoachProfile = {};

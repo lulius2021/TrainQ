@@ -41,6 +41,7 @@ import { ShareableStatCard } from "../components/stats/ShareableStatCard";
 import { BottomSpacer } from "../components/layout/BottomSpacer";
 import { BottomSheet } from "../components/common/BottomSheet";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import i18next from "i18next";
 import { useI18n } from "../i18n/useI18n";
 import { useChallengeRewards } from "../hooks/useChallengeRewards";
 import { Gift, Trophy, Flame } from "lucide-react";
@@ -188,7 +189,7 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
     if (this.state.hasError) {
       return (
         <div style={{ padding: 40, backgroundColor: "var(--bg-color)", color: "var(--text-color)", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
-          <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "var(--text-color)" }}>Profil-Fehler</h2>
+          <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "var(--text-color)" }}>{i18next.t("profile.errorBoundary.title")}</h2>
           <div style={{ padding: 16, backgroundColor: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 12, marginBottom: 16 }}>
             <p style={{ fontSize: 14, color: "#FF3B30", wordBreak: "break-all", margin: 0 }}>{this.state.error}</p>
             {this.state.stack && (
@@ -196,7 +197,7 @@ class ProfileErrorBoundary extends React.Component<{ children: React.ReactNode }
             )}
           </div>
           <button onClick={() => this.setState({ hasError: false, error: "", stack: "" })} style={{ padding: "12px 24px", background: "#007AFF", color: "white", border: "none", borderRadius: 12, fontWeight: "bold", fontSize: 16 }}>
-            Erneut versuchen
+            {i18next.t("profile.errorBoundary.retry")}
           </button>
         </div>
       );
@@ -421,12 +422,12 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <TrendingUp size={14} style={{ color: "#10B981" }} />
-              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Cardio Bestleistungen</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("profile.cardio_records")}</h3>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {allStats.bestPace && (
                 <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Beste Pace</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>{t("profile.best_pace")}</span>
                   <span className="text-2xl font-black" style={{ color: "#34C759" }}>
                     {formatPaceMinSec(allStats.bestPace)}<span className="text-xs font-normal ml-1">/km</span>
                   </span>
@@ -434,7 +435,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
               )}
               {allStats.longestRun != null && allStats.longestRun > 0 && (
                 <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Längster Lauf</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>{t("profile.longest_run")}</span>
                   <span className="text-2xl font-black" style={{ color: "#34C759" }}>
                     {allStats.longestRun.toFixed(1)}<span className="text-xs font-normal ml-1">km</span>
                   </span>
@@ -442,7 +443,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
               )}
               {allStats.longestRide != null && allStats.longestRide > 0 && (
                 <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--card-bg)" }}>
-                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>Längste Fahrt</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--text-secondary)" }}>{t("profile.longest_ride")}</span>
                   <span className="text-2xl font-black" style={{ color: "#FF9500" }}>
                     {allStats.longestRide.toFixed(1)}<span className="text-xs font-normal ml-1">km</span>
                   </span>
@@ -459,6 +460,7 @@ const AllStatsSheet: React.FC<{ open: boolean; onClose: () => void; workouts: Wo
 /* ─── Nutrition Stats BottomSheet ─── */
 
 const NutritionStatsSheet: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const [hasData, setHasData] = useState(false);
   useEffect(() => {
     if (open) {
@@ -474,7 +476,7 @@ const NutritionStatsSheet: React.FC<{ open: boolean; onClose: () => void }> = ({
       showHandle
       header={
         <div className="px-5 pb-1">
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>Ernährung</h2>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-color)" }}>{t("profile.nutrition")}</h2>
         </div>
       }
       contentClassName="flex-1 min-h-0 overflow-y-auto px-5 pb-10"
@@ -484,7 +486,7 @@ const NutritionStatsSheet: React.FC<{ open: boolean; onClose: () => void }> = ({
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
           <Apple size={32} style={{ color: "var(--text-muted)" }} />
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Noch keine Ernährungsdaten erfasst.</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("profile.nutrition_empty")}</p>
         </div>
       )}
     </BottomSheet>
@@ -876,7 +878,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
   // -------- Actions --------
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return;
-    const ok = window.confirm("Willst du dich wirklich abmelden?");
+    const ok = window.confirm(t("profile.confirmLogout"));
     if (!ok) return;
 
     setSettingsOpen(false);
@@ -1098,12 +1100,12 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Streak</div>
                       <div className="text-[22px] font-black text-[var(--text-color)] leading-tight">
-                        {streaks.current} {streaks.current === 1 ? "Tag" : "Tage"}
+                        {streaks.current} {streaks.current === 1 ? t("profile.streak.day_one") : t("profile.streak.day_other")}
                       </div>
                     </div>
                     {streaks.longest > streaks.current && (
                       <div className="text-right shrink-0">
-                        <div className="text-[11px] text-[var(--text-secondary)]">Rekord</div>
+                        <div className="text-[11px] text-[var(--text-secondary)]">{t("profile.streak.record")}</div>
                         <div className="text-[16px] font-bold text-[var(--text-secondary)]">{streaks.longest}</div>
                       </div>
                     )}
@@ -1226,7 +1228,7 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
                 </div>
                 <div className="text-left">
                   <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("profile.allStats")}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>PRs, Top-Übungen, Frequenz & mehr</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{t("profile.allStats_subtitle")}</div>
                 </div>
               </div>
               <div style={{ color: "var(--text-muted)" }}>
@@ -1246,8 +1248,8 @@ const ProfilePageInner: React.FC<ProfilePageProps> = ({ onClearCalendar, onOpenW
                   <Apple className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <div className="font-medium" style={{ color: "var(--text-color)" }}>Ernährungsstatistiken</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>Kalorien, Makros, Ziel-Treue</div>
+                  <div className="font-medium" style={{ color: "var(--text-color)" }}>{t("profile.nutrition_stats")}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{t("profile.nutrition_stats_subtitle")}</div>
                 </div>
               </div>
               <div style={{ color: "var(--text-muted)" }}>

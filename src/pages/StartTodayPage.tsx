@@ -54,11 +54,11 @@ interface StartTodayPageProps {
     onPlanTraining: () => void;
 }
 
-function formatSportLabel(type: TrainingType): string {
-    if (type === "laufen") return "Laufen";
-    if (type === "radfahren") return "Radfahren";
-    if (type === "custom") return "Custom";
-    return "Gym";
+function formatSportLabel(type: TrainingType, t: (key: string, opts?: Record<string, unknown>) => string): string {
+    if (type === "laufen") return t("startToday.sport_running");
+    if (type === "radfahren") return t("startToday.sport_cycling");
+    if (type === "custom") return t("startToday.sport_custom");
+    return t("startToday.sport_gym");
 }
 
 function sportIcon(type: TrainingType) {
@@ -78,12 +78,14 @@ function makeDefaultSets(count = 3): TemplateSet[] {
 }
 
 // Sport options for template modal
-const TEMPLATE_SPORTS: { id: TrainingType; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-    { id: "gym",      label: "Gym",      icon: <IconDumbbellFill width={20} height={12} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "laufen",   label: "Laufen",   icon: <IconFigureRun width={20} height={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "radfahren",label: "Rad",      icon: <Bike size={20} />,       color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-    { id: "custom",   label: "Custom",   icon: <IconFigureStrengthtrainingFunctional width={20} height={25} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
-];
+function getTemplateSports(t: (key: string) => string): { id: TrainingType; label: string; icon: React.ReactNode; color: string; bg: string }[] {
+    return [
+        { id: "gym",      label: t("startToday.sport_gym"),            icon: <IconDumbbellFill width={20} height={12} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+        { id: "laufen",   label: t("startToday.sport_running"),        icon: <IconFigureRun width={20} height={20} />, color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+        { id: "radfahren",label: t("startToday.sport_cycling_short"),  icon: <Bike size={20} />,       color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+        { id: "custom",   label: t("startToday.sport_custom"),         icon: <IconFigureStrengthtrainingFunctional width={20} height={25} />,   color: "#007AFF", bg: "rgba(0,122,255,0.12)" },
+    ];
+}
 
 // ---- Create Template Modal (BottomSheet editor) ----
 function CreateTemplateModal({ open, onClose, onSave }: {
@@ -173,7 +175,8 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     };
 
     const isCardio = sport === "laufen" || sport === "radfahren";
-    const activeSport = TEMPLATE_SPORTS.find((s) => s.id === sport)!;
+    const templateSports = useMemo(() => getTemplateSports(t), [t]);
+    const activeSport = templateSports.find((s) => s.id === sport)!;
 
     const handleSave = () => {
         if (!title.trim()) return;
@@ -195,15 +198,15 @@ function CreateTemplateModal({ open, onClose, onSave }: {
             };
         };
         const addonExercises = {
-            warmup: warmup.enabled ? makeCardioExercise("Warm-up", warmup, "Warm-up") : undefined,
-            cooldown: cooldown.enabled ? makeCardioExercise("Cooldown", cooldown, "Cooldown") : undefined,
+            warmup: warmup.enabled ? makeCardioExercise(t("startToday.warm_up"), warmup, t("startToday.warm_up")) : undefined,
+            cooldown: cooldown.enabled ? makeCardioExercise(t("startToday.cooldown"), cooldown, t("startToday.cooldown")) : undefined,
         };
         if (sport === "gym" || sport === "custom") {
             finalExercises = exercises.length > 0 ? exercises : undefined;
         } else if (isCardio && cardioType) {
-            const cardioName = cardioType === "intervals" ? "Intervalle"
-                : cardioType === "recovery" ? (sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt")
-                : (sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt");
+            const cardioName = cardioType === "intervals" ? t("startToday.intervals")
+                : cardioType === "recovery" ? (sport === "laufen" ? t("startToday.recovery_run") : t("startToday.recovery_ride"))
+                : (sport === "laufen" ? t("startToday.long_run") : t("startToday.long_ride"));
             if (cardioType === "intervals") {
                 let intervalCount = 0;
                 let pauseCount = 0;
@@ -213,18 +216,18 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                     const pauseTarget =
                         block.targetType === "distance" ? "km" :
                         block.targetType === "time" ? "min" :
-                        block.targetType === "pace_combo" ? "Pace" :
+                        block.targetType === "pace_combo" ? t("startToday.pace") :
                         undefined;
                     const pace =
                         typeof block.paceMinKm === "number" && block.paceMinKm > 0
                             ? `${block.paceMinKm} min/km`
                             : undefined;
                     const notes = [
-                        isPause ? ["Pause", pauseTarget].filter(Boolean).join(": ") : "Intervall",
+                        isPause ? [t("startToday.pause_note"), pauseTarget].filter(Boolean).join(": ") : t("startToday.interval_note"),
                         pace,
                     ].filter(Boolean).join(" · ");
                     return {
-                        name: isPause ? `Pause ${index}` : `Intervall ${index}`,
+                        name: isPause ? t("startToday.pause_label", { index }) : t("startToday.interval_label", { index }),
                         sets: [{
                             weight: block.targetType !== "time" && typeof block.distanceKm === "number" ? block.distanceKm : 0,
                             reps: block.targetType !== "distance" && typeof block.timeMin === "number" ? block.timeMin : 0,
@@ -417,8 +420,8 @@ function CreateTemplateModal({ open, onClose, onSave }: {
     const existingIds = exercises.map((e) => e.exerciseId).filter(Boolean) as string[];
     const renderCardioAddon = (kind: "warmup" | "cooldown") => {
         const block = kind === "warmup" ? warmup : cooldown;
-        const label = kind === "warmup" ? "Warm-up" : "Cooldown";
-        const buttonLabel = kind === "warmup" ? "+ Warm-up" : "+ Cooldown";
+        const label = kind === "warmup" ? t("startToday.warm_up") : t("startToday.cooldown");
+        const buttonLabel = kind === "warmup" ? t("startToday.add_warmup") : t("startToday.add_cooldown");
 
         if (!block.enabled) {
             return (
@@ -522,7 +525,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
 
                     {/* Sport Selection */}
                     <div className="grid grid-cols-4 gap-2">
-                        {TEMPLATE_SPORTS.map((s) => (
+                        {templateSports.map((s) => (
                             <button
                                 key={s.id}
                                 onClick={() => handleSportChange(s.id)}
@@ -547,7 +550,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                             onChange={(e) => setTitle(e.target.value)}
                             className="w-full rounded-2xl px-4 py-3.5 font-medium focus:outline-none border text-[15px]"
                             style={{ backgroundColor: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
-                            placeholder="z.B. Push Day, Oberkörper..."
+                            placeholder={t("startToday.template_name_placeholder")}
                         />
                     </div>
 
@@ -556,7 +559,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between ml-1">
                                 <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                                    Übungen ({exercises.length})
+                                    {t("startToday.exercises_count", { count: exercises.length })}
                                 </label>
                                 {sport === "gym" && (
                                     <button
@@ -564,7 +567,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                         className="flex items-center gap-1 text-[13px] font-bold"
                                         style={{ color: activeSport.color }}
                                     >
-                                        <Plus size={14} /> Bibliothek
+                                        <Plus size={14} /> {t("startToday.library")}
                                     </button>
                                 )}
                             </div>
@@ -706,7 +709,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                         type="text" autoFocus value={customNameInput}
                                         onChange={(e) => setCustomNameInput(e.target.value)}
                                         onKeyDown={(e) => { if (e.key === "Enter") handleAddCustomExercise(); }}
-                                        placeholder="Übungsname..."
+                                        placeholder={t("startToday.exercise_name_placeholder")}
                                         className="flex-1 px-3 py-2 rounded-lg border text-sm"
                                         style={{ backgroundColor: "var(--input-bg)", borderColor: "var(--border-color)", color: "var(--text-color)" }}
                                     />
@@ -734,26 +737,26 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                     {isCardio && (
                         <div className="space-y-3">
                             <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: "var(--text-muted)" }}>
-                                {t("startToday.cardioType" as any)}
+                                {t("startToday.cardioType")}
                             </label>
                             <div className="space-y-2">
                                 {[
                                     {
                                         key: "long" as const,
-                                        title: sport === "laufen" ? "Langer Lauf" : "Lange Radfahrt",
-                                        desc: "Gleichmäßiges Tempo, Ausdauer aufbauen",
+                                        title: sport === "laufen" ? t("startToday.long_run") : t("startToday.long_ride"),
+                                        desc: t("startToday.steady_pace"),
                                         icon: <MapPin size={20} />,
                                     },
                                     {
                                         key: "intervals" as const,
-                                        title: "Intervalle",
-                                        desc: "Wechsel zwischen schnell und langsam",
+                                        title: t("startToday.intervals"),
+                                        desc: t("startToday.alternate_fast_slow"),
                                         icon: <Sparkles size={20} />,
                                     },
                                     {
                                         key: "recovery" as const,
-                                        title: sport === "laufen" ? "Regenerationslauf" : "Regenerationsfahrt",
-                                        desc: "Lockeres Tempo, aktive Erholung",
+                                        title: sport === "laufen" ? t("startToday.recovery_run") : t("startToday.recovery_ride"),
+                                        desc: t("startToday.easy_pace_recovery"),
                                         icon: <Play size={20} />,
                                     },
                                 ].map((option) => {
@@ -799,7 +802,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-2">
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Distanz</label>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>{t("startToday.distance")}</label>
                                                             <div className="relative">
                                                                 <input type="number" inputMode="decimal" step={0.1} value={cardioDistanceKm || ""} placeholder="-"
                                                                     onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioDistanceKm(v); if (v) setCardioPaceMinKm(""); }}
@@ -809,7 +812,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Zeit</label>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>{t("startToday.time")}</label>
                                                             <div className="relative">
                                                                 <input type="number" inputMode="numeric" value={cardioTimeMin || ""} placeholder="-"
                                                                     onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioTimeMin(v); if (v) setCardioPaceMinKm(""); }}
@@ -819,7 +822,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>Pace</label>
+                                                            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5 text-center" style={{ color: "var(--text-muted)" }}>{t("startToday.pace")}</label>
                                                             <div className="relative">
                                                                 <input type="number" inputMode="decimal" step={0.1} value={cardioPaceMinKm || ""} placeholder="-"
                                                                     onChange={(e) => { const v = e.target.value === "" ? "" : parseFloat(e.target.value); setCardioPaceMinKm(v); if (v) setCardioTimeMin(""); }}
@@ -829,7 +832,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>2 Werte eingeben — der 3. wird berechnet</p>
+                                                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>{t("startToday.calculate_hint")}</p>
                                                     <div className="flex justify-end">
                                                         {renderCardioAddon("cooldown")}
                                                     </div>
@@ -863,7 +866,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             <div key={ivIdx}>
                                                                 <div className="flex items-center justify-between mb-1.5">
                                                                     <span className="text-[11px] font-bold" style={{ color: "var(--text-color)" }}>
-                                                                        {isPause ? `Pause ${segmentIndex}` : `Intervall ${segmentIndex}`}
+                                                                        {isPause ? t("startToday.pause_label", { index: segmentIndex }) : t("startToday.interval_label", { index: segmentIndex })}
                                                                     </span>
                                                                     {intervals.length > 1 && (
                                                                         <button
@@ -937,14 +940,14 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                                                             className="py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
                                                             style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }}
                                                         >
-                                                            <Plus size={15} /> Intervall
+                                                            {t("startToday.add_interval")}
                                                         </button>
                                                         <button
                                                             onClick={addPause}
                                                             className="py-2 rounded-xl flex items-center justify-center gap-1.5 text-[13px] font-semibold active:scale-[0.97]"
                                                             style={{ backgroundColor: "var(--button-bg)", color: "var(--text-secondary)" }}
                                                         >
-                                                            <Plus size={15} /> Pause
+                                                            {t("startToday.add_pause")}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1036,7 +1039,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const handleFreeTraining = (sport: TrainingType = "gym") => {
         if (hasActiveWorkout) return;
         hapticButton();
-        const label = sport === "laufen" ? "Laufen · Cardio" : sport === "radfahren" ? "Radfahren · Cardio" : "Gym · Krafttraining";
+        const label = sport === "laufen" ? t("startToday.running_cardio") : sport === "radfahren" ? t("startToday.cycling_cardio") : t("startToday.gym_strength");
         askConfirm(label, () => startFreeTraining(sport));
     };
 
@@ -1112,10 +1115,10 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="text-[15px] font-bold truncate" style={{ color: "var(--text-color)" }}>
-                                            {session.title || "Training"}
+                                            {session.title || t("startToday.training_fallback")}
                                         </h3>
                                         <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                                            {session.startAt ? `${session.startAt} · ` : ""}{formatSportLabel(session.sportType)}
+                                            {session.startAt ? `${session.startAt} · ` : ""}{formatSportLabel(session.sportType, t)}
                                         </p>
                                     </div>
                                     <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
@@ -1190,7 +1193,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.running")}</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>GPS-Tracking</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{t("startToday.gps_tracking")}</p>
                             </div>
                         </button>
 
@@ -1209,7 +1212,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                             </div>
                             <div className="text-center">
                                 <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>{t("training.mode.cycling")}</p>
-                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>GPS-Tracking</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{t("startToday.gps_tracking")}</p>
                             </div>
                         </button>
                     </div>
@@ -1255,7 +1258,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                                 {tpl.title}
                                             </h3>
                                             <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                                                {formatSportLabel(tpl.sportType)}{exCount > 0 ? ` · ${exCount} Übungen` : ""}
+                                                {formatSportLabel(tpl.sportType, t)}{exCount > 0 ? ` · ${t("startToday.exercises_count_short", { count: exCount })}` : ""}
                                             </p>
                                         </div>
                                         <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} className="shrink-0" />

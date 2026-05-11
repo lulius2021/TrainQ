@@ -563,9 +563,9 @@ const DashboardPage = () => {
         {/* QUICK START — 3 full-width rows */}
         <div className="space-y-2">
           {[
-            { label: t("dashboard.quickStart.gym"), sub: "Krafttraining", icon: <IconDumbbellFill width={20} height={12} />, action: () => askConfirm(t("dashboard.quickStart.gym") + " · Krafttraining", () => startFreeTraining("gym")) },
-            { label: t("dashboard.quickStart.running"), sub: "GPS-Tracking", icon: <IconFigureRun width={20} height={20} />, action: () => askConfirm(t("dashboard.quickStart.running") + " · Cardio", () => startFreeTraining("laufen")) },
-            { label: t("dashboard.quickStart.cycling"), sub: "GPS-Tracking", icon: <Bike size={20} />, action: () => askConfirm(t("dashboard.quickStart.cycling") + " · Cardio", () => startFreeTraining("radfahren")) },
+            { label: t("dashboard.quickStart.gym"), sub: t("dashboard.quickStart.gym_sub"), icon: <IconDumbbellFill width={20} height={12} />, action: () => askConfirm(t("dashboard.quickStart.confirm_gym", { label: t("dashboard.quickStart.gym") }), () => startFreeTraining("gym")) },
+            { label: t("dashboard.quickStart.running"), sub: t("dashboard.quickStart.cardio_sub"), icon: <IconFigureRun width={20} height={20} />, action: () => askConfirm(t("dashboard.quickStart.confirm_cardio", { label: t("dashboard.quickStart.running") }), () => startFreeTraining("laufen")) },
+            { label: t("dashboard.quickStart.cycling"), sub: t("dashboard.quickStart.cardio_sub"), icon: <Bike size={20} />, action: () => askConfirm(t("dashboard.quickStart.confirm_cardio", { label: t("dashboard.quickStart.cycling") }), () => startFreeTraining("radfahren")) },
           ].map((item, i) => (
             <button
               key={i}
@@ -685,7 +685,7 @@ const DashboardPage = () => {
         showHandle={true}
         header={
           <div className="text-center space-y-1 px-6">
-            <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>Training starten?</p>
+            <p className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>{t("dashboard.start_training_question")}</p>
             <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{confirmPending?.label}</p>
           </div>
         }
@@ -696,14 +696,14 @@ const DashboardPage = () => {
           className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
           style={{ backgroundColor: "#007AFF" }}
         >
-          Starten
+          {t("dashboard.confirm_start")}
         </button>
         <button
           onPointerDown={() => { setConfirmPending(null); activateShield(); }}
           className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
           style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
         >
-          Abbrechen
+          {t("dashboard.confirm_cancel")}
         </button>
       </BottomSheet>
 
