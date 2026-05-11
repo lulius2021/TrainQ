@@ -2386,7 +2386,7 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                 sport: activeTrainingTemplate.sport,
                 isCardio,
                 exercises: updated.exercises as any,
-                createdAtISO: new Date().toISOString(),
+                createdAtISO: workoutTemplates.find((t) => t.id === activeTrainingTemplate.editingTemplateId)?.createdAtISO || new Date().toISOString(),
               });
               setActiveTrainingTemplate(null);
               return;
@@ -2506,8 +2506,9 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                 .map((tpl) => (
                   <div
                     key={tpl.id}
-                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border"
-                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}
+                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border active:scale-[0.98] transition-transform"
+                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", cursor: "pointer" }}
+                    onPointerUp={() => editWorkoutTemplate(tpl)}
                   >
                     <div className="min-w-0 text-sm" style={{ color: "var(--text-color)" }}>
                       <div className="truncate font-medium">{tpl.name}</div>
@@ -2515,27 +2516,18 @@ const TrainingsplanPage: React.FC<TrainingsplanPageProps> = ({ onAddEvent, onBat
                         {tpl.isCardio ? t("plan.cardio") : t("plan.gym_label")} · {getSportLabel(tpl.sport as WeeklySportType, t)} · {tpl.isCardio ? t("plan.units_count", { count: tpl.exercises?.length ?? 0 }) : t("plan.exercises_count_long", { count: tpl.exercises?.length ?? 0 })}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <AppButton
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => editWorkoutTemplate(tpl)}
-                        className="text-xs font-medium"
-                        style={{ color: "#007AFF" }}
-                      >
-                        {t("plan.edit" as any)}
-                      </AppButton>
-                      <AppButton
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm(t("plan.confirm_delete", { name: tpl.name }))) deleteWorkoutTemplate(tpl.id);
-                        }}
-                        className="text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200"
-                      >
-                        {t("plan.delete")}
-                      </AppButton>
-                    </div>
+                    <AppButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        if (window.confirm(t("plan.confirm_delete", { name: tpl.name }))) deleteWorkoutTemplate(tpl.id);
+                      }}
+                      onPointerUp={(e: React.PointerEvent) => e.stopPropagation()}
+                      className="text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200 shrink-0"
+                    >
+                      {t("plan.delete")}
+                    </AppButton>
                   </div>
                 ))}
             </div>

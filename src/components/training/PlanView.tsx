@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Calendar, Minus, Plus, Layout, FileText } from "lucide-react";
+import { Calendar, Minus, Plus, Layout, FileText, Dumbbell } from "lucide-react";
 import { useI18n } from "../../i18n/useI18n";
 
 type PlanTab = "weekly" | "routine" | "ai";
@@ -107,21 +107,36 @@ export default function PlanView({
                 </div>
             )}
 
-            {/* Plan templates — hidden for AI coach */}
+            {/* Plan templates + Workout templates — hidden for AI coach */}
             {activeTab !== "ai" && (
-                <button
-                    onClick={onOpenPlanTemplates}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-[14px] active:scale-[0.97] transition-transform"
-                    style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
-                >
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
-                        <FileText size={16} className="text-blue-500" />
-                    </div>
-                    <div className="text-left flex-1">
-                        <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.plans")}</div>
-                        <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.weeklyPlans")}</div>
-                    </div>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={onOpenPlanTemplates}
+                        className="flex-1 flex items-center gap-3 px-4 py-3 rounded-[14px] active:scale-[0.97] transition-transform"
+                        style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+                    >
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
+                            <FileText size={16} className="text-blue-500" />
+                        </div>
+                        <div className="text-left flex-1">
+                            <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.plans")}</div>
+                            <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.weeklyPlans")}</div>
+                        </div>
+                    </button>
+                    <button
+                        onClick={onOpenWorkoutTemplates}
+                        className="flex-1 flex items-center gap-3 px-4 py-3 rounded-[14px] active:scale-[0.97] transition-transform"
+                        style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)" }}
+                    >
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
+                            <Dumbbell size={16} className="text-blue-500" />
+                        </div>
+                        <div className="text-left flex-1">
+                            <div className="text-xs font-bold" style={{ color: "var(--text-color)" }}>{t("training.plan.templates")}</div>
+                            <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{t("training.plan.workoutTemplates")}</div>
+                        </div>
+                    </button>
+                </div>
             )}
         </div>
     );

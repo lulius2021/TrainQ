@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
     Bike, Star, AlertTriangle,
-    ChevronRight, Plus, Play, Trash2, X, MapPin, Sparkles
+    ChevronRight, Plus, Play, Trash2, X, MapPin, Sparkles, Pencil
 } from "lucide-react";
 import { IconFigureRun } from "../assets/icons/IconFigureRun";
 import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
@@ -21,6 +21,7 @@ import { getActiveUserId } from "../utils/session";
 import {
     getTemplates,
     saveTemplate,
+    updateTemplate,
     deleteTemplate,
     type TrainingTemplateLite,
     type TemplateExercise,
@@ -88,10 +89,11 @@ function getTemplateSports(t: (key: string) => string): { id: TrainingType; labe
 }
 
 // ---- Create Template Modal (BottomSheet editor) ----
-function CreateTemplateModal({ open, onClose, onSave }: {
+function CreateTemplateModal({ open, onClose, onSave, editingTemplate }: {
     open: boolean;
     onClose: () => void;
-    onSave: (t: { title: string; sportType: TrainingType; exercises?: TemplateExercise[] }) => void;
+    onSave: (t: { title: string; sportType: TrainingType; exercises?: TemplateExercise[]; id?: string }) => void;
+    editingTemplate?: TrainingTemplateLite | null;
 }) {
     const { t } = useI18n();
     const [title, setTitle] = useState("");
@@ -141,12 +143,18 @@ function CreateTemplateModal({ open, onClose, onSave }: {
         }
     }, [cardioDistanceKm, cardioTimeMin, cardioPaceMinKm]);
 
-    // Reset form when sheet opens
+    // Reset form when sheet opens, or preload editing template
     useEffect(() => {
         if (open) {
-            setTitle("");
-            setSport("gym");
-            setExercises([]);
+            if (editingTemplate) {
+                setTitle(editingTemplate.title || "");
+                setSport(editingTemplate.sportType || "gym");
+                setExercises(editingTemplate.exercises || []);
+            } else {
+                setTitle("");
+                setSport("gym");
+                setExercises([]);
+            }
             setCardioType("");
             setCardioDistanceKm("");
             setCardioTimeMin("");
@@ -157,7 +165,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
             setCustomNameInput("");
             setShowCustomInput(false);
         }
-    }, [open]);
+    }, [open, editingTemplate]);
 
     const handleSportChange = (newSport: TrainingType) => {
         hapticSelect();
@@ -248,7 +256,7 @@ function CreateTemplateModal({ open, onClose, onSave }: {
                 ].filter(Boolean) as TemplateExercise[];
             }
         }
-        onSave({ title: title.trim(), sportType: sport, exercises: finalExercises });
+        onSave({ title: title.trim(), sportType: sport, exercises: finalExercises, id: editingTemplate?.id });
     };
 
     const handlePickExercise = (exercise: Exercise) => {
@@ -973,10 +981,12 @@ function CreateTemplateModal({ open, onClose, onSave }: {
 }
 
 // ---- Confirmation Sheet ----
-function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
+function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel, onEdit, onDelete }: {
     label: string;
     onConfirm: () => void;
     onCancel: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
 }) {
     const { t } = useI18n();
     return (
@@ -991,19 +1001,39 @@ function ConfirmStartSheet({ label: pendingLabel, onConfirm, onCancel }: {
                     <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{pendingLabel}</p>
                 </div>
             }
-            contentClassName="px-6 pb-6 pt-2 space-y-3"
+            contentClassName="px-6 pb-6 pt-2 space-y-2"
         >
             <button
-                onPointerDown={() => { hapticMedium(); onConfirm(); }}
-                className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform"
-                style={{ backgroundColor: "#007AFF" }}
+                onPointerUp={() => { hapticMedium(); onConfirm(); }}
+                className="w-full py-4 rounded-2xl text-[17px] font-bold text-white active:scale-[0.97] transition-transform outline-none"
+                style={{ backgroundColor: "#007AFF", touchAction: "manipulation", boxShadow: "none" }}
             >
                 {t("startToday.start")}
             </button>
+            {onEdit && (
+                <button
+                    onPointerUp={() => { hapticButton(); onEdit(); }}
+                    className="w-full py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform flex items-center justify-center gap-2 outline-none"
+                    style={{ color: "var(--text-color)", backgroundColor: "var(--card-bg)", border: "1px solid var(--border-color)", touchAction: "manipulation", boxShadow: "none" }}
+                >
+                    <Pencil size={16} style={{ color: "var(--accent-color)" }} />
+                    {t("startToday.editTemplate")}
+                </button>
+            )}
+            {onDelete && (
+                <button
+                    onPointerUp={() => { hapticDestructive(); onDelete(); }}
+                    className="w-full py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform flex items-center justify-center gap-2 outline-none"
+                    style={{ color: "#ef4444", backgroundColor: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)", touchAction: "manipulation", boxShadow: "none" }}
+                >
+                    <Trash2 size={16} />
+                    {t("startToday.deleteTemplate")}
+                </button>
+            )}
             <button
-                onPointerDown={() => { hapticButton(); onCancel(); }}
+                onPointerUp={() => { hapticButton(); onCancel(); }}
                 className="w-full py-3 rounded-2xl text-[15px] font-semibold active:scale-[0.97] transition-transform"
-                style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)" }}
+                style={{ color: "var(--text-secondary)", backgroundColor: "var(--button-bg)", touchAction: "manipulation" }}
             >
                 {t("common.cancel")}
             </button>
@@ -1019,7 +1049,8 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const hasActiveWorkout = !!activeWorkout?.isActive;
     const [templates, setTemplates] = useState<TrainingTemplateLite[]>(() => getTemplates());
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [confirmPending, setConfirmPending] = useState<{ label: string; onConfirm: () => void } | null>(null);
+    const [editingTpl, setEditingTpl] = useState<TrainingTemplateLite | null>(null);
+    const [confirmPending, setConfirmPending] = useState<{ label: string; onConfirm: () => void; templateId?: string } | null>(null);
 
     const refreshTemplates = useCallback(() => {
         setTemplates(getTemplates());
@@ -1046,7 +1077,7 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
     const handleStartTemplate = (tpl: TrainingTemplateLite) => {
         if (hasActiveWorkout) return;
         hapticButton();
-        askConfirm(tpl.title, () => startTrainingTemplate(tpl));
+        setConfirmPending({ label: tpl.title, onConfirm: () => startTrainingTemplate(tpl), templateId: tpl.id });
     };
 
     const handleDeleteTemplate = (id: string) => {
@@ -1055,10 +1086,23 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
         refreshTemplates();
     };
 
-    const handleCreateTemplate = (input: { title: string; sportType: TrainingType; exercises?: TemplateExercise[] }) => {
-        saveTemplate(input);
+    const handleEditTemplate = (tpl: TrainingTemplateLite) => {
+        setEditingTpl(tpl);
+        setShowCreateModal(true);
+    };
+
+    const handleCreateTemplate = (input: { title: string; sportType: TrainingType; exercises?: TemplateExercise[]; id?: string }) => {
+        if (input.id) {
+            const existing = templates.find((t) => t.id === input.id);
+            if (existing) {
+                updateTemplate({ ...existing, title: input.title, sportType: input.sportType, exercises: input.exercises });
+            }
+        } else {
+            saveTemplate(input);
+        }
         refreshTemplates();
         setShowCreateModal(false);
+        setEditingTpl(null);
     };
 
     const todaySessions = status === "single" && primarySession ? [primarySession] : sessions;
@@ -1263,13 +1307,6 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                                         </div>
                                         <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
                                     </button>
-                                    <button
-                                        onClick={() => handleDeleteTemplate(tpl.id)}
-                                        className="px-4 self-stretch flex items-center justify-center border-l"
-                                        style={{ borderColor: "var(--border-color)" }}
-                                    >
-                                        <Trash2 size={14} style={{ color: "var(--danger, #FF3B30)" }} />
-                                    </button>
                                 </div>
                             );
                         })}
@@ -1292,8 +1329,9 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
 
             <CreateTemplateModal
                 open={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
+                onClose={() => { setShowCreateModal(false); setEditingTpl(null); }}
                 onSave={handleCreateTemplate}
+                editingTemplate={editingTpl}
             />
 
             {confirmPending && (
@@ -1305,6 +1343,16 @@ export default function StartTodayPage({ events, onPlanTraining }: StartTodayPag
                         fn();
                     }}
                     onCancel={() => setConfirmPending(null)}
+                    onEdit={confirmPending.templateId ? () => {
+                        const tpl = templates.find((t) => t.id === confirmPending.templateId);
+                        setConfirmPending(null);
+                        if (tpl) handleEditTemplate(tpl);
+                    } : undefined}
+                    onDelete={confirmPending.templateId ? () => {
+                        const id = confirmPending.templateId!;
+                        setConfirmPending(null);
+                        handleDeleteTemplate(id);
+                    } : undefined}
                 />
             )}
         </div>
