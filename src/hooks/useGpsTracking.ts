@@ -1,4 +1,5 @@
 // src/hooks/useGpsTracking.ts
+// Robust GPS tracking hook with auto-reconnect, watchdog, and proper cleanup
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App } from "@capacitor/app";
@@ -6,27 +7,30 @@ import type { GpsPoint, CardioSessionState, LapEntry } from "../types/cardio";
 import {
   checkLocationPermission,
   requestLocationPermission,
-  watchPosition,
-  clearWatch,
-  type WatchCallbackId,
+  GpsWatcher,
 } from "../native/geolocation";
 import { haversineDistance, computePace } from "../utils/gpsUtils";
 import { saveGpsSession, loadGpsSession, clearGpsSession } from "../utils/gpsSessionPersistence";
 import type { GpsSignalStrength } from "../components/cardio/GpsSignalIndicator";
 
-const MAX_ACCURACY_M = 20;          // reject points with worse accuracy (after grace)
-const INITIAL_ACCURACY_M = 100;    // accept coarse points for first 10s
-const INITIAL_GRACE_MS = 10000;    // 10s grace period with relaxed accuracy
-const GPS_SIGNAL_WEAK_M = 10;      // accuracy > this = "weak" signal
-const MAX_SPEED_MS = 12;           // reject points > 12 m/s (43 km/h, unrealistic for running)
-const AUTO_PAUSE_SPEED_MS = 0.5;   // below this → standing still
-const AUTO_PAUSE_TIMEOUT_MS = 10000; // 10 s below threshold → auto-pause
-const AUTO_RESUME_SPEED_MS = 1.0;  // above this after auto-pause → resume
-const MIN_ELEVATION_GAIN_M = 2;
-const PERSIST_INTERVAL_MS = 5000;  // Save every 5 seconds
-const SMOOTHING_WINDOW = 3;        // 3-point moving average
+// --------------- Constants ---------------
 
-/** Derive GPS signal quality from accuracy in meters. */
+const MAX_ACCURACY_M = 25;            // reject points with worse accuracy (after grace)
+const INITIAL_ACCURACY_M = 100;       // accept coarse points for first 15s
+const INITIAL_GRACE_MS = 15000;       // 15s grace period with relaxed accuracy
+const GPS_SIGNAL_WEAK_M = 15;         // accuracy > this = "weak" signal
+const MAX_SPEED_MS = 15;              // reject > 54 km/h (covers fast cycling)
+const AUTO_PAUSE_SPEED_MS = 0.3;      // below this → standing still
+const AUTO_PAUSE_TIMEOUT_MS = 8000;   // 8s below threshold → auto-pause
+const AUTO_RESUME_SPEED_MS = 0.8;     // above this after auto-pause → resume
+const MIN_ELEVATION_CHANGE_M = 3;     // ignore altitude noise below this
+const PERSIST_INTERVAL_MS = 5000;     // save every 5 seconds
+const SMOOTHING_WINDOW = 3;           // 3-point moving average
+const MAX_POINT_GAP_MS = 30000;       // if gap > 30s, don't compute distance for that segment
+const SIGNAL_LOST_TIMEOUT_MS = 10000; // mark signal as "searching" after 10s silence
+
+// --------------- Helpers ---------------
+
 function deriveGpsSignal(accuracy: number | undefined): GpsSignalStrength {
   if (accuracy === undefined) return "searching";
   if (accuracy > INITIAL_ACCURACY_M) return "searching";
@@ -34,7 +38,6 @@ function deriveGpsSignal(accuracy: number | undefined): GpsSignalStrength {
   return "good";
 }
 
-/** Apply 3-point moving average smoothing to a point based on its neighbours. */
 function smoothedCoords(
   points: GpsPoint[],
   index: number,
@@ -42,11 +45,13 @@ function smoothedCoords(
   const half = Math.floor(SMOOTHING_WINDOW / 2);
   const start = Math.max(0, index - half);
   const end = Math.min(points.length, start + SMOOTHING_WINDOW);
-  const window = points.slice(start, end);
-  const lat = window.reduce((s, p) => s + p.lat, 0) / window.length;
-  const lng = window.reduce((s, p) => s + p.lng, 0) / window.length;
+  const win = points.slice(start, end);
+  const lat = win.reduce((s, p) => s + p.lat, 0) / win.length;
+  const lng = win.reduce((s, p) => s + p.lng, 0) / win.length;
   return { lat, lng };
 }
+
+// --------------- Hook ---------------
 
 export function useGpsTracking() {
   const [state, setState] = useState<CardioSessionState>({
@@ -62,21 +67,23 @@ export function useGpsTracking() {
 
   const [gpsSignal, setGpsSignal] = useState<GpsSignalStrength>("searching");
 
-  const watchIdRef            = useRef<WatchCallbackId | null>(null);
-  const pointsRef             = useRef<GpsPoint[]>([]);
-  const distanceRef           = useRef(0);
-  const elevationRef          = useRef(0);
-  const pausedAtRef           = useRef<number | undefined>(undefined);
-  const totalPausedRef        = useRef(0);
-  const startedAtRef          = useRef(0);
-  const stoppedAtRef          = useRef<number | undefined>(undefined);
-  const lapsRef               = useRef<LapEntry[]>([]);
-  const permissionCacheRef    = useRef<boolean | null>(null);
-  const stateStatusRef        = useRef<CardioSessionState["status"]>("idle");
-  const persistTimerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const restoredRef           = useRef(false);
-  const slowSinceRef          = useRef<number | null>(null);    // auto-pause: timestamp when speed dropped below threshold
-  const isAutoPausedRef       = useRef(false);
+  // Refs for mutable tracking state (avoid re-render on every GPS tick)
+  const watcherRef             = useRef<GpsWatcher | null>(null);
+  const pointsRef              = useRef<GpsPoint[]>([]);
+  const distanceRef            = useRef(0);
+  const elevationRef           = useRef(0);
+  const pausedAtRef            = useRef<number | undefined>(undefined);
+  const totalPausedRef         = useRef(0);
+  const startedAtRef           = useRef(0);
+  const stoppedAtRef           = useRef<number | undefined>(undefined);
+  const lapsRef                = useRef<LapEntry[]>([]);
+  const permissionCacheRef     = useRef<boolean | null>(null);
+  const stateStatusRef         = useRef<CardioSessionState["status"]>("idle");
+  const persistTimerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restoredRef            = useRef(false);
+  const slowSinceRef           = useRef<number | null>(null);
+  const isAutoPausedRef        = useRef(false);
+  const signalLostTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setStateWithRef = useCallback((next: CardioSessionState | ((prev: CardioSessionState) => CardioSessionState)) => {
     setState((prev) => {
@@ -86,7 +93,8 @@ export function useGpsTracking() {
     });
   }, []);
 
-  // Persist current GPS state to localStorage
+  // --------------- Persistence ---------------
+
   const persistState = useCallback(() => {
     const status = stateStatusRef.current;
     if (status !== "tracking" && status !== "paused") return;
@@ -103,7 +111,6 @@ export function useGpsTracking() {
     });
   }, []);
 
-  // Start periodic persistence
   const startPersistTimer = useCallback(() => {
     if (persistTimerRef.current) return;
     persistTimerRef.current = setInterval(persistState, PERSIST_INTERVAL_MS);
@@ -116,11 +123,38 @@ export function useGpsTracking() {
     }
   }, []);
 
-  const addPoint = useCallback((point: GpsPoint) => {
-    // Update GPS signal strength on every incoming point (even rejected ones)
-    setGpsSignal(deriveGpsSignal(point.accuracy));
+  // --------------- Signal lost timer ---------------
 
-    // Reject low-accuracy points — relaxed during initial grace period
+  const resetSignalLostTimer = useCallback(() => {
+    if (signalLostTimerRef.current) {
+      clearTimeout(signalLostTimerRef.current);
+    }
+    signalLostTimerRef.current = setTimeout(() => {
+      // No point received for a while — show searching state
+      if (stateStatusRef.current === "tracking") {
+        setGpsSignal("searching");
+      }
+    }, SIGNAL_LOST_TIMEOUT_MS);
+  }, []);
+
+  const clearSignalLostTimer = useCallback(() => {
+    if (signalLostTimerRef.current) {
+      clearTimeout(signalLostTimerRef.current);
+      signalLostTimerRef.current = null;
+    }
+  }, []);
+
+  // --------------- Point processing ---------------
+
+  const addPoint = useCallback((point: GpsPoint) => {
+    // Always update signal strength (even for rejected points)
+    setGpsSignal(deriveGpsSignal(point.accuracy));
+    resetSignalLostTimer();
+
+    // Don't process points while paused (manual or auto)
+    if (stateStatusRef.current === "paused" && !isAutoPausedRef.current) return;
+
+    // Reject low-accuracy points (relaxed during initial grace period)
     const elapsed = Date.now() - (startedAtRef.current || Date.now());
     const maxAcc = elapsed < INITIAL_GRACE_MS ? INITIAL_ACCURACY_M : MAX_ACCURACY_M;
     if (point.accuracy && point.accuracy > maxAcc) return;
@@ -128,15 +162,19 @@ export function useGpsTracking() {
     const prev = pointsRef.current;
     const lastPoint = prev[prev.length - 1];
 
-    // Speed check between consecutive points
-    let speedMs = 0;
+    // Speed validation
+    let speedMs = point.speed ?? 0; // prefer GPS-chip speed
     if (lastPoint) {
-      const dt = (point.timestamp - lastPoint.timestamp) / 1000; // seconds
+      const dt = (point.timestamp - lastPoint.timestamp) / 1000;
       if (dt > 0) {
         const dist = haversineDistance(lastPoint, point);
-        speedMs = dist / dt;
-        // Reject unrealistic speed (> 43 km/h)
-        if (speedMs > MAX_SPEED_MS) return;
+        const computedSpeed = dist / dt;
+
+        // Use GPS chip speed if available, otherwise computed
+        if (speedMs <= 0) speedMs = computedSpeed;
+
+        // Reject unrealistic speed
+        if (computedSpeed > MAX_SPEED_MS) return;
       }
     }
 
@@ -156,37 +194,48 @@ export function useGpsTracking() {
         }
       } else {
         slowSinceRef.current = null;
-        // Auto-resume if we were auto-paused and speed picks up
+        // Auto-resume: speed picked back up
         if (isAutoPausedRef.current && speedMs > AUTO_RESUME_SPEED_MS) {
           isAutoPausedRef.current = false;
           if (pausedAtRef.current) {
             totalPausedRef.current += point.timestamp - pausedAtRef.current;
             pausedAtRef.current = undefined;
           }
+          setStateWithRef((p) => ({
+            ...p,
+            status: "tracking",
+            pausedAt: undefined,
+            totalPausedMs: totalPausedRef.current,
+          }));
         }
       }
     }
 
-    // If currently auto-paused, don't accumulate distance
+    // If auto-paused, don't accumulate distance
     if (isAutoPausedRef.current) return;
 
-    // Add point, then compute smoothed distance
+    // Add point and compute smoothed distance
     const newPoints = [...prev, point];
     const idx = newPoints.length - 1;
 
-    // Smoothed coords for distance calculation (3-point moving average)
     let addedDistance = 0;
     if (idx >= 1) {
-      const smoothedCurr = smoothedCoords(newPoints, idx);
-      const smoothedPrev = smoothedCoords(newPoints, idx - 1);
-      addedDistance = haversineDistance(
-        { ...newPoints[idx - 1], ...smoothedPrev },
-        { ...point, ...smoothedCurr },
-      );
-      // Reject teleport jumps
-      if (addedDistance > 500 && prev.length > 1) return;
+      const dt = point.timestamp - newPoints[idx - 1].timestamp;
+
+      // Skip distance if there's a large time gap (app was suspended)
+      if (dt <= MAX_POINT_GAP_MS) {
+        const smoothedCurr = smoothedCoords(newPoints, idx);
+        const smoothedPrev = smoothedCoords(newPoints, idx - 1);
+        addedDistance = haversineDistance(
+          { ...newPoints[idx - 1], ...smoothedPrev },
+          { ...point, ...smoothedCurr },
+        );
+        // Reject teleport jumps (> 500m in one tick)
+        if (addedDistance > 500) return;
+      }
     }
 
+    // Elevation gain (with noise filter)
     let addedElevation = 0;
     if (
       lastPoint &&
@@ -194,14 +243,14 @@ export function useGpsTracking() {
       typeof point.altitude === "number"
     ) {
       const diff = point.altitude - lastPoint.altitude;
-      if (diff > MIN_ELEVATION_GAIN_M) addedElevation = diff;
+      if (diff > MIN_ELEVATION_CHANGE_M) addedElevation = diff;
     }
 
-    pointsRef.current  = newPoints;
-    distanceRef.current  += addedDistance;
+    pointsRef.current = newPoints;
+    distanceRef.current += addedDistance;
     elevationRef.current += addedElevation;
 
-    // Pace: use last 30 seconds for more responsive updates
+    // Pace: rolling 30s window for responsive updates
     const now = point.timestamp;
     const recentPoints = newPoints.filter((p) => p.timestamp >= now - 30000);
     let recentDistance = 0;
@@ -224,22 +273,53 @@ export function useGpsTracking() {
       currentPaceSecPerKm: pace,
       laps: lapsRef.current,
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setStateWithRef, persistState, resetSignalLostTimer]);
+
+  // --------------- GPS Watcher management ---------------
+
+  const createWatcher = useCallback((): GpsWatcher => {
+    const watcher = new GpsWatcher({
+      onPoint: addPoint,
+      onError: (err) => {
+        if (import.meta.env.DEV) console.warn("[GPS] Watch error:", err);
+      },
+      onSignalLost: () => {
+        setGpsSignal("searching");
+      },
+      onReconnected: () => {
+        if (import.meta.env.DEV) console.log("[GPS] Reconnected successfully");
+      },
+    });
+    return watcher;
+  }, [addPoint]);
+
+  const destroyWatcher = useCallback(async () => {
+    if (watcherRef.current) {
+      await watcherRef.current.destroy();
+      watcherRef.current = null;
+    }
+  }, []);
+
+  // --------------- Public API ---------------
 
   const startTracking = useCallback(async () => {
     const granted = permissionCacheRef.current ?? await requestLocationPermission();
+    permissionCacheRef.current = granted;
     if (!granted) return false;
 
+    // Clean up any existing watcher
+    await destroyWatcher();
+
     const now = Date.now();
-    startedAtRef.current    = now;
-    pointsRef.current       = [];
-    distanceRef.current     = 0;
-    elevationRef.current    = 0;
-    totalPausedRef.current  = 0;
-    pausedAtRef.current     = undefined;
-    stoppedAtRef.current    = undefined;
-    lapsRef.current         = [];
-    slowSinceRef.current    = null;
+    startedAtRef.current = now;
+    pointsRef.current = [];
+    distanceRef.current = 0;
+    elevationRef.current = 0;
+    totalPausedRef.current = 0;
+    pausedAtRef.current = undefined;
+    stoppedAtRef.current = undefined;
+    lapsRef.current = [];
+    slowSinceRef.current = null;
     isAutoPausedRef.current = false;
 
     setStateWithRef({
@@ -253,25 +333,28 @@ export function useGpsTracking() {
       laps: [],
     });
 
-    watchPosition(addPoint).then((id) => {
-      watchIdRef.current = id;
-    }).catch((err) => { if (import.meta.env.DEV) console.error("[GPS] watchPosition failed:", err); });
+    setGpsSignal("searching");
+
+    const watcher = createWatcher();
+    watcherRef.current = watcher;
+    await watcher.start();
 
     startPersistTimer();
+    resetSignalLostTimer();
     return true;
-  }, [addPoint, startPersistTimer]);
+  }, [createWatcher, destroyWatcher, setStateWithRef, startPersistTimer, resetSignalLostTimer]);
 
-  const pauseTracking = useCallback(() => {
-    if (watchIdRef.current) {
-      clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
+  const pauseTracking = useCallback(async () => {
+    await destroyWatcher();
+    clearSignalLostTimer();
+
     pausedAtRef.current = Date.now();
     slowSinceRef.current = null;
     isAutoPausedRef.current = false;
+
     setStateWithRef((prev) => ({ ...prev, status: "paused", pausedAt: Date.now() }));
-    persistState(); // Save immediately on pause
-  }, [persistState]);
+    persistState();
+  }, [destroyWatcher, clearSignalLostTimer, setStateWithRef, persistState]);
 
   const resumeTracking = useCallback(async () => {
     if (pausedAtRef.current) {
@@ -280,36 +363,44 @@ export function useGpsTracking() {
     }
     slowSinceRef.current = null;
     isAutoPausedRef.current = false;
-    watchPosition(addPoint).then((id) => {
-      watchIdRef.current = id;
-    }).catch((err) => { if (import.meta.env.DEV) console.error("[GPS] watchPosition failed:", err); });
+
+    // Clean up and create fresh watcher
+    await destroyWatcher();
+
+    const watcher = createWatcher();
+    watcherRef.current = watcher;
+    await watcher.start();
+
     setStateWithRef((prev) => ({
       ...prev,
       status: "tracking",
       pausedAt: undefined,
       totalPausedMs: totalPausedRef.current,
     }));
-    startPersistTimer();
-  }, [addPoint, startPersistTimer]);
 
-  const stopTracking = useCallback(() => {
-    if (watchIdRef.current) {
-      clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
+    startPersistTimer();
+    resetSignalLostTimer();
+  }, [createWatcher, destroyWatcher, setStateWithRef, startPersistTimer, resetSignalLostTimer]);
+
+  const stopTracking = useCallback(async () => {
+    await destroyWatcher();
+    clearSignalLostTimer();
+
     if (pausedAtRef.current) {
       totalPausedRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = undefined;
     }
     stoppedAtRef.current = Date.now();
+
     stopPersistTimer();
-    clearGpsSession(); // Clean up persisted state
+    clearGpsSession();
+
     setStateWithRef((prev) => ({
       ...prev,
       status: "stopped",
       totalPausedMs: totalPausedRef.current,
     }));
-  }, [stopPersistTimer]);
+  }, [destroyWatcher, clearSignalLostTimer, stopPersistTimer, setStateWithRef]);
 
   const addLap = useCallback(() => {
     const elapsedMs = getElapsedMsNow();
@@ -320,20 +411,19 @@ export function useGpsTracking() {
     };
     lapsRef.current = [...lapsRef.current, newLap];
     setStateWithRef((prev) => ({ ...prev, laps: lapsRef.current }));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setStateWithRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore session from localStorage on mount (app was killed and restarted)
+  // --------------- Session restore on mount ---------------
+
   useEffect(() => {
     checkLocationPermission().then((granted) => {
       permissionCacheRef.current = granted;
     });
 
-    // Try to restore a persisted GPS session
     if (!restoredRef.current) {
       restoredRef.current = true;
       const saved = loadGpsSession();
       if (saved) {
-        // Restore all refs
         startedAtRef.current = saved.startedAt;
         pointsRef.current = saved.points;
         distanceRef.current = saved.distanceM;
@@ -354,7 +444,7 @@ export function useGpsTracking() {
             laps: saved.laps,
           });
         } else {
-          // Was tracking — add paused time since last save and resume GPS
+          // Was tracking — account for time gap since kill
           const pausedSinceKill = Date.now() - saved.lastSavedAt;
           totalPausedRef.current += pausedSinceKill;
 
@@ -369,43 +459,59 @@ export function useGpsTracking() {
             laps: saved.laps,
           });
 
-          // Restart GPS watch
-          watchPosition(addPoint).then((id) => {
-            watchIdRef.current = id;
-          }).catch((err) => { if (import.meta.env.DEV) console.error("[GPS] watchPosition failed:", err); });
+          // Restart GPS with robust watcher
+          const watcher = createWatcher();
+          watcherRef.current = watcher;
+          watcher.start();
           startPersistTimer();
+          resetSignalLostTimer();
         }
       }
     }
 
     return () => {
-      if (watchIdRef.current) clearWatch(watchIdRef.current);
+      watcherRef.current?.destroy();
+      watcherRef.current = null;
       stopPersistTimer();
+      clearSignalLostTimer();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // App state change listener — restart GPS if killed in background
+  // --------------- App state listener (background/foreground) ---------------
+
   useEffect(() => {
     let listener: Awaited<ReturnType<typeof App.addListener>> | null = null;
 
-    App.addListener("appStateChange", ({ isActive }) => {
+    App.addListener("appStateChange", async ({ isActive }) => {
       if (!isActive) {
         // Going to background — persist immediately
         persistState();
         return;
       }
 
-      // App just became active — check if we were tracking but watch is gone
-      const statusRef = stateStatusRef.current;
-      if (statusRef === "tracking" && !watchIdRef.current) {
-        watchPosition(addPoint).then((id) => {
-          watchIdRef.current = id;
-        }).catch((err) => { if (import.meta.env.DEV) console.error("[GPS] watchPosition failed:", err); });
+      // App returned to foreground
+      const status = stateStatusRef.current;
+      if (status !== "tracking") return;
+
+      // Check if watcher is still alive
+      if (!watcherRef.current || !watcherRef.current.isActive) {
+        if (import.meta.env.DEV) console.log("[GPS] Watcher dead after foreground — restarting");
+
+        // Clean up dead watcher
+        if (watcherRef.current) {
+          await watcherRef.current.destroy();
+        }
+
+        const watcher = createWatcher();
+        watcherRef.current = watcher;
+        await watcher.start();
       }
     }).then((h) => { listener = h; });
 
     return () => { listener?.remove(); };
-  }, [addPoint, persistState]);
+  }, [addPoint, persistState, createWatcher]);
+
+  // --------------- Elapsed time ---------------
 
   function getElapsedMsNow(): number {
     if (startedAtRef.current === 0) return 0;

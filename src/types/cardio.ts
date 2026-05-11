@@ -39,6 +39,7 @@ export interface GpsPoint {
   lng: number;
   altitude?: number;
   accuracy?: number;
+  speed?: number; // m/s from GPS chip (more accurate than computed)
   timestamp: number; // epoch ms
 }
 
