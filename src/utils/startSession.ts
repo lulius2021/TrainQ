@@ -108,6 +108,7 @@ export function startFreeTraining(sport: TrainingType = "gym"): void {
 
 export function startTrainingTemplate(template: TrainingTemplateLite): void {
   const seed = templateToSeed(template);
+  seed.templateId = template.id;
   const dateISO = toLocalISODate(new Date());
   const key = `template:${template.id}:${dateISO}`;
   writeLiveSeedForKey(key, seed);

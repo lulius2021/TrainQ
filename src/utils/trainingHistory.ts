@@ -276,6 +276,7 @@ export function startLiveWorkout(args: {
   title: string;
   sport: SportType;
   calendarEventId?: string;
+  templateId?: string;
   cardioTarget?: CardioTarget;
   initialExercises?: Array<{
     exerciseId?: string;
@@ -305,6 +306,7 @@ export function startLiveWorkout(args: {
   const workout: LiveWorkout = {
     id: uid(),
     calendarEventId: args.calendarEventId,
+    templateId: args.templateId,
     title: args.title || "Training",
     sport: normalizeSport(args.sport),
     startedAt,

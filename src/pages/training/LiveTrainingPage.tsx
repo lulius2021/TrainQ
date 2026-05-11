@@ -44,7 +44,7 @@ import {
 } from "../../utils/liveTrainingSeed";
 
 import { applyAdaptiveToSeed } from "../../utils/adaptiveSeed";
-import { upsertTrainingTemplate, buildTrainingTemplateSignature } from "../../services/trainingTemplatesService";
+import { upsertTrainingTemplate, buildTrainingTemplateSignature, loadTrainingTemplates } from "../../services/trainingTemplatesService";
 import type { TrainingTemplate, TrainingTemplateExercise } from "../../types/trainingTemplates";
 import { saveTemplate as saveTemplateLite } from "../../utils/trainingTemplatesStore";
 import { TemplateIcon, TEMPLATE_ICON_IDS_GYM } from "../../components/icons/AppIcons";
@@ -81,6 +81,37 @@ import { useSafeAreaInsets } from "../../hooks/useSafeAreaInsets";
 import { useTheme } from "../../context/ThemeContext";
 import { useI18n } from "../../i18n/useI18n";
 import { buildCardioTargetFromLiveExercises } from "../../utils/cardioPlan";
+import { getScopedItem, setScopedItem } from "../../utils/scopedStorage";
+
+/** Update future calendar events that use the same template */
+function propagateTemplateToCalendar(templateId: string, exercises: LiveExercise[], userId: string) {
+  try {
+    const raw = getScopedItem("trainq_calendar_events", userId);
+    if (!raw) return;
+    const events = JSON.parse(raw);
+    if (!Array.isArray(events)) return;
+    const todayISO = new Date().toISOString().split("T")[0];
+    let changed = false;
+    for (const evt of events) {
+      if (!evt.date || evt.date <= todayISO) continue;
+      if (evt.workoutData?.templateId !== templateId) continue;
+      evt.workoutData.exercises = exercises.map((ex) => ({
+        id: ex.id,
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        sets: (ex.sets || []).map((s) => ({
+          reps: s.reps,
+          weight: s.weight,
+          notes: s.notes,
+        })),
+      }));
+      changed = true;
+    }
+    if (changed) setScopedItem("trainq_calendar_events", JSON.stringify(events), userId);
+  } catch {
+    // silent — non-critical
+  }
+}
 
 type LiveTrainingPageProps = {
   events: CalendarEvent[];
@@ -260,6 +291,11 @@ export default function LiveTrainingPage({
     }).catch(() => {});
   }, []);
 
+  // Update-Template Flow (when workout came from a template and exercises changed)
+  const [showUpdateTemplatePrompt, setShowUpdateTemplatePrompt] = useState(false);
+  const pendingTemplateUpdateRef = useRef<{ templateId: string; exercises: LiveExercise[]; completedId: string } | null>(null);
+  const initialExerciseSnapshotRef = useRef<string>("");
+
   // Save-as-Template Flow
   const [showSaveTemplatePrompt, setShowSaveTemplatePrompt] = useState(false);
   const isQuickStartRef = useRef(false);
@@ -303,59 +339,76 @@ export default function LiveTrainingPage({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
 
-  // Build smart swap suggestions: scored by muscle overlap, movement, and user history
+  // Build smart swap suggestions: scored by muscle overlap, movement, equipment, and history
   const swapSuggestions = useMemo(() => {
     if (!swappingExerciseId || !workout) return [];
     const swappingEx = workout.exercises.find(e => e.id === swappingExerciseId);
     if (!swappingEx) return [];
 
-    const srcLib = swappingEx.exerciseId ? EXERCISES.find(e => e.id === swappingEx.exerciseId) : null;
-    const srcMuscles: string[] = srcLib?.primaryMuscles ?? [];
-    const srcSecondary: string[] = srcLib?.secondaryMuscles ?? [];
-    const srcMovement: string = srcLib?.movement ?? "";
+    // Find source exercise in library — by ID or by name fallback
+    let srcLib = swappingEx.exerciseId ? EXERCISES.find(e => e.id === swappingEx.exerciseId) : null;
+    if (!srcLib && swappingEx.name) {
+      const nameLower = swappingEx.name.toLowerCase();
+      srcLib = EXERCISES.find(e => e.name.toLowerCase() === nameLower || e.nameDe?.toLowerCase() === nameLower || e.nameEn?.toLowerCase() === nameLower) ?? null;
+    }
+    if (!srcLib) return EXERCISES.slice(0, 5); // No match at all — show defaults
 
-    // Build set of exerciseIds the user has trained before
+    const srcMuscles = srcLib.primaryMuscles ?? [];
+    const srcSecondary = srcLib.secondaryMuscles ?? [];
+    const srcMovement = srcLib.movement ?? "";
+    const srcEquipment = new Set(srcLib.equipment ?? []);
+    const srcType = srcLib.type ?? "";
+
+    // Already in workout — exclude these
+    const workoutExIds = new Set(workout.exercises.map(e => e.exerciseId).filter(Boolean));
+
+    // History bonus
     const history = loadWorkoutHistory();
-    const trainedIds = new Set<string>();
     const trainedCounts = new Map<string, number>();
     for (const w of history) {
       for (const e of w.exercises ?? []) {
-        if (!e.exerciseId) continue;
-        trainedIds.add(e.exerciseId);
-        trainedCounts.set(e.exerciseId, (trainedCounts.get(e.exerciseId) ?? 0) + 1);
+        if (e.exerciseId) trainedCounts.set(e.exerciseId, (trainedCounts.get(e.exerciseId) ?? 0) + 1);
       }
     }
 
     const scored = EXERCISES
-      .filter(e => e.id !== swappingEx.exerciseId)
+      .filter(e => e.id !== srcLib!.id && !workoutExIds.has(e.id))
       .map(e => {
         let score = 0;
-        const eMuscles: string[] = e.primaryMuscles ?? [];
-        const eSecondary: string[] = e.secondaryMuscles ?? [];
+        const eMuscles = e.primaryMuscles ?? [];
+        const eSecondary = e.secondaryMuscles ?? [];
 
-        // Primary muscle overlap (highest weight)
+        // Primary muscle overlap — MUST have at least one (hard filter below)
         const primaryMatch = eMuscles.filter(m => srcMuscles.includes(m)).length;
-        score += primaryMatch * 10;
+        score += primaryMatch * 20;
 
-        // Cross-match: candidate primary hits source secondary and vice-versa
+        // Secondary overlap
         const crossMatch = eMuscles.filter(m => srcSecondary.includes(m)).length
           + eSecondary.filter(m => srcMuscles.includes(m)).length;
-        score += crossMatch * 4;
+        score += crossMatch * 5;
 
-        // Same movement pattern (push/pull/squat/hinge etc.)
-        if (srcMovement && e.movement === srcMovement) score += 6;
+        // Same movement pattern (push/pull/squat/hinge)
+        if (srcMovement && e.movement === srcMovement) score += 15;
 
-        // User has done this exercise before
+        // Same exercise type (strength/cardio)
+        if (srcType && e.type === srcType) score += 3;
+
+        // Equipment similarity
+        const eEquip = new Set(e.equipment ?? []);
+        const equipOverlap = [...eEquip].filter(eq => srcEquipment.has(eq)).length;
+        score += equipOverlap * 4;
+
+        // History bonus (smaller than muscle match so it doesn't override)
         const count = trainedCounts.get(e.id) ?? 0;
-        if (count >= 5) score += 8;
-        else if (count >= 2) score += 5;
-        else if (count >= 1) score += 2;
+        if (count >= 3) score += 3;
+        else if (count >= 1) score += 1;
 
-        return { exercise: e, score };
+        return { exercise: e, score, primaryMatch };
       })
-      .filter(({ score }) => score > 0)
+      // MUST share at least one primary muscle
+      .filter(({ primaryMatch }) => primaryMatch > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 12)
+      .slice(0, 5)
       .map(({ exercise }) => exercise);
 
     return scored;
@@ -384,9 +437,11 @@ export default function LiveTrainingPage({
     };
   }, []);
 
-  // Load PR baseline when workout is available
+  // Load PR baseline ONCE when workout starts — never rebuild during session
+  const prBaselineBuiltRef = useRef(false);
   useEffect(() => {
-    if (!workout?.id) return;
+    if (!workout?.id || prBaselineBuiltRef.current) return;
+    prBaselineBuiltRef.current = true;
     setPrBaseline(buildPRBaseline(workout.id));
   }, [workout?.id]);
 
@@ -401,6 +456,16 @@ export default function LiveTrainingPage({
       setInitError(null);
       setWorkout(next);
       setInitDone(true);
+      // Snapshot exercises for template change detection
+      if (next.templateId && !initialExerciseSnapshotRef.current) {
+        initialExerciseSnapshotRef.current = JSON.stringify(
+          (next.exercises || []).map((ex) => ({
+            name: ex.name,
+            exerciseId: ex.exerciseId,
+            sets: (ex.sets || []).map((s) => ({ reps: s.reps, weight: s.weight })),
+          }))
+        );
+      }
     };
 
     // Called only for FRESH starts (not resumes) — starts Live Activity immediately
@@ -465,6 +530,7 @@ export default function LiveTrainingPage({
           title: seedToUse.title || "Training",
           sport,
           calendarEventId: eventId,
+          templateId: globalSeed.templateId || (event as any)?.workoutData?.templateId,
           initialExercises,
           cardioTarget: buildCardioTargetFromLiveExercises(initialExercises, sport) ?? event?.cardioTarget,
         });
@@ -496,6 +562,7 @@ export default function LiveTrainingPage({
           title: seedToUse.title || event?.title || "Training",
           sport,
           calendarEventId: eventId,
+          templateId: resolvedSeed.templateId || (event as any)?.workoutData?.templateId,
           initialExercises,
           cardioTarget: buildCardioTargetFromLiveExercises(initialExercises, sport) ?? event?.cardioTarget,
         });
@@ -780,25 +847,9 @@ export default function LiveTrainingPage({
         prBaseline
       );
       if (result.isPR) {
-        const newWeight = Number(setForPR.weight ?? 0);
-        const newReps = Number(setForPR.reps ?? 0);
-        const newE1RM = newReps >= 1 && newReps <= 10 ? newWeight * (1 + newReps / 30) : newWeight;
-
+        // Add this set as PR — keep all existing PRs (multiple PRs per exercise are valid)
         setPrSets((prev) => {
           const next = new Set(prev);
-          const allSets = exerciseForPR.sets ?? [];
-          for (const s of allSets) {
-            if (s && prev.has(s.id) && s.id !== setId) {
-              const sW = Number(s.weight ?? 0);
-              const sR = Number(s.reps ?? 0);
-              const sE1RM = sR >= 1 && sR <= 10 ? sW * (1 + sR / 30) : sW;
-              if (newE1RM >= sE1RM) {
-                next.delete(s.id);
-              } else {
-                return prev;
-              }
-            }
-          }
           next.add(setId);
           return next;
         });
@@ -806,6 +857,7 @@ export default function LiveTrainingPage({
         hapticHeavy();
       }
     } else if (!toggledOn) {
+      // Un-toggling a set: remove its PR marker
       setPrSets((prev) => {
         if (!prev.has(setId)) return prev;
         const next = new Set(prev);
@@ -1364,6 +1416,26 @@ export default function LiveTrainingPage({
     }
 
     setShowFinishReview(false);
+
+    // Template change detection — ask to update template if exercises changed
+    if (workout.templateId && initialExerciseSnapshotRef.current) {
+      const currentSnapshot = JSON.stringify(
+        (workout.exercises || []).map((ex) => ({
+          name: ex.name,
+          exerciseId: ex.exerciseId,
+          sets: (ex.sets || []).map((s) => ({ reps: s.reps, weight: s.weight })),
+        }))
+      );
+      if (currentSnapshot !== initialExerciseSnapshotRef.current) {
+        pendingTemplateUpdateRef.current = {
+          templateId: workout.templateId,
+          exercises: workout.exercises,
+          completedId: completed.id,
+        };
+        setShowUpdateTemplatePrompt(true);
+        return;
+      }
+    }
 
     // Quick start only → offer to save as template
     // Only for free trainings (no template/plan), not for cardio
@@ -1934,6 +2006,71 @@ export default function LiveTrainingPage({
         )}
 
         {/* Save as Template – Prompt */}
+        {showUpdateTemplatePrompt && (
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
+            <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>
+              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 sm:hidden" style={{ backgroundColor: "var(--border-color)" }} />
+              <h3 className="text-lg font-bold text-center mb-2" style={{ color: "var(--text-color)" }}>
+                {t("training.updateTemplate.title")}
+              </h3>
+              <p className="text-sm text-center mb-6" style={{ color: "var(--text-secondary)" }}>
+                {t("training.updateTemplate.description")}
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onPointerUp={() => {
+                    const pending = pendingTemplateUpdateRef.current;
+                    if (pending) {
+                      // Update the template with current exercises
+                      const stored = loadTrainingTemplates(userId ?? "");
+                      const existing = stored.find((t) => t.id === pending.templateId);
+                      if (existing) {
+                        const updatedExercises: TrainingTemplateExercise[] = pending.exercises.map((ex) => ({
+                          id: ex.id,
+                          exerciseId: ex.exerciseId,
+                          name: ex.name,
+                          sets: (ex.sets || []).map((s) => ({
+                            reps: s.reps,
+                            weight: s.weight,
+                            notes: s.notes,
+                          })),
+                        }));
+                        upsertTrainingTemplate(userId ?? "", {
+                          ...existing,
+                          exercises: updatedExercises,
+                          updatedAt: new Date().toISOString(),
+                        });
+                        // Propagate to future calendar events with same template
+                        propagateTemplateToCalendar(pending.templateId, updatedExercises, userId ?? "");
+                      }
+                    }
+                    setShowUpdateTemplatePrompt(false);
+                    const completedId = pendingTemplateUpdateRef.current?.completedId;
+                    pendingTemplateUpdateRef.current = null;
+                    doExit(completedId);
+                  }}
+                  className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all"
+                  style={{ touchAction: "manipulation" }}
+                >
+                  {t("training.updateTemplate.update")}
+                </button>
+                <button
+                  onPointerUp={() => {
+                    setShowUpdateTemplatePrompt(false);
+                    const completedId = pendingTemplateUpdateRef.current?.completedId;
+                    pendingTemplateUpdateRef.current = null;
+                    doExit(completedId);
+                  }}
+                  className="w-full py-3 rounded-xl font-medium transition-colors"
+                  style={{ color: "var(--text-secondary)", touchAction: "manipulation" }}
+                >
+                  {t("training.updateTemplate.skip")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showSaveTemplatePrompt && (
           <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
             <div className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 pb-12 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-200" style={{ backgroundColor: "var(--card-bg)", borderTop: "1px solid var(--border-color)" }}>

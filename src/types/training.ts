@@ -258,6 +258,7 @@ export interface LiveWorkout {
   id: string;
 
   calendarEventId?: string;
+  templateId?: string;
 
   title: string;
   sport: SportType;

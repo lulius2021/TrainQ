@@ -39,6 +39,7 @@ export type LiveTrainingSeed = {
   isCardio: boolean;
   exercises: BlockExerciseSeed[];
   calendarEventId?: string;
+  templateId?: string;
 };
 
 // ---------------- Storage keys ----------------
