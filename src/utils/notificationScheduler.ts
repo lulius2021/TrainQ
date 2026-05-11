@@ -31,7 +31,7 @@ let deloadCounter = 0;
  * @param notifBodyTpl   Optional translated body template with {{name}} placeholder.
  */
 export async function scheduleTrainingReminders(
-  events: { date: string; startTime?: string; title: string }[],
+  events: { date: string; startTime?: string; title: string; status?: string }[],
   notifTitle?: string,
   notifBodyTpl?: string
 ): Promise<void> {
@@ -51,6 +51,7 @@ export async function scheduleTrainingReminders(
       const dateStr = ev.date; // "YYYY-MM-DD"
       const timeStr = ev.startTime; // "HH:mm" or "" or undefined
       if (!dateStr) continue;
+      if (ev.status === "completed" || ev.status === "skipped") continue;
 
       const hasTime = !!(timeStr && timeStr.includes(":"));
 

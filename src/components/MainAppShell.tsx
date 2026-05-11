@@ -426,7 +426,7 @@ const MainAppShell: React.FC = () => {
 
             const todayStr = todayISO();
             const trainingEvents = events
-                .filter((e) => e.type === "training" && e.date >= todayStr)
+                .filter((e) => e.type === "training" && e.date >= todayStr && (e as any).trainingStatus !== "completed")
                 .map((e) => ({
                     date: e.date,
                     startTime: e.startTime || undefined,
