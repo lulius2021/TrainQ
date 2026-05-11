@@ -555,26 +555,40 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
     setIsExporting(true);
     setExportError(null);
     try {
-      await new Promise(r => setTimeout(r, 100));
-      const cvs = await html2canvas(exportRef.current, {
+      // Clone the export element into a temporary on-screen container
+      // html2canvas in WKWebView cannot render off-screen elements
+      const tempContainer = document.createElement('div');
+      tempContainer.style.cssText = 'position:fixed;top:0;left:0;width:1080px;height:1920px;z-index:-9999;overflow:hidden;pointer-events:none;';
+      document.body.appendChild(tempContainer);
+
+      const clone = exportRef.current.cloneNode(true) as HTMLElement;
+      clone.style.width = '1080px';
+      clone.style.height = '1920px';
+      tempContainer.appendChild(clone);
+
+      // Wait for images and layout
+      await new Promise(r => setTimeout(r, 400));
+
+      const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#09090b';
+
+      const cvs = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#09090b',
+        backgroundColor: bgColor,
         logging: false,
         width: 1080,
         height: 1920,
-        windowWidth: 1080,
-        windowHeight: 1920,
       });
 
-      // Convert canvas to base64
+      // Clean up
+      document.body.removeChild(tempContainer);
+
       const base64 = cvs.toDataURL('image/png').split(',')[1];
-      if (!base64) throw new Error("Canvas rendering failed");
+      if (!base64 || base64.length < 100) throw new Error("Canvas rendering failed — empty image");
 
       const fileName = `trainq-share-${Date.now()}.png`;
 
-      // Save to device via Capacitor Filesystem
       const saved = await Filesystem.writeFile({
         path: fileName,
         data: base64,
@@ -582,7 +596,6 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       });
 
       if (mode === 'share') {
-        // Use both url and files for maximum compatibility
         await Share.share({
           title: 'TrainQ Workout',
           url: saved.uri,
@@ -594,8 +607,8 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
           const { Media } = await import('@capacitor-community/media');
           await Media.savePhoto({ path: saved.uri });
           hapticSuccess();
-        } catch {
-          // Fallback: share dialog so user can save to photos manually
+        } catch (mediaErr) {
+          console.warn("Media.savePhoto failed, using share fallback:", mediaErr);
           await Share.share({
             title: 'TrainQ Workout',
             url: saved.uri,
@@ -604,7 +617,7 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         }
       }
     } catch (e) {
-      console.error("Export failed", e);
+      console.error("Export failed:", e);
       setExportError(e instanceof Error ? e.message : "Export fehlgeschlagen");
     } finally {
       setIsExporting(false);

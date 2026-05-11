@@ -4,6 +4,10 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TrainQ needs access to save workout images to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TrainQ needs access to your photo library to save and share workout images.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

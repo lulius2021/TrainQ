@@ -21,57 +21,38 @@ export const ShareableStatCard: React.FC<ShareableStatCardProps> = ({
         setIsSharing(true);
 
         try {
-            // 1. Temporarily add watermark if needed (via CSS class or just trust the capture)
-            // We'll rely on a hidden element becoming visible or just rendering it into the canvas if we want.
-            // But simpler: just capture the card as is. The user asked for a watermark "TrainQ" bottom right.
-
-            // Let's modify the node temporarily or clone it. 
-            // html2canvas allows onclone.
-
             const canvas = await html2canvas(cardRef.current, {
                 useCORS: true,
-                scale: 2, // better quality
-                backgroundColor: "#1C1C1E", // match card bg
-                onclone: (clonedDoc, element) => {
-                    // Inject watermark to cloned element
-                    const watermark = clonedDoc.createElement("div");
+                scale: 2,
+                backgroundColor: "#1C1C1E",
+                onclone: (_clonedDoc, element) => {
+                    const watermark = _clonedDoc.createElement("div");
                     watermark.textContent = "TrainQ";
-                    watermark.style.position = "absolute";
-                    watermark.style.bottom = "12px";
-                    watermark.style.right = "12px";
-                    watermark.style.color = "rgba(255, 255, 255, 0.4)";
-                    watermark.style.fontSize = "14px";
-                    watermark.style.fontWeight = "bold";
-                    watermark.style.fontFamily = "sans-serif";
-                    watermark.style.zIndex = "1000";
-                    watermark.style.pointerEvents = "none";
+                    watermark.style.cssText = "position:absolute;bottom:12px;right:12px;color:rgba(255,255,255,0.4);font-size:14px;font-weight:bold;font-family:sans-serif;z-index:1000;pointer-events:none;";
                     element.appendChild(watermark);
-
-                    // Ensure transparency works if needed, but we set backgroundColor
                 }
             });
 
-            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-            if (!blob) throw new Error("Blob creation failed");
+            const base64 = canvas.toDataURL("image/png").split(",")[1];
+            if (!base64 || base64.length < 100) throw new Error("Canvas empty");
 
-            const file = new File([blob], `${titleForFile}.png`, { type: "image/png" });
+            // Use Capacitor Filesystem + Share for iOS compatibility
+            const { Filesystem, Directory } = await import("@capacitor/filesystem");
+            const { Share } = await import("@capacitor/share");
 
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: "Mein Training auf TrainQ",
-                    text: "Check mein Training auf TrainQ!",
-                });
-                onShareSuccess?.();
-            } else {
-                // Fallback: Download
-                const link = document.createElement('a');
-                link.download = `${titleForFile}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                onShareSuccess?.();
-            }
+            const fileName = `${titleForFile}-${Date.now()}.png`;
+            const saved = await Filesystem.writeFile({
+                path: fileName,
+                data: base64,
+                directory: Directory.Cache,
+            });
 
+            await Share.share({
+                title: "Mein Training auf TrainQ",
+                url: saved.uri,
+                files: [saved.uri],
+            });
+            onShareSuccess?.();
         } catch (error) {
             if (import.meta.env.DEV) console.error("Share failed", error);
         } finally {
