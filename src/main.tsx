@@ -9,6 +9,12 @@ import "./i18n/config"; // Initialize i18n
 import { applyTheme, loadTheme } from "./utils/theme";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { hasSupabaseEnv } from "./lib/supabaseClient";
+import { initSentry } from "./lib/sentry";
+import { initAnalytics } from "./lib/analytics";
+
+// Initialize Sentry & PostHog (disabled in development)
+initSentry();
+initAnalytics();
 
 // Hide Capacitor splash immediately — native LaunchScreen.storyboard is enough
 SplashScreen.hide({ fadeOutDuration: 0 }).catch(() => {});

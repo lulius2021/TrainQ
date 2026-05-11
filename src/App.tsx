@@ -6,6 +6,7 @@ import { AppRouter } from "./routes/AppRouter";
 import { ensureTestAccountsSeeded } from "./utils/testAccountsSeed";
 import { KeyboardDismissBar } from "./components/common/KeyboardDismissBar";
 import { useModalStore } from "./store/useModalStore";
+import { Sentry, captureError } from "./lib/sentry";
 // SplashScreen is hidden immediately in main.tsx
 
 // Types explicitly exported to maintain compatibility
@@ -26,6 +27,7 @@ class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode },
 
   componentDidCatch(error: unknown, errorInfo: unknown) {
     if (import.meta.env.DEV) console.error("Global Error Boundary caught:", error, errorInfo);
+    captureError(error, { componentStack: (errorInfo as any)?.componentStack });
 
     // Auto-recover from transient auth-context init errors (race condition on cold start).
     // On retry the JS module is fully loaded and the context renders correctly.
@@ -113,6 +115,21 @@ function GlobalClickShield() {
   );
 }
 
+function GlobalErrorBoundaryFallback() {
+  return (
+    <div style={{ backgroundColor: '#1a1a1a', color: '#ffffff', fontFamily: 'system-ui, sans-serif', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ups, etwas ist schiefgelaufen.</h2>
+      <p style={{ fontSize: 14, color: '#aaaaaa', marginBottom: 24 }}>Keine Sorge, deine Daten sind sicher.</p>
+      <button
+        onClick={() => window.location.reload()}
+        style={{ borderRadius: 24, backgroundColor: '#2563eb', padding: '12px 24px', fontWeight: 600, color: '#ffffff', border: 'none', fontSize: 16, cursor: 'pointer' }}
+      >
+        Neu starten
+      </button>
+    </div>
+  );
+}
+
 export const App: React.FC = () => {
   const seededRef = useRef(false);
 
@@ -125,17 +142,19 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <GlobalErrorBoundary>
-      <AuthContextProvider>
-        <ThemeProvider>
-          <OnboardingProvider>
-            <AppRouter />
-            <KeyboardDismissBar />
-            <GlobalClickShield />
-          </OnboardingProvider>
-        </ThemeProvider>
-      </AuthContextProvider>
-    </GlobalErrorBoundary>
+    <Sentry.ErrorBoundary fallback={<GlobalErrorBoundaryFallback />}>
+      <GlobalErrorBoundary>
+        <AuthContextProvider>
+          <ThemeProvider>
+            <OnboardingProvider>
+              <AppRouter />
+              <KeyboardDismissBar />
+              <GlobalClickShield />
+            </OnboardingProvider>
+          </ThemeProvider>
+        </AuthContextProvider>
+      </GlobalErrorBoundary>
+    </Sentry.ErrorBoundary>
   );
 };
 
