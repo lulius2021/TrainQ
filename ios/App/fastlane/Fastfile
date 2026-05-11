@@ -1,0 +1,81 @@
+default_platform(:ios)
+
+platform :ios do
+
+  before_all do
+    setup_circle_ci if ENV["CI"]
+  end
+
+  desc "Web-Assets bauen und nach iOS syncen (Capacitor)"
+  private_lane :build_web do
+    Dir.chdir("../..") do
+      sh("node node_modules/.bin/vite build")
+      sh("npx cap sync ios")
+    end
+  end
+
+  desc "iOS App bauen und signieren"
+  private_lane :build_app_ipa do |options|
+    match(
+      type: options[:type] || "appstore",
+      readonly: is_ci
+    )
+    build_app(
+      workspace: "App.xcworkspace",
+      scheme: "App",
+      export_method: options[:type] == "development" ? "development" : "app-store",
+      output_directory: "./build",
+      output_name: "TrainQ.ipa",
+      clean: true,
+      xcargs: "-allowProvisioningUpdates"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # Public Lanes
+  # ─────────────────────────────────────────────
+
+  desc "TestFlight Beta Build hochladen"
+  lane :beta do
+    build_web
+    increment_build_number(
+      xcodeproj: "App.xcodeproj"
+    )
+    build_app_ipa(type: "appstore")
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "App Store Release (Patch Version Bump)"
+  lane :release do
+    build_web
+    increment_version_number(
+      bump_type: "patch",
+      xcodeproj: "App.xcodeproj"
+    )
+    increment_build_number(
+      xcodeproj: "App.xcodeproj"
+    )
+    build_app_ipa(type: "appstore")
+    upload_to_app_store(
+      force: true,
+      skip_metadata: false,
+      skip_screenshots: true,
+      submit_for_review: false
+    )
+  end
+
+  desc "Nur bauen, nicht hochladen (fuer lokale Tests)"
+  lane :build_only do
+    build_web
+    build_app_ipa(type: "development")
+  end
+
+  desc "Certificates und Profiles via match syncen"
+  lane :sync_certs do
+    match(type: "development")
+    match(type: "appstore")
+  end
+
+end

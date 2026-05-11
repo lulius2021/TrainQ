@@ -1,0 +1,21 @@
+# Match Configuration
+# Docs: https://docs.fastlane.tools/actions/match/
+
+# Git-Repo fuer Certificates + Profiles
+# WICHTIG: Eigenes privates Repo anlegen und URL hier eintragen
+git_url("https://github.com/lulius2021/trainq-Zertifikate.git")
+
+# Storage Mode: git (default) oder google_cloud
+storage_mode("git")
+
+# App Bundle ID
+app_identifier("com.trainq.app")
+
+# Apple Developer Account
+username(ENV["APPLE_ID"] || "")
+
+# Team
+team_id(ENV["TEAM_ID"] || "")
+
+# Signing Types die verwaltet werden
+type("appstore")
