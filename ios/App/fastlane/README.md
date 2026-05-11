@@ -1,79 +1,56 @@
-# TrainQ Fastlane Setup
+fastlane documentation
+----
 
-## Voraussetzungen
+# Installation
 
-- Ruby (via Homebrew: `brew install ruby`)
-- Bundler: `gem install bundler`
-- Xcode + Command Line Tools
-- Apple Developer Account
+Make sure you have the latest version of the Xcode command line tools installed:
 
-## Einrichtung
-
-```bash
-cd ios/App
-
-# Dependencies installieren
-bundle install
-
-# Environment Variables konfigurieren
-cp fastlane/.env.example fastlane/.env
-# .env mit eigenen Werten fuellen
-
-# Certificates syncen (nach Match-Repo Einrichtung)
-bundle exec fastlane sync_certs
+```sh
+xcode-select --install
 ```
 
-## Lanes
+For _fastlane_ installation instructions, see [Installing _fastlane_](https://docs.fastlane.tools/#installing-fastlane)
 
-### TestFlight Beta
+# Available Actions
 
-```bash
-bundle exec fastlane beta
+## iOS
+
+### ios beta
+
+```sh
+[bundle exec] fastlane ios beta
 ```
 
-Baut die Web-Assets, erhoeht die Build-Nummer, erstellt die IPA und laedt sie zu TestFlight hoch.
+TestFlight Beta Build hochladen
 
-### App Store Release
+### ios release
 
-```bash
-bundle exec fastlane release
+```sh
+[bundle exec] fastlane ios release
 ```
 
-Erhoeht die Patch-Version (z.B. 1.0.0 → 1.0.1), baut und laedt zum App Store hoch.
+App Store Release (Patch Version Bump)
 
-### Nur lokal bauen
+### ios build_only
 
-```bash
-bundle exec fastlane build_only
+```sh
+[bundle exec] fastlane ios build_only
 ```
 
-Baut die App ohne Upload — zum lokalen Testen.
+Nur bauen, nicht hochladen (fuer lokale Tests)
 
-### Certificates syncen
+### ios sync_certs
 
-```bash
-bundle exec fastlane sync_certs
+```sh
+[bundle exec] fastlane ios sync_certs
 ```
 
-Holt Development- und AppStore-Certificates via match.
+Certificates und Profiles via match syncen
 
-## Match Setup
+----
 
-1. Privates Git-Repo fuer Certificates anlegen
-2. Repo-URL in `fastlane/Matchfile` eintragen
-3. `bundle exec fastlane match init` ausfuehren
-4. `bundle exec fastlane sync_certs`
+This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
 
-## App Store Connect API Key
+More information about _fastlane_ can be found on [fastlane.tools](https://fastlane.tools).
 
-Fuer CI/CD wird ein API Key empfohlen statt Passwort-Auth:
-
-1. Key erstellen: https://appstoreconnect.apple.com/access/integrations/api
-2. `.p8` Datei sicher speichern (nicht committen!)
-3. Key-Daten in `.env` eintragen
-
-## Troubleshooting
-
-- **Code Signing Fehler**: `bundle exec fastlane match nuke distribution` und dann `sync_certs`
-- **Build Fehler**: Sicherstellen dass `npx cap sync ios` durchlaeuft
-- **Upload Fehler**: Apple ID und Team ID in `.env` pruefen
+The documentation of _fastlane_ can be found on [docs.fastlane.tools](https://docs.fastlane.tools).

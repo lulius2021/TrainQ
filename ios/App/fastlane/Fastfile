@@ -8,7 +8,7 @@ platform :ios do
 
   desc "Web-Assets bauen und nach iOS syncen (Capacitor)"
   private_lane :build_web do
-    Dir.chdir("../..") do
+    Dir.chdir("../../..") do
       sh("node node_modules/.bin/vite build")
       sh("npx cap sync ios")
     end
@@ -21,13 +21,23 @@ platform :ios do
       readonly: is_ci
     )
     build_app(
-      workspace: "App.xcworkspace",
+      project: "App.xcodeproj",
       scheme: "App",
       export_method: options[:type] == "development" ? "development" : "app-store",
       output_directory: "./build",
       output_name: "TrainQ.ipa",
       clean: true,
-      xcargs: "-allowProvisioningUpdates"
+      skip_package_dependencies_resolution: true,
+      xcargs: "-allowProvisioningUpdates -skipPackagePluginValidation",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: "HN96DP7ZYB",
+        signingCertificate: "Apple Distribution",
+        provisioningProfiles: {
+          "com.trainq.app" => "match AppStore com.trainq.app 1778516660"
+        }
+      }
     )
   end
 
