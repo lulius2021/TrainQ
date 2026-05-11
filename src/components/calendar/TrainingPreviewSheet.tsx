@@ -1,614 +1,673 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useDragControls } from "framer-motion";
-import { hapticButton, hapticSuccess, hapticSheetClose } from "../../native/haptics";
+// src/components/calendar/TrainingPreviewSheet.tsx
+// Bottom sheet for calendar training preview with actions
 
-type DragInfo = { offset: { y: number }; velocity: { y: number } };
-
-import type { CalendarEvent, LiveExercise, LiveSet, TrainingType } from "../../types/training";
-import type { LiveTrainingSeed } from "../../utils/liveTrainingSeed";
-import { resolveLiveSeed } from "../../utils/liveTrainingSeed";
-
-import ExerciseEditor from "../training/ExerciseEditor";
-import ExerciseLibraryModal from "../training/ExerciseLibraryModal";
-import type { Exercise } from "../../data/exerciseLibrary";
+import React, { useState, useMemo } from "react";
+import {
+  Calendar,
+  ArrowLeftRight,
+  ArrowUpDown,
+  Play,
+  Clock,
+  Dumbbell,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Bike,
+  Repeat,
+  Plus,
+  Minus,
+} from "lucide-react";
+import {
+  format,
+  addDays,
+  isSameDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+} from "date-fns";
+import { de } from "date-fns/locale";
+import { BottomSheet } from "../common/BottomSheet";
 import { useI18n } from "../../i18n/useI18n";
+import { hapticLight, hapticSuccess } from "../../native/haptics";
+import { AiSparklesIcon } from "../icons/AiSparklesIcon";
+import { IconFigureRun } from "../../assets/icons/IconFigureRun";
+import { IconDumbbellFill } from "../../assets/icons/IconDumbbellFill";
+import { IconFigureStrengthtrainingFunctional } from "../../assets/icons/IconFigureStrengthtrainingFunctional";
+import { getTemplates } from "../../utils/trainingTemplatesStore";
+import type { TrainingTemplateLite } from "../../utils/trainingTemplatesStore";
+import type { ExerciseType } from "../../types";
 
-type Props = {
+// ── Types ──
+
+export interface PreviewEvent {
+  id: string;
+  title: string;
+  date: Date;
+  type: ExerciseType;
+  status: "planned" | "completed" | "skipped" | "open";
+  workoutData?: any;
+  adaptiveProfile?: string;
+  durationSec?: number;
+  exerciseCount?: number;
+  distanceKm?: number;
+  fromHistory?: boolean;
+  trainingType?: string;
+}
+
+export interface ManualWorkoutLog {
+  durationMin: number;
+  exerciseCount: number;
+  setCount: number;
+  volumeKg: number;
+  sport: string;
+}
+
+export interface TrainingPreviewSheetProps {
   open: boolean;
-  event: CalendarEvent | null;
   onClose: () => void;
-  onSave: (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => void;
-  onStart: (nextEvent: CalendarEvent, seed: LiveTrainingSeed) => void;
-};
-
-const CLOSE_OFFSET_PX = 120;
-const CLOSE_VELOCITY_PX = 800;
-
-function ClockPlusIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 7v6l4 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19 5v4M17 7h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+  event: PreviewEvent | null;
+  allEvents: PreviewEvent[];
+  onStartTraining: (event: PreviewEvent) => void;
+  onMoveTraining: (eventId: string, newDate: string) => void;
+  onSwapDays: (eventIdA: string, eventIdB: string) => void;
+  onMovePlan: (eventId: string, offset: number) => void;
+  onReplaceWithAdaptive: (event: PreviewEvent) => void;
+  onReplaceWithTemplate: (eventId: string, template: TrainingTemplateLite) => void;
+  onMarkCompleted: (event: PreviewEvent, log?: ManualWorkoutLog) => void;
 }
 
-function MinusCircleIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-      <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
+type SheetView = "main" | "move" | "swap" | "movePlan" | "replaceTemplate" | "logWorkout";
 
-function PencilIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <path d="M4 20l4.5-1 9.5-9.5-3.5-3.5L5 15.5 4 20z" stroke="currentColor" strokeWidth="2" />
-      <path d="M14.5 6l3.5 3.5" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
+// ── Helpers ──
 
-function normalizeTitle(title: unknown): string {
-  return String(title ?? "").trim().replace(/\s+/g, " ");
-}
-
-function normalizeTrainingType(raw: unknown): TrainingType | null {
-  const v = typeof raw === "string" ? raw.trim() : "";
-  if (!v) return null;
-  const lower = v.toLowerCase();
-  if (lower === "gym") return "gym";
-  if (lower === "laufen") return "laufen";
-  if (lower === "radfahren") return "radfahren";
-  if (lower === "custom") return "custom";
-  if (lower === "run" || lower === "running") return "laufen";
-  if (lower === "bike" || lower === "cycling") return "radfahren";
-  return null;
-}
-
-function getTrainingType(ev: CalendarEvent): TrainingType | null {
-  return normalizeTrainingType((ev as any).trainingType);
-}
-
-function isGymTraining(ev: CalendarEvent): boolean {
-  return getTrainingType(ev) === "gym";
-}
-
-function isCardioType(tt: TrainingType | null): boolean {
-  return tt === "laufen" || tt === "radfahren";
-}
-
-function makeId(prefix = "id"): string {
-  try {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return `${prefix}_${crypto.randomUUID()}`;
-    }
-  } catch {
-    // ignore
+function sportColor(type: ExerciseType): { color: string; bg: string } {
+  switch (type) {
+    case "strength": return { color: "#007AFF", bg: "rgba(0,122,255,0.12)" };
+    case "run":      return { color: "#34C759", bg: "rgba(52,199,89,0.12)" };
+    case "cycle":    return { color: "#FF9500", bg: "rgba(255,149,0,0.12)" };
+    default:         return { color: "#AF52DE", bg: "rgba(175,82,222,0.12)" };
   }
-  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function roundTo5Minutes(date: Date): string {
-  const ms = 1000 * 60 * 5;
-  const rounded = new Date(Math.round(date.getTime() / ms) * ms);
-  const h = String(rounded.getHours()).padStart(2, "0");
-  const m = String(rounded.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+function sportIconNode(type: ExerciseType, size = 20): React.ReactNode {
+  switch (type) {
+    case "strength": return <IconDumbbellFill width={size} height={Math.round(size * 0.64)} />;
+    case "run":      return <IconFigureRun width={size} height={size} />;
+    case "cycle":    return <Bike size={size} />;
+    default:         return <IconFigureStrengthtrainingFunctional width={size} height={Math.round(size * 1.2)} />;
+  }
 }
 
-function defaultStartTime(dateISO: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  if (dateISO === today) return roundTo5Minutes(new Date());
-  return "08:00";
+function fmtDuration(sec: number): string {
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h} h` : `${h} h ${rem} min`;
 }
 
-function seedForEvent(ev: CalendarEvent, existing: LiveTrainingSeed | null): { seed: LiveTrainingSeed; missingSeed: boolean } {
-  if (existing) return { seed: existing, missingSeed: false };
+// ── Component ──
 
-  const tt = getTrainingType(ev);
-  const sport: LiveTrainingSeed["sport"] =
-    tt === "laufen" ? "Laufen" : tt === "radfahren" ? "Radfahren" : tt === "custom" ? "Custom" : "Gym";
-
-  return {
-    seed: {
-      title: normalizeTitle(ev.title) || "Training",
-      sport,
-      isCardio: isCardioType(tt),
-      exercises: [],
-    },
-    missingSeed: isGymTraining(ev),
-  };
-}
-
-function seedToExercises(seed: LiveTrainingSeed): LiveExercise[] {
-  const exercises = Array.isArray(seed.exercises) ? seed.exercises : [];
-  return exercises.map((ex) => ({
-    id: String(ex.id ?? makeId("ex")),
-    exerciseId: ex.exerciseId,
-    name: ex.name || "Übung",
-    restSeconds: undefined,
-    sets: (ex.sets || []).map((s) => ({
-      id: String(s.id ?? makeId("set")),
-      reps: typeof s.reps === "number" ? s.reps : undefined,
-      weight: typeof s.weight === "number" ? s.weight : undefined,
-      notes: typeof s.notes === "string" ? s.notes : "",
-      completed: false,
-      completedAt: undefined,
-    })) as LiveSet[],
-  })) as LiveExercise[];
-}
-
-function exercisesToSeed(seedBase: LiveTrainingSeed, exercises: LiveExercise[], titleOverride?: string): LiveTrainingSeed {
-  return {
-    title: normalizeTitle(titleOverride ?? seedBase.title) || "Training",
-    sport: seedBase.sport,
-    isCardio: seedBase.isCardio,
-    exercises: (exercises || []).map((ex) => ({
-      id: ex.id,
-      exerciseId: ex.exerciseId,
-      name: normalizeTitle(ex.name) || "Übung",
-      sets: (ex.sets || []).map((s) => ({
-        id: s.id,
-        reps: typeof s.reps === "number" ? s.reps : undefined,
-        weight: typeof s.weight === "number" ? s.weight : undefined,
-        notes: typeof (s as any).notes === "string" ? (s as any).notes : undefined,
-      })),
-    })),
-  };
-}
-
-function countSeed(seed: LiveTrainingSeed | null): { exercises: number; sets: number } {
-  if (!seed || !Array.isArray(seed.exercises)) return { exercises: 0, sets: 0 };
-  const exercises = seed.exercises.length;
-  const sets = seed.exercises.reduce((acc, ex) => acc + (Array.isArray(ex.sets) ? ex.sets.length : 0), 0);
-  return { exercises, sets };
-}
-
-export default function TrainingPreviewSheet({ open, event, onClose, onSave, onStart }: Props) {
+export default function TrainingPreviewSheet({
+  open,
+  onClose,
+  event,
+  allEvents,
+  onStartTraining,
+  onMoveTraining,
+  onSwapDays,
+  onMovePlan,
+  onReplaceWithAdaptive,
+  onReplaceWithTemplate,
+  onMarkCompleted,
+}: TrainingPreviewSheetProps) {
   const { t } = useI18n();
-  const dragControls = useDragControls();
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftEvent, setDraftEvent] = useState<CalendarEvent | null>(null);
-  const [draftSeed, setDraftSeed] = useState<LiveTrainingSeed | null>(null);
-  const [draftExercises, setDraftExercises] = useState<LiveExercise[]>([]);
-  const [seedMissing, setSeedMissing] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [view, setView] = useState<SheetView>("main");
+  const [selectedMoveDate, setSelectedMoveDate] = useState<Date | null>(null);
+  const [selectedSwapEvent, setSelectedSwapEvent] = useState<PreviewEvent | null>(null);
+  const [moveCalMonth, setMoveCalMonth] = useState(() => new Date());
 
-  const scrollLockRef = useRef<{ scrollY: number; htmlOverflow: string; body: CSSStyleDeclaration } | null>(null);
-
-  useEffect(() => {
-    if (!open || !event) return;
-    const existingSeed = resolveLiveSeed({ eventId: event.id, dateISO: event.date, title: event.title });
-    const seeded = seedForEvent(event, existingSeed);
-    setDraftEvent({ ...event });
-    setDraftSeed(seeded.seed);
-    setDraftExercises(seedToExercises(seeded.seed));
-    setSeedMissing(seeded.missingSeed);
-    setIsEditing(false);
-    setLibraryOpen(false);
-  }, [open, event?.id]);
-
-  useEffect(() => {
-    if (!open) setLibraryOpen(false);
-  }, [open]);
-
-
-  useEffect(() => {
-    if (!open) return;
-    const scrollY = window.scrollY || window.pageYOffset;
-    scrollLockRef.current = {
-      scrollY,
-      htmlOverflow: document.documentElement.style.overflow,
-      body: { ...document.body.style },
-    };
-    document.documentElement.classList.add("modal-open");
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    return () => {
-      const prev = scrollLockRef.current;
-      document.documentElement.classList.remove("modal-open");
-      document.documentElement.style.overflow = prev?.htmlOverflow ?? "";
-      if (prev?.body) {
-        document.body.style.overflow = prev.body.overflow;
-        document.body.style.position = prev.body.position;
-        document.body.style.top = prev.body.top;
-        document.body.style.width = prev.body.width;
-      }
-      window.scrollTo(0, prev?.scrollY ?? 0);
-      scrollLockRef.current = null;
-    };
-  }, [open]);
-
-  const canStartPreview = useMemo(() => {
-    if (!draftEvent) return false;
-    if (!isGymTraining(draftEvent)) return true;
-    return !!draftSeed;
-  }, [draftEvent, draftSeed]);
-
-  const previewCounts = useMemo(() => countSeed(draftSeed), [draftSeed]);
-  const existingExerciseIds = useMemo(
-    () => draftExercises.map((ex) => ex.exerciseId).filter(Boolean) as string[],
-    [draftExercises]
-  );
-
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: DragInfo) => {
-    if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY_PX) {
-      handleClose();
-    }
-  };
-
-  const updateExercise = (exerciseId: string, patch: Partial<LiveExercise>) => {
-    setDraftExercises((prev) =>
-      prev.map((ex) => (ex.id === exerciseId ? { ...ex, ...patch } : ex))
-    );
-  };
-
-  const removeExercise = (exerciseId: string) => {
-    setDraftExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
-  };
-
-  const addSet = (exerciseId: string, isCardio: boolean) => {
-    setDraftExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === exerciseId
-          ? {
-            ...ex,
-            sets: [
-              ...(Array.isArray(ex.sets) ? ex.sets : []),
-              {
-                id: makeId("set"),
-                completed: false,
-                reps: isCardio ? 10 : undefined,
-                weight: undefined,
-                notes: "",
-              } as LiveSet,
-            ],
-          }
-          : ex
-      )
-    );
-  };
-
-  const removeSet = (exerciseId: string, setId: string) => {
-    setDraftExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === exerciseId ? { ...ex, sets: (ex.sets || []).filter((s) => s.id !== setId) } : ex
-      )
-    );
-  };
-
-  const updateSet = (exerciseId: string, setId: string, patch: Partial<LiveSet>) => {
-    setDraftExercises((prev) =>
-      prev.map((ex) => {
-        if (ex.id !== exerciseId) return ex;
-        const sets = Array.isArray(ex.sets) ? ex.sets : [];
-        return { ...ex, sets: sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)) };
-      })
-    );
-  };
-
-  const toggleSetCompleted = (exerciseId: string, setId: string) => {
-    setDraftExercises((prev) =>
-      prev.map((ex) => {
-        if (ex.id !== exerciseId) return ex;
-        const sets = Array.isArray(ex.sets) ? ex.sets.filter(Boolean) : [];
-        return {
-          ...ex,
-          sets: sets.map((s) =>
-            s && s.id === setId
-              ? { ...s, completed: !s.completed, completedAt: !s.completed ? new Date().toISOString() : undefined }
-              : s
-          ),
-        };
-      })
-    );
-  };
-
-  const moveExercise = (exerciseId: string, direction: "up" | "down") => {
-    setDraftExercises((prev) => {
-      const idx = prev.findIndex((ex) => ex.id === exerciseId);
-      if (idx === -1) return prev;
-      const nextIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (nextIdx < 0 || nextIdx >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[nextIdx]] = [next[nextIdx], next[idx]];
-      return next;
-    });
-  };
-
-  const addExerciseFromLibrary = (exercise?: Exercise, isCardio?: boolean) => {
-    if (!draftEvent || !draftSeed) return;
-    const cardio = Boolean(isCardio);
-    const newExercise: LiveExercise = {
-      id: makeId("ex"),
-      exerciseId: exercise?.id,
-      name: exercise?.name || (cardio ? "Neue Einheit" : "Neue Übung"),
-      sets: [
-        {
-          id: makeId("set"),
-          completed: false,
-          reps: cardio ? 30 : undefined,
-          weight: undefined,
-          notes: "",
-        } as LiveSet,
-      ],
-    } as LiveExercise;
-    setDraftExercises((prev) => [...prev, newExercise]);
-  };
-
-  const handleSave = () => {
-    if (!draftEvent || !draftSeed) return;
-    hapticSuccess();
-    const nextSeed = exercisesToSeed(draftSeed, draftExercises, draftEvent.title);
-    onSave(draftEvent, nextSeed);
-    setDraftSeed(nextSeed);
-    setSeedMissing(false);
-    setIsEditing(false);
-  };
-
-  const handleStart = () => {
-    if (!draftEvent || !draftSeed) return;
-    hapticSuccess();
-    const nextSeed = exercisesToSeed(draftSeed, draftExercises, draftEvent.title);
-    onSave(draftEvent, nextSeed);
-    onStart(draftEvent, nextSeed);
-  };
+  // Log workout state
+  const [logDuration, setLogDuration] = useState(45);
+  const [logExerciseCount, setLogExerciseCount] = useState(5);
+  const [logSetCount, setLogSetCount] = useState(15);
+  const [logVolumeKg, setLogVolumeKg] = useState(0);
 
   const handleClose = () => {
-    hapticSheetClose();
-    if (isEditing) handleSave();
+    setView("main");
+    setSelectedMoveDate(null);
+    setSelectedSwapEvent(null);
+    setLogDuration(45);
+    setLogExerciseCount(5);
+    setLogSetCount(15);
+    setLogVolumeKg(0);
     onClose();
   };
 
-  const canEdit = open && !!draftEvent && !!draftSeed;
-  const isCardio = isCardioType(getTrainingType(draftEvent || ({} as CalendarEvent)));
-  const hasTime = Boolean(draftEvent?.startTime);
-  const MotionDiv = motion.div as unknown as React.ComponentType<any>;
+  // Hooks before early return
+  const nearbyEvents = useMemo(() => {
+    if (!event) return [];
+    return allEvents.filter(
+      (e) =>
+        e.id !== event.id &&
+        (e.status === "planned" || e.status === "open") &&
+        !e.fromHistory &&
+        Math.abs(e.date.getTime() - event.date.getTime()) <= 7 * 24 * 60 * 60 * 1000 &&
+        !isSameDay(e.date, event.date),
+    );
+  }, [allEvents, event]);
 
-  const trType = getTrainingType(draftEvent || ({} as CalendarEvent));
-  let libCategory: 'gym' | 'running' | 'cycling' | 'custom' = 'gym';
-  if (trType === 'laufen') libCategory = 'running';
-  if (trType === 'radfahren') libCategory = 'cycling';
-  if (trType === 'custom') libCategory = 'custom';
+  const moveDates = useMemo(() => {
+    if (!event) return [];
+    const dates: Date[] = [];
+    for (let i = -3; i <= 14; i++) {
+      const d = addDays(new Date(), i);
+      if (!isSameDay(d, event.date)) dates.push(d);
+    }
+    return dates;
+  }, [event?.date]);
 
-  return (
-    <AnimatePresence>
-      {open && draftEvent && draftSeed && (
-        <MotionDiv
-          className="fixed inset-0 z-[80]"
-          data-overlay-open="true"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+  const templates = useMemo(() => {
+    if (view !== "replaceTemplate") return [];
+    return getTemplates();
+  }, [view]);
+
+  if (!event) return null;
+
+  const isCompleted = event.status === "completed";
+  const isPlanned = (event.status === "planned" || event.status === "open") && !event.fromHistory;
+  const canStart = isPlanned && !!event.workoutData?.exercises?.length;
+  const { color, bg } = sportColor(event.type);
+
+  const exercises = event.workoutData?.exercises ?? [];
+  const totalSets = exercises.reduce(
+    (sum: number, ex: any) => sum + (Array.isArray(ex.sets) ? ex.sets.length : 0),
+    0,
+  );
+
+  // ── Main View ──
+  const renderMainView = () => (
+    <div className="px-4 pb-6">
+      {/* Header */}
+      <div className="flex items-center gap-3.5 mb-5">
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ backgroundColor: bg, color }}
         >
-          <div className="fixed inset-0 z-[60] flex flex-col bg-black">
-            {/* Header (fixiert) */}
-            <div className="flex-none">
-              {/* Drag Handle Area - Optional, kept for visual consistency if needed, or remove if no longer draggable */}
-              <div
-                className="w-full flex justify-center pt-4 pb-2"
-              >
-                <div className="h-1.5 w-12 rounded-full bg-white/20" />
+          {sportIconNode(event.type, 18)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[17px] font-bold truncate" style={{ color: "var(--text-color)" }}>
+            {event.title}
+          </h3>
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            {format(event.date, "EEEE, d. MMMM", { locale: de })}
+          </p>
+        </div>
+        {isCompleted && (
+          <span
+            className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0"
+            style={{ backgroundColor: "rgba(52,199,89,0.12)", color: "#34C759" }}
+          >
+            {t("calendar.completed")}
+          </span>
+        )}
+      </div>
+
+      {/* Exercise preview */}
+      {exercises.length > 0 && (
+        <div className="rounded-2xl overflow-hidden mb-4" style={{ border: "1px solid var(--border-color)" }}>
+          <div className="flex items-center gap-4 px-4 py-3" style={{ backgroundColor: "var(--button-bg)" }}>
+            <div className="flex items-center gap-1.5">
+              <Dumbbell size={13} style={{ color: "var(--text-secondary)" }} />
+              <span className="text-[13px] font-semibold" style={{ color: "var(--text-color)" }}>
+                {exercises.length} {t("calendarSheet.exercises")}
+              </span>
+            </div>
+            {totalSets > 0 && (
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                {totalSets} {t("calendarSheet.sets")}
+              </span>
+            )}
+            {event.durationSec && event.durationSec > 0 && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Clock size={13} style={{ color: "var(--text-secondary)" }} />
+                <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                  {fmtDuration(event.durationSec)}
+                </span>
               </div>
+            )}
+          </div>
+          {exercises.slice(0, 4).map((ex: any, i: number) => (
+            <div key={ex.id || i} className="flex items-center justify-between px-4 py-2.5" style={{ borderTop: "1px solid var(--border-color)" }}>
+              <span className="text-[13px] truncate flex-1" style={{ color: "var(--text-color)" }}>{ex.name}</span>
+              <span className="text-[12px] shrink-0 ml-3 tabular-nums" style={{ color: "var(--text-secondary)" }}>
+                {ex.sets?.length ?? 0} x {ex.sets?.[0]?.reps ?? "–"}
+              </span>
+            </div>
+          ))}
+          {exercises.length > 4 && (
+            <div className="px-4 py-2" style={{ borderTop: "1px solid var(--border-color)" }}>
+              <span className="text-[12px]" style={{ color: "var(--text-secondary)" }}>+{exercises.length - 4} {t("calendarSheet.more")}</span>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Actions */}
+      {isPlanned && (
+        <>
+          {canStart && (
+            <button
+              onClick={() => { hapticLight(); onStartTraining(event); handleClose(); }}
+              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl mb-3 active:scale-[0.97] transition-transform"
+              style={{ backgroundColor: "var(--accent-color, #007AFF)", color: "#fff" }}
+            >
+              <Play size={16} fill="#fff" />
+              <span className="text-[15px] font-bold">{t("calendarSheet.startTraining")}</span>
+            </button>
+          )}
 
-              {/* Header Area - Draggable if not editing */}
-              <div
-                className="flex items-start justify-between gap-2 px-4 pb-2 touch-none"
-                onPointerDown={(e: React.PointerEvent) => !isEditing && dragControls.start(e)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {t("calendar.preview.title")}
-                  </div>
-                  <input
-                    type="text"
-                    value={draftEvent.title}
-                    onChange={(e) => canEdit && setDraftEvent({ ...draftEvent, title: e.target.value })}
-                    disabled={!isEditing}
-                    className="w-full bg-transparent text-lg font-semibold outline-none"
-                  />
-                  <div className="mt-1 flex gap-2">
-                    <input
-                      type="date"
-                      value={draftEvent.date}
-                      onChange={(e) => canEdit && setDraftEvent({ ...draftEvent, date: e.target.value })}
-                      disabled={!isEditing}
-                      className="rounded px-2 py-1 text-sm"
-                      style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
-                    />
-                    {hasTime ? (
-                      isEditing ? (
-                        <div className="relative">
-                          <input
-                            type="time"
-                            value={draftEvent.startTime || ""}
-                            onChange={(e) => canEdit && setDraftEvent({ ...draftEvent, startTime: e.target.value })}
-                            disabled={!isEditing}
-                            className="rounded px-2 py-1 text-sm pr-7"
-                            style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              canEdit &&
-                              setDraftEvent({
-                                ...draftEvent,
-                                startTime: "",
-                                endTime: "",
-                              })
-                            }
-                            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 hover:opacity-90"
-                            style={{ color: "var(--text-muted)" }}
-                            aria-label={t("calendar.preview.removeTime")}
-                            title={t("calendar.preview.removeTime")}
-                          >
-                            <MinusCircleIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          className="rounded px-2 py-1 text-sm"
-                          style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
-                        >
-                          {draftEvent.startTime}
-                        </div>
-                      )
-                    ) : isEditing ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          canEdit &&
-                          setDraftEvent({
-                            ...draftEvent,
-                            startTime: defaultStartTime(draftEvent.date),
-                          })
-                        }
-                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm hover:opacity-95"
-                        style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)", color: "var(--text)" }}
-                        aria-label={t("calendar.preview.addTime")}
-                        title={t("calendar.preview.addTime")}
-                      >
-                        <ClockPlusIcon className="h-4 w-4" />
-                        <span>{t("calendar.preview.addTime")}</span>
-                      </button>
-                    ) : (
-                      <div className="rounded px-2 py-1 text-sm" style={{ color: "var(--text-muted)" }}>
-                        {t("calendar.preview.noTime")}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border-color)" }}>
+            <Row icon={<AiSparklesIcon size={18} />} label={t("calendarSheet.replaceAdaptive")}
+              onClick={() => { hapticLight(); onReplaceWithAdaptive(event); handleClose(); }} />
+            <RowDivider />
+            <Row icon={<Repeat size={16} />} label={t("calendarSheet.replaceTemplate")}
+              onClick={() => { hapticLight(); setView("replaceTemplate"); }} />
+            <RowDivider />
+            <Row icon={<Calendar size={16} />} label={t("calendarSheet.moveTraining")}
+              onClick={() => { hapticLight(); setMoveCalMonth(event.date); setView("move"); }} />
+            {nearbyEvents.length > 0 && (
+              <>
+                <RowDivider />
+                <Row icon={<ArrowLeftRight size={16} />} label={t("calendarSheet.swapDay")}
+                  onClick={() => { hapticLight(); setView("swap"); }} />
+              </>
+            )}
+            <RowDivider />
+            <Row icon={<ArrowUpDown size={16} />} label={t("calendarSheet.movePlan")}
+              onClick={() => { hapticLight(); setView("movePlan"); }} />
+          </div>
 
+          <div className="rounded-2xl overflow-hidden mt-3" style={{ border: "1px solid var(--border-color)" }}>
+            <Row icon={<Check size={16} />} label={t("calendarSheet.logAndComplete")} labelColor="#34C759" hideChevron
+              onClick={() => {
+                hapticLight();
+                // Pre-fill from event data
+                setLogExerciseCount(exercises.length || 5);
+                setLogSetCount(totalSets || 15);
+                setLogVolumeKg(0);
+                setLogDuration(event.durationSec ? Math.round(event.durationSec / 60) : 45);
+                setView("logWorkout");
+              }} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // ── Move Training View (with mini calendar) ──
+  const renderMoveView = () => {
+    const monthStart = startOfMonth(moveCalMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const calDays = eachDayOfInterval({ start: calStart, end: calEnd });
+
+    return (
+      <div className="px-4 pb-6">
+        <NavBack onClick={() => setView("main")} label={t("calendarSheet.back")} />
+
+        {/* Mini calendar */}
+        <div className="rounded-2xl p-3 mb-4" style={{ border: "1px solid var(--border-color)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => setMoveCalMonth(addDays(monthStart, -15))} className="p-1 active:opacity-60">
+              <ChevronLeft size={16} style={{ color: "#007AFF" }} />
+            </button>
+            <span className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>
+              {format(moveCalMonth, "MMMM yyyy", { locale: de })}
+            </span>
+            <button onClick={() => setMoveCalMonth(addDays(monthEnd, 5))} className="p-1 active:opacity-60">
+              <ChevronRight size={16} style={{ color: "#007AFF" }} />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-0.5">
+            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => (
+              <div key={d} className="text-center text-[9px] font-semibold py-0.5" style={{ color: "var(--text-secondary)" }}>{d}</div>
+            ))}
+            {calDays.map((day) => {
+              const selected = selectedMoveDate && isSameDay(day, selectedMoveDate);
+              const isEventDay = isSameDay(day, event.date);
+              const hasOther = allEvents.some((e) => isSameDay(e.date, day) && e.id !== event.id);
+              const inMonth = isSameMonth(day, moveCalMonth);
+              return (
                 <button
-                  type="button"
-                  onClick={() => { hapticButton(); isEditing ? handleSave() : setIsEditing(true); }}
-                  className="h-9 w-9 rounded-full border flex items-center justify-center hover:opacity-95"
-                  style={{ borderColor: "var(--border-color)", color: "var(--text)" }}
-                  aria-label={isEditing ? t("calendar.preview.saveEdit") : t("calendar.preview.edit")}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  key={day.toISOString()}
+                  onClick={() => { if (!isEventDay) { hapticLight(); setSelectedMoveDate(day); } }}
+                  disabled={isEventDay}
+                  className="flex flex-col items-center justify-center py-1"
+                  style={{ opacity: inMonth ? 1 : 0.3 }}
                 >
-                  <PencilIcon />
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-medium"
+                    style={{
+                      backgroundColor: selected ? "#007AFF" : isEventDay ? "rgba(0,122,255,0.15)" : isToday(day) ? "rgba(0,122,255,0.08)" : "transparent",
+                      color: selected ? "#fff" : isEventDay ? "#007AFF" : "var(--text-color)",
+                    }}
+                  >
+                    {format(day, "d")}
+                  </div>
+                  {hasOther && !selected && <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: "var(--text-secondary)" }} />}
                 </button>
-              </div>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3" style={{ WebkitOverflowScrolling: "touch" }}>
-                <div className="space-y-4">
-                  <div className="rounded-3xl px-3 py-3" style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
-                        {t("calendar.preview.scope")}
-                      </div>
-                      <div className="text-sm">
-                        {t("calendar.preview.scopeCounts", { exercises: previewCounts.exercises, sets: previewCounts.sets })}
-                      </div>
-                    </div>
-
-                    {seedMissing && (
-                      <div className="mt-2 text-sm" style={{ color: "rgba(245,158,11,0.95)" }}>
-                        {t("calendar.preview.seedMissing")}
-                      </div>
-                    )}
+        {/* Date list below */}
+        <div className="rounded-2xl overflow-hidden max-h-[30vh] overflow-y-auto" style={{ border: "1px solid var(--border-color)" }} data-sheet-content>
+          {moveDates.map((d, i) => {
+            const selected = selectedMoveDate && isSameDay(d, selectedMoveDate);
+            const hasEvent = allEvents.some((e) => isSameDay(e.date, d) && e.id !== event.id);
+            return (
+              <React.Fragment key={d.toISOString()}>
+                {i > 0 && <RowDivider />}
+                <button
+                  onClick={() => { hapticLight(); setSelectedMoveDate(d); }}
+                  className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[var(--button-bg)] transition-colors"
+                  style={{ backgroundColor: selected ? "rgba(0,122,255,0.08)" : "transparent" }}
+                >
+                  <span className="text-[13px] font-medium" style={{ color: selected ? "#007AFF" : "var(--text-color)" }}>
+                    {format(d, "EEE, d. MMM", { locale: de })}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {hasEvent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,149,0,0.12)", color: "#FF9500" }}>{t("calendarSheet.hasTraining")}</span>}
+                    {selected && <Check size={14} style={{ color: "#007AFF" }} />}
                   </div>
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
 
-                  <div className={isEditing ? "" : "pointer-events-none opacity-80"}>
-                    {draftExercises.length === 0 ? (
-                      <div className="rounded-3xl p-3 text-sm" style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
-                        {isCardio ? t("calendar.preview.emptyCardio") : t("calendar.preview.emptyStrength")}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {draftExercises.map((ex, exIdx) => (
-                          <ExerciseEditor
-                            key={ex.id}
-                            exercise={ex}
-                            isCardio={isCardio}
-                            onChange={(patch: Partial<LiveExercise>) => updateExercise(ex.id, patch)}
-                            onRemove={() => removeExercise(ex.id)}
-                            onAddSet={() => addSet(ex.id, isCardio)}
-                            onRemoveSet={(setId: string) => removeSet(ex.id, setId)}
-                            onSetChange={(setId: string, patch: Partial<LiveSet>) => updateSet(ex.id, setId, patch)}
-                            onToggleSet={(setId: string) => toggleSetCompleted(ex.id, setId)}
-                            onMoveUp={isEditing && exIdx > 0 ? () => moveExercise(ex.id, "up") : undefined}
-                            onMoveDown={isEditing && exIdx < draftExercises.length - 1 ? () => moveExercise(ex.id, "down") : undefined}
-                          />
-                        ))}
-                      </div>
-                    )}
+        {selectedMoveDate && (
+          <button
+            onClick={() => { hapticLight(); onMoveTraining(event.id, format(selectedMoveDate, "yyyy-MM-dd")); handleClose(); }}
+            className="w-full mt-4 py-3.5 rounded-2xl text-[15px] font-bold active:scale-[0.97] transition-transform"
+            style={{ backgroundColor: "var(--accent-color, #007AFF)", color: "#fff" }}
+          >
+            {t("calendarSheet.confirmMove")}
+          </button>
+        )}
+      </div>
+    );
+  };
 
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => setLibraryOpen(true)}
-                        className="mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-semibold hover:opacity-95"
-                        style={{ background: "var(--button-bg)", borderColor: "var(--border-color)", color: "var(--text)" }}
-                      >
-                        {isCardio ? t("calendar.preview.addCardio") : t("calendar.preview.addExercise")}
-                      </button>
-                    )}
-                  </div>
+  // ── Swap View ──
+  const renderSwapView = () => (
+    <div className="px-4 pb-6">
+      <NavBack onClick={() => setView("main")} label={t("calendarSheet.back")} />
+      <h3 className="text-[15px] font-bold mb-1" style={{ color: "var(--text-color)" }}>{t("calendarSheet.swapDay")}</h3>
+      <p className="text-[13px] mb-4" style={{ color: "var(--text-secondary)" }}>{t("calendarSheet.swapHint")}</p>
 
-                  {/* Footer actions moved inside scroll area */}
-                  <div className="pt-6 pb-4 flex gap-2">
-                    {isEditing ? (
-                      <button
-                        type="button"
-                        onClick={handleSave}
-                        className="flex-1 px-4 py-3 rounded-2xl text-base font-semibold shadow hover:opacity-95"
-                        style={{ background: "rgba(16,185,129,0.95)", color: "#06120c" }}
-                      >
-                        {t("common.save")}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleStart}
-                        disabled={!canStartPreview}
-                        className="flex-1 px-4 py-3 rounded-2xl text-base font-semibold shadow hover:opacity-95 disabled:cursor-not-allowed"
-                        style={
-                          canStartPreview
-                            ? { background: "rgba(16,185,129,0.95)", color: "#06120c" }
-                            : { background: "rgba(148,163,184,0.25)", color: "var(--text-muted)" }
-                        }
-                      >
-                        {t("calendar.preview.startTraining")}
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleClose}
-                      className="px-4 py-3 rounded-2xl text-sm hover:opacity-95"
-                      style={{ background: "var(--button-bg)", border: "1px solid var(--border-color)" }}
-                    >
-                      {t("common.close")}
-                    </button>
-                  </div>
-
-                  {/* Spacer um unter der Navbar hervorzukommen */}
-                  <div className="h-40 w-full shrink-0" aria-hidden="true" />
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border-color)" }}>
+        {nearbyEvents.map((ne, i) => {
+          const selected = selectedSwapEvent?.id === ne.id;
+          return (
+            <React.Fragment key={ne.id}>
+              {i > 0 && <RowDivider />}
+              <button
+                onClick={() => { hapticLight(); setSelectedSwapEvent(ne); }}
+                className="w-full flex items-center gap-3 px-4 py-3 active:bg-[var(--button-bg)] transition-colors"
+                style={{ backgroundColor: selected ? "rgba(0,122,255,0.08)" : "transparent" }}
+              >
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                  {sportIconNode(ne.type, 14)}
                 </div>
-              </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-[14px] font-semibold truncate" style={{ color: "var(--text-color)" }}>{ne.title}</p>
+                  <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>{format(ne.date, "EEE, d. MMM", { locale: de })}</p>
+                </div>
+                {selected && <Check size={16} style={{ color: "#007AFF" }} />}
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {selectedSwapEvent && (
+        <button
+          onClick={() => { hapticLight(); onSwapDays(event.id, selectedSwapEvent.id); handleClose(); }}
+          className="w-full mt-4 py-3.5 rounded-2xl text-[15px] font-bold active:scale-[0.97] transition-transform"
+          style={{ backgroundColor: "var(--accent-color, #007AFF)", color: "#fff" }}
+        >
+          {t("calendarSheet.confirmSwap")}
+        </button>
+      )}
+    </div>
+  );
+
+  // ── Move Plan View ──
+  const renderMovePlanView = () => (
+    <div className="px-4 pb-6">
+      <NavBack onClick={() => setView("main")} label={t("calendarSheet.back")} />
+      <h3 className="text-[15px] font-bold mb-1" style={{ color: "var(--text-color)" }}>{t("calendarSheet.movePlan")}</h3>
+      <p className="text-[13px] mb-4" style={{ color: "var(--text-secondary)" }}>{t("calendarSheet.movePlanHint")}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {[-2, -1, 1, 2].map((offset) => (
+          <button key={offset} onClick={() => { hapticLight(); onMovePlan(event.id, offset); handleClose(); }}
+            className="flex flex-col items-center gap-1.5 py-5 rounded-2xl active:scale-[0.96] transition-transform"
+            style={{ backgroundColor: "var(--button-bg)", border: "1px solid var(--border-color)" }}>
+            <ArrowUpDown size={18} style={{ color: offset < 0 ? "#FF9500" : "#007AFF", transform: offset < 0 ? "scaleY(-1)" : "none" }} />
+            <span className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>
+              {offset > 0 ? `+${offset}` : offset} {Math.abs(offset) === 1 ? t("calendarSheet.day") : t("calendarSheet.days")}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── Replace with Template View ──
+  const renderReplaceTemplateView = () => (
+    <div className="px-4 pb-6">
+      <NavBack onClick={() => setView("main")} label={t("calendarSheet.back")} />
+      <h3 className="text-[15px] font-bold mb-1" style={{ color: "var(--text-color)" }}>{t("calendarSheet.replaceTemplate")}</h3>
+      <p className="text-[13px] mb-4" style={{ color: "var(--text-secondary)" }}>{t("calendarSheet.replaceTemplateHint")}</p>
+
+      {templates.length === 0 ? (
+        <div className="rounded-2xl py-8 flex flex-col items-center gap-2" style={{ border: "1px dashed var(--border-color)" }}>
+          <Dumbbell size={24} style={{ color: "var(--text-secondary)" }} />
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>{t("calendarSheet.noTemplates")}</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border-color)" }}>
+          {templates.map((tpl, i) => {
+            const tplType: ExerciseType = tpl.sportType === "gym" ? "strength" : tpl.sportType === "laufen" ? "run" : tpl.sportType === "radfahren" ? "cycle" : "custom";
+            const exCount = tpl.exercises?.length ?? 0;
+            return (
+              <React.Fragment key={tpl.id}>
+                {i > 0 && <RowDivider />}
+                <button
+                  onClick={() => { hapticLight(); onReplaceWithTemplate(event.id, tpl); handleClose(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 active:bg-[var(--button-bg)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>
+                    {sportIconNode(tplType, 14)}
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[14px] font-semibold truncate" style={{ color: "var(--text-color)" }}>{tpl.title}</p>
+                    {exCount > 0 && <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>{exCount} {t("calendarSheet.exercises")}</p>}
+                  </div>
+                  <ChevronRight size={16} style={{ color: "var(--text-secondary)", opacity: 0.5 }} />
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Log Workout View ──
+  const renderLogWorkoutView = () => {
+    const handleSubmit = () => {
+      hapticSuccess();
+      const log: ManualWorkoutLog = {
+        durationMin: logDuration,
+        exerciseCount: logExerciseCount,
+        setCount: logSetCount,
+        volumeKg: logVolumeKg,
+        sport: event.type === "strength" ? "Gym" : event.type === "run" ? "Laufen" : event.type === "cycle" ? "Radfahren" : "Custom",
+      };
+      onMarkCompleted(event, log);
+      handleClose();
+    };
+
+    return (
+      <div className="px-4 pb-6">
+        <NavBack onClick={() => setView("main")} label={t("calendarSheet.back")} />
+        <h3 className="text-[15px] font-bold mb-4" style={{ color: "var(--text-color)" }}>{t("calendarSheet.logWorkout")}</h3>
+
+        <div className="rounded-2xl overflow-hidden mb-4" style={{ border: "1px solid var(--border-color)" }}>
+          {/* Duration */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <Clock size={16} style={{ color: "var(--text-secondary)" }} />
+              <span className="text-[15px] font-medium" style={{ color: "var(--text-color)" }}>{t("calendarSheet.duration")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setLogDuration((d) => Math.max(5, d - 5))}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Minus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
+              <input type="number" inputMode="numeric" value={logDuration}
+                onChange={(e) => setLogDuration(Math.max(1, parseInt(e.target.value) || 0))}
+                className="w-14 text-center rounded-lg py-1.5 text-[15px] font-bold"
+                style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }} />
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>min</span>
+              <button onClick={() => setLogDuration((d) => d + 5)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Plus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
             </div>
           </div>
-        </MotionDiv>
-      )}
-      <ExerciseLibraryModal
-        open={open && libraryOpen}
-        category={libCategory}
-        title={isCardio ? t("training.exerciseLibrary.cardioTitle") : t("training.exerciseLibrary.title")}
-        onClose={() => setLibraryOpen(false)}
-        existingExerciseIds={existingExerciseIds}
-        onPick={(exercise: Exercise) => addExerciseFromLibrary(exercise, isCardio)}
-        onPickCustom={() => addExerciseFromLibrary(undefined, isCardio)}
-      />
-    </AnimatePresence>
+
+          <div style={{ height: 1, backgroundColor: "var(--border-color)" }} />
+
+          {/* Exercise count */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <Dumbbell size={16} style={{ color: "var(--text-secondary)" }} />
+              <span className="text-[15px] font-medium" style={{ color: "var(--text-color)" }}>{t("calendarSheet.exercises")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setLogExerciseCount((c) => Math.max(1, c - 1))}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Minus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
+              <input type="number" inputMode="numeric" value={logExerciseCount}
+                onChange={(e) => setLogExerciseCount(Math.max(1, parseInt(e.target.value) || 0))}
+                className="w-14 text-center rounded-lg py-1.5 text-[15px] font-bold"
+                style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }} />
+              <button onClick={() => setLogExerciseCount((c) => c + 1)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Plus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height: 1, backgroundColor: "var(--border-color)" }} />
+
+          {/* Set count */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <span className="text-[15px] font-medium" style={{ color: "var(--text-color)" }}>{t("calendarSheet.sets")}</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setLogSetCount((c) => Math.max(1, c - 1))}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Minus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
+              <input type="number" inputMode="numeric" value={logSetCount}
+                onChange={(e) => setLogSetCount(Math.max(1, parseInt(e.target.value) || 0))}
+                className="w-14 text-center rounded-lg py-1.5 text-[15px] font-bold"
+                style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }} />
+              <button onClick={() => setLogSetCount((c) => c + 1)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90"
+                style={{ backgroundColor: "var(--button-bg)" }}>
+                <Plus size={14} style={{ color: "var(--text-color)" }} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height: 1, backgroundColor: "var(--border-color)" }} />
+
+          {/* Volume */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <span className="text-[15px] font-medium" style={{ color: "var(--text-color)" }}>{t("calendarSheet.totalVolume")}</span>
+              <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>{t("calendarSheet.totalVolumeHint")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="number" inputMode="numeric" value={logVolumeKg || ""}
+                onChange={(e) => setLogVolumeKg(Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="–"
+                className="w-20 text-center rounded-lg py-1.5 text-[15px] font-bold"
+                style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)" }} />
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>kg</span>
+            </div>
+          </div>
+        </div>
+
+        <button onClick={handleSubmit}
+          className="w-full py-3.5 rounded-2xl text-[15px] font-bold active:scale-[0.97] transition-transform"
+          style={{ backgroundColor: "#34C759", color: "#fff" }}>
+          {t("calendarSheet.saveAndComplete")}
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <BottomSheet open={open} onClose={handleClose} height="82dvh" maxHeight="88dvh">
+      {view === "main" && renderMainView()}
+      {view === "move" && renderMoveView()}
+      {view === "swap" && renderSwapView()}
+      {view === "movePlan" && renderMovePlanView()}
+      {view === "replaceTemplate" && renderReplaceTemplateView()}
+      {view === "logWorkout" && renderLogWorkoutView()}
+    </BottomSheet>
+  );
+}
+
+// ── Shared sub-components ──
+
+function Row({ icon, label, labelColor, hideChevron, onClick }: {
+  icon: React.ReactNode; label: string; labelColor?: string; hideChevron?: boolean; onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3 active:bg-[var(--button-bg)] transition-colors">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}>{icon}</div>
+      <span className="text-[15px] font-medium flex-1 text-left" style={{ color: labelColor ?? "var(--text-color)" }}>{label}</span>
+      {!hideChevron && <ChevronRight size={16} style={{ color: "var(--text-secondary)", opacity: 0.5 }} />}
+    </button>
+  );
+}
+
+function RowDivider() { return <div className="ml-[60px]" style={{ height: 1, backgroundColor: "var(--border-color)" }} />; }
+
+function NavBack({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button onClick={() => { hapticLight(); onClick(); }} className="flex items-center gap-1 mb-4 active:opacity-70" style={{ color: "#007AFF" }}>
+      <ChevronLeft size={18} /><span className="text-[15px] font-medium">{label}</span>
+    </button>
   );
 }

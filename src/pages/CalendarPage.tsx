@@ -42,6 +42,10 @@ import type { WorkoutHistoryEntry } from "../utils/workoutHistory";
 import type { DeloadPlan } from "../types/deload";
 import { readDeloadPlan } from "../utils/deload/storage";
 import DeloadWeekBadge from "../components/deload/DeloadWeekBadge";
+import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
+import type { PreviewEvent, ManualWorkoutLog } from "../components/calendar/TrainingPreviewSheet";
+import { addWorkoutEntry } from "../utils/workoutHistory";
+import type { TrainingTemplateLite } from "../utils/trainingTemplatesStore";
 
 interface CoreEvent {
     id: string;
@@ -108,13 +112,13 @@ function getEventIcon(type: ExerciseType) {
     }
 }
 
-function sportLabel(type: ExerciseType): string {
+function sportLabel(type: ExerciseType, t: (key: string) => string): string {
     switch (type) {
-        case "strength": return "Gym · Kraft";
-        case "run":      return "Laufen · Cardio";
-        case "cycle":    return "Radfahren · Cardio";
-        case "custom":   return "Custom";
-        default:         return "Training";
+        case "strength": return t("calendar.sportLabel.strength");
+        case "run":      return t("calendar.sportLabel.run");
+        case "cycle":    return t("calendar.sportLabel.cycle");
+        case "custom":   return t("calendar.sportLabel.custom");
+        default:         return t("calendar.sportLabel.default");
     }
 }
 
@@ -135,6 +139,10 @@ export default function CalendarPage() {
     const [view, setView] = useState<"week" | "month">("month");
     const [events, setEvents] = useState<LocalCalendarEvent[]>([]);
     const [deloadPlan, setDeloadPlan] = useState<DeloadPlan | null>(null);
+
+    // Preview Sheet
+    const [previewEvent, setPreviewEvent] = useState<PreviewEvent | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
 
     // Swipe
     const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -205,7 +213,7 @@ export default function CalendarPage() {
                         merged.push({
                             id: entry.id,
                             date,
-                            title: entry.title || "Training",
+                            title: entry.title || t("calendar.sportLabel.default"),
                             type,
                             duration: Math.round((entry.durationSec || 0) / 60),
                             intensity: "medium",
@@ -308,8 +316,185 @@ export default function CalendarPage() {
             exercises: event.workoutData.exercises,
         };
         useLiveTrainingStore.getState().startWorkout(liveWorkout as any);
-        window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: liveWorkout.id } }));
+        window.dispatchEvent(new CustomEvent("trainq:navigate", { detail: { path: "/live-training", eventId: event.id } }));
     };
+
+    // ── Open preview sheet ──
+    const handleOpenPreview = (event: LocalCalendarEvent) => {
+        setPreviewEvent({
+            id: event.id,
+            title: event.title || "",
+            date: event.date,
+            type: event.type,
+            status: event.status === "completed" ? "completed" : "planned",
+            workoutData: event.workoutData,
+            adaptiveProfile: event.adaptiveProfile,
+            durationSec: event.durationSec,
+            exerciseCount: event.exerciseCount,
+            distanceKm: event.distanceKm,
+            fromHistory: event.fromHistory,
+        });
+        setPreviewOpen(true);
+    };
+
+    // ── Move training to a new date ──
+    const handleMoveTraining = (eventId: string, newDate: string) => {
+        const userId = getActiveUserId() || "user";
+        const raw = getScopedItem("trainq_calendar_events", userId);
+        if (!raw) return;
+        try {
+            const coreEvents: CoreEvent[] = JSON.parse(raw);
+            const updated = coreEvents.map((e) =>
+                e.id === eventId ? { ...e, date: newDate } : e
+            );
+            setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            window.dispatchEvent(new Event("trainq:update_events"));
+        } catch { /* ignore */ }
+    };
+
+    // ── Swap two trainings' dates ──
+    const handleSwapDays = (eventIdA: string, eventIdB: string) => {
+        const userId = getActiveUserId() || "user";
+        const raw = getScopedItem("trainq_calendar_events", userId);
+        if (!raw) return;
+        try {
+            const coreEvents: CoreEvent[] = JSON.parse(raw);
+            const eventA = coreEvents.find((e) => e.id === eventIdA);
+            const eventB = coreEvents.find((e) => e.id === eventIdB);
+            if (!eventA || !eventB) return;
+            const dateA = eventA.date;
+            const dateB = eventB.date;
+            const updated = coreEvents.map((e) => {
+                if (e.id === eventIdA) return { ...e, date: dateB };
+                if (e.id === eventIdB) return { ...e, date: dateA };
+                return e;
+            });
+            setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            window.dispatchEvent(new Event("trainq:update_events"));
+        } catch { /* ignore */ }
+    };
+
+    // ── Move entire plan by offset days ──
+    const handleMovePlan = (eventId: string, offset: number) => {
+        const userId = getActiveUserId() || "user";
+        const raw = getScopedItem("trainq_calendar_events", userId);
+        if (!raw) return;
+        try {
+            const coreEvents: CoreEvent[] = JSON.parse(raw);
+            // Move all future planned events by offset
+            const today = format(new Date(), "yyyy-MM-dd");
+            const updated = coreEvents.map((e) => {
+                if (e.trainingStatus === "completed" || e.date < today) return e;
+                const d = parseISODateLocal(e.date);
+                const moved = addDays(d, offset);
+                return { ...e, date: format(moved, "yyyy-MM-dd") };
+            });
+            setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            window.dispatchEvent(new Event("trainq:update_events"));
+        } catch { /* ignore */ }
+    };
+
+    // ── Replace with template ──
+    const handleReplaceWithTemplate = (eventId: string, template: TrainingTemplateLite) => {
+        const userId = getActiveUserId() || "user";
+        const raw = getScopedItem("trainq_calendar_events", userId);
+        if (!raw) return;
+        try {
+            const coreEvents: CoreEvent[] = JSON.parse(raw);
+            const updated = coreEvents.map((e) =>
+                e.id === eventId
+                    ? {
+                        ...e,
+                        title: template.title,
+                        trainingType: template.sportType as CoreEvent["trainingType"],
+                        workoutData: {
+                            exercises: (template.exercises ?? []).map((ex) => ({
+                                id: crypto.randomUUID(),
+                                exerciseId: ex.exerciseId,
+                                name: ex.name,
+                                sets: (ex.sets ?? [{ reps: 10 }]).map((s) => ({
+                                    id: crypto.randomUUID(),
+                                    reps: s.reps,
+                                    weight: s.weight,
+                                    completed: false,
+                                })),
+                            })),
+                            templateId: template.id,
+                        },
+                    }
+                    : e
+            );
+            setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            window.dispatchEvent(new Event("trainq:update_events"));
+        } catch { /* ignore */ }
+    };
+
+    // ── Mark completed with optional workout log ──
+    const handleMarkCompletedWithLog = (event: PreviewEvent, log?: ManualWorkoutLog) => {
+        // 1. Mark calendar event as completed
+        const userId = getActiveUserId() || "user";
+        const rawCalendar = getScopedItem("trainq_calendar_events", userId);
+        if (rawCalendar) {
+            try {
+                const coreEvents: CoreEvent[] = JSON.parse(rawCalendar);
+                const updated = coreEvents.map((e) =>
+                    e.id === event.id
+                        ? { ...e, trainingStatus: "completed" as const, completedAt: new Date().toISOString() }
+                        : e
+                );
+                setScopedItem("trainq_calendar_events", JSON.stringify(updated), userId);
+            } catch { /* ignore */ }
+        }
+
+        // 2. If log provided, create workout history entry for statistics
+        if (log) {
+            // Build summary exercises from counts (no individual exercise names needed)
+            const setsPerExercise = log.exerciseCount > 0 ? Math.round(log.setCount / log.exerciseCount) : 0;
+            const historyExercises = Array.from({ length: log.exerciseCount }, (_, i) => ({
+                name: `${event.title} #${i + 1}`,
+                sets: Array.from({ length: setsPerExercise }, () => ({
+                    reps: 0,
+                    weight: 0,
+                })),
+            }));
+
+            addWorkoutEntry({
+                calendarEventId: event.id,
+                title: event.title,
+                sport: log.sport as any,
+                startedAt: new Date().toISOString(),
+                endedAt: new Date().toISOString(),
+                durationSec: log.durationMin * 60,
+                exercises: historyExercises,
+                totalVolume: log.volumeKg,
+            } as any, { allowEmptyExercises: true });
+        }
+
+        window.dispatchEvent(new Event("trainq:update_events"));
+    };
+
+    // ── Replace with adaptive training ──
+    const handleReplaceWithAdaptive = (event: PreviewEvent) => {
+        // Navigate to adaptive training modal with this event's context
+        window.dispatchEvent(new CustomEvent("trainq:navigate", {
+            detail: { path: "/start-today", replaceEventId: event.id, date: format(event.date, "yyyy-MM-dd") },
+        }));
+    };
+
+    // ── All events as PreviewEvent[] for the sheet ──
+    const previewAllEvents: PreviewEvent[] = events.map((e) => ({
+        id: e.id,
+        title: e.title || "",
+        date: e.date,
+        type: e.type,
+        status: e.status === "completed" ? "completed" as const : "planned" as const,
+        workoutData: e.workoutData,
+        adaptiveProfile: e.adaptiveProfile,
+        durationSec: e.durationSec,
+        exerciseCount: e.exerciseCount,
+        distanceKm: e.distanceKm,
+        fromHistory: e.fromHistory,
+    }));
 
     // ── Selected day events ──
     const selectedEvents = events.filter((e) => isSameDay(e.date, selectedDate));
@@ -321,18 +506,18 @@ export default function CalendarPage() {
         const start = startOfWeek(monthStart, { weekStartsOn: 1 });
         const end = endOfWeek(monthEnd, { weekStartsOn: 1 });
         const days = eachDayOfInterval({ start, end });
-        const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+        const weekDayKeys = ["calendar.weekday.mo", "calendar.weekday.tu", "calendar.weekday.we", "calendar.weekday.th", "calendar.weekday.fr", "calendar.weekday.sa", "calendar.weekday.su"];
 
         return (
             <div className="px-4 pt-2 pb-3">
                 <div className="grid grid-cols-7 mb-1">
-                    {weekDays.map((d) => (
+                    {weekDayKeys.map((key) => (
                         <div
-                            key={d}
+                            key={key}
                             className="text-center text-[10px] font-semibold uppercase tracking-wider py-1"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            {d}
+                            {t(key)}
                         </div>
                     ))}
                 </div>
@@ -431,18 +616,18 @@ export default function CalendarPage() {
     const renderWeekView = () => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const days = eachDayOfInterval({ start, end: addDays(start, 6) });
-        const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+        const weekDayKeys = ["calendar.weekday.mo", "calendar.weekday.tu", "calendar.weekday.we", "calendar.weekday.th", "calendar.weekday.fr", "calendar.weekday.sa", "calendar.weekday.su"];
 
         return (
             <div className="px-4 pt-2 pb-3">
                 <div className="grid grid-cols-7 gap-1">
-                    {weekDays.map((d) => (
+                    {weekDayKeys.map((key) => (
                         <div
-                            key={d}
+                            key={key}
                             className="text-center text-[10px] font-semibold uppercase tracking-wider pb-1"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            {d}
+                            {t(key)}
                         </div>
                     ))}
                     {days.map((day) => {
@@ -526,27 +711,25 @@ export default function CalendarPage() {
 
         const subtitle = (() => {
             if (isCompleted) {
-                const parts: string[] = [sportLabel(event.type)];
+                const parts: string[] = [sportLabel(event.type, t)];
                 if (event.durationSec && event.durationSec > 0) parts.push(formatDuration(event.durationSec));
-                if (event.exerciseCount && event.exerciseCount > 0) parts.push(`${event.exerciseCount} Übungen`);
+                if (event.exerciseCount && event.exerciseCount > 0) parts.push(t("calendar.exercisesCount").replace("{{count}}", String(event.exerciseCount)));
                 if (event.distanceKm && event.distanceKm > 0) parts.push(`${event.distanceKm.toFixed(1)} km`);
                 return parts.join(" · ");
             }
-            return sportLabel(event.type);
+            return sportLabel(event.type, t);
         })();
 
         return (
-            <div key={event.id} className="w-full rounded-2xl border overflow-hidden" style={{
+            <div key={event.id} className="w-full rounded-2xl border overflow-hidden" onClick={() => handleOpenPreview(event)} style={{
                 backgroundColor: "var(--card-bg)",
                 borderColor: eventIsDeload ? "rgba(52,199,89,0.3)" : "var(--border-color)",
                 borderLeftWidth: "3.5px",
                 borderLeftColor: isCompleted ? "#34C759" : color,
+                cursor: "pointer",
             }}>
-                <button
-                    onClick={() => { if (isClickable) handleStartTraining(event); }}
-                    disabled={!isClickable && !isCompleted}
+                <div
                     className="w-full p-4 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
-                    style={{ cursor: isClickable ? "pointer" : "default" }}
                 >
                     {/* Sport Icon */}
                     <div
@@ -589,12 +772,12 @@ export default function CalendarPage() {
                     ) : isClickable ? (
                         <ChevronRight size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
                     ) : null}
-                </button>
+                </div>
 
                 {/* Mark as completed button for planned trainings */}
                 {isPlanned && (
                     <button
-                        onClick={() => handleMarkCompleted(event)}
+                        onClick={(e) => { e.stopPropagation(); handleMarkCompleted(event); }}
                         className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold active:scale-[0.97] transition-transform"
                         style={{
                             borderTop: "1px solid var(--border-color)",
@@ -630,7 +813,7 @@ export default function CalendarPage() {
                         className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold active:scale-95 transition-transform"
                         style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
                     >
-                        Heute
+                        {t("calendar.today")}
                     </button>
                 </div>
 
@@ -652,7 +835,7 @@ export default function CalendarPage() {
                                     boxShadow: view === v ? "0 1px 4px rgba(0,0,0,0.12)" : "none",
                                 }}
                             >
-                                {v === "week" ? "Woche" : "Monat"}
+                                {v === "week" ? t("calendar.view.week") : t("calendar.view.month")}
                             </button>
                         ))}
                     </div>
@@ -694,7 +877,7 @@ export default function CalendarPage() {
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[15px] font-bold" style={{ color: "var(--text-color)" }}>
                         {isToday(selectedDate)
-                            ? "Heute"
+                            ? t("calendar.today")
                             : format(selectedDate, "EEEE, d. MMMM", { locale: de })}
                     </h3>
                     {selectedEvents.length > 0 && (
@@ -719,10 +902,10 @@ export default function CalendarPage() {
                             <CalendarIcon size={22} style={{ color: "#007AFF" }} />
                         </div>
                         <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                            Kein Training
+                            {t("calendar.noTraining")}
                         </p>
                         <p className="text-[12px] text-center px-6" style={{ color: "var(--text-muted, var(--text-secondary))" }}>
-                            Plane Trainings im Kalender oder starte ein freies Workout
+                            {t("calendar.noTrainingHint")}
                         </p>
                     </div>
                 ) : (
@@ -734,12 +917,31 @@ export default function CalendarPage() {
 
             {/* ── Weekly summary strip ── */}
             <WeekSummaryStrip events={events} selectedDate={selectedDate} />
+
+            {/* ── Training Preview Sheet ── */}
+            <TrainingPreviewSheet
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                event={previewEvent}
+                allEvents={previewAllEvents}
+                onStartTraining={(ev) => {
+                    const localEv = events.find((e) => e.id === ev.id);
+                    if (localEv) handleStartTraining(localEv);
+                }}
+                onMoveTraining={handleMoveTraining}
+                onSwapDays={handleSwapDays}
+                onMovePlan={handleMovePlan}
+                onReplaceWithAdaptive={handleReplaceWithAdaptive}
+                onReplaceWithTemplate={handleReplaceWithTemplate}
+                onMarkCompleted={handleMarkCompletedWithLog}
+            />
         </div>
     );
 }
 
 // ── Weekly summary strip ──
 function WeekSummaryStrip({ events, selectedDate }: { events: LocalCalendarEvent[]; selectedDate: Date }) {
+    const { t } = useI18n();
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekEvents = events.filter(
@@ -768,10 +970,10 @@ function WeekSummaryStrip({ events, selectedDate }: { events: LocalCalendarEvent
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-bold" style={{ color: "var(--text-color)" }}>
-                        Diese Woche
+                        {t("calendar.thisWeek")}
                     </p>
                     <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                        {weekEvents.length} {weekEvents.length === 1 ? "Training" : "Trainings"}
+                        {weekEvents.length} {weekEvents.length === 1 ? t("calendar.trainingSingular") : t("calendar.trainingPlural")}
                         {totalMin > 0 ? ` · ${formatDuration(totalMin * 60)}` : ""}
                     </p>
                 </div>
@@ -785,8 +987,7 @@ function WeekSummaryStrip({ events, selectedDate }: { events: LocalCalendarEvent
                                 className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold"
                                 style={{ backgroundColor: getEventIconColor(type as ExerciseType).bg, color }}
                             >
-                                {count}×{" "}
-                                {type === "strength" ? "💪" : type === "run" ? "🏃" : type === "cycle" ? "🚴" : "⚡"}
+                                {count}×
                             </div>
                         );
                     })}

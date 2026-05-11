@@ -207,16 +207,52 @@ function isCardioSport(sport?: string): boolean {
   return s === "laufen" || s === "radfahren";
 }
 
+/**
+ * Get user's bodyweight from profile (for bodyweight exercise volume calculation).
+ * Returns 0 if not set.
+ */
+function getUserBodyweightKg(): number {
+  try {
+    const raw = getScopedItem("trainq_onboarding_data_v1", getActiveUserId());
+    if (!raw) return 0;
+    const data = JSON.parse(raw);
+    const w = data?.personal?.weight;
+    return Number.isFinite(w) && w > 0 ? w : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Bodyweight exercise IDs from the library */
+const BODYWEIGHT_EXERCISE_IDS = new Set([
+  "ex_pull_up", "ex_chin_up", "ex_dip_bodyweight", "ex_push_up",
+  "ex_pike_push_up", "ex_diamond_push_up", "ex_pistol_squat_bodyweight",
+  "ex_glute_bridge_bodyweight", "ex_inverted_row", "ex_muscle_up",
+  "ex_handstand_push_up", "ex_australian_pull_up",
+]);
+
+/** Heuristic name-based check for bodyweight exercises */
+const BW_KEYWORDS = ["klimmzug", "pull-up", "pullup", "chin-up", "chinup", "dip", "liegestütz", "push-up", "pushup", "pistol squat", "muscle-up", "muscle up"];
+
+function isBodyweightExercise(ex: WorkoutHistoryExercise): boolean {
+  if (ex.exerciseId && BODYWEIGHT_EXERCISE_IDS.has(ex.exerciseId)) return true;
+  const name = (ex.name || "").toLowerCase();
+  return BW_KEYWORDS.some((kw) => name.includes(kw));
+}
+
 export function computeTotalVolume(exercises: WorkoutHistoryExercise[]): number {
   let total = 0;
+  const bw = getUserBodyweightKg();
   for (const ex of exercises || []) {
+    const useBodyweight = bw > 0 && isBodyweightExercise(ex);
     for (const s of ex.sets || []) {
       const reps = Number.isFinite(s.reps) ? s.reps : 0;
       const weight = Number.isFinite(s.weight) ? s.weight : 0;
-      total += reps * weight;
+      // For bodyweight exercises: use bodyweight if no weight specified
+      const effectiveWeight = weight > 0 ? weight : (useBodyweight ? bw : 0);
+      total += reps * effectiveWeight;
     }
   }
-  // Volumen als Zahl (kg) reicht gerundet vollkommen
   return Math.round(total);
 }
 
