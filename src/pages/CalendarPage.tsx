@@ -26,6 +26,7 @@ import {
     Calendar as CalendarIcon,
     Check,
     Clock,
+    Plus,
 } from "lucide-react";
 import { IconFigureRun } from "../assets/icons/IconFigureRun";
 import { IconDumbbellFill } from "../assets/icons/IconDumbbellFill";
@@ -44,6 +45,7 @@ import { readDeloadPlan } from "../utils/deload/storage";
 import DeloadWeekBadge from "../components/deload/DeloadWeekBadge";
 import TrainingPreviewSheet from "../components/calendar/TrainingPreviewSheet";
 import type { PreviewEvent, ManualWorkoutLog } from "../components/calendar/TrainingPreviewSheet";
+import { LogPastWorkoutSheet } from "../components/calendar/LogPastWorkoutSheet";
 import { addWorkoutEntry } from "../utils/workoutHistory";
 import type { TrainingTemplateLite } from "../utils/trainingTemplatesStore";
 
@@ -143,6 +145,8 @@ export default function CalendarPage() {
     // Preview Sheet
     const [previewEvent, setPreviewEvent] = useState<PreviewEvent | null>(null);
     const [previewOpen, setPreviewOpen] = useState(false);
+    const [logPastOpen, setLogPastOpen] = useState(false);
+    const [logPastDate, setLogPastDate] = useState<string | undefined>(undefined);
 
     // Swipe
     const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -470,6 +474,91 @@ export default function CalendarPage() {
             } as any, { allowEmptyExercises: true });
         }
 
+        window.dispatchEvent(new Event("trainq:update_events"));
+    };
+
+    // ── Log past workout (manual entry) ──
+    const handleLogPastWorkout = (data: {
+        date: string; sport: string; title: string; durationMin: number;
+        exerciseCount: number; setCount: number; volumeKg: number; distanceKm: number;
+        templateId?: string;
+    }) => {
+        const userId = getActiveUserId() || "user";
+        const eventId = `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const sportMap: Record<string, string> = { gym: "Gym", laufen: "Laufen", radfahren: "Radfahren", custom: "Custom" };
+        const normalizedSport = sportMap[data.sport] || "Gym";
+        const isCardio = data.sport === "laufen" || data.sport === "radfahren";
+
+        // 1. Create calendar event with status "completed"
+        const rawCalendar = getScopedItem("trainq_calendar_events", userId);
+        const coreEvents: CoreEvent[] = rawCalendar ? JSON.parse(rawCalendar) : [];
+        const newEvent: CoreEvent = {
+            id: eventId,
+            userId,
+            title: data.title,
+            date: data.date,
+            type: "training",
+            trainingType: data.sport as any,
+            trainingStatus: "completed",
+            completedAt: new Date().toISOString(),
+            sport: normalizedSport,
+            workoutData: data.templateId ? { templateId: data.templateId } : undefined,
+        } as any;
+        coreEvents.push(newEvent);
+        setScopedItem("trainq_calendar_events", JSON.stringify(coreEvents), userId);
+
+        // 2. Create workout history entry
+        const startDate = new Date(`${data.date}T10:00:00`);
+        const endDate = new Date(startDate.getTime() + data.durationMin * 60_000);
+
+        const setsPerExercise = data.exerciseCount > 0 ? Math.max(1, Math.round(data.setCount / data.exerciseCount)) : 0;
+        const historyExercises = Array.from({ length: data.exerciseCount }, (_, i) => ({
+            name: `${data.title} #${i + 1}`,
+            sets: Array.from({ length: setsPerExercise }, () => ({ reps: 0, weight: 0 })),
+        }));
+
+        addWorkoutEntry({
+            calendarEventId: eventId,
+            title: data.title,
+            sport: normalizedSport,
+            startedAt: startDate.toISOString(),
+            endedAt: endDate.toISOString(),
+            durationSec: data.durationMin * 60,
+            exercises: historyExercises,
+            totalVolume: data.volumeKg,
+            distanceKm: isCardio ? data.distanceKm : undefined,
+        } as any, { allowEmptyExercises: true });
+
+        // 3. Refresh
+        window.dispatchEvent(new Event("trainq:update_events"));
+    };
+
+    // ── Plan workout (add to calendar as planned) ──
+    const handlePlanWorkout = (data: {
+        date: string; sport: string; title: string; templateId?: string; exercises?: any[];
+    }) => {
+        const userId = getActiveUserId() || "user";
+        const eventId = `plan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const sportMap: Record<string, string> = { gym: "Gym", laufen: "Laufen", radfahren: "Radfahren", custom: "Custom" };
+
+        const rawCalendar = getScopedItem("trainq_calendar_events", userId);
+        const coreEvents: CoreEvent[] = rawCalendar ? JSON.parse(rawCalendar) : [];
+        const newEvent: CoreEvent = {
+            id: eventId,
+            userId,
+            title: data.title,
+            date: data.date,
+            type: "training",
+            trainingType: data.sport as any,
+            trainingStatus: "planned",
+            sport: sportMap[data.sport] || "Gym",
+            workoutData: data.templateId ? {
+                templateId: data.templateId,
+                exercises: data.exercises,
+            } : undefined,
+        } as any;
+        coreEvents.push(newEvent);
+        setScopedItem("trainq_calendar_events", JSON.stringify(coreEvents), userId);
         window.dispatchEvent(new Event("trainq:update_events"));
     };
 
@@ -808,13 +897,22 @@ export default function CalendarPage() {
                     <span className="text-[17px] font-bold" style={{ color: "var(--text-color)" }}>
                         {format(currentDate, "MMMM yyyy", { locale: de })}
                     </span>
-                    <button
-                        onClick={goToToday}
-                        className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold active:scale-95 transition-transform"
-                        style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
-                    >
-                        {t("calendar.today")}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onPointerUp={() => { setLogPastDate(undefined); setLogPastOpen(true); }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                            style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF", touchAction: "manipulation" }}
+                        >
+                            <Plus size={18} />
+                        </button>
+                        <button
+                            onClick={goToToday}
+                            className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold active:scale-95 transition-transform"
+                            style={{ backgroundColor: "rgba(0,122,255,0.1)", color: "#007AFF" }}
+                        >
+                            {t("calendar.today")}
+                        </button>
+                    </div>
                 </div>
 
                 {/* View toggle + nav */}
@@ -891,23 +989,25 @@ export default function CalendarPage() {
                 </div>
 
                 {selectedEvents.length === 0 ? (
-                    <div
-                        className="rounded-2xl border border-dashed py-10 flex flex-col items-center gap-2.5"
-                        style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)" }}
+                    <button
+                        onPointerUp={() => {
+                            const sel = format(selectedDate, "yyyy-MM-dd");
+                            setLogPastDate(sel);
+                            setLogPastOpen(true);
+                        }}
+                        className="w-full rounded-2xl border border-dashed py-10 flex flex-col items-center gap-2.5 active:scale-[0.98] transition-transform"
+                        style={{ borderColor: "var(--border-color)", backgroundColor: "var(--card-bg)", touchAction: "manipulation" }}
                     >
                         <div
                             className="w-12 h-12 rounded-2xl flex items-center justify-center"
                             style={{ backgroundColor: "rgba(0,122,255,0.08)" }}
                         >
-                            <CalendarIcon size={22} style={{ color: "#007AFF" }} />
+                            <Plus size={22} style={{ color: "#007AFF" }} />
                         </div>
                         <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                            {t("calendar.noTraining")}
+                            {t("logPast.title")}
                         </p>
-                        <p className="text-[12px] text-center px-6" style={{ color: "var(--text-muted, var(--text-secondary))" }}>
-                            {t("calendar.noTrainingHint")}
-                        </p>
-                    </div>
+                    </button>
                 ) : (
                     <div className="space-y-2.5">
                         {selectedEvents.map(renderEventCard)}
@@ -934,6 +1034,14 @@ export default function CalendarPage() {
                 onReplaceWithAdaptive={handleReplaceWithAdaptive}
                 onReplaceWithTemplate={handleReplaceWithTemplate}
                 onMarkCompleted={handleMarkCompletedWithLog}
+            />
+
+            <LogPastWorkoutSheet
+                open={logPastOpen}
+                onClose={() => setLogPastOpen(false)}
+                initialDate={logPastDate}
+                onSave={handleLogPastWorkout}
+                onPlan={handlePlanWorkout}
             />
         </div>
     );
