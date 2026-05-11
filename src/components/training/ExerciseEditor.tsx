@@ -7,6 +7,7 @@ import { AnimatePresence, useAnimation } from "framer-motion";
 import { MotionDiv } from "../ui/Motion";
 import { Info, MoreHorizontal, X, Plus, Trash2, ArrowLeftRight, ChevronUp, ChevronDown } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import { BottomSheet } from "../common/BottomSheet";
 import MuscleBodyMap from "../exercises/MuscleBodyMap";
 import { EXERCISES } from "../../data/exerciseLibrary";
 import { resolveExerciseImageSrc } from "../../utils/exerciseImage";
@@ -281,6 +282,20 @@ const SwipeableSetRow = ({
   const isTimerRunning = activeRest?.exerciseId === exerciseId && activeRest?.setId === set.id;
   // Debounce: prevent double-fire from iOS pointer/touch event overlap
   const lastToggleMs = useRef(0);
+  // Scroll guard: track pointer start position to distinguish tap from scroll
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const didScrollRef = useRef(false);
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    didScrollRef.current = false;
+  };
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!pointerStartRef.current) return;
+    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
+    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
+    if (dx > 8 || dy > 8) didScrollRef.current = true;
+  };
+  const wasTap = () => !didScrollRef.current;
   const isDropset = set.type === "d" || set.type === "1D"; // Treat 'd' or '1D' as dropset-capable
 
   const { contentRef: swipeRef, onTouchStart, onTouchMove, onTouchEnd, isSwiping } = useSwipeToDismiss(
@@ -545,9 +560,11 @@ const SwipeableSetRow = ({
           />
           <div className="flex items-center justify-center w-full h-9">
             <button type="button"
-              onTouchStart={(e) => e.stopPropagation()}
-              onPointerDown={(e) => {
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={(e) => {
                 e.stopPropagation();
+                if (!wasTap()) return;
                 const now = Date.now();
                 if (now - lastToggleMs.current < 600) return;
                 lastToggleMs.current = now;
@@ -560,7 +577,7 @@ const SwipeableSetRow = ({
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
               className={`h-9 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
                 ? (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
-                : "border-transparent hover:border-[#007AFF]"
+                : "border-transparent"
               }`}
               style={{ touchAction: "manipulation", backgroundColor: !set.completed ? theme.colors.inputBackground : undefined }}
             >
@@ -686,9 +703,11 @@ const SwipeableSetRow = ({
             {isTimerRunning && restRemainingSec !== undefined ? (
               <div
                 className="h-9 w-14 flex items-center justify-center rounded-3xl bg-[#007AFF] border-2 border-transparent animate-pulse cursor-pointer shrink-0 flex-none"
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => {
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={(e) => {
                   e.stopPropagation();
+                  if (!wasTap()) return;
                   const now = Date.now();
                   if (now - lastToggleMs.current < 600) return;
                   lastToggleMs.current = now;
@@ -704,16 +723,18 @@ const SwipeableSetRow = ({
             ) : (
               <button
                 type="button"
-                onTouchStart={(e) => e.stopPropagation()}
-                onPointerDown={(e) => {
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={(e) => {
                   e.stopPropagation();
+                  if (!wasTap()) return;
                   const now = Date.now();
                   if (now - lastToggleMs.current < 600) return;
                   lastToggleMs.current = now;
-                  // Pass autofill values directly to onToggleSet (single state update)
                   const autofill: any = {};
                   if (!set.weight && last?.weight) autofill.weight = last.weight;
                   if (!set.reps && last?.reps) autofill.reps = last.reps;
+                  set.completed ? hapticLight() : hapticSuccess();
                   onToggleSet(set.id, Object.keys(autofill).length > 0 ? autofill : undefined);
                 }}
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
@@ -723,7 +744,7 @@ const SwipeableSetRow = ({
                 }}
                 className={`h-9 w-14 rounded-3xl flex items-center justify-center shrink-0 flex-none transition-all border-2 ${set.completed
                   ? (prSets?.has(set.id) ? "bg-[#FFD700] border-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.5)]" : "bg-[#007AFF] border-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)]")
-                  : "border-transparent hover:border-[#007AFF]"
+                  : "border-transparent"
                   }`}
               >
                 {set.completed ? (
@@ -905,81 +926,88 @@ function ExerciseEditorInner({
           >
             <MoreHorizontal size={17} />
           </button>
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-              <div
-                className="absolute right-0 top-10 z-50 rounded-2xl shadow-lg border overflow-hidden min-w-[160px]"
-                style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.border }}
-              >
-                {onSwap && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSwap(); }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-colors hover:opacity-75"
-                    style={{ color: theme.colors.text }}
-                  >
-                    <ArrowLeftRight size={16} />
-                    {t("training.swapExercise")}
-                  </button>
-                )}
-                {(onMoveUp || onMoveDown) && (
-                  <div className="flex" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
-                    <button
-                      type="button"
-                      disabled={!onMoveUp}
-                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); hapticLight(); onMoveUp?.(); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm transition-colors hover:opacity-75 disabled:opacity-30"
-                      style={{ color: theme.colors.text }}
-                    >
-                      <ChevronUp size={16} />
-                      {t("training.moveUp")}
-                    </button>
-                    <div style={{ width: 1, backgroundColor: theme.colors.border }} />
-                    <button
-                      type="button"
-                      disabled={!onMoveDown}
-                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); hapticLight(); onMoveDown?.(); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm transition-colors hover:opacity-75 disabled:opacity-30"
-                      style={{ color: theme.colors.text }}
-                    >
-                      <ChevronDown size={16} />
-                      {t("training.moveDown")}
-                    </button>
-                  </div>
-                )}
-                {sets.length > 0 && (
-                  <>
-                    <div className="px-4 pt-2 pb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.colors.textSecondary }}>{t("training.deleteSet")}</span>
-                    </div>
-                    {sets.map((s: any, i: number) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemoveSet(s.id); }}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors hover:opacity-75"
-                        style={{ color: "#ef4444" }}
-                      >
-                        <Trash2 size={14} />
-                        {t("exerciseEditor.set_label", { index: i + 1 })}{s.weight != null ? ` — ${s.weight}kg` : ""}{s.reps != null ? ` ×${s.reps}` : ""}
-                      </button>
-                    ))}
-                  </>
-                )}
-                <div style={{ borderTop: `1px solid ${theme.colors.border}` }} />
+          <BottomSheet
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            height="auto"
+            maxHeight="60dvh"
+            zIndex={200}
+          >
+            <div className="px-5 pb-8 space-y-3">
+              {/* Swap exercise */}
+              {onSwap && (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemove(); }}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-colors hover:opacity-75"
-                  style={{ color: "#ef4444" }}
+                  onPointerUp={() => { setMenuOpen(false); onSwap(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.98] transition-all border"
+                  style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", touchAction: "manipulation" }}
                 >
-                  <X size={16} />
-                  {t("exerciseEditor.remove_exercise")}
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(0,122,255,0.1)" }}>
+                    <ArrowLeftRight size={16} className="text-blue-500" />
+                  </div>
+                  {t("training.swapExercise")}
                 </button>
-              </div>
-            </>
-          )}
+              )}
+
+              {/* Move up / down */}
+              {(onMoveUp || onMoveDown) && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!onMoveUp}
+                    onPointerUp={() => { if (onMoveUp) { setMenuOpen(false); hapticLight(); onMoveUp(); } }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.98] transition-all disabled:opacity-30 border"
+                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", touchAction: "manipulation" }}
+                  >
+                    <ChevronUp size={18} />
+                    {t("training.moveUp")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!onMoveDown}
+                    onPointerUp={() => { if (onMoveDown) { setMenuOpen(false); hapticLight(); onMoveDown(); } }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.98] transition-all disabled:opacity-30 border"
+                    style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)", color: "var(--text-color)", touchAction: "manipulation" }}
+                  >
+                    <ChevronDown size={18} />
+                    {t("training.moveDown")}
+                  </button>
+                </div>
+              )}
+
+              {/* Delete individual sets */}
+              {sets.length > 0 && (
+                <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--border-color)" }}>
+                  <div className="px-4 pt-3 pb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>{t("training.deleteSet")}</span>
+                  </div>
+                  {sets.map((s: any, i: number) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onPointerUp={() => { setMenuOpen(false); onRemoveSet(s.id); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-[14px] active:opacity-60 transition-all"
+                      style={{ color: "#ef4444", borderTop: `1px solid var(--border-color)`, touchAction: "manipulation" }}
+                    >
+                      <Trash2 size={15} />
+                      {t("exerciseEditor.set_label", { index: i + 1 })}{s.weight ? ` — ${s.weight}kg` : ""}{s.reps ? ` x${s.reps}` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Remove exercise */}
+              <button
+                type="button"
+                onPointerUp={() => { setMenuOpen(false); onRemove(); }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[15px] font-semibold active:scale-[0.98] transition-all"
+                style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", touchAction: "manipulation" }}
+              >
+                <X size={18} />
+                {t("exerciseEditor.remove_exercise")}
+              </button>
+            </div>
+          </BottomSheet>
         </div>
       </div>
 
