@@ -1970,5 +1970,8 @@
     "logPast.planSave": "Add to calendar",
     "logPast.planHint": "Pick a template or create a free workout",
     "logPast.addExercise": "Add exercise",
-    "logPast.addSet": "Add set"
+    "logPast.addSet": "Add set",
+
+    "share.save": "Save",
+    "share.share": "Share"
 }

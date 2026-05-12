@@ -555,40 +555,36 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
     setIsExporting(true);
     setExportError(null);
     try {
-      // Clone the export element into a temporary on-screen container
-      // html2canvas in WKWebView cannot render off-screen elements
-      const tempContainer = document.createElement('div');
-      tempContainer.style.cssText = 'position:fixed;top:0;left:0;width:1080px;height:1920px;z-index:-9999;overflow:hidden;pointer-events:none;';
-      document.body.appendChild(tempContainer);
+      // Strategy: render the hidden export card via html2canvas
+      // Move it on-screen (but invisible) so WKWebView can render it
+      const exportEl = exportRef.current;
+      const wrapper = exportEl.parentElement!;
+      const origStyle = wrapper.style.cssText;
 
-      const clone = exportRef.current.cloneNode(true) as HTMLElement;
-      clone.style.width = '1080px';
-      clone.style.height = '1920px';
-      tempContainer.appendChild(clone);
-
-      // Wait for images and layout
-      await new Promise(r => setTimeout(r, 400));
+      wrapper.style.cssText = 'position:fixed;top:0;left:0;width:1080px;height:1920px;opacity:0.01;z-index:1;pointer-events:none;overflow:hidden;';
+      await new Promise(r => setTimeout(r, 300));
 
       const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#09090b';
 
-      const cvs = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: bgColor,
-        logging: false,
-        width: 1080,
-        height: 1920,
-      });
-
-      // Clean up
-      document.body.removeChild(tempContainer);
+      let cvs: HTMLCanvasElement;
+      try {
+        cvs = await html2canvas(exportEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: bgColor,
+          logging: false,
+          width: 1080,
+          height: 1920,
+        });
+      } finally {
+        wrapper.style.cssText = origStyle;
+      }
 
       const base64 = cvs.toDataURL('image/png').split(',')[1];
-      if (!base64 || base64.length < 100) throw new Error("Canvas rendering failed — empty image");
+      if (!base64 || base64.length < 100) throw new Error("Canvas rendering failed");
 
       const fileName = `trainq-share-${Date.now()}.png`;
-
       const saved = await Filesystem.writeFile({
         path: fileName,
         data: base64,
@@ -602,13 +598,12 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
           files: [saved.uri],
         });
       } else {
-        // Save to photo library
         try {
           const { Media } = await import('@capacitor-community/media');
           await Media.savePhoto({ path: saved.uri });
           hapticSuccess();
-        } catch (mediaErr) {
-          console.warn("Media.savePhoto failed, using share fallback:", mediaErr);
+        } catch {
+          // Fallback: open share dialog so user can save manually
           await Share.share({
             title: 'TrainQ Workout',
             url: saved.uri,
@@ -618,6 +613,13 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
       }
     } catch (e) {
       console.error("Export failed:", e);
+      // Text-only fallback if image export fails completely
+      if (mode === 'share') {
+        try {
+          const summary = `${finalWorkout?.title || "Training"} — ${dateStr}`;
+          await Share.share({ title: 'TrainQ Workout', text: summary });
+        } catch { /* ignore */ }
+      }
       setExportError(e instanceof Error ? e.message : "Export fehlgeschlagen");
     } finally {
       setIsExporting(false);
@@ -676,20 +678,21 @@ export default function WorkoutSharePage({ workoutId, onDone }: { workoutId: str
         {/* Buttons */}
         <div className="flex gap-4 w-full max-w-sm mb-3">
           <button
-            onClick={() => handleExport('save')}
+            onPointerUp={() => handleExport('save')}
             disabled={isExporting}
             className="flex-1 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition"
-            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", border: "1px solid var(--border-color)" }}
+            style={{ backgroundColor: "var(--button-bg)", color: "var(--text-color)", border: "1px solid var(--border-color)", touchAction: "manipulation" }}
           >
-            <Download size={18} /> Speichern
+            <Download size={18} /> {t("share.save")}
           </button>
           <button
-            onClick={() => handleExport('share')}
+            onPointerUp={() => handleExport('share')}
             disabled={isExporting}
             className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition shadow-lg shadow-blue-600/20"
+            style={{ touchAction: "manipulation" }}
           >
             {isExporting ? <span className="animate-spin">◌</span> : <Share2 size={18} />}
-            Teilen
+            {t("share.share")}
           </button>
         </div>
 

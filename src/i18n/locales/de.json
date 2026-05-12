@@ -1799,5 +1799,8 @@
     "logPast.planSave": "Training einplanen",
     "logPast.planHint": "Wähle eine Vorlage oder erstelle ein freies Training",
     "logPast.addExercise": "Übung hinzufügen",
-    "logPast.addSet": "Satz hinzufügen"
+    "logPast.addSet": "Satz hinzufügen",
+
+    "share.save": "Speichern",
+    "share.share": "Teilen"
 }
