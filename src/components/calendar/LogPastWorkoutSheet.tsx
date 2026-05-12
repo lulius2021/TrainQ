@@ -408,9 +408,9 @@ export function LogPastWorkoutSheet({ open, onClose, initialDate, initialTab, on
     <ExerciseLibraryModal
       open={showLibrary}
       onClose={() => setShowLibrary(false)}
-      onSelect={handlePickExercise}
-      existingIds={existingIds}
-      sportFilter={sport === "gym" ? "gym" : undefined}
+      onPick={handlePickExercise}
+      existingExerciseIds={existingIds}
+      category={sport === "laufen" ? "running" : sport === "radfahren" ? "cycling" : "gym"}
     />
     </>
   );
