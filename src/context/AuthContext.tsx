@@ -135,6 +135,33 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     if (!mountedRef.current) return;
 
+    // Cache for optimistic auth on next cold start
+    try { localStorage.setItem(CACHED_AUTH_KEY, JSON.stringify(authUser)); } catch { /* ignore */ }
+
+    // Set session FIRST so pull functions can read userId
+    setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
+    migrateUserStorage(authUser.id);
+
+    // Pull ALL data from Supabase BEFORE triggering UI render via setUser()
+    const pullWithRetry = async (fn: () => Promise<void>, label: string) => {
+      try {
+        await fn();
+      } catch (e) {
+        console.warn(`[Auth] ${label} pull failed, retrying in 2s...`, e);
+        await new Promise((r) => setTimeout(r, 2000));
+        try { await fn(); } catch (e2) { console.warn(`[Auth] ${label} retry failed:`, e2); }
+      }
+    };
+
+    await Promise.allSettled([
+      pullWithRetry(pullAndMergeTrainingData, "training"),
+      pullWithRetry(pullAndMerge, "nutrition"),
+      pullWithRetry(pullAndMergeSettings, "settings"),
+    ]);
+
+    if (!mountedRef.current) return;
+
+    // NOW set user — UI renders with data already in localStorage
     setUser((prev) => {
       if (prev && JSON.stringify(prev) === JSON.stringify(authUser)) {
         return prev;
@@ -142,14 +169,8 @@ export const AuthContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return authUser;
     });
 
-    // Cache for optimistic auth on next cold start
-    try { localStorage.setItem(CACHED_AUTH_KEY, JSON.stringify(authUser)); } catch { /* ignore */ }
-
-    setActiveSession({ userId: authUser.id, isPro: !!isPro, email: authUser.email });
-    migrateUserStorage(authUser.id);
-    pullAndMerge().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge nutrition failed:", e); });
-    pullAndMergeTrainingData().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge training failed:", e); });
-    pullAndMergeSettings().catch((e) => { if (import.meta.env.DEV) console.warn("[Auth] pullAndMerge settings failed:", e); });
+    // Notify calendar and other listeners that data is ready
+    window.dispatchEvent(new Event("trainq:update_events"));
   }, []);
 
   const ensureLocalUser = useCallback(() => {
