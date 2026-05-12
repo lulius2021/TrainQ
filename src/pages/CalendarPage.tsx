@@ -1085,21 +1085,6 @@ function WeekSummaryStrip({ events, selectedDate }: { events: LocalCalendarEvent
                         {totalMin > 0 ? ` · ${formatDuration(totalMin * 60)}` : ""}
                     </p>
                 </div>
-                {/* Sport-colored dots for the week */}
-                <div className="flex gap-1.5 shrink-0">
-                    {Object.entries(byType).map(([type, count]) => {
-                        const { color } = getEventIconColor(type as ExerciseType);
-                        return (
-                            <div
-                                key={type}
-                                className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold"
-                                style={{ backgroundColor: getEventIconColor(type as ExerciseType).bg, color }}
-                            >
-                                {count}×
-                            </div>
-                        );
-                    })}
-                </div>
             </div>
         </div>
     );
